@@ -201,22 +201,40 @@ export function ticketBranches(n, branches) {
  * sauvegarde : changer de branche les laisse derrière sans un mot, et le
  * marque-page d'un ticket mis de côté est un commit POUSSÉ.
  *
- * Une branche dont la PR est FUSIONNÉE se quitte toujours : le squash a une
- * autre empreinte et `--delete-branch` retire sa référence distante, donc
- * TOUS ses commits paraissent « non poussés » — et `git push` recréerait la
- * branche supprimée (revue #796, R2).
+ * Le compte se fait HORS des têtes de PR fusionnées ({@link unpushedRevList}) :
+ * le squash a une autre empreinte et `--delete-branch` retire la référence
+ * distante, donc sans elles TOUS les commits d'une branche fusionnée
+ * paraissaient « non poussés » — et `git push` aurait recréé la branche
+ * supprimée (revue #796, R2). Un commit fait APRÈS la fusion reste compté.
  *
- * @param {{ current: string, target: string, unpushed: number, merged?: boolean }} facts -
- *   `unpushed` = commits de HEAD absents de toute branche d'origin ;
- *   `merged` = la PR de la branche courante est fusionnée
+ * @param {{ current: string, target: string, unpushed: number }} facts -
+ *   `unpushed` = commits de HEAD absents d'origin et des têtes fusionnées
  * @returns {string | null} le motif de refus, ou `null`
  */
-export function leaveBlocker({ current, target, unpushed, merged = false }) {
-  if (!current || current === target || unpushed === 0 || merged) return null;
+export function leaveBlocker({ current, target, unpushed }) {
+  if (!current || current === target || unpushed === 0) return null;
   return (
     `${current} porte ${unpushed} commit(s) NON poussé(s) — les quitter les laisserait sans CI ni sauvegarde.\n` +
     "  → git push   (puis relancer la même commande)"
   );
+}
+
+/**
+ * Les arguments de `git rev-list` qui comptent les commits NON poussés de HEAD
+ * — PUR : absents de toute branche d'origin ET des têtes de PR déjà fusionnées.
+ *
+ * @param {string[]} mergedHeads - empreintes des têtes de PR fusionnées de la branche
+ * @returns {string[]}
+ */
+export function unpushedRevList(mergedHeads) {
+  return [
+    "rev-list",
+    "--count",
+    "HEAD",
+    "--not",
+    "--remotes=origin",
+    ...mergedHeads,
+  ];
 }
 
 const ROOT = path.resolve(
@@ -343,31 +361,29 @@ function main() {
   const leave = leaveBlocker({
     current,
     target: name,
-    merged:
-      current !== "" &&
-      sh("gh", [
-        "pr",
-        "list",
-        "--repo",
-        REPO,
-        "--head",
-        current,
-        "--state",
-        "merged",
-        "--json",
-        "number",
-        "--jq",
-        "length",
-      ]) !== "0",
     unpushed: current
       ? Number(
-          sh("git", [
-            "rev-list",
-            "--count",
-            "HEAD",
-            "--not",
-            "--remotes=origin",
-          ]),
+          sh(
+            "git",
+            unpushedRevList(
+              sh("gh", [
+                "pr",
+                "list",
+                "--repo",
+                REPO,
+                "--head",
+                current,
+                "--state",
+                "merged",
+                "--json",
+                "headRefOid",
+                "--jq",
+                ".[].headRefOid",
+              ])
+                .split("\n")
+                .filter((oid) => /^[0-9a-f]{40}$/u.test(oid)),
+            ),
+          ),
         )
       : 0,
   });

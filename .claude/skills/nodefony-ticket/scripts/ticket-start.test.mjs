@@ -3,9 +3,14 @@
  * #796 : le nom de la branche, sa base, le corps de la PR, et le commit vide
  * qui l'ouvre sans lancer de CI.
  */
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   leaveBlocker,
+  unpushedRevList,
   baseFor,
   branchName,
   commitPrefix,
@@ -157,14 +162,41 @@ describe("leaveBlocker — on ne quitte pas des commits non poussés (#796, revu
     ).toBeNull();
   });
 
-  it("une branche dont la PR est fusionnée se quitte — le squash rend tous ses commits « non poussés » (revue #796, R2)", () => {
-    expect(
-      leaveBlocker({
-        current: "chore/796-x",
-        target: "fix/794-y",
-        unpushed: 47,
-        merged: true,
-      }),
-    ).toBeNull();
+  it("une branche dont la PR est fusionnée se quitte, mais un commit fait APRÈS la fusion compte (revue #796, R2)", () => {
+    // Vrai dépôt : la branche a été squashée puis supprimée sur origin.
+    const dir = mkdtempSync(path.join(os.tmpdir(), "nf-leave-"));
+    try {
+      const git = (...a) =>
+        execFileSync(
+          "git",
+          [
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "-c",
+            "commit.gpgsign=false",
+            ...a,
+          ],
+          {
+            cwd: dir,
+            encoding: "utf8",
+          },
+        ).trim();
+      git("init", "-q", "-b", "main");
+      git("commit", "-q", "--allow-empty", "-m", "init");
+      git("update-ref", "refs/remotes/origin/main", "HEAD");
+      git("switch", "-q", "-c", "chore/1-x");
+      git("commit", "-q", "--allow-empty", "-m", "travail 1");
+      git("commit", "-q", "--allow-empty", "-m", "travail 2");
+      const mergedHead = git("rev-parse", "HEAD");
+      const count = (heads) => Number(git(...unpushedRevList(heads)));
+      expect(count([])).toBe(2); // sans la tête fusionnée : tout paraît non poussé
+      expect(count([mergedHead])).toBe(0);
+      git("commit", "-q", "--allow-empty", "-m", "après la fusion");
+      expect(count([mergedHead])).toBe(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
