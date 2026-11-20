@@ -107,6 +107,23 @@ class StudioController extends Controller {
   }
 
   /**
+   * Page de connexion de SECOURS de la console : elle doit répondre en toute
+   * circonstance — page `/login` de l'application retirée ou cassée, comme zone
+   * posée sur `^/nodefony` (celle que le gabarit d'application propose pour
+   * fermer l'interface). Route nommée et exemptée du pare-feu, comme toute
+   * page de connexion : se connecter ne peut pas exiger d'être connecté, et une
+   * zone qui la couvrirait la rendrait inaccessible (401) précisément quand on
+   * en a besoin. Rien d'autre que la coquille n'y est servi ; les données
+   * restent derrière le data plane.
+   */
+  @Csp(STUDIO_PAGE_CSP)
+  @BypassFirewall
+  @Get("/login")
+  renderLoginFallback(): unknown {
+    return this.renderStudio();
+  }
+
+  /**
    * SPA fallback — toute route /nodefony/<page> retourne la même page React.
    *
    * `fallback: true` : le Studio est chargé tôt ; sans ce drapeau, ce motif

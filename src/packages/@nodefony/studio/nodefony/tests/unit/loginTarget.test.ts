@@ -8,7 +8,9 @@
  */
 import { describe, expect, it } from "vitest";
 import "reflect-metadata";
+import { Router } from "@nodefony/framework";
 import {
+  confirmLoginPage,
   consoleAccess,
   readLoginPage,
 } from "../../../frontend/src/auth/loginTarget";
@@ -114,5 +116,46 @@ describe("/studio/api/info — la page de connexion annoncée à la console", ()
       version: "10.0.0-poc.1",
       env: "development",
     });
+  });
+});
+
+describe("confirmLoginPage — on n'envoie que vers une page qui RÉPOND", () => {
+  const status = (code: number) => async () => code;
+
+  it("🔴 la page répond (2xx) → on y va", async () => {
+    expect(await confirmLoginPage("/login", status(200))).toBe("/login");
+    expect(await confirmLoginPage("/login", status(204))).toBe("/login");
+  });
+
+  it("🔴 cassée, absente, redirigée ou injoignable → page de secours", async () => {
+    for (const code of [0, 302, 401, 404, 500, 503]) {
+      expect(await confirmLoginPage("/login", status(code)), String(code)).toBe(
+        null,
+      );
+    }
+    const down = async (): Promise<number> => {
+      throw new TypeError("Failed to fetch");
+    };
+    expect(await confirmLoginPage("/login", down)).toBeNull();
+  });
+
+  it("rien d'annoncé → aucune sonde, page de secours", async () => {
+    let probed = false;
+    const spy = async () => {
+      probed = true;
+      return 200;
+    };
+    expect(await confirmLoginPage(null, spy)).toBeNull();
+    expect(probed).toBe(false);
+  });
+});
+
+describe("/nodefony/login — la page de secours répond en toute circonstance", () => {
+  it("🔴 route NOMMÉE, exemptée du pare-feu : une zone posée sur ^/nodefony ne la ferme pas", () => {
+    const route = Router.routes.find(
+      (r) => r.path === "/nodefony/login" && !r.fallback,
+    );
+    expect(route, "route /nodefony/login introuvable").toBeDefined();
+    expect(route?.bypassFirewall).toBe(true);
   });
 });

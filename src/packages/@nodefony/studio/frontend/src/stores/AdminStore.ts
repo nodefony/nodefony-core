@@ -1,5 +1,9 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import { readLoginPage } from "../auth/loginTarget";
+import {
+  confirmLoginPage,
+  headStatus,
+  readLoginPage,
+} from "../auth/loginTarget";
 import type { ApiClient } from "../services/ApiClient";
 
 /**
@@ -110,10 +114,11 @@ export class AdminStore {
 
   /**
    * Chemin de la page de connexion que le framework sert pour l'application
-   * (`/login` par défaut), lu sur `/studio/api/info`. `null` quand il n'en sert
-   * pas — la console garde alors sa page de secours ; `undefined` tant que
-   * l'info n'est pas chargée. Un échec vaut `null` : la page de secours marche
-   * toujours, une adresse supposée pourrait ne mener nulle part.
+   * (`/login` par défaut), annoncé par `/studio/api/info` PUIS constaté
+   * (`loadLoginPage`). `null` quand elle n'est pas servie ou ne répond pas —
+   * la console garde alors sa page de secours ; `undefined` tant que ce n'est
+   * pas résolu. Un échec vaut `null` : la page de secours marche toujours, une
+   * adresse supposée pourrait ne mener nulle part.
    */
   loginPage: string | null | undefined = undefined;
 
@@ -164,21 +169,38 @@ export class AdminStore {
       const info = await this.api.get<{
         env?: string;
         frameworkRepository?: boolean;
-        loginPage?: unknown;
       }>("/info");
       runInAction(() => {
         this.env = typeof info.env === "string" ? info.env : null;
         this.frameworkRepository = info.frameworkRepository === true;
-        this.loginPage = readLoginPage(info.loginPage);
       });
     } catch {
       /* identité inconnue → aucun filtrage par environnement ; le dépôt, lui,
-         n'est pas supposé, ni la page de connexion de l'application */
+         n'est pas supposé */
       runInAction(() => {
         this.frameworkRepository = false;
-        this.loginPage = null;
       });
     }
+  }
+
+  /**
+   * Résout la page de connexion où conduire un visiteur anonyme : celle que
+   * `/studio/api/info` annonce, CONSTATÉE par un `HEAD` (`confirmLoginPage`),
+   * sinon `null` — la page de secours de la console. Appelée par la garde sur
+   * le seul chemin anonyme : un administrateur connecté ne la paie jamais.
+   */
+  async loadLoginPage(): Promise<void> {
+    let announced: string | null = null;
+    try {
+      const info = await this.api.get<{ loginPage?: unknown }>("/info");
+      announced = readLoginPage(info.loginPage);
+    } catch {
+      /* annonce illisible → page de secours */
+    }
+    const confirmed = await confirmLoginPage(announced, headStatus);
+    runInAction(() => {
+      this.loginPage = confirmed;
+    });
   }
 
   /** Charge (ou recharge) le catalogue des producteurs admin. */

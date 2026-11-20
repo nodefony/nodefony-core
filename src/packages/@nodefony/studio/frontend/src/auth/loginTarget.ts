@@ -61,3 +61,45 @@ export function readLoginPage(value: unknown): string | null {
   const path = safeRedirectPath(value, "");
   return path === "" ? null : path;
 }
+
+/**
+ * Constate que la page de connexion annoncée RÉPOND avant d'y envoyer le
+ * visiteur : annoncée par la configuration ne veut pas dire servie (gabarit
+ * cassé, route remplacée par l'application, panne). Tout ce qui n'est pas un
+ * succès — erreur, redirection, réseau coupé — rend `null`, donc la page de
+ * secours de la console, qui doit marcher en toute circonstance.
+ *
+ * @param path - chemin annoncé (`readLoginPage`), ou `null`
+ * @param probe - requête `HEAD` de même origine, rend le code HTTP reçu
+ *   (`headStatus` dans le navigateur, injectée pour l'éprouver)
+ * @returns le chemin confirmé, ou `null`
+ */
+export async function confirmLoginPage(
+  path: string | null,
+  probe: (path: string) => Promise<number>,
+): Promise<string | null> {
+  if (path === null) return null;
+  try {
+    const status = await probe(path);
+    return status >= 200 && status < 300 ? path : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sonde `HEAD` de même origine, sans suivre de redirection (une page qui
+ * renvoie ailleurs n'est pas une page de connexion qui répond : statut 0).
+ *
+ * @param path - chemin local à sonder
+ * @returns le code HTTP reçu
+ */
+export async function headStatus(path: string): Promise<number> {
+  const res = await fetch(path, {
+    method: "HEAD",
+    credentials: "same-origin",
+    redirect: "manual",
+    cache: "no-store",
+  });
+  return res.status;
+}

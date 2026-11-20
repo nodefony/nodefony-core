@@ -25,14 +25,15 @@ export const AuthGuard = observer(() => {
     loc.pathname + loc.search,
   );
   // Anonyme : la page de connexion de l'application n'est connue qu'après
-  // `/studio/api/info` (public) — une requête, sur ce seul chemin.
-  const needsInfo =
+  // `/studio/api/info` (public) et un `HEAD` qui constate qu'elle répond —
+  // deux requêtes, sur ce seul chemin.
+  const needsLoginPage =
     access.kind === "wait" &&
     auth.status !== "idle" &&
     auth.status !== "loading";
   useEffect(() => {
-    if (needsInfo) void admin.loadInfo();
-  }, [needsInfo, admin]);
+    if (needsLoginPage) void admin.loadLoginPage();
+  }, [needsLoginPage, admin]);
   // Page servie par le serveur, hors du routeur de la console : navigation
   // complète, sortie de l'historique (le retour n'y ramène pas).
   const href = access.kind === "app" ? access.href : null;

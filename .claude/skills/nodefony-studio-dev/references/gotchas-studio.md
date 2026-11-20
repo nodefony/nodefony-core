@@ -95,7 +95,9 @@
 - **Connexion : UN entonnoir, `AuthGuard`** — jamais un lien ni un `navigate` vers `/nodefony/login`. La garde
   décide (`auth/loginTarget.ts#consoleAccess`) : page de l'application si `/studio/api/info` annonce `loginPage`,
   sinon la page de secours de la console. Un lien écrit en dur contournerait ce choix et remontrerait deux pages
-  de connexion dissemblables pour une même session. Entrer par `/nodefony`.
+  de connexion dissemblables pour une même session. Entrer par `/nodefony`. La page de SECOURS
+  (`/nodefony/login`) répond en toute circonstance : route nommée `@BypassFirewall` (une zone `^/nodefony` la
+  fermerait sinon), et la page de l'application n'est choisie que si un `HEAD` CONSTATE qu'elle répond.
 - **🔑 404 ≠ 401 — discriminant à graver** : le **route-match est hissé AVANT le firewall**. Une route **absente**
   = **404** ; une route **présente derrière le firewall** = **401**. Lire un 404 comme « route absente » d'emblée
   (ne pas suspecter un dist périmé / un fantôme). Vécu : un `IAdminApi` (namespace `security`) monte sous
