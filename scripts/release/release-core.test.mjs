@@ -3037,6 +3037,13 @@ describe("release.mjs — chaque constat de synchro est APPLIQUÉ en entier (#79
     expect(calls).toBe(applied);
   });
 
+  it("la promotion signale ce que le rattrapage apporte APRÈS la relecture du CHANGELOG (revue #796, N2)", () => {
+    expect(source).toMatch(
+      /appliquerSynchro\(constaterSynchro\(true\), true\)/,
+    );
+    expect(source).toMatch(/arrivés APRÈS la relecture du CHANGELOG/);
+  });
+
   it("appliquerSynchro traite chaque geste que verdictDeSynchro peut rendre", () => {
     const gestes = new Set();
     for (const ecrire of [true, false])

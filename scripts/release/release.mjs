@@ -815,14 +815,25 @@ const constaterSynchro = (ecrire) => {
  * poussée atomique échouait en exception brute (revue #796, N2).
  *
  * @param {{ geste: string, texte: string, courante: string | null }} s - le constat
+ * @param {boolean} [apresRelecture] - vrai en promotion : le CHANGELOG est déjà
+ *   écrit et relu, ce que l'avance rapide apporte n'y figure pas
  */
-const appliquerSynchro = (s) => {
+const appliquerSynchro = (s, apresRelecture = false) => {
   if (s.geste === "refus") echouer(s.texte);
   if (s.geste === "avis") alerter(s.texte);
   if (s.geste !== "avancer") return;
   const avant = git("rev-parse", "HEAD");
   git("merge", "--ff-only", `origin/${s.courante}`);
   dire(`✓ ${s.texte}`);
+  if (apresRelecture) {
+    // Le CHANGELOG a été écrit et relu AVANT ces commits : un correctif rattrapé
+    // ici partirait sans sa ligne, et rien ne le dirait (revue #796, N2).
+    alerter(
+      "ces commits sont arrivés APRÈS la relecture du CHANGELOG — ajouter leur ligne s'ils sont publiables,\n" +
+        "  par la même voie (PR), AVANT le tag :\n" +
+        git("log", "--format=    %h %s", `${avant}..HEAD`),
+    );
+  }
   // Le verrou a changé ? Le `node_modules` installé ne décrit plus l'arbre :
   // l'estampille et le pack partiraient d'une installation fausse.
   try {
@@ -1017,7 +1028,7 @@ if (PROMOUVOIR) {
   // rouge corrigée par PR : la fusion de la PR est sur origin) → avance rapide ;
   // branches DIVERGÉES → refus avec le geste, AVANT un échec de git.
   {
-    appliquerSynchro(constaterSynchro(true));
+    appliquerSynchro(constaterSynchro(true), true);
     // `main` a reçu un commit d'accueil depuis l'estampille ? L'intégrer ici
     // garde `<branche>:main` en avance rapide (bloquant 4 de #796).
     rattraperPublication(true);
