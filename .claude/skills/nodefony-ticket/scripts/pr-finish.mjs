@@ -139,19 +139,36 @@ export function squashMessage({ title, number, body, commits }) {
   const work = commits
     .map((c) => (typeof c === "string" ? { message: c, published: true } : c))
     .filter((c) => !isParkingSubject(c.message.split("\n", 1)[0]));
-  // Le `!` se pose sur la ligne du commit qui porte un pied de rupture : au
-  // squash, le pied part en fin de message, et c'est le `!` qui dit QUELLE
-  // entrée il décrit (`release-core.mjs#analyserCommits`).
+  // 🔴 Les ruptures : UN pied par ligne `!`, dans le même ordre — c'est ainsi
+  // que `release-core.mjs#analyserCommits` attache le k-ième pied à la k-ième
+  // entrée marquée. Un commit PUBLIÉ qui porte un pied reçoit le `!` ; un
+  // commit `!` SANS pied reçoit un pied tiré de son sujet (la spec : le sujet
+  // décrit la rupture quand le pied est omis). Plusieurs pieds d'un même commit
+  // se joignent en un. L'outillage ne donne aucun pied : sa rupture n'atteint
+  // aucun installeur (revue #796, N4 a et b — pied collé au mauvais commit,
+  // rupture d'outillage qui fuyait).
+  const breakingOf = (c) =>
+    c.message
+      .split("\n")
+      .slice(1)
+      .filter((l) => BREAKING_FOOTER.test(l))
+      .map((l) => l.replace(/^BREAKING[ -]CHANGE:\s*/u, ""));
   const headline = (c) => {
     const h = c.message.split("\n", 1)[0];
-    return /^BREAKING[ -]CHANGE: \S/mu.test(c.message)
+    return c.published && breakingOf(c).length
       ? h.replace(/^(\w+(?:\([^)]*\))?)(?!!):/u, "$1!:")
       : h;
   };
-  const lines = work
-    .filter((c) => c.published)
-    .map((c) => `- ${headline(c)}`)
-    .filter((l) => !hasSkipMarker(l));
+  const published = work.filter(
+    (c) => c.published && !hasSkipMarker(`- ${headline(c)}`),
+  );
+  const lines = published.map((c) => `- ${headline(c)}`);
+  const breaking = published.flatMap((c) => {
+    const own = breakingOf(c);
+    if (own.length) return [`BREAKING CHANGE: ${own.join(" ; ")}`];
+    const m = /^\w+(?:\([^)]*\))?!:\s*(.+)$/u.exec(headline(c));
+    return m ? [`BREAKING CHANGE: ${m[1]}`] : [];
+  });
   const tooling = work
     .filter((c) => !c.published)
     .map((c) => `  ${headline(c)}`)
@@ -162,15 +179,10 @@ export function squashMessage({ title, number, body, commits }) {
   if (ticket) footers.push(ticket);
   for (const { message: m } of work) {
     for (const l of m.split("\n").slice(1)) {
-      if (
-        (BREAKING_FOOTER.test(l) || CLOSING_FOOTER.test(l)) &&
-        !hasSkipMarker(l) &&
-        !footers.includes(l)
-      ) {
-        footers.push(l);
-      }
+      if (CLOSING_FOOTER.test(l) && !footers.includes(l)) footers.push(l);
     }
   }
+  for (const b of breaking) if (!hasSkipMarker(b)) footers.push(b);
   const parts = [];
   if (lines.length) parts.push(lines.join("\n"));
   if (tooling.length)

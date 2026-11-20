@@ -689,13 +689,16 @@ const EN_TETE_CORPS = /^- (\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/;
  *        entrées sans référence, ce que le script signale.
  * @param {{publie?: (chemin: string) => boolean}} [options] — le prédicat de
  *        `perimetrePublie` ; absent, seul le type filtre.
- * @returns {{ruptures: Array<{portee: string, texte: string, sha: string}>, groupes: Map<string, Array<{portee: string, texte: string, sha: string}>>, horsConvention: number, ecartes: number}}
+ * @returns {{ruptures: Array<{portee: string, texte: string, sha: string}>, groupes: Map<string, Array<{portee: string, texte: string, sha: string}>>, horsConvention: number, ecartes: number, squashNonTries: string[]}}
+ *   `squashNonTries` = empreintes des squash au corps par défaut de GitHub
+ *   (`* type: …`), dont les sous-entrées ne sont PAS lues : à relire à la main
  */
 export function analyserCommits(commits, { publie } = {}) {
   const ruptures = [];
   const groupes = new Map();
   let horsConvention = 0;
   let ecartes = 0;
+  const squashNonTries = [];
 
   for (const entree of commits) {
     const brut = typeof entree === "string" ? entree : entree?.message;
@@ -704,6 +707,10 @@ export function analyserCommits(commits, { publie } = {}) {
     if (!texteBrut) continue;
     const [sujet, ...reste] = texteBrut.split("\n");
     const corps = reste.join("\n");
+    // Corps de squash par défaut de GitHub : ses `* type: …` ne sont pas lus
+    // (non triés), mais on le DIT — sinon des correctifs publiés disparaissent
+    // du brouillon sans un mot (revue #796, R1).
+    if (/^\* \w+(?:\([^)]*\))?!?:[ \t]/mu.test(corps)) squashNonTries.push(sha);
 
     const m = EN_TETE.exec(sujet);
     if (!m) {
@@ -776,7 +783,7 @@ export function analyserCommits(commits, { publie } = {}) {
     });
   }
 
-  return { ruptures, groupes, horsConvention, ecartes };
+  return { ruptures, groupes, horsConvention, ecartes, squashNonTries };
 }
 
 /**

@@ -1074,7 +1074,7 @@ if (PROMOUVOIR) {
   if (ci.status !== 0) {
     echouer(
       "la forge n'est PAS verte sur ce commit — voir ci-dessus ce qui a échoué.\n" +
-        "  NE PAS taguer : les quinze paquets partiraient sur un rouge, et npm ne\n" +
+        "  NE PAS taguer : les paquets partiraient sur un rouge, et npm ne\n" +
         "  reprend jamais une version publiée. Deux voies, selon le rouge :\n" +
         "  · job INSTABLE (réseau, délai, course) → le relancer, même commit :\n" +
         "       gh run rerun <id du run> --failed\n" +
@@ -1696,6 +1696,14 @@ if (!(PUBLIER && !ECRIRE)) {
         ? ` · ${analyse.horsConvention} HORS CONVENTION (ignorés — messages à corriger)`
         : ""),
   );
+  if (analyse.squashNonTries.length) {
+    alerter(
+      `${analyse.squashNonTries.length} squash fusionné(s) par le bouton de GitHub — leur corps \`* type: …\`\n` +
+        "    recopie tous les commits sans tri : seul leur sujet est au brouillon. À RELIRE à la main\n" +
+        "    (git log -1 <sha>) pour y reprendre les correctifs publiés :\n" +
+        analyse.squashNonTries.map((s) => `      ${s}`).join("\n"),
+    );
+  }
   if (!ruptures.length && /^\d+\.0\.0$/.test(VERSION)) {
     alerter(
       "version MAJEURE sans une seule rupture signalée — vérifier que les commits\n" +

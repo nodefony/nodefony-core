@@ -3130,6 +3130,17 @@ describe("analyserCommits — plusieurs changements dans un squash (#796, revue 
     ]);
   });
 
+  it("un squash par défaut de GitHub est SIGNALÉ, pas lu en silence (revue #796, R1)", () => {
+    const r = analyserCommits([
+      {
+        sha: "aaa",
+        message: "fix(scaffold): x (#799)\n\n* fix(login): y (#801)",
+      },
+      { sha: "bbb", message: "fix(http): z\n\n- fix(http): z" },
+    ]);
+    expect(r.squashNonTries).toEqual(["aaa"]);
+  });
+
   it("deux pieds BREAKING CHANGE : deux ruptures, chacune sur l'entrée marquée « ! » (revue #796, N4)", () => {
     const r = analyserCommits([
       "chore(x): t (#1)\n\n- fix(cli): a\n- feat(http)!: b\n- refactor(orm)!: c\n\nBREAKING CHANGE: b casse\nBREAKING CHANGE: c casse",

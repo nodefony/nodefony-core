@@ -267,7 +267,7 @@ release-core.mjs — le RAISONNEMENT d'une release, sans aucune entrée/sortie.
 
 - **Usage** : `import { validerVersion, comparerVersions, SEMVER } from "./release-core.mjs"`
 - **Appelé par** : `.claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/lib/decor-source.mjs` · `.claude/skills/nodefony-ticket/scripts/pr-finish.mjs` · `.claude/skills/nodefony-ticket/scripts/ticket-start.mjs` · `release/attendre-ci.mjs` · `release/compat.mjs` · `release/image-channels.mjs` · `release/pack-all.mjs` · `release/release.mjs` · `site/readme-html.mjs`
-- **Testé par** : `release/release-core.test.mjs`
+- **Testé par** : `.claude/skills/nodefony-ticket/scripts/pr-finish.test.mjs` · `release/release-core.test.mjs`
 
 ## [`release-core.test.mjs`](release-core.test.mjs)
 

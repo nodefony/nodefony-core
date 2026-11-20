@@ -2957,6 +2957,7 @@
         "scripts/site/readme-html.mjs"
       ],
       "testedBy": [
+        ".claude/skills/nodefony-ticket/scripts/pr-finish.test.mjs",
         "scripts/release/release-core.test.mjs"
       ]
     },

@@ -98,7 +98,7 @@ describe("squashMessage — LE commit que lira le changelog", () => {
       ],
     });
     expect(body).toBe(
-      "- feat(http)!: retirer y\n- fix(http): z\n\nRefs #794\nBREAKING CHANGE: y disparaît\nCloses #753",
+      "- feat(http)!: retirer y\n- fix(http): z\n\nRefs #794\nCloses #753\nBREAKING CHANGE: y disparaît",
     );
     // Un pied sans « ! » au sujet : le « ! » est posé sur SA ligne.
     const { body: b2 } = squashMessage({
@@ -163,6 +163,45 @@ describe("squashMessage — le périmètre se juge PAR COMMIT (#796, revue N1)",
         "Outillage du dépôt (hors paquets publiés) :\n  fix(release): promotion relancée\n\n" +
         "Refs #796",
     );
+  });
+});
+
+describe("squash → changelog : chaque rupture sur SON commit (#796, revue N4 a et b)", () => {
+  /** Le squash composé, relu par le changelog — la chaîne réelle. */
+  const ruptures = async (commits) => {
+    const { analyserCommits } =
+      await import("../../../../scripts/release/release-core.mjs");
+    const m = squashMessage({
+      title: "chore(x): t",
+      number: 1,
+      body: "Refs #9",
+      commits,
+    });
+    return analyserCommits([`${m.subject}\n\n${m.body}`]).ruptures;
+  };
+
+  it("un « ! » sans pied et un pied sans « ! » : chacun décrit SA rupture", async () => {
+    expect(
+      await ruptures([
+        { message: "feat(http)!: retirer y", published: true },
+        { message: "fix(orm): c\n\nBREAKING CHANGE: c casse", published: true },
+      ]),
+    ).toEqual([
+      { portee: "http", texte: "retirer y", sha: "" },
+      { portee: "orm", texte: "c casse", sha: "" },
+    ]);
+  });
+
+  it("la rupture d'un commit d'OUTILLAGE ne fuit pas sur une entrée publiée", async () => {
+    expect(
+      await ruptures([
+        {
+          message: "fix(pilotage): s\n\nBREAKING CHANGE: le script change",
+          published: false,
+        },
+        { message: "fix(http): z", published: true },
+      ]),
+    ).toEqual([]);
   });
 });
 
