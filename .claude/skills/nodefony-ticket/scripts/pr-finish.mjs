@@ -30,7 +30,9 @@
  * branche longue), ou le corps d'ouverture de la PR. Voir {@link squashMessage}.
  *
  * REFUS AVANT TOUT GESTE : une tête de PR marquée skip-ci (aucun check ne
- * tournera, l'attente serait sans fin) et une PR en conflit avec sa base.
+ * tournera, l'attente serait sans fin), une PR en conflit avec sa base, et une
+ * PR qui embarque une `release/*` — la fusion arrière est un commit de FUSION,
+ * l'affaire de `release-sync.mjs`.
  *
  * @usage node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs            (PR de la branche courante)
  * @usage node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> [--dry-run]
@@ -46,6 +48,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
+import {
+  carriedReleases,
+  isAncestor,
+  remoteMaintenance,
+} from "./release-sync.mjs";
 
 const REPO = "nodefony/nodefony-core";
 
@@ -120,11 +127,21 @@ export function squashMessage({ title, number, body, commits }) {
 /**
  * Ce qui interdit de clore la PR — PUR.
  *
- * @param {{ headMessage: string, mergeStateStatus: string }} pr
+ * @param {{ headMessage: string, mergeStateStatus: string, carried?: string[] }} pr -
+ *   `carried` = branches `release/*` que la PR embarque ({@link carriedReleases})
  * @returns {string[]} les motifs ; vide = rien n'interdit
  */
-export function finishBlockers({ headMessage, mergeStateStatus }) {
+export function finishBlockers({
+  headMessage,
+  mergeStateStatus,
+  carried = [],
+}) {
   const reasons = [];
+  if (carried.length)
+    reasons.push(
+      `la PR embarque ${carried.join(", ")} : un squash la recopierait sous une autre empreinte, elle ne deviendrait pas ancêtre de la base, et la publication suivante serait refusée.\n` +
+        "   → fusion arrière par release-sync.mjs (commit de FUSION), jamais par pr-finish",
+    );
   if (hasSkipMarker(headMessage))
     reasons.push(
       "la tête de la PR porte un marqueur skip-ci : aucun check ne tournera, l'attente serait sans fin.\n" +
@@ -202,7 +219,7 @@ function main() {
       "--repo",
       REPO,
       "--json",
-      "number,url,state,isDraft,baseRefName,headRefName,title,body,commits,mergeStateStatus",
+      "number,url,state,isDraft,baseRefName,headRefName,headRefOid,title,body,commits,mergeStateStatus",
     ]),
   );
   if (pr.state !== "OPEN")
@@ -212,17 +229,31 @@ function main() {
   );
   const message = squashMessage({ ...pr, commits: commitMessages });
 
+  // Les ancêtres se constatent sur les références DISTANTES, tête de PR comprise.
+  sh("git", ["fetch", "origin", "--prune", "--quiet"]);
+  sh("git", ["fetch", "origin", "--quiet", pr.headRefOid]);
+  const blockers = finishBlockers({
+    headMessage: commitMessages.at(-1) ?? "",
+    mergeStateStatus: pr.mergeStateStatus,
+    carried: carriedReleases(
+      remoteMaintenance()
+        .filter((name) => name !== pr.baseRefName)
+        .map((name) => ({
+          name,
+          inHead: isAncestor(`origin/${name}`, pr.headRefOid),
+          inBase: isAncestor(`origin/${name}`, `origin/${pr.baseRefName}`),
+        })),
+    ),
+  });
+  // La surveillance refuse sur les MÊMES motifs : elle fusionne en squash.
+  if (blockers.length && !dryRun)
+    throw new Error(`PR #${pr.number} :\n  · ${blockers.join("\n  · ")}`);
+  for (const b of blockers) console.log(`⚠️ le geste réel le REFUSERA : ${b}`);
+
   if (argv.includes("--merge-when-green")) {
     mergeWhenGreen(pr.number, message);
     return;
   }
-  const blockers = finishBlockers({
-    headMessage: commitMessages.at(-1) ?? "",
-    mergeStateStatus: pr.mergeStateStatus,
-  });
-  if (blockers.length && !dryRun)
-    throw new Error(`PR #${pr.number} :\n  · ${blockers.join("\n  · ")}`);
-  for (const b of blockers) console.log(`⚠️ le geste réel le REFUSERA : ${b}`);
 
   const allowAutoMerge =
     sh("gh", ["api", `repos/${REPO}`, "--jq", ".allow_auto_merge"]) === "true";

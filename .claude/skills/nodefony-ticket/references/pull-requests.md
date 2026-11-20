@@ -114,7 +114,19 @@ node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <autre>
 **Quand remonter `release/x.y.x` vers `dev`** : juste après la **publication** du correctif
 (`10.0.1` sur npm, tag posé). `dev` reçoit alors exactement ce qui a été publié, les conflits avec
 la mineure en cours se règlent une fois, et un correctif ne traîne jamais dans `dev` sans être sorti.
-Une PR `release/x.y.x → dev`, CI comprise, comme les autres.
+Une PR `release/x.y.x → dev`, CI comprise, comme les autres — ouverte par un script, jamais à la main :
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/release-sync.mjs --dry-run      # ce qui serait fusionné
+node .claude/skills/nodefony-ticket/scripts/release-sync.mjs                # branche, fusions, PR
+node .claude/skills/nodefony-ticket/scripts/release-sync.mjs --merge-when-green <PR>   # EN ARRIÈRE-PLAN
+```
+
+Il fusionne `origin/main` PUIS `origin/release/x.y.x` (le job `accueil` de la publication peut avoir
+commité sur `main`), sur la branche `chore/merge-release-x.y.x` — sans numéro : une fusion arrière
+n'est le travail d'aucun ticket. Un conflit l'arrête : résoudre, `git commit --no-edit`, relancer.
+`pr-finish` REFUSE une PR qui embarque une `release/*` : son squash romprait l'ancêtre commun, et
+`release.mjs` refuserait la publication suivante (`refusDeMaintenance`, D9).
 
 **Avant de fusionner** : PR sortie du brouillon (`gh pr ready N`), CI verte sur le DERNIER commit
 (`gh pr checks N` — un rouge d'un run précédent ne compte pas, un ⏳ non plus), colonne de droite

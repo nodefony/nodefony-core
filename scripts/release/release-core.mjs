@@ -1335,7 +1335,8 @@ export function refusDeMaintenance({ branche, maintenance }) {
         `${m.nom} n'est pas fusionnée dans ${branche} — fusion arrière due.\n` +
           "    Sans elle, l'estampille et le changelog du dernier correctif manquent à\n" +
           "    cette publication, et le changelog suivant se borne mal.\n" +
-          `    → fusionner origin/main puis ${m.nom} dans ${branche} (commit de FUSION, pas de squash).`,
+          `    → fusionner origin/main puis ${m.nom} dans ${branche} (commit de FUSION, pas de squash) :\n` +
+          "      node .claude/skills/nodefony-ticket/scripts/release-sync.mjs",
       );
     }
   }

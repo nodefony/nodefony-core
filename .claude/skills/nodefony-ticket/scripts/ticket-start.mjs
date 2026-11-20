@@ -33,7 +33,7 @@ import { fileURLToPath } from "node:url";
 
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 import { readInstallDrift } from "../../nodefony-session/scripts/install-drift.mjs";
-import { BRANCH_TYPES } from "./commit-kind.mjs";
+import { BRANCH_TYPES, ticketOfBranch } from "./commit-kind.mjs";
 import { markInProgress } from "./ticket-progress.mjs";
 
 const REPO = "nodefony/nodefony-core";
@@ -171,8 +171,7 @@ export function openingCommitMessage(title, n) {
  * @returns {string[]}
  */
 export function ticketBranches(n, branches) {
-  const re = new RegExp(`^[a-z]+/${n}-[a-z0-9-]+$`, "u");
-  return [...new Set(branches.filter((b) => re.test(b)))].sort();
+  return [...new Set(branches.filter((b) => ticketOfBranch(b) === n))].sort();
 }
 
 const ROOT = path.resolve(

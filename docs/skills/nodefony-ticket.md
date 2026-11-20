@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.13.0` |
 | Famille | Autres |
-| Corps | 483 lignes |
-| Coût d'activation | ~9 830 tokens (le corps est chargé à l'invocation) |
+| Corps | 486 lignes |
+| Coût d'activation | ~10 046 tokens (le corps est chargé à l'invocation) |
 | Description | 949 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 10 page(s) |
-| Scripts | 30 |
+| Scripts | 32 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -42,7 +42,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 ## Prérequis
 
-Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redis** · **gh authentifié** · **droits d'écriture sur le dépôt et le tableau** · **gh authentifié ; arbre propre** · **droits d'écriture sur le dépôt et le tableau ; arbre propre**.
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redis** · **gh authentifié** · **droits d'écriture sur le dépôt et le tableau** · **gh authentifié ; arbre propre** · **gh authentifié ; arbre propre ; branche courante sans commit non poussé** · **droits d'écriture sur le dépôt et le tableau ; arbre propre**.
 
 ## Skills voisins
 
@@ -85,7 +85,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 107 |
 | `references/lexique.md` | Lexique des tickets — source unique | 145 |
-| `references/pull-requests.md` | Pull requests — la remplir, la relier, la fusionner | 122 |
+| `references/pull-requests.md` | Pull requests — la remplir, la relier, la fusionner | 134 |
 | `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 290 |
 
 
@@ -112,6 +112,8 @@ script, donc toujours à jour après régénération.
 | `scripts/pr-finish.test.mjs` | Éprouve la voie de fusion de `pr-finish.mjs` : la fusion automatique n'est prise que si elle ATTEND vraiment la CI — sans check exigé, `--auto` fusionnerait tout de suite, CI rouge comprise. / | — | — |
 | `scripts/proof-commands.mjs` | proof-commands.mjs — exécute les PREUVES écrites en commande dans un ticket. | — | — |
 | `scripts/proof-commands.test.mjs` | `proof-commands` — relancer les preuves d'ABSENCE écrites dans un ticket. | — | — |
+| `scripts/release-sync.mjs` | Rapatrie une branche de maintenance dans `dev` par une PR fusionnée en COMMIT DE FUSION. | `--dry-run` `--merge-when-green` | — |
+| `scripts/release-sync.test.mjs` | Suite de la fusion arrière `release/x.y.x → dev` (D9, #796). | — | — |
 | `scripts/severity.mjs` | Gravité d'un défaut — lue, validée et calculée selon une NORME, jamais estimée à l'impression. | — | — |
 | `scripts/ticket-anchor-migrate.mjs` | ticket-anchor-migrate.mjs — convertit les ancres `fichier:ligne` des tickets OUVERTS en ancres par symbole (`<fichier>.ts#<Symbole>`). | `--apply` | — |
 | `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--since` `--check` `--close` `--done` | — |
@@ -135,6 +137,7 @@ node .claude/skills/nodefony-ticket/scripts/francise.mjs [--write]
 node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs [<numéro>…] [--write]
 node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799
 node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs            (PR de la branche courante)
+node .claude/skills/nodefony-ticket/scripts/release-sync.mjs [release/x.y.x] [--dry-run]
 node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs [<numéro>…]
 node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done
 node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]
@@ -209,6 +212,20 @@ node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> --merge-when-gree
 | --- | --- |
 | `--dry-run` | rend la voie choisie et ses raisons, sans rien modifier |
 | `--merge-when-green` | attend les checks (arrêt au premier rouge) puis fusionne en squash avec le message composé |
+
+#### `scripts/release-sync.mjs`
+
+Produit : la branche, les références fusionnées, la PR et la commande de surveillance
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/release-sync.mjs [release/x.y.x] [--dry-run]
+node .claude/skills/nodefony-ticket/scripts/release-sync.mjs --merge-when-green <PR>   (la surveillance, en arrière-plan)
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--dry-run` | dit ce qui serait fusionné, sans rien modifier |
+| `--merge-when-green` | attend les checks (arrêt au premier rouge) puis fusionne en commit de fusion |
 
 #### `scripts/ticket-anchor-migrate.mjs`
 
@@ -331,7 +348,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --dependents <num�
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 483 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 486 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

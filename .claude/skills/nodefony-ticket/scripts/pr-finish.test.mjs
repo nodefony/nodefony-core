@@ -95,6 +95,18 @@ describe("finishBlockers — refuser avant tout geste", () => {
     ).toContain("CONFLIT");
   });
 
+  // PIÈGE : la fusion arrière release/x.y.x → dev squashée ne rendrait pas la
+  // maintenance ancêtre de dev — la publication suivante resterait refusée.
+  it("une PR qui embarque une release/* : jamais de squash", () => {
+    const [motif] = finishBlockers({
+      headMessage: "Merge remote-tracking branch 'origin/release/10.0.x'",
+      mergeStateStatus: "CLEAN",
+      carried: ["release/10.0.x"],
+    });
+    expect(motif).toContain("release/10.0.x");
+    expect(motif).toContain("release-sync.mjs");
+  });
+
   it("rien à dire sur une tête de travail sans conflit", () => {
     expect(
       finishBlockers({ headMessage: "fix(x): y", mergeStateStatus: "BLOCKED" }),
