@@ -79,8 +79,18 @@ CONSTATE :
 - **fusion automatique** (`gh pr merge --squash --delete-branch --auto`) si le dépôt l'autorise ET
   si la base exige des checks. ⚠️ Sans check exigé, `--auto` fusionne **immédiatement**, CI rouge
   comprise — d'où la double condition ;
-- **sinon, surveillance** : il rend la commande à lancer EN ARRIÈRE-PLAN
-  (`gh pr checks N --watch --fail-fast && gh pr merge N --squash --delete-branch`).
+- **sinon, surveillance** : il rend la commande à lancer EN ARRIÈRE-PLAN,
+  `pr-finish.mjs <N> --merge-when-green` — checks attendus (arrêt au premier rouge), puis squash
+  avec le message qu'il COMPOSE. Jamais le `gh pr merge --squash` nu : le défaut du dépôt
+  recopierait les messages des commits, marqueur skip-ci compris, dans LE commit que lit le changelog.
+
+Il REFUSE avant tout geste, avec la commande : une tête marquée skip-ci (aucun check ne tournerait),
+une PR en conflit avec sa base, et une PR qui EMBARQUE une `release/*` — la fusion arrière est un
+commit de fusion, l'affaire de `release-sync.mjs`.
+
+Vers `release/*`, la fusion ne ferme PAS le ticket : la reprise le rattrape (« 🧾 PR fusionnée,
+ticket ouvert ») et le ferme `ticket-close.mjs`, avec son compte rendu. La branche de travail, elle,
+est finie : la reprise le dit, et rend le retour à la base.
 
 Dans les deux cas, on enchaîne aussitôt : `ticket-start <suivant>` part de `origin/<base>`, jamais
 de la branche en attente. Les deux réglages qui ouvrent la fusion automatique — « Allow

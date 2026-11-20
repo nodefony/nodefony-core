@@ -395,8 +395,9 @@ la forme du **compte rendu de fermeture** vivent en référence.
 - 🔴 **65 536 caractères au plus** pour un corps d’issue comme pour un commentaire : au-delà GitHub
   refuse, et une fermeture refusée laisse le ticket ouvert. `ticket:open` le refuse avant de créer,
   `ticket-close.mjs --check` avant de fermer.
-- ⚠️ **`Closes #95` ne ferme RIEN depuis `dev`** : GitHub n'honore le mot-clé que sur la branche par
-  défaut. La fermeture est toujours un geste — `gh issue close`, avec son compte rendu.
+- ⚠️ **`Closes #95` ne mord que vers `dev`** (branche par défaut), à la fusion de la PR — et ne
+  ferme RIEN vers `release/*`. Même fermé par le mot-clé, le ticket attend son compte rendu :
+  `ticket-close.mjs` (ou `gh issue close` / `gh issue comment`).
 - **Fermer sur « fait » perd ce que la session a appris.** Deux blocs qu'aucun automate ne peut
   écrire : ce qui a **débordé** de l'énoncé, et ce qui n'a **pas** été fait, avec son motif.
 - **La console d'administration est la référence de non-régression** : tout ticket qui touche le

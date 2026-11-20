@@ -231,7 +231,7 @@ source: "docs/skills/index.md"
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.1.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.1.0 | 235 | 1 | 1 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.13.0 | 486 | 10 | 32 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.13.0 | 487 | 10 | 32 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 287 | 0 | 0 | ✅ |
 | [`nodefony-add-grpc-service`](nodefony-add-grpc-service.md) | 1.0.0 | 166 | 0 | 1 | ✅ |
 | [`nodefony-add-realtime-binary`](nodefony-add-realtime-binary.md) | 1.1.0 | 284 | 2 | 0 | ✅ |
