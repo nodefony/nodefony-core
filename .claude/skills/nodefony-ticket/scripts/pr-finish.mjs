@@ -38,7 +38,7 @@
  * @usage node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> [--dry-run]
  * @usage node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> --merge-when-green   (la surveillance, en arrière-plan)
  * @option --dry-run  rend la voie choisie et ses raisons, sans rien modifier
- * @option --merge-when-green  attend les checks (arrêt au premier rouge) puis fusionne en squash avec le message composé
+ * @option --merge-when-green  passe la PR en « prête », attend les checks (arrêt au premier rouge), fusionne en squash avec le message composé, puis retire la copie locale de la branche
  * @requires gh authentifié ; arbre propre
  * @output la voie (auto ou surveillance), et la commande à lancer en arrière-plan le cas échéant
  */
@@ -60,6 +60,7 @@ import {
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 import {
   carriedReleases,
+  cleanupLocalBranch,
   isAncestor,
   remoteMaintenance,
 } from "./release-sync.mjs";
@@ -480,11 +481,7 @@ function main() {
   }))
     console.log(`ℹ️ ${n}`);
 
-  if (argv.includes("--merge-when-green")) {
-    mergeWhenGreen(pr.number, message, closeReminder(pr));
-    return;
-  }
-
+  const watch = argv.includes("--merge-when-green");
   const allowAutoMerge =
     sh("gh", ["api", `repos/${REPO}`, "--jq", ".allow_auto_merge"]) === "true";
   const plan = mergePlan({
@@ -492,48 +489,83 @@ function main() {
     requiredChecks: requiredChecksOf(pr.baseRefName),
   });
   console.log(
-    `PR #${pr.number} ${pr.headRefName} → ${pr.baseRefName}\n  voie : ${plan.mode === "auto" ? "fusion automatique" : "surveillance en arrière-plan"} — ${plan.reason}`,
+    `PR #${pr.number} ${pr.headRefName} → ${pr.baseRefName}\n  voie : ${watch ? "surveillance (--merge-when-green)" : plan.mode === "auto" ? "fusion automatique" : "surveillance en arrière-plan"} — ${plan.reason}`,
   );
-  if (dryRun) {
-    // Le message de squash EST le commit que lira le changelog : le montrer.
-    console.log(
-      `  message de squash :\n    ${message.subject}\n\n${message.body.replace(/^/gmu, "    ")}`,
-    );
-    if (plan.mode === "watch")
-      console.log(`  commande : ${watchCommand(pr.number)}`);
-    const reminder = closeReminder(pr);
-    if (reminder) console.log(`  ⚠️ ${reminder}`);
-    return;
-  }
+  const reminder = closeReminder(pr);
 
-  if (pr.isDraft) sh("gh", ["pr", "ready", String(pr.number), "--repo", REPO]);
-  console.log(`  prête : ${pr.url}`);
-
-  if (plan.mode === "auto") {
-    sh("gh", [
-      "pr",
-      "merge",
-      String(pr.number),
-      "--repo",
-      REPO,
-      "--squash",
-      "--delete-branch",
-      "--auto",
-      "--subject",
-      message.subject,
-      "--body",
-      message.body,
-    ]);
-    console.log(
-      "  fusion automatique programmée — enchaîner sur le ticket suivant",
-    );
-    const reminder = closeReminder(pr);
-    if (reminder) console.log(`  ⚠️ ${reminder}`);
-  } else {
-    console.log(
-      `  à lancer EN ARRIÈRE-PLAN (jamais au premier plan), puis enchaîner sur le ticket suivant :\n    ${watchCommand(pr.number)}`,
-    );
+  for (const step of finishSteps({
+    dryRun,
+    watch,
+    isDraft: pr.isDraft,
+    mode: plan.mode,
+  })) {
+    if (step === "show") {
+      // Le message de squash EST le commit que lira le changelog : le montrer.
+      console.log(
+        `  message de squash :\n    ${message.subject}\n\n${message.body.replace(/^/gmu, "    ")}`,
+      );
+      if (plan.mode === "watch" && !watch)
+        console.log(`  commande : ${watchCommand(pr.number)}`);
+      if (reminder) console.log(`  ⚠️ ${reminder}`);
+    } else if (step === "ready") {
+      sh("gh", ["pr", "ready", String(pr.number), "--repo", REPO]);
+      console.log(`  prête : ${pr.url}`);
+    } else if (step === "watch-merge") {
+      mergeWhenGreen(pr.number, message, reminder);
+    } else if (step === "cleanup") {
+      cleanupLocalBranch({
+        head: pr.headRefName,
+        base: pr.baseRefName,
+        mergedTip: pr.headRefOid,
+      });
+    } else if (step === "auto-merge") {
+      sh("gh", [
+        "pr",
+        "merge",
+        String(pr.number),
+        "--repo",
+        REPO,
+        "--squash",
+        "--delete-branch",
+        "--auto",
+        "--subject",
+        message.subject,
+        "--body",
+        message.body,
+      ]);
+      console.log(
+        "  fusion automatique programmée — enchaîner sur le ticket suivant",
+      );
+      if (reminder) console.log(`  ⚠️ ${reminder}`);
+    } else if (step === "print-watch") {
+      console.log(
+        `  à lancer EN ARRIÈRE-PLAN (jamais au premier plan), puis enchaîner sur le ticket suivant :\n    ${watchCommand(pr.number)}`,
+      );
+    }
   }
+}
+
+/**
+ * L'ORDRE des gestes de clôture — PURE : `main` les exécute tels quels.
+ *
+ * Deux défauts vécus à la fusion de #805 (#796) : `--merge-when-green` sautait
+ * le passage en « prête », et GitHub refusait la fusion d'un brouillon ; et
+ * `--dry-run` y était ignoré — la surveillance partait pour de vrai. Une PR en
+ * brouillon passe en « prête » AVANT toute fusion, quelle que soit la voie, et
+ * un essai à blanc ne fait que montrer. Après une fusion surveillée, la copie
+ * locale de la branche est nettoyée (`cleanupLocalBranch`) ; la fusion
+ * automatique, elle, a lieu plus tard, hors de ce processus.
+ *
+ * @param {{ dryRun: boolean, watch: boolean, isDraft: boolean,
+ *   mode: "auto" | "watch" }} facts - essai à blanc ? surveillance demandée ?
+ *   PR en brouillon ? voie choisie par {@link mergePlan}
+ * @returns {Array<"show" | "ready" | "watch-merge" | "cleanup" | "auto-merge" | "print-watch">}
+ */
+export function finishSteps({ dryRun, watch, isDraft, mode }) {
+  if (dryRun) return ["show"];
+  const ready = isDraft ? ["ready"] : [];
+  if (watch) return [...ready, "watch-merge", "cleanup"];
+  return [...ready, mode === "auto" ? "auto-merge" : "print-watch"];
 }
 
 /**
