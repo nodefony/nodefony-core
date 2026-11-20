@@ -44,7 +44,18 @@ export function reloadProbePath(pid: number): string {
   return path.join(RELOAD_PROBE_DIR, `reloadProbe${pid}.ts`);
 }
 
-/** Retire toutes les sondes présentes — celles d'une passe interrompue comprises. */
+/** Le `dist` de la feuille, où le cas rebâtit la sonde (`.js`, `.d.ts`…). */
+const PROBE_DIST_DIR = path.join(RELOAD_PROBE_DIR, "..", "dist");
+
+/** Une sortie bâtie de la sonde, quelle que soit son extension. */
+const PROBE_OUTPUT = /^reloadProbe\d+\./;
+
+/**
+ * Retire toutes les sondes présentes — celles d'une passe interrompue
+ * comprises — ET leurs sorties bâties : le cas rebâtit la feuille AVANT ce
+ * teardown, sonde comprise, et un `reloadProbe<pid>.d.ts` restait dans son
+ * `dist` jusqu'au prochain vrai build (revue #796, R3).
+ */
 function removeProbes(): void {
   let names: string[];
   try {
@@ -55,6 +66,17 @@ function removeProbes(): void {
   for (const name of names) {
     if (PROBE_NAME.test(name)) {
       rmSync(path.join(RELOAD_PROBE_DIR, name), { force: true });
+    }
+  }
+  let built: string[];
+  try {
+    built = readdirSync(PROBE_DIST_DIR, { recursive: true, encoding: "utf8" });
+  } catch {
+    return;
+  }
+  for (const rel of built) {
+    if (PROBE_OUTPUT.test(path.basename(rel))) {
+      rmSync(path.join(PROBE_DIST_DIR, rel), { force: true });
     }
   }
 }

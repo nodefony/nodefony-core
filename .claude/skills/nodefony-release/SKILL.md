@@ -202,7 +202,9 @@ est donc le cas normal, publier depuis `dev` ne l'est pas.
 
 **La répétition le DIT maintenant, et c'est le produit qui le dit.** Lancée hors de la branche de
 publication, elle rend l'avis avant tout geste — « HEAD « dev » n'appartient PAS à « main »
-(N commits d'avance) » — avec la commande exacte (`git checkout main && git merge --ff-only dev`).
+(N commits d'avance) » — avec le geste exact, depuis cette branche : `--write`, puis `--promouvoir`,
+qui pousse `<branche>:main` en avance rapide (jamais `git checkout main`, qui sautait la poussée de
+la branche publiée).
 C'est un avis, pas un refus : préparer d'ici est légitime, le découvrir après avoir estampillé
 tous les manifestes ne l'est pas. Auparavant les deux gardes ne parlaient qu'au moment d'AGIR, si
 bien qu'une répétition sur `dev` rendait un rapport tout vert et laissait croire la publication

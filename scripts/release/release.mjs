@@ -1534,7 +1534,8 @@ if (PUBLIER && !ECRIRE) {
         "  dans aucun commit, sous un tag qui promet autre chose. C'est le commit de\n" +
         "  release qui estampille, et il se relit AVANT que le tag ne soit posé :\n" +
         `       npm run release -- --version ${VERSION}${TAG_NPM ? ` --npm-tag ${TAG_NPM}` : ""} --write\n` +
-        `       git commit -am "chore(release): ${VERSION}" && git tag v${VERSION}`,
+        `       npm run release -- --version ${VERSION} --promouvoir   (commite, pousse, attend la forge)\n` +
+        `       git tag v${VERSION} <sha affiché> && git push origin v${VERSION}`,
     );
   }
   dire(`✓ cohérence — les ${paquets.length} paquets portent déjà ${VERSION}`);
