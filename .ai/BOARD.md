@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-20 12:43** (UTC).
+> Empreinte prise le **2026-11-20 13:02** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.x** | ![10.0.x](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/18?style=flat-square&label=) `████░░░░░░` 36% | 4 | 7 | 2026-11-27 |
+| **10.0.x** | ![10.0.x](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/18?style=flat-square&label=) `██████░░░░` 55% | 6 | 5 | 2026-11-27 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `███░░░░░░░` 32% | 7 | 15 | 2026-12-28 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `█░░░░░░░░░` 11% | 1 | 8 | 2027-01-11 |
 | **10.3.0** | ![10.3.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/12?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 12 | 2027-01-26 |
@@ -36,20 +36,19 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#802 — chore(deps): monter les correctifs tiers en retard pour la 10.0.1**
+**#794 — fix(http): libérer à coup sûr le scope d'un HEAD en HTTP/2**
 
-Ordre 1.017 · P2 — décision · 0.5 j · jalon 10.0.x · frise —
+Ordre 1.02 · P1 — figé à la création · 1 j · jalon 10.0.x · frise 2026-11-23 → 11-23
 
-> Choisi dans le **jalon courant `10.0.x`**, qui a encore 6 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.x`**, qui a encore 5 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.x — 6 ouverts
+## Jalon 10.0.x — 5 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 1.017 | P2 — décision | 0.5 | — | #802 | chore(deps): monter les correctifs tiers en retard pour la 10.0.1 |
 | 1.02 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #794 | fix(http): libérer à coup sûr le scope d'un HEAD en HTTP/2 |
 | 1.03 | P3 — fin de cycle | 1 | 2026-11-24 → 11-24 | #195 | fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée |
 | 1.04 | P1 — figé à la création | 1 | 2026-11-25 → 11-25 | #196 | fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique |
