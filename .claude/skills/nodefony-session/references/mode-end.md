@@ -108,12 +108,15 @@ git push                                    # le dépôt — commits + docs/ (cf
 MEM="$HOME/.claude/projects/-Users-cci-repository-nodefony-core/memory"
 git -C "$MEM" add -- "$MEM"                # la mémoire, fichiers neufs compris
 git -C "$MEM" add -u                         # le reste suivi de ~/.claude (CLAUDE.md, réglages)
-git -C "$MEM" -c user.name="Christophe CAMENSULI" -c user.email="ccamensuli@gmail.com" \
-  commit -q -m "docs(memoire): session <date>, <focus court>" && git -C "$MEM" push -q
+git -C "$MEM" commit -q -m "docs(memoire): session <date>, <focus court>" && git -C "$MEM" push -q
 ```
 
 La mémoire vit HORS du dépôt, dans le dépôt git privé de `~/.claude` tout entier (`add -u`
-sauvegarde aussi le `CLAUDE.md` global et les réglages ; `git add -A` est refusé par la garde). Non poussée, un crash la perd. La
+sauvegarde aussi le `CLAUDE.md` global et les réglages ; `git add -A` est refusé par la garde). Non poussée, un crash la perd.
+L'identité de commit est posée UNE fois dans `~/.claude/.git/config` (`git config --local
+user.name/user.email`) : jamais dans la commande — un e-mail écrit dans une recette part dans
+chaque transcript et fait buter la clôture sur le classifieur. Elle manque (« Author identity
+unknown ») → la poser une fois, pas la recopier ici. La
 restauration sur un poste neuf vit dans `~/.claude/README.md` — ne pas la recopier ici. ⚠️ Le
 dossier de mémoire encode le CHEMIN ABSOLU du projet : un poste qui range le dépôt ailleurs ne voit
 plus aucune mémoire, sans le dire.
