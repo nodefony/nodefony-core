@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | Description | 949 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 10 page(s) |
-| Scripts | 26 |
+| Scripts | 28 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -42,7 +42,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 ## Prérequis
 
-Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redis** · **gh authentifié** · **droits d'écriture sur le dépôt et le tableau**.
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redis** · **gh authentifié** · **droits d'écriture sur le dépôt et le tableau** · **droits d'écriture sur le dépôt et le tableau ; arbre propre**.
 
 ## Skills voisins
 
@@ -121,6 +121,8 @@ script, donc toujours à jour après régénération.
 | `scripts/ticket-progress.test.mjs` | Suite du marquage automatique « In Progress ». | — | — |
 | `scripts/ticket-reorder.mjs` | Réordonne un lot de tickets au tableau de bord : pose le champ `Ordre` ET la position physique sur la grille (le champ seul ne trie pas la vue). | `--dry-run` `--help` | — |
 | `scripts/ticket-severity.mjs` | Pose la gravité d'un ticket existant : la colonne « Gravité » du tableau de bord (classe de l'IEEE 1044, SOURCE de la classe) et, au corps, la ligne du motif — plus la ligne CVSS 3.1, score CALCULÉ, quand le défaut est une faille. | `--cvss` | — |
+| `scripts/ticket-start.mjs` | Entame (ou reprend) un ticket : sa branche de travail, sa PR en brouillon, son statut « En cours ». | `--slug` `--dry-run` | — |
+| `scripts/ticket-start.test.mjs` | Éprouve les règles PURES de `ticket-start.mjs` — les décisions 2, 3 et 4 de #796 : le nom de la branche, sa base, le corps de la PR, et le commit vide qui l'ouvre sans lancer de CI. / | — | — |
 | `scripts/ticket-verify.mjs` | ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies. | `--touched-by` `--dependents` | — |
 
 **Invocation telle que documentée dans chaque script :**
@@ -137,6 +139,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …
 node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
 node .claude/skills/nodefony-ticket/scripts/ticket-reorder.mjs 630=4.01 472=4.02 …
 node .claude/skills/nodefony-ticket/scripts/ticket-severity.mjs <N> "<Classe> — motif" [--cvss CVSS:3.1/…]
+node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N> --slug <sujet-en-anglais>
 node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs [<numéro>…]
 ```
 
@@ -259,6 +262,21 @@ node .claude/skills/nodefony-ticket/scripts/ticket-severity.mjs <N> "<Classe> �
 | Option | Rôle |
 | --- | --- |
 | `--cvss` | vecteur CVSS 3.1 d'une faille (le score est calculé et écrit au corps) |
+
+#### `scripts/ticket-start.mjs`
+
+Produit : la branche, sa base, la PR, et ce qui reste à faire à la main
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N> --slug <sujet-en-anglais>
+node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N>            (reprise d'une branche existante)
+node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N> --slug <sujet> --dry-run
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--slug` | sujet de la branche : anglais, kebab-case ASCII, 40 caractères au plus |
+| `--dry-run` | rend le plan (branche, base, corps de PR) sans rien créer |
 
 #### `scripts/ticket-verify.mjs`
 

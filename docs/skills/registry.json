@@ -11709,7 +11709,8 @@
       "requires": [
         "redis",
         "gh authentifié",
-        "droits d'écriture sur le dépôt et le tableau"
+        "droits d'écriture sur le dépôt et le tableau",
+        "droits d'écriture sur le dépôt et le tableau ; arbre propre"
       ],
       "resources": {
         "references": [
@@ -12133,6 +12134,37 @@
             "env": [],
             "output": "",
             "selfDocumented": true
+          },
+          {
+            "path": "scripts/ticket-start.mjs",
+            "purpose": "Entame (ou reprend) un ticket : sa branche de travail, sa PR en brouillon, son statut « En cours ».",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N> --slug <sujet-en-anglais>",
+              "node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N>            (reprise d'une branche existante)",
+              "node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N> --slug <sujet> --dry-run"
+            ],
+            "options": [
+              {
+                "flag": "--slug",
+                "help": "sujet de la branche : anglais, kebab-case ASCII, 40 caractères au plus"
+              },
+              {
+                "flag": "--dry-run",
+                "help": "rend le plan (branche, base, corps de PR) sans rien créer"
+              }
+            ],
+            "env": [],
+            "output": "la branche, sa base, la PR, et ce qui reste à faire à la main",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/ticket-start.test.mjs",
+            "purpose": "Éprouve les règles PURES de `ticket-start.mjs` — les décisions 2, 3 et 4 de #796 : le nom de la branche, sa base, le corps de la PR, et le commit vide qui l'ouvre sans lancer de CI. /",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
           },
           {
             "path": "scripts/ticket-verify.mjs",

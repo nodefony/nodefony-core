@@ -63,7 +63,22 @@ export function parseTargets(message) {
 async function main() {
   const sha = process.argv[2] || "HEAD";
   const message = sh("git", ["log", "-1", "--format=%B", sha]);
-  const targets = parseTargets(message);
+  markInProgress(parseTargets(message));
+}
+
+/**
+ * Passe des tickets OUVERTS du tableau de bord en « In Progress » — sans rien lever.
+ *
+ * SEULE implémentation du geste : le crochet `post-commit` l'appelle par `main`,
+ * `ticket-start.mjs` directement (son commit d'ouverture est un commit de
+ * pilotage, que `parseTargets` écarte à raison). Un ticket fermé, hors tableau ou
+ * déjà en cours est laissé tel quel ; une erreur sur UN ticket se tait, une
+ * erreur de lecture du tableau remonte à l'appelant (qui décide de se taire).
+ *
+ * @param {(string|number)[]} targets - numéros de tickets
+ * @returns {void}
+ */
+export function markInProgress(targets) {
   if (!targets.length) return;
 
   // Un seul aller-retour pour les identifiants, puis un par ticket. Si `gh` n'est
@@ -92,7 +107,7 @@ async function main() {
   ).fields;
   const status = fields.find((f) => f.name === "Status");
   const inProgress = status?.options?.find((o) => o.name === "In Progress");
-  if (!status || !inProgress) process.exit(0);
+  if (!status || !inProgress) return;
 
   for (const n of targets) {
     try {
