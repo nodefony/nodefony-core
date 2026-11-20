@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  closeReminder,
   countRequiredChecks,
   finishBlockers,
   finishNotices,
@@ -208,5 +209,19 @@ describe("finishNotices — ce que l'état de fusion dit sans interdire (#796, r
     expect(
       finishNotices({ mergeStateStatus: "BEHIND", base: "dev" })[0],
     ).toContain("git merge origin/dev");
+  });
+});
+
+describe("closeReminder — vers release/*, la fusion ne ferme rien (#796, revue G1)", () => {
+  it("Refs #N → rappel avec la commande de fermeture", () => {
+    const r = closeReminder({
+      body: "Ouverte par ticket-start.\n\nRefs #794\n",
+    });
+    expect(r).toContain("ne ferme PAS #794");
+    expect(r).toContain("ticket-close.mjs 794");
+  });
+
+  it("Closes #N (vers dev) → rien à rappeler", () => {
+    expect(closeReminder({ body: "Closes #900" })).toBeNull();
   });
 });

@@ -173,6 +173,28 @@ export function squashMessage({ title, number, body, commits }) {
   return { subject: `${title} (#${number})`, body: parts.join("\n\n") };
 }
 
+/**
+ * Le rappel de fermeture après fusion — PUR. Vers `dev` (branche par défaut),
+ * `Closes #N` ferme le ticket ; vers `release/*`, AUCUN mot-clé ne mord : la
+ * fusion laissait le ticket ouvert sans un mot (revue #796, G1).
+ *
+ * @param {{ body: string }} pr - corps de la PR (`Refs #N` posé par ticket-start)
+ * @returns {string | null} la consigne, ou `null` si la fusion ferme d'elle-même
+ */
+export function closeReminder({ body }) {
+  const refs = [...(body ?? "").matchAll(/^Refs #(\d+)$/gmu)].map((m) => m[1]);
+  if (refs.length === 0) return null;
+  return (
+    `la fusion ne ferme PAS ${refs.map((n) => `#${n}`).join(", ")} (base hors branche par défaut) — après fusion :\n` +
+    refs
+      .map(
+        (n) =>
+          `     node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs ${n}   (compte rendu, puis --close)`,
+      )
+      .join("\n")
+  );
+}
+
 /** Pied de rupture (Conventional Commits 1.0.0, règles 12 et 16). */
 const BREAKING_FOOTER = /^BREAKING[ -]CHANGE: \S/u;
 /** Pied de fermeture d'un ticket, mot-clé GitHub. */
@@ -418,7 +440,7 @@ function main() {
     console.log(`ℹ️ ${n}`);
 
   if (argv.includes("--merge-when-green")) {
-    mergeWhenGreen(pr.number, message);
+    mergeWhenGreen(pr.number, message, closeReminder(pr));
     return;
   }
 
@@ -438,6 +460,8 @@ function main() {
     );
     if (plan.mode === "watch")
       console.log(`  commande : ${watchCommand(pr.number)}`);
+    const reminder = closeReminder(pr);
+    if (reminder) console.log(`  ⚠️ ${reminder}`);
     return;
   }
 
@@ -462,6 +486,8 @@ function main() {
     console.log(
       "  fusion automatique programmée — enchaîner sur le ticket suivant",
     );
+    const reminder = closeReminder(pr);
+    if (reminder) console.log(`  ⚠️ ${reminder}`);
   } else {
     console.log(
       `  à lancer EN ARRIÈRE-PLAN (jamais au premier plan), puis enchaîner sur le ticket suivant :\n    ${watchCommand(pr.number)}`,
@@ -476,8 +502,9 @@ function main() {
  *
  * @param {number} number - numéro de la PR
  * @param {{ subject: string, body: string }} message
+ * @param {string | null} reminder - rappel de fermeture ({@link closeReminder})
  */
-function mergeWhenGreen(number, message) {
+function mergeWhenGreen(number, message, reminder) {
   const checks = spawnSync(
     "gh",
     ["pr", "checks", String(number), "--repo", REPO, "--watch", "--fail-fast"],
@@ -504,6 +531,7 @@ function mergeWhenGreen(number, message) {
     message.body,
   ]);
   console.log(`PR #${number} fusionnée — ${message.subject}`);
+  if (reminder) console.log(`⚠️ ${reminder}`);
 }
 
 if (process.argv[1]?.endsWith("pr-finish.mjs")) {
