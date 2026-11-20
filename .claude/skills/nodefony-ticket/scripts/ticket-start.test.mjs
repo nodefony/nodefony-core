@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  leaveBlocker,
   baseFor,
   branchName,
   commitPrefix,
@@ -130,5 +131,29 @@ describe("ticketBranches — retrouver la branche d'un ticket", () => {
     expect(ticketBranches(796, branches)).toEqual([
       "chore/796-branch-and-pr-first",
     ]);
+  });
+});
+
+describe("leaveBlocker — on ne quitte pas des commits non poussés (#796, revue P2-13)", () => {
+  it("refuse de quitter une branche dont des commits ne sont sur aucune référence d'origin", () => {
+    const r = leaveBlocker({
+      current: "fix/1-x",
+      target: "fix/2-y",
+      unpushed: 2,
+    });
+    expect(r).toContain("2 commit(s) NON poussé(s)");
+    expect(r).toContain("git push");
+  });
+
+  it("laisse passer : tout poussé, reprise de la même branche, tête détachée", () => {
+    expect(
+      leaveBlocker({ current: "fix/1-x", target: "fix/2-y", unpushed: 0 }),
+    ).toBeNull();
+    expect(
+      leaveBlocker({ current: "fix/1-x", target: "fix/1-x", unpushed: 3 }),
+    ).toBeNull();
+    expect(
+      leaveBlocker({ current: "", target: "fix/2-y", unpushed: 0 }),
+    ).toBeNull();
   });
 });

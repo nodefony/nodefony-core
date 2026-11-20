@@ -194,6 +194,25 @@ export function ticketBranches(n, branches) {
   return [...new Set(branches.filter((b) => ticketOfBranch(b) === n))].sort();
 }
 
+/**
+ * Ce qui interdit de QUITTER la branche courante — PUR (revue #796, P2-13).
+ *
+ * Des commits qui ne sont sur aucune référence d'`origin` n'ont ni CI ni
+ * sauvegarde : changer de branche les laisse derrière sans un mot, et le
+ * marque-page d'un ticket mis de côté est un commit POUSSÉ.
+ *
+ * @param {{ current: string, target: string, unpushed: number }} facts -
+ *   `unpushed` = commits de HEAD absents de toute branche d'origin
+ * @returns {string | null} le motif de refus, ou `null`
+ */
+export function leaveBlocker({ current, target, unpushed }) {
+  if (!current || current === target || unpushed === 0) return null;
+  return (
+    `${current} porte ${unpushed} commit(s) NON poussé(s) — les quitter les laisserait sans CI ni sauvegarde.\n` +
+    "  → git push   (puis relancer la même commande)"
+  );
+}
+
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -314,18 +333,46 @@ function main() {
   console.log(
     `#${n} ${issue.title}\n  jalon ${milestone ?? "aucun (backlog)"} → base ${base}\n  branche ${name}${resuming ? " (existante : reprise)" : " (neuve)"}`,
   );
+  const current = sh("git", ["branch", "--show-current"]);
+  const leave = leaveBlocker({
+    current,
+    target: name,
+    unpushed: current
+      ? Number(
+          sh("git", [
+            "rev-list",
+            "--count",
+            "HEAD",
+            "--not",
+            "--remotes=origin",
+          ]),
+        )
+      : 0,
+  });
   if (dryRun) {
+    if (leave) console.log(`⚠️ le geste réel le REFUSERA : ${leave}`);
     console.log(
       `\n— corps de la PR —\n${prBody(n, base, defaultBranch)}\n— commit d'ouverture —\n${openingCommitMessage(issue.title, n)}`,
     );
     return;
   }
 
+  if (leave) fail(leave);
   if (resuming) {
-    if (sh("git", ["branch", "--show-current"]) !== name)
-      sh("git", ["switch", name]);
+    if (current !== name) sh("git", ["switch", name]);
   } else {
     sh("git", ["switch", "-c", name, "--no-track", `origin/${base}`]);
+  }
+  // 🔴 L'installation se contrôle AVANT le commit et le push : le crochet
+  // `pre-push` rebâtit, et sur une installation qui ne décrit pas le verrou de
+  // la nouvelle base il échouait illisiblement (revue #796, G5). Le geste est
+  // idempotent : relancé après `npm ci`, il reprend où il s'est arrêté.
+  const drift = readInstallDrift(ROOT) ?? [];
+  if (drift.length) {
+    fail(
+      `installation ≠ verrou de ${name} (${drift.length} écart(s)) — rien n'est encore poussé.\n` +
+        `  → npm ci && npm run build, puis relancer : node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs ${n}`,
+    );
   }
   if (sh("git", ["rev-list", "--count", `origin/${base}..HEAD`]) === "0") {
     sh("git", [
@@ -376,12 +423,6 @@ function main() {
     console.log("  ⚠️ statut « In Progress » non posé (tableau injoignable)");
   }
 
-  const drift = readInstallDrift(ROOT) ?? [];
-  if (drift.length) {
-    console.log(
-      `  ⚠️ installation ≠ verrou de ${name} (${drift.length} écart(s)) → npm ci, puis npm run build`,
-    );
-  }
   if (base !== defaultBranch) {
     console.log(
       `  ↪ à la main : lien « Development » depuis ${issue.url} (colonne de droite → Development → PR #${pr.number})`,
