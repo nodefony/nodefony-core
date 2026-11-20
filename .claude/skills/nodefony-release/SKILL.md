@@ -123,8 +123,9 @@ commise, et elle coûte un cycle de forge entier.
 
 L'ordre juste est : estampiller → relire le changelog → `--promouvoir`, qui commite, fait
 avancer la branche de publication (`push dev:main`, et **rien d'autre**) et attend le verdict
-**sur ce commit-là**. `dev` n'est PAS poussée : tous les workflows se déclenchent sur `main` ET
-`dev`, pousser les deux rejouait toute la CI sur le même sha. Elle part avec le push suivant. Une seule
+**sur ce commit-là**. La branche d'où l'on publie (`dev`, `release/x.y.x`) part dans la MÊME
+poussée (`--atomic`) : en travail par PR, aucune autre poussée ne l'atteint, et une estampille restée
+locale fait partir le cran suivant de manifestes périmés (`planDePromotion`). Une seule
 attente, au seul endroit où elle prouve quelque chose. Ne pas retaper ces gestes à la main :
 leur ORDRE est ce qui compte, et c'est précisément ce qu'une consigne écrite ne garantit pas.
 

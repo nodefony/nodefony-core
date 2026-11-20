@@ -1291,30 +1291,82 @@ export function avisDeBranche({
 }
 
 /**
- * Ce que `--promouvoir` POUSSE : la seule branche de publication, jamais deux
- * fois le même commit.
+ * Le refus de MAINTENANCE : ce qu'une branche `release/x.y.x` vivante interdit à
+ * une publication faite depuis une AUTRE branche.
  *
- * Tous les workflows de la forge se déclenchent sur `main` ET sur `dev`.
- * Pousser `dev` puis `dev:main` faisait donc tourner TOUTE la CI deux fois sur
- * le même sha, alors que `garde-main` n'en lit qu'une (par `head_sha`, quelle
- * que soit la branche). La branche de travail n'est pas poussée : elle désigne
- * déjà ce commit, et partira avec le prochain push ordinaire, dont la CI aurait
- * tourné de toute façon. Si la poussée échoue, rien n'est publié — il n'y a
- * donc aucune trace à laisser sur la branche de travail.
+ * Toute publication avance `main` en avance rapide. Publier depuis `dev` alors
+ * que `release/x.y.x` porte des correctifs non publiés ferme la maintenance pour
+ * de bon : `release/x.y.x:main` ne sera plus jamais une avance rapide, et
+ * `npm` (≥ 11) refuse d'étiqueter `latest` une version inférieure. Ces correctifs
+ * ne pourraient plus sortir qu'avec la mineure suivante — y compris par une
+ * simple préversion. D'où la décision D9 (#796) : **pas de publication depuis
+ * `dev` tant qu'un correctif publiable attend sur `release/x.y.x`** — on publie
+ * le x.y.z d'abord, ou l'on déplace le correctif.
+ *
+ * Second motif, l'oubli de la fusion arrière : une `release/x.y.x` dont le
+ * contenu n'est pas dans la branche publiée laisse hors de la publication
+ * l'estampille et le changelog du dernier x.y.z — et sans eux `git describe`
+ * borne mal le changelog suivant (cf `git-scm.com/docs/gitworkflows`, « merge
+ * upwards »).
+ *
+ * Seuls comptent les commits qui atteignent un installeur ({@link perimetrePublie}) :
+ * l'outillage de pilotage, qui part de la plus ancienne `release/*`, ne bloque
+ * rien. Pure : l'état des branches est INJECTÉ.
+ *
+ * @param {object} etat
+ * @param {string | null} etat.branche - la branche d'où l'on publie (`null` : HEAD détaché)
+ * @param {Array<{ nom: string, fusionnee: boolean, nonPublies: number }>} etat.maintenance -
+ *   par `origin/release/*` : contenue dans HEAD ?, et nombre de commits PUBLIABLES absents de `main`
+ * @returns le texte du refus, ou `null` s'il n'y a rien à refuser
+ */
+export function refusDeMaintenance({ branche, maintenance }) {
+  if (branche === null || branche.startsWith("release/")) return null;
+  const motifs = [];
+  for (const m of maintenance) {
+    if (m.nonPublies > 0) {
+      motifs.push(
+        `${m.nom} porte ${m.nonPublies} commit(s) publiable(s) absent(s) de main.\n` +
+          `    Publier depuis ${branche} fermerait la maintenance : ${m.nom}:main ne serait\n` +
+          "    plus une avance rapide, et ces correctifs ne sortiraient qu'avec la mineure.\n" +
+          `    → publier d'abord le correctif depuis ${m.nom} (D9), ou y annuler ces commits.`,
+      );
+    } else if (!m.fusionnee) {
+      motifs.push(
+        `${m.nom} n'est pas fusionnée dans ${branche} — fusion arrière due.\n` +
+          "    Sans elle, l'estampille et le changelog du dernier correctif manquent à\n" +
+          "    cette publication, et le changelog suivant se borne mal.\n" +
+          `    → fusionner origin/main puis ${m.nom} dans ${branche} (commit de FUSION, pas de squash).`,
+      );
+    }
+  }
+  return motifs.length
+    ? `publication depuis ${branche} refusée :\n  · ${motifs.join("\n  · ")}`
+    : null;
+}
+
+/**
+ * Ce que `--promouvoir` POUSSE : la branche de publication ET la branche d'où
+ * l'on publie, en UNE poussée atomique.
+ *
+ * La branche d'où l'on publie (`dev`, `release/x.y.x`) DOIT porter l'estampille
+ * sur `origin`. Le travail se fait en demandes de fusion : plus aucune poussée
+ * ordinaire n'atteint une branche longue, donc une estampille laissée en local
+ * n'y arrive jamais. La suite part alors d'une `origin/<branche>` aux manifestes
+ * de la version PRÉCÉDENTE, et sa propre promotion `<branche>:main` est refusée
+ * (plus d'avance rapide). L'ancienne règle — ne pousser que la branche de
+ * publication pour ne pas rejouer la CI sur le même sha — datait du travail
+ * direct sur `dev` : le prix est une seconde CI, en parallèle, sur ce commit.
+ * Atomique : les deux références avancent ensemble, ou aucune.
  *
  * @param {{branche: string, branchePublication: string}} p
- * @returns {{refspec: string, brancheEnAttente: string | null}} la référence à
- *   pousser vers `origin`, et la branche de travail laissée en avance locale
- *   (`null` quand on promeut depuis la branche de publication elle-même).
+ * @returns {{refspecs: string[]}} les références à pousser vers `origin`, dans
+ *   une seule poussée `--atomic`.
  */
 export function planDePromotion({ branche, branchePublication }) {
   if (branche === branchePublication) {
-    return { refspec: branchePublication, brancheEnAttente: null };
+    return { refspecs: [branchePublication] };
   }
-  return {
-    refspec: `${branche}:${branchePublication}`,
-    brancheEnAttente: branche,
-  };
+  return { refspecs: [`${branche}:${branchePublication}`, branche] };
 }
 
 /**

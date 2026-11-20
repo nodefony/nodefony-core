@@ -48,6 +48,7 @@ import {
   refusDePublicationHorsBranche,
   avisDeBranche,
   planDePromotion,
+  refusDeMaintenance,
   verdictCiDuCommit,
   WORKFLOWS_NON_BLOQUANTS,
   MAX_BUFFER_GIT,
@@ -2707,16 +2708,24 @@ describe("detecterContenuSuspect — ce que le CONTENU publié ne doit pas porte
 });
 
 describe("promotion — un seul push, jamais deux fois le même commit", () => {
-  it("depuis la branche de travail, ne pousse QUE la branche de publication", () => {
+  it("depuis une branche longue, pousse AUSSI cette branche — sinon l'estampille n'atteint jamais origin", () => {
+    // En travail par PR, aucune poussée ordinaire n'atteint plus une branche
+    // longue : la 10.0.2 serait partie d'une origin/release/10.0.x en 10.0.0.
+    expect(
+      planDePromotion({
+        branche: "release/10.0.x",
+        branchePublication: "main",
+      }),
+    ).toEqual({ refspecs: ["release/10.0.x:main", "release/10.0.x"] });
     expect(
       planDePromotion({ branche: "dev", branchePublication: "main" }),
-    ).toEqual({ refspec: "dev:main", brancheEnAttente: "dev" });
+    ).toEqual({ refspecs: ["dev:main", "dev"] });
   });
 
   it("depuis la branche de publication, la pousse telle quelle", () => {
     expect(
       planDePromotion({ branche: "main", branchePublication: "main" }),
-    ).toEqual({ refspec: "main", brancheEnAttente: null });
+    ).toEqual({ refspecs: ["main"] });
   });
 
   it("release.mjs ne pousse qu'UNE fois — la forge se déclenche sur main ET dev", () => {
@@ -2729,5 +2738,57 @@ describe("promotion — un seul push, jamais deux fois le même commit", () => {
     );
     const pushes = source.match(/git\(\s*"push"/g) ?? [];
     expect(pushes).toHaveLength(1);
+  });
+});
+
+describe("refusDeMaintenance — une release/x.y.x vivante (D9, #796)", () => {
+  const m = (extra) => ({
+    nom: "release/10.0.x",
+    fusionnee: true,
+    nonPublies: 0,
+    ...extra,
+  });
+
+  it("refuse de publier depuis dev tant qu'un correctif publiable attend sur release/x.y.x", () => {
+    const refus = refusDeMaintenance({
+      branche: "dev",
+      maintenance: [m({ nonPublies: 3, fusionnee: false })],
+    });
+    expect(refus).toContain("release/10.0.x porte 3 commit(s) publiable(s)");
+    expect(refus).toContain("D9");
+  });
+
+  it("refuse une fusion arrière oubliée, avec le geste", () => {
+    const refus = refusDeMaintenance({
+      branche: "dev",
+      maintenance: [m({ fusionnee: false })],
+    });
+    expect(refus).toContain("fusion arrière due");
+    expect(refus).toContain("commit de FUSION");
+  });
+
+  it("laisse passer une maintenance publiée et fusionnée, ou absente", () => {
+    expect(
+      refusDeMaintenance({ branche: "dev", maintenance: [m()] }),
+    ).toBeNull();
+    expect(refusDeMaintenance({ branche: "dev", maintenance: [] })).toBeNull();
+  });
+
+  it("ne s'applique pas à une publication depuis la maintenance elle-même", () => {
+    expect(
+      refusDeMaintenance({
+        branche: "release/10.0.x",
+        maintenance: [m({ nonPublies: 2, fusionnee: false })],
+      }),
+    ).toBeNull();
+  });
+
+  it("se tait sur un HEAD détaché : la branche est inconnue", () => {
+    expect(
+      refusDeMaintenance({
+        branche: null,
+        maintenance: [m({ nonPublies: 1 })],
+      }),
+    ).toBeNull();
   });
 });

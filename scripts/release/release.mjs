@@ -125,6 +125,7 @@ import {
   trierPourRecalage,
   phasesDeLaPasse,
   refusDePublicationHorsBranche,
+  refusDeMaintenance,
   avisDeBranche,
   planDePromotion,
   referencesFigees,
@@ -691,8 +692,57 @@ const git = (...args) =>
 //
 // Idempotent : relancé après un commit d'estampille déjà fait, il le CONSTATE au
 // lieu d'en créer un second — la reprise après une CI rouge est le cas normal.
+/**
+ * L'état des branches de maintenance `origin/release/*`, vu depuis HEAD — la
+ * matière de {@link refusDeMaintenance}, lue sur les références DISTANTES (une
+ * locale en retard mentirait).
+ *
+ * @returns {Array<{ nom: string, fusionnee: boolean, nonPublies: number }>}
+ */
+const constaterMaintenance = () => {
+  const noms = git(
+    "for-each-ref",
+    "--format=%(refname:strip=3)",
+    "refs/remotes/origin/release/",
+  )
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (noms.length === 0) return [];
+  const estPublie = perimetrePublie(listerPubliables());
+  return noms.map((nom) => {
+    const ref = `refs/remotes/origin/${nom}`;
+    let fusionnee = true;
+    try {
+      git("merge-base", "--is-ancestor", ref, "HEAD");
+    } catch {
+      fusionnee = false;
+    }
+    // Un bloc par commit : « @<sha> » puis ses fichiers.
+    const brut = git(
+      "log",
+      "--format=@%H",
+      "--name-only",
+      `refs/remotes/origin/${BRANCHE_PUBLICATION}..${ref}`,
+    );
+    let nonPublies = 0;
+    for (const bloc of brut.split("@").slice(1)) {
+      const fichiers = bloc.split("\n").slice(1).filter(Boolean);
+      if (fichiers.some(estPublie)) nonPublies++;
+    }
+    return { nom, fusionnee, nonPublies };
+  });
+};
+
 if (PROMOUVOIR) {
   etape = "promotion";
+  {
+    const refus = refusDeMaintenance({
+      branche: git("rev-parse", "--abbrev-ref", "HEAD").trim(),
+      maintenance: constaterMaintenance(),
+    });
+    if (refus) echouer(refus);
+  }
   if (!VERSION) {
     echouer(
       "`--promouvoir` a besoin de la version qu'il promeut.\n" +
@@ -770,23 +820,21 @@ if (PROMOUVOIR) {
 
   const sha = git("rev-parse", "HEAD");
 
-  // (3) Pousser la SEULE branche de publication — jamais deux fois le même
-  // commit : la règle et son pourquoi vivent dans `planDePromotion`.
+  // (3) Pousser la branche de publication ET la branche d'où l'on publie, d'un
+  // seul geste atomique : la règle et son pourquoi vivent dans `planDePromotion`.
   const plan = planDePromotion({
     branche,
     branchePublication: BRANCHE_PUBLICATION,
   });
-  git("push", "origin", plan.refspec);
-  if (plan.brancheEnAttente) {
+  git("push", "--atomic", "origin", ...plan.refspecs);
+  if (branche !== BRANCHE_PUBLICATION) {
     // Pousser `<branche>:<pub>` avance la branche DISTANTE et laisse la locale
     // où elle était. Un `main` local en retard fait ensuite mentir tout ce qui
     // l'interroge — d'où ce rapatriement, qui n'est pas du rangement.
     git("fetch", "origin", `${BRANCHE_PUBLICATION}:${BRANCHE_PUBLICATION}`);
     dire(
-      `✓ ${BRANCHE_PUBLICATION} avancée sur ${sha.slice(0, 8)}\n` +
-        `  · ${plan.brancheEnAttente} NON poussée, délibérément : elle partira avec le\n` +
-        "    prochain push ordinaire — la pousser maintenant rejouerait toute la CI\n" +
-        "    sur le même commit.",
+      `✓ ${BRANCHE_PUBLICATION} et ${branche} avancées sur ${sha.slice(0, 8)}` +
+        " (une CI par branche, en parallèle, sur ce commit)",
     );
   } else {
     dire(`✓ ${BRANCHE_PUBLICATION} poussée — ${sha.slice(0, 8)}`);
@@ -1040,6 +1088,13 @@ if (!PUBLIER) {
     avance: etat.avance,
   });
   if (avis) alerter(avis);
+  // Même règle qu'à la promotion : un AVIS en répétition, un REFUS dès qu'on
+  // estampille — le découvrir après quinze manifestes réécrits est le pire moment.
+  const maintenance = refusDeMaintenance({
+    branche: branche === "(HEAD détaché)" ? null : branche,
+    maintenance: constaterMaintenance(),
+  });
+  if (maintenance) (ECRIRE ? echouer : alerter)(maintenance);
 }
 
 // À la PUBLICATION, la branche courante ne dit rien (HEAD détaché) : c'est
