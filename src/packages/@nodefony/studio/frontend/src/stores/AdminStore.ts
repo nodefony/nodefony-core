@@ -1,4 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import { readLoginPage } from "../auth/loginTarget";
 import type { ApiClient } from "../services/ApiClient";
 
 /**
@@ -108,6 +109,15 @@ export class AdminStore {
   frameworkRepository: boolean | null = null;
 
   /**
+   * Chemin de la page de connexion que le framework sert pour l'application
+   * (`/login` par défaut), lu sur `/studio/api/info`. `null` quand il n'en sert
+   * pas — la console garde alors sa page de secours ; `undefined` tant que
+   * l'info n'est pas chargée. Un échec vaut `null` : la page de secours marche
+   * toujours, une adresse supposée pourrait ne mener nulle part.
+   */
+  loginPage: string | null | undefined = undefined;
+
+  /**
    * Clés des modules CHARGÉS par le serveur, lues sur le data plane authentifié
    * (`/nodefony/kernel/api/modules`) — jamais sur `/info`, public : la
    * composition d'une application n'a pas à être donnée à un anonyme. `null`
@@ -154,16 +164,19 @@ export class AdminStore {
       const info = await this.api.get<{
         env?: string;
         frameworkRepository?: boolean;
+        loginPage?: unknown;
       }>("/info");
       runInAction(() => {
         this.env = typeof info.env === "string" ? info.env : null;
         this.frameworkRepository = info.frameworkRepository === true;
+        this.loginPage = readLoginPage(info.loginPage);
       });
     } catch {
       /* identité inconnue → aucun filtrage par environnement ; le dépôt, lui,
-         n'est pas supposé */
+         n'est pas supposé, ni la page de connexion de l'application */
       runInAction(() => {
         this.frameworkRepository = false;
+        this.loginPage = null;
       });
     }
   }

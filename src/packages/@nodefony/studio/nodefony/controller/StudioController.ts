@@ -15,6 +15,15 @@ import {
   type AppMeta,
 } from "../realtime/providers";
 import { isFrameworkRepository } from "nodefony";
+import type { ILoginPageDescription } from "nodefony";
+
+/**
+ * Ce que la console lit du service `authFlow` (@nodefony/security, qu'elle
+ * n'importe pas) : la description de la page de connexion par défaut.
+ */
+interface ILoginPageSource {
+  describeLoginPage(): ILoginPageDescription | null;
+}
 
 /** Décor « dépôt du framework », constaté une fois par racine : il ne change pas en cours de vie. */
 let frameworkRepository: { root: string; value: boolean } | null = null;
@@ -216,6 +225,14 @@ class StudioController extends Controller {
     // application garde la réponse d'avant, octet pour octet — aucun champ de
     // plus pour l'empreinter. Il sert à réserver au dépôt ce qui ne parle que
     // du framework (la feuille de route de Studio).
+    // `loginPage` : le chemin de la page de connexion que le framework sert —
+    // la garde de la console y conduit l'anonyme, sa propre page ne restant
+    // qu'en secours. Un chemin public par nature (la page se sert sans
+    // connexion) ; absent quand elle n'est pas servie (désactivée, ou
+    // security absent).
+    const loginPage = this.context?.container
+      ?.get<ILoginPageSource>("authFlow")
+      ?.describeLoginPage()?.path;
     return this.renderJson({
       name: "Nodefony Studio",
       version: "10.0.0-poc.1",
@@ -223,6 +240,7 @@ class StudioController extends Controller {
       ...(inFrameworkRepository(this.kernel?.path)
         ? { frameworkRepository: true }
         : {}),
+      ...(loginPage ? { loginPage } : {}),
     });
   }
 

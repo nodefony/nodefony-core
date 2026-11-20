@@ -2072,7 +2072,7 @@ export class DebugBar {
         sockCls = "warn";
       } else if (this.refused) {
         sockText =
-          "pas de session administrateur — se connecter à la console (/nodefony/login)";
+          "pas de session administrateur — se connecter à la console (/nodefony)";
         sockCls = "crit";
       } else if (this.kident) {
         sockText = "fermée alors qu'un compte est déclaré — voir la console";
@@ -2712,7 +2712,7 @@ export class DebugBar {
    */
   private runtimePane(): string {
     return `<div class="pane rtp" data-pane="runtime">
-      <p class="kintro" data-el="rDenied" hidden>Réservé à une session administrateur : ces lectures sont celles de la page Runtime de la console. <a href="/nodefony/login">Se connecter</a></p>
+      <p class="kintro" data-el="rDenied" hidden>Réservé à une session administrateur : ces lectures sont celles de la page Runtime de la console. <a href="/nodefony">Se connecter</a></p>
       <div class="rgrid" data-el="rGrid">
         <div class="card hero r-srv"><div class="ttl">Ce serveur<span class="spacer"></span><a class="toolbtn" href="/nodefony/runtime" target="_blank" rel="noopener noreferrer" data-tip="La page complète dans la console : topologie, Vite, et comment Nodefony fait tourner les fronts">↗ Studio</a><button type="button" class="toolbtn" data-el="btnRtRead" aria-label="Relire le serveur" data-tip="Relire — une lecture à la demande, jamais en boucle : la liste des process interroge le système">⟳</button></div><div data-el="rSrv"></div></div>
         <div class="card r-proc"><div class="ttl">Process <span data-el="rProcN"></span></div><div data-el="rProc"></div></div>
