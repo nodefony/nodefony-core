@@ -104,6 +104,50 @@ export function syncStart({ current, exists, inTarget }) {
 }
 
 /**
+ * Ce que devient la copie LOCALE de la branche d'une PR qui vient d'être fusionnée — PURE.
+ *
+ * `gh pr merge --delete-branch --repo …` supprime la branche sur GitHub, jamais
+ * la copie locale : `--repo` coupe gh de l'arbre de travail. Elle restait donc,
+ * et le graphe de l'auteur se chargeait de branches mortes (#796). Une fusion
+ * en squash crée une empreinte NEUVE : `git branch -d` refuse, il faut `-D` —
+ * un geste destructeur, qui n'est permis que sur une identité prouvée : la tête
+ * locale ÉGALE celle que GitHub a fusionnée. Un commit local de plus (ou une
+ * tête différente) et la branche est gardée, en le disant.
+ *
+ * @param {{ head: string, base: string, current: string, dirty: boolean,
+ *   localTip: string | null, mergedTip: string }} facts - branche de la PR,
+ *   sa base, la branche courante, l'arbre est-il sale, tête de la copie locale
+ *   (`null` si absente), tête fusionnée par GitHub
+ * @returns {{ switchTo: string | null, deleteLocal: boolean, reason: string }}
+ */
+export function localCleanupPlan({
+  head,
+  base,
+  current,
+  dirty,
+  localTip,
+  mergedTip,
+}) {
+  const keep = (reason) => ({ switchTo: null, deleteLocal: false, reason });
+  if (localTip === null) return keep(`aucune copie locale de ${head}`);
+  if (localTip !== mergedTip)
+    return keep(
+      `${head} locale (${localTip.slice(0, 9)}) n'est pas la tête fusionnée (${mergedTip.slice(0, 9)}) — gardée ; la supprimer à la main après vérification : git branch -D ${head}`,
+    );
+  if (current !== head)
+    return { switchTo: null, deleteLocal: true, reason: `${head} supprimée` };
+  if (dirty)
+    return keep(
+      `${head} est la branche courante et l'arbre n'est pas propre — gardée ; commiter ou ranger, puis : git switch ${base} && git branch -D ${head}`,
+    );
+  return {
+    switchTo: base,
+    deleteLocal: true,
+    reason: `retour sur ${base}, ${head} supprimée`,
+  };
+}
+
+/**
  * Les références à fusionner, dans l'ordre — PURE : les ancêtres sont constatés.
  *
  * @param {string} maintenance - `release/x.y.x`
@@ -183,6 +227,45 @@ export function isAncestor(ancestor, ref) {
       cwd: ROOT,
     }).status === 0
   );
+}
+
+/**
+ * Applique {@link localCleanupPlan} après une fusion : retour sur la base mise à
+ * jour si l'on était sur la branche fusionnée, puis suppression de sa copie locale.
+ *
+ * @param {{ head: string, base: string, mergedTip: string }} pr - branche de
+ *   la PR, sa base, tête fusionnée par GitHub
+ */
+export function cleanupLocalBranch({ head, base, mergedTip }) {
+  const tip = spawnSync(
+    "git",
+    ["rev-parse", "--verify", "--quiet", `refs/heads/${head}`],
+    { cwd: ROOT, encoding: "utf8" },
+  );
+  const plan = localCleanupPlan({
+    head,
+    base,
+    current: sh("git", ["branch", "--show-current"]),
+    dirty: sh("git", ["status", "--porcelain"]) !== "",
+    localTip: tip.status === 0 ? tip.stdout.trim() : null,
+    mergedTip,
+  });
+  if (plan.switchTo) {
+    sh("git", ["fetch", "origin", "--prune", "--quiet"]);
+    // `git switch <base>` crée la locale depuis `origin/<base>` si elle manque.
+    sh("git", ["switch", plan.switchTo]);
+    const ff = spawnSync(
+      "git",
+      ["merge", "--ff-only", "--quiet", `origin/${plan.switchTo}`],
+      { cwd: ROOT, encoding: "utf8" },
+    );
+    if (ff.status !== 0)
+      console.log(
+        `  ⚠️ ${plan.switchTo} locale a divergé d'origin — non avancée : git merge --ff-only origin/${plan.switchTo} à instruire`,
+      );
+  }
+  if (plan.deleteLocal) sh("git", ["branch", "-D", head]);
+  console.log(`  branche locale : ${plan.reason}`);
 }
 
 /** Les branches `release/*` distantes, `origin/` retiré — après un `git fetch`. */
@@ -330,7 +413,7 @@ function mergeWhenGreen(number) {
       "--repo",
       REPO,
       "--json",
-      "title,baseRefName,headRefName",
+      "title,baseRefName,headRefName,headRefOid",
     ]),
   );
   if (pr.baseRefName !== TARGET || !pr.headRefName.startsWith("chore/merge-"))
@@ -356,6 +439,11 @@ function mergeWhenGreen(number) {
     `${pr.title} (#${number})`,
   ]);
   console.log(`PR #${number} fusionnée (commit de fusion) — ${pr.title}`);
+  cleanupLocalBranch({
+    head: pr.headRefName,
+    base: pr.baseRefName,
+    mergedTip: pr.headRefOid,
+  });
 }
 
 if (process.argv[1]?.endsWith("release-sync.mjs")) {

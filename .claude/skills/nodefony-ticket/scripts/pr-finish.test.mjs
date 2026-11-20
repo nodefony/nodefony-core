@@ -9,6 +9,7 @@ import {
   countRequiredChecks,
   finishBlockers,
   finishNotices,
+  finishSteps,
   mergePlan,
   squashMessage,
   watchCommand,
@@ -302,5 +303,38 @@ describe("squashMessage — pied sur plusieurs lignes, grammaire du changelog (#
     );
     expect(body).toContain("- fix(orm)!: b\n  BREAKING CHANGE: c casse");
     expect(body.endsWith("Squash-Of: #3")).toBe(true);
+  });
+});
+
+describe("finishSteps — l'ordre des gestes de clôture (#796, fusion de #805)", () => {
+  it("--merge-when-green sur un brouillon passe la PR en « prête » AVANT de fusionner, puis nettoie la copie locale", () => {
+    expect(
+      finishSteps({ dryRun: false, watch: true, isDraft: true, mode: "watch" }),
+    ).toEqual(["ready", "watch-merge", "cleanup"]);
+  });
+
+  it("--dry-run ne fait que montrer, même avec --merge-when-green", () => {
+    expect(
+      finishSteps({ dryRun: true, watch: true, isDraft: true, mode: "watch" }),
+    ).toEqual(["show"]);
+  });
+
+  it("sans surveillance : prête, puis la commande à lancer en arrière-plan ou la fusion automatique", () => {
+    expect(
+      finishSteps({
+        dryRun: false,
+        watch: false,
+        isDraft: true,
+        mode: "watch",
+      }),
+    ).toEqual(["ready", "print-watch"]);
+    expect(
+      finishSteps({
+        dryRun: false,
+        watch: false,
+        isDraft: false,
+        mode: "auto",
+      }),
+    ).toEqual(["auto-merge"]);
   });
 });

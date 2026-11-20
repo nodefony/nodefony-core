@@ -11988,7 +11988,7 @@
               },
               {
                 "flag": "--merge-when-green",
-                "help": "attend les checks (arrêt au premier rouge) puis fusionne en squash avec le message composé"
+                "help": "passe la PR en « prête », attend les checks (arrêt au premier rouge), fusionne en squash avec le message composé, puis retire la copie locale de la branche"
               }
             ],
             "env": [],
