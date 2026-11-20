@@ -501,28 +501,50 @@ const modules = [
       : [];
   }),
 ];
+// Le point d'entrée bâti : `dist/index.js` pour un paquet, `dist/node/index.js`
+// pour le cœur (isomorphe). Ne lire que le premier faisait taire le contrôle sur
+// le cœur, le module le plus souvent périmé.
+const distEntry = (m) =>
+  [
+    path.join(m, "dist", "index.js"),
+    path.join(m, "dist", "node", "index.js"),
+  ].find((p) => fs.existsSync(p)) ?? null;
 const stale = modules.filter((m) => {
-  const dist = path.join(m, "dist", "index.js");
-  return fs.existsSync(dist) && newestTs(m) > fs.statSync(dist).mtimeMs;
+  const dist = distEntry(m);
+  return dist !== null && newestTs(m) > fs.statSync(dist).mtimeMs;
 });
 // Le CONTENU du verrou contre ce que npm a posé — une date se trompe dans les
 // deux sens dès qu'on change de branche (`install-drift.mjs`).
 const drift = readInstallDrift(ROOT) ?? [];
-say(
-  stale.length || drift.length
-    ? `⚠️ ${
-        stale.length
-          ? `dist périmé : ${stale
-              .map((m) => path.basename(m))
-              .slice(0, 5)
-              .join(", ")}${stale.length > 5 ? "…" : ""} → npm run build`
-          : ""
-      }${stale.length && drift.length ? " · " : ""}${
-        drift.length
-          ? `installation ≠ verrou de la branche (${drift.length} écart(s), ex. ${clip(drift[0], 60)}) → npm ci`
-          : ""
-      }`
-    : "✅ dist et installation à jour",
+// Un clone NEUF n'a ni `node_modules` ni `dist` : rien n'y est « périmé », et
+// les deux filtres ci-dessus se taisaient — la reprise disait « à jour » sur un
+// dépôt qui ne pouvait rien lancer. Une absence se nomme avec son geste.
+const notInstalled = !fs.existsSync(
+  path.join(ROOT, "node_modules", ".package-lock.json"),
 );
+const notBuilt = distEntry(path.join(ROOT, "src", "nodefony")) === null;
+if (notInstalled || notBuilt)
+  say(
+    `⚠️ ${notInstalled ? "installation absente" : "dist absent"} (clone neuf ?) → ${
+      notInstalled ? "npm ci && " : ""
+    }npm run build`,
+  );
+else
+  say(
+    stale.length || drift.length
+      ? `⚠️ ${
+          stale.length
+            ? `dist périmé : ${stale
+                .map((m) => path.basename(m))
+                .slice(0, 5)
+                .join(", ")}${stale.length > 5 ? "…" : ""} → npm run build`
+            : ""
+        }${stale.length && drift.length ? " · " : ""}${
+          drift.length
+            ? `installation ≠ verrou de la branche (${drift.length} écart(s), ex. ${clip(drift[0], 60)}) → npm ci`
+            : ""
+        }`
+      : "✅ dist et installation à jour",
+  );
 
 console.log(out.join("\n"));
