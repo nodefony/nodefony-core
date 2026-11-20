@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import {
   carriedReleases,
+  localCleanupPlan,
   pickMaintenance,
   syncBranchName,
   syncPlan,
@@ -130,5 +131,44 @@ describe("syncStart — reprendre la fusion en cours, jamais une fusion passée"
     expect(syncStart({ current: false, exists: false, inTarget: false })).toBe(
       "create",
     );
+  });
+});
+
+describe("localCleanupPlan — la copie locale d'une branche fusionnée (#796)", () => {
+  const facts = {
+    head: "chore/796-x",
+    base: "release/10.0.x",
+    current: "dev",
+    dirty: false,
+    localTip: "a".repeat(40),
+    mergedTip: "a".repeat(40),
+  };
+
+  it("supprime la copie locale quand elle EST la tête fusionnée, sans changer de branche", () => {
+    expect(localCleanupPlan(facts)).toMatchObject({
+      switchTo: null,
+      deleteLocal: true,
+    });
+  });
+
+  it("revient sur la base quand on était sur la branche fusionnée, puis la supprime", () => {
+    expect(
+      localCleanupPlan({ ...facts, current: "chore/796-x" }),
+    ).toMatchObject({ switchTo: "release/10.0.x", deleteLocal: true });
+  });
+
+  it("GARDE une copie locale qui porte autre chose que la tête fusionnée — jamais de -D à l'aveugle", () => {
+    const plan = localCleanupPlan({ ...facts, localTip: "b".repeat(40) });
+    expect(plan).toMatchObject({ switchTo: null, deleteLocal: false });
+    expect(plan.reason).toContain("git branch -D chore/796-x");
+  });
+
+  it("GARDE la branche courante sur un arbre sale, et rien quand elle n'existe pas en local", () => {
+    expect(
+      localCleanupPlan({ ...facts, current: "chore/796-x", dirty: true }),
+    ).toMatchObject({ switchTo: null, deleteLocal: false });
+    expect(localCleanupPlan({ ...facts, localTip: null })).toMatchObject({
+      deleteLocal: false,
+    });
   });
 });
