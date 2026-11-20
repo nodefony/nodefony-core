@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-19T23:43:00.865Z",
+  "generatedAt": "2026-11-20T11:55:32.917Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 0,
+      "closed": 4,
       "dueOn": "2026-11-27T00:00:00Z",
       "number": 18,
-      "open": 9,
+      "open": 7,
       "title": "10.0.x"
     },
     {
@@ -346,7 +346,7 @@
       "number": 797,
       "title": "fix(scaffold): réparer l'accueil généré et y guider la connexion",
       "url": "https://github.com/nodefony/nodefony-core/issues/797",
-      "state": "OPEN",
+      "state": "CLOSED",
       "status": "In Progress",
       "milestone": "10.0.x",
       "priorite": "P1 — figé à la création",
@@ -404,8 +404,8 @@
       "number": 801,
       "title": "fix(login): une seule page de connexion vue, celle de la console en secours",
       "url": "https://github.com/nodefony/nodefony-core/issues/801",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "In Progress",
       "milestone": "10.0.x",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -421,7 +421,7 @@
       "title": "chore(deps): monter les correctifs tiers en retard pour la 10.0.1",
       "url": "https://github.com/nodefony/nodefony-core/issues/802",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.x",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -7392,7 +7392,7 @@
       "title": "test(ecosysteme): éprouver le framework par un module tiers temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/445",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 3.25,
