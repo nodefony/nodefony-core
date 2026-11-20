@@ -381,7 +381,15 @@ function main() {
                 ".[].headRefOid",
               ])
                 .split("\n")
-                .filter((oid) => /^[0-9a-f]{40}$/u.test(oid)),
+                // Une tête absente du dépôt local n'est pas dans l'histoire de
+                // HEAD : la passer à rev-list le ferait échouer (« bad object »).
+                .filter(
+                  (oid) =>
+                    /^[0-9a-f]{40}$/u.test(oid) &&
+                    spawnSync("git", ["cat-file", "-e", `${oid}^{commit}`], {
+                      cwd: ROOT,
+                    }).status === 0,
+                ),
             ),
           ),
         )

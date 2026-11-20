@@ -3139,11 +3139,21 @@ describe("analyserCommits — plusieurs changements dans un squash (#796, revue 
       { sha: "bbb", message: "fix(http): z\n\n- fix(http): z" },
     ]);
     expect(r.squashNonTries).toEqual(["aaa"]);
+    // Sujet `chore` écarté, mais le corps porte un correctif publié : signalé.
+    expect(
+      analyserCommits([
+        {
+          sha: "ccc",
+          message:
+            "chore(deps): monter (#804)\n\n* fix(deps): rendre à Vite son rolldown",
+        },
+      ]).squashNonTries,
+    ).toEqual(["ccc"]);
   });
 
-  it("deux pieds BREAKING CHANGE : deux ruptures, chacune sur l'entrée marquée « ! » (revue #796, N4)", () => {
+  it("chaque pied décrit son VOISIN — jamais par position (revue #796, N4)", () => {
     const r = analyserCommits([
-      "chore(x): t (#1)\n\n- fix(cli): a\n- feat(http)!: b\n- refactor(orm)!: c\n\nBREAKING CHANGE: b casse\nBREAKING CHANGE: c casse",
+      "chore(x): t (#1)\n\n- fix(cli): a\n- feat(http)!: b\n  BREAKING CHANGE: b casse\n- refactor(orm)!: c\n  BREAKING CHANGE: c casse",
     ]);
     expect(r.ruptures).toEqual([
       { portee: "http", texte: "b casse", sha: "" },
@@ -3154,6 +3164,40 @@ describe("analyserCommits — plusieurs changements dans un squash (#796, revue 
       .filter((e) => e.rupture)
       .map((e) => e.portee);
     expect(marques.sort()).toEqual(["http", "orm"]);
+  });
+
+  it("les cas qui déjouaient l'appariement par position (revue #796, N4 — 3ᵉ revue)", () => {
+    const ruptures = (corps) =>
+      analyserCommits([`chore(x): t (#1)\n\n${corps}`]).ruptures.map(
+        (r) => `${r.portee}:${r.texte}`,
+      );
+    // Type SANS section marqué « ! » : rupture sur LUI, jamais sur le voisin.
+    expect(ruptures("- chore(deps)!: monter node 24\n- feat(http): x")).toEqual(
+      ["deps:monter node 24"],
+    );
+    // « ! » sans pied avant un pied : chacun le sien.
+    expect(
+      ruptures(
+        "- docs(http)!: page\n- fix(orm)!: c\n  BREAKING CHANGE: c casse",
+      ),
+    ).toEqual(["http:page", "orm:c casse"]);
+    // Deux commits au même sujet, pieds différents : deux ruptures.
+    expect(
+      ruptures(
+        "- feat(a)!: x\n  BREAKING CHANGE: a1\n- feat(a)!: x\n  BREAKING CHANGE: a2\n- fix(orm): y",
+      ),
+    ).toEqual(["a:a1", "a:a2"]);
+    // Deux pieds d'un même commit : deux ruptures, même portée.
+    expect(
+      ruptures(
+        "- feat(http)!: x\n  BREAKING CHANGE: un\n  BREAKING CHANGE: deux",
+      ),
+    ).toEqual(["http:un", "http:deux"]);
+    // Le titre de PR (« … (#N) ») n'est pas un changement : pas de doublon.
+    const { groupes } = analyserCommits([
+      "fix(http): z (#5)\n\n- fix(http): z",
+    ]);
+    expect(groupes.get("Fixed")).toHaveLength(1);
   });
 
   it("un en-tête répété (sujet = unique commit de la PR) n'entre qu'une fois", () => {

@@ -98,14 +98,16 @@ describe("squashMessage — LE commit que lira le changelog", () => {
       ],
     });
     expect(body).toBe(
-      "- feat(http)!: retirer y\n- fix(http): z\n\nRefs #794\nCloses #753\nBREAKING CHANGE: y disparaît",
+      "- feat(http)!: retirer y\n  BREAKING CHANGE: y disparaît\n- fix(http): z\n\nRefs #794\nCloses #753",
     );
-    // Un pied sans « ! » au sujet : le « ! » est posé sur SA ligne.
+    // Un pied sans « ! » au sujet : le « ! » est posé sur SA ligne, le pied dessous.
     const { body: b2 } = squashMessage({
       ...pr,
       commits: ["fix(http): a", "refactor(orm): c\n\nBREAKING CHANGE: c casse"],
     });
-    expect(b2).toContain("- fix(http): a\n- refactor(orm)!: c");
+    expect(b2).toContain(
+      "- fix(http): a\n- refactor(orm)!: c\n  BREAKING CHANGE: c casse",
+    );
   });
 });
 

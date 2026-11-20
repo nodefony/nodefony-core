@@ -677,10 +677,10 @@ const EN_TETE_CORPS = /^- (\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/;
  * `v10.0.0..release/10.0.x`, elle faisait passer le brouillon de 2 à 20 entrées,
  * commit d'ouverture et outillage compris (revue #796, R1).
  *
- * Chaque pied `BREAKING CHANGE:` est une rupture, tous gardés, même sous un
- * sujet sans section. Le k-ième pied décrit la k-ième entrée marquée `!` (le
- * squash de `pr-finish` pose le `!` sur la ligne du commit qui portait le
- * pied) ; sans `!`, la première entrée — le cas d'un commit isolé.
+ * Chaque pied `BREAKING CHANGE:` est une rupture, tous gardés, quel que soit
+ * le type. Il décrit son VOISIN : indenté sous une ligne `- type: …`, ce
+ * changement-là (c'est ainsi que `pr-finish` l'écrit) ; en colonne 0, le
+ * commit lui-même. Un `!` est une rupture même sans section (`chore!`).
  *
  * @param {Array<{sha?: string, message: string, fichiers?: string[]}>|string[]} commits — messages
  *        complets (sujet + corps), avec leur empreinte quand elle est connue,
@@ -707,41 +707,53 @@ export function analyserCommits(commits, { publie } = {}) {
     if (!texteBrut) continue;
     const [sujet, ...reste] = texteBrut.split("\n");
     const corps = reste.join("\n");
-    // Corps de squash par défaut de GitHub : ses `* type: …` ne sont pas lus
-    // (non triés), mais on le DIT — sinon des correctifs publiés disparaissent
-    // du brouillon sans un mot (revue #796, R1).
-    if (/^\* \w+(?:\([^)]*\))?!?:[ \t]/mu.test(corps)) squashNonTries.push(sha);
 
     const m = EN_TETE.exec(sujet);
     if (!m) {
       horsConvention++;
       continue;
     }
-    // Les changements que le commit porte : le sujet, puis les en-têtes
-    // supplémentaires du corps (squash). Un même en-tête n'entre qu'une fois.
+    // Les changements que le commit porte, chacun AVEC ses pieds de rupture.
+    // 🔴 Attribution par VOISINAGE, jamais par position (revue #796, N4) : un
+    // pied indenté (`  BREAKING CHANGE: …`) sous une ligne `- type: …` décrit CE
+    // changement-là ; un pied en colonne 0 décrit le commit lui-même (son sujet).
+    // Apparier le k-ième pied à la k-ième entrée `!` se faisait déjouer par
+    // chaque cas neuf (type sans section, sujets identiques, marqueur retiré).
+    const lignes = corps.split("\n");
+    const entreesCorps = lignes.some((l) => EN_TETE_CORPS.test(l));
+    // Squash de `pr-finish` : le sujet est le TITRE de la PR (« … (#N) »), pas
+    // un changement — ses commits sont les lignes `- `. Sinon il ferait doublon.
+    const titreDePr = entreesCorps && /\(#\d+\)$/u.test(sujet);
+    const changements = [{ h: m, pieds: [] }];
+    let courant = null;
+    for (const l of lignes) {
+      const e = EN_TETE_CORPS.exec(l);
+      if (e) {
+        courant = { h: e, pieds: [] };
+        changements.push(courant);
+        continue;
+      }
+      const indente = /^\s+BREAKING[ -]CHANGE:[ \t]*(.+)$/u.exec(l);
+      if (indente && courant) {
+        courant.pieds.push(indente[1].trim());
+        continue;
+      }
+      const pied = /^BREAKING[ -]CHANGE:[ \t]*(.+)$/u.exec(l);
+      if (pied) changements[0].pieds.push(pied[1].trim());
+      if (!/^\s/u.test(l)) courant = null;
+    }
+    if (titreDePr) changements.shift();
+    // Retenu : un type qui a une section, OU une rupture — un `!` vaut rupture
+    // quel que soit le type (spec, règle 1) : `chore(deps)!: Node 24` relève le
+    // plancher et casse l'installation de qui n'a pas migré.
     const vus = new Set();
-    const retenus = [];
-    for (const h of [
-      m,
-      ...corps.split("\n").map((l) => EN_TETE_CORPS.exec(l)),
-    ]) {
-      if (!h || !SECTIONS[h[1]]) continue;
-      const cle = `${h[1]}(${h[2] ?? ""})${h[3] ?? ""}: ${h[4]}`;
-      if (vus.has(cle)) continue;
+    const retenus = changements.filter(({ h, pieds }) => {
+      if (!SECTIONS[h[1]] && !h[3] && pieds.length === 0) return false;
+      const cle = `${h[1]}(${h[2] ?? ""})${h[3] ?? ""}: ${h[4]}\u0000${pieds.join("\u0000")}`;
+      if (vus.has(cle)) return false;
       vus.add(cle);
-      retenus.push(h);
-    }
-    const pieds = [...corps.matchAll(/^BREAKING[ -]CHANGE:[ \t]*(.+)$/gm)].map(
-      (p) => p[1].trim(),
-    );
-    // Un type CONVENTIONNEL mais sans effet pour l'utilisateur (`docs`, `ci`,
-    // `chore`…) n'est pas « hors convention » : il est délibérément ÉCARTÉ.
-    // Confondre les deux comptes donnerait à l'auteur un chiffre qui ne veut
-    // rien dire — et lui ferait chercher des commits mal écrits qui n'existent pas.
-    if (retenus.length === 0 && pieds.length === 0) {
-      ecartes++;
-      continue;
-    }
+      return true;
+    });
     const fichiers = typeof entree === "string" ? null : entree?.fichiers;
     if (
       publie &&
@@ -752,35 +764,48 @@ export function analyserCommits(commits, { publie } = {}) {
       ecartes++;
       continue;
     }
+    // Corps de squash par défaut de GitHub (`* type: …`, types connus) : ses
+    // sous-entrées ne sont pas lues (non triées), mais on le DIT — sinon des
+    // correctifs publiés disparaissent du brouillon sans un mot (revue #796, R1).
+    // Signalé APRÈS le périmètre (hors périmètre : rien à relire) mais AVANT
+    // l'écart par type : un squash au sujet `chore(deps)` porte des `* fix` publiés.
+    if (
+      /^\* (?:feat|fix|perf|refactor|revert|docs|chore|ci|build|test|style)(?:\([^)]*\))?!?:[ \t]/mu.test(
+        corps,
+      )
+    )
+      squashNonTries.push(sha);
+    // Un type CONVENTIONNEL mais sans effet pour l'utilisateur (`docs`, `ci`,
+    // `chore`…) n'est pas « hors convention » : il est délibérément ÉCARTÉ.
+    // Confondre les deux comptes donnerait à l'auteur un chiffre qui ne veut
+    // rien dire — et lui ferait chercher des commits mal écrits qui n'existent pas.
+    if (retenus.length === 0) {
+      ecartes++;
+      continue;
+    }
 
-    // Les entrées que les pieds décrivent : celles marquées `!`, dans l'ordre ;
-    // sans `!`, la première (ou le sujet, si aucune n'a de section). Quand les
-    // deux formes coexistent, le pied fait foi pour la DESCRIPTION : la spec dit
-    // que le sujet ne sert de description de rupture que si le pied est omis
-    // (« MAY be omitted … and the commit description SHALL be used to describe
-    // the breaking change »).
-    const marquees = retenus.filter((h) => h[3]);
-    const decrites = marquees.length ? marquees : retenus.slice(0, 1);
-    pieds.forEach((texte, k) => {
-      const h = decrites[k] ?? decrites[decrites.length - 1] ?? m;
-      ruptures.push({ portee: h[2] ?? "", texte, sha });
-    });
-    retenus.forEach((h) => {
+    for (const { h, pieds } of retenus) {
       const [, type, portee, bang, texte] = h;
-      const k = decrites.indexOf(h);
-      const porteePied = k >= 0 && k < pieds.length;
-      if (bang && !porteePied) {
+      // Quand `!` ET pied coexistent, le pied fait foi pour la DESCRIPTION : la
+      // spec dit que le sujet ne la donne que si le pied est omis (« MAY be
+      // omitted … and the commit description SHALL be used to describe the
+      // breaking change »).
+      if (pieds.length) {
+        for (const p of pieds)
+          ruptures.push({ portee: portee ?? "", texte: p, sha });
+      } else if (bang) {
         ruptures.push({ portee: portee ?? "", texte, sha });
       }
       const section = SECTIONS[type];
+      if (!section) continue;
       if (!groupes.has(section)) groupes.set(section, []);
       groupes.get(section).push({
         portee: portee ?? "",
         texte,
         sha,
-        rupture: Boolean(bang || porteePied),
+        rupture: Boolean(bang || pieds.length),
       });
-    });
+    }
   }
 
   return { ruptures, groupes, horsConvention, ecartes, squashNonTries };
