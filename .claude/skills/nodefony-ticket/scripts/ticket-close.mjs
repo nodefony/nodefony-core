@@ -28,11 +28,14 @@
  *
  * FERMER = DEUX FAITS, UN SEUL GESTE
  *
- * Le ticket fermé ET son statut « Done » au tableau. Le workflow natif du tableau
- * ne pose pas toujours le second — vécu, #797 et #801 fermés à la main restés
- * « In Progress », vus « encore ouverts » par l'auteur. `--close` fait donc les
- * deux ; `--done` répare un ticket déjà fermé, c'est le geste que `board-lint`
- * donne pour `FERME-PAS-DONE`.
+ * Le ticket fermé ET son statut « Done » au tableau. L'automatisme « Item closed »
+ * pose bien « Done » à la fermeture, mais « Pull request linked to issue » le
+ * REMET à « In Progress » quand on relie une PR au ticket APRÈS coup — vécu,
+ * #797 et #801 : fermés, « Done » deux secondes plus tard, puis repassés « In
+ * Progress » au clic « Development » fait après la clôture, lus « encore
+ * ouverts » par l'auteur. `--close` pose donc « Done » lui-même ; `--done`
+ * répare un ticket déjà fermé, c'est le geste que `board-lint` donne pour
+ * `FERME-PAS-DONE`.
  *
  * Usage :
  *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95

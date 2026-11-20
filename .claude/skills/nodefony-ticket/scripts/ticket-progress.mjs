@@ -12,10 +12,10 @@
  * après, du code existe.
  *
  * Un commit qui FERME (`Closes #12`) est ignoré : GitHub ferme l'issue, et le
- * workflow natif du tableau de bord la passe à « Done ». Ce workflow ne couvre PAS
- * toutes les fermetures — vécu, #797 et #801 fermés à la main et restés « In
- * Progress » : la fermeture manuelle passe donc par `ticket-close.mjs`, qui pose
- * « Done » elle-même, et `board-lint` signale le reste (`FERME-PAS-DONE`).
+ * workflow natif du tableau de bord la passe à « Done ». Un autre automatisme
+ * (« Pull request linked to issue ») peut ensuite la remettre « In Progress » —
+ * vécu sur #797 et #801, PR reliée après la clôture : `ticket-close.mjs` pose
+ * donc « Done » lui-même, et `board-lint` signale le reste (`FERME-PAS-DONE`).
  *
  * CONTRAT : ce script ne doit JAMAIS faire échouer un commit ni le ralentir. Il est
  * lancé détaché par `.githooks/post-commit`, sort 0 quoi qu'il arrive, et se tait

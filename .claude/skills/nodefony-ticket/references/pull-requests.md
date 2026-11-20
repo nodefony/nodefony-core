@@ -63,6 +63,13 @@ défaut.
   PR) ; `ticket-start` et `pr-complete` affichent l'adresse du ticket. Le ticket se ferme **à la
   main** après la fusion, avec son compte rendu (`references/fermeture.md`).
 
+🔴 **Le lien se pose À L'OUVERTURE, jamais après la clôture.** L'automatisme du tableau « Pull
+request linked to issue » passe le ticket en « In Progress » à chaque lien — même FERMÉ. Vécu sur
+#797 et #801 : fermés, « Done » deux secondes plus tard (« Item closed »), puis remis « In
+Progress » par un clic « Development » fait après coup, et lus « encore ouverts ». La fermeture
+passe par `ticket-close.mjs <N> --close`, qui pose « Done » en dernier ; `board-lint` signale le
+reste (`FERME-PAS-DONE`, réparé par `--done`).
+
 ## 2 bis. Clore sans attendre la CI — `pr-finish.mjs`
 
 La CI d'une PR dure ~35 min : l'attendre au premier plan, c'est une session qui ne fait rien.

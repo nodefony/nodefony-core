@@ -228,10 +228,11 @@ export function lintBoard({
     findings.push({ severity, code, n, message, unlock });
 
   // E0 — un ticket FERMÉ dont le statut n'est pas « Done » se lit « encore
-  // ouvert » sur le tableau. Vécu : #797 et #801, fermés à la main vers
-  // `release/*` (aucun mot-clé n'y mord), restés « In Progress » — l'auteur les
-  // a crus ouverts après la clôture. Le workflow natif du tableau ne couvre pas
-  // toutes les fermetures : le contrôle ne lui fait pas confiance.
+  // ouvert » sur le tableau. Vécu : #797 et #801, fermés vers `release/*`, passés
+  // « Done » par l'automatisme « Item closed », puis REMIS « In Progress » par
+  // « Pull request linked to issue » au clic « Development » fait après la
+  // clôture — l'auteur les a crus ouverts. Deux automatismes se contredisent :
+  // le contrôle ne fait confiance à aucun.
   const items = [];
   for (const item of tous) {
     if (item.state !== "CLOSED") {
