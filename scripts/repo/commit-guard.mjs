@@ -17,6 +17,14 @@
  *   place que dans un commit de mise de côté (`<type>(<scope>): wip — …`) ou
  *   d'ouverture (`… ouvrir le travail sur #N`, écrit par `ticket-start.mjs`).
  *
+ * **Fusion de rattrapage** : une fusion qui n'intègre QUE de l'historique déjà
+ * publié — `origin/main` (le commit du job `accueil`) ou `origin/<la même
+ * branche>` (un correctif fusionné sur GitHub pendant une publication) — n'est
+ * pas du travail : `release.mjs` et l'aide-mémoire la PRESCRIVENT. La refuser
+ * rendait leur remède impossible (`git merge --no-edit` lance `commit-msg`).
+ * Toute autre fusion sur une branche longue (une branche de travail fusionnée à
+ * la main) contourne la PR et reste refusée.
+ *
  * L'échappatoire existe pour l'amorçage (créer une branche de maintenance, un
  * correctif d'urgence décidé par l'auteur) et se NOMME : `NF_ALLOW_LONG_BRANCH_COMMIT=1`.
  * Une tête détachée (rebase en cours) n'est pas une branche : laissée passer.
@@ -51,11 +59,18 @@ const SKIP_ALLOWED =
 /**
  * Le verdict de la garde — PUR.
  *
- * @param {{ branch: string, message: string, allowLongBranch: boolean }} input -
- *   `branch` vide = tête détachée
+ * @param {{ branch: string, message: string, allowLongBranch: boolean, mergeOfPublished?: boolean }} input -
+ *   `branch` vide = tête détachée ; `mergeOfPublished` = fusion en cours dont
+ *   TOUTES les têtes sont déjà contenues dans `origin/main` ou `origin/<branch>`
+ *   (constaté par {@link mergeHeadsArePublished})
  * @returns {string[]} les motifs de refus ; vide = accepté
  */
-export function commitGuard({ branch, message, allowLongBranch }) {
+export function commitGuard({
+  branch,
+  message,
+  allowLongBranch,
+  mergeOfPublished = false,
+}) {
   const reasons = [];
   // git retire les lignes de commentaire du message : on juge ce qu'il gardera.
   const text = message
@@ -69,12 +84,16 @@ export function commitGuard({ branch, message, allowLongBranch }) {
     branch &&
     isLongBranch(branch) &&
     !allowLongBranch &&
+    !mergeOfPublished &&
     !subject.startsWith("chore(release):")
   ) {
     reasons.push(
       `commit sur la branche LONGUE ${branch} : le travail passe par une branche de ticket et sa PR.\n` +
         "   Faire : node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N> --slug <sujet>\n" +
         "   (le commit reste à faire là-bas ; ton message est gardé dans .git/COMMIT_EDITMSG)\n" +
+        "   Seule fusion admise ici : celle qui n'intègre que origin/main ou origin/" +
+        branch +
+        " (rattrapage).\n" +
         "   Amorçage décidé par l'auteur seulement : NF_ALLOW_LONG_BRANCH_COMMIT=1 git commit …",
     );
   }
@@ -87,6 +106,42 @@ export function commitGuard({ branch, message, allowLongBranch }) {
     );
   }
   return reasons;
+}
+
+/**
+ * Constate qu'une fusion en cours n'intègre que de l'historique déjà publié.
+ *
+ * Chaque tête de `MERGE_HEAD` doit être ancêtre de `origin/main` ou de
+ * `origin/<branch>`. Pas de fusion en cours, ou une référence illisible → `false`
+ * (la garde reste alors celle d'un commit ordinaire).
+ *
+ * @param {string} branch - la branche courante
+ * @param {(args: string[]) => string} git - lance git, lève si le code est non nul
+ * @returns {boolean}
+ */
+export function mergeHeadsArePublished(branch, git) {
+  let heads;
+  try {
+    const file = git(["rev-parse", "--git-path", "MERGE_HEAD"]).trim();
+    heads = readFileSync(file, "utf8")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+  } catch {
+    return false;
+  }
+  if (heads.length === 0) return false;
+  const targets = ["origin/main", `origin/${branch}`];
+  return heads.every((sha) =>
+    targets.some((target) => {
+      try {
+        git(["merge-base", "--is-ancestor", sha, target]);
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  );
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
@@ -105,6 +160,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     branch,
     message,
     allowLongBranch: process.env.NF_ALLOW_LONG_BRANCH_COMMIT === "1",
+    mergeOfPublished:
+      branch !== "" &&
+      mergeHeadsArePublished(branch, (args) =>
+        execFileSync("git", args, {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+        }),
+      ),
   });
   if (reasons.length) {
     for (const r of reasons) console.error(`❌ commit-msg REFUSÉ : ${r}`);
