@@ -43,9 +43,16 @@
  * @output la voie (auto ou surveillance), et la commande à lancer en arrière-plan le cas échéant
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { hasSkipMarker } from "../../../../scripts/repo/commit-guard.mjs";
+import {
+  hasSkipMarker,
+  isParkingSubject,
+} from "../../../../scripts/repo/commit-guard.mjs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { releasableWorkspaces } from "../../../../scripts/lib/workspaces.mjs";
+import { perimetrePublie } from "../../../../scripts/release/release-core.mjs";
 
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 import {
@@ -104,25 +111,72 @@ const TICKET_LINE = /^(?:Closes|Refs) #\d+$/mu;
  * Le message du commit de squash — PUR.
  *
  * Sujet = titre de la PR suivi de `(#PR)` (forme GitHub). Corps = les sujets
- * des commits de TRAVAIL de la branche, puis la ligne de ticket du corps de la
- * PR. Les commits d'ouverture et de mise de côté (porteurs du marqueur skip-ci)
- * sont écartés : ils n'ont rien à dire au changelog, et leur marqueur, recopié,
- * couperait la CI de la branche longue.
+ * des commits de TRAVAIL de la branche (`- type(portée)!: …`, que
+ * `release-core.mjs#analyserCommits` lit comme autant d'entrées du changelog),
+ * puis les pieds : la ligne de ticket du corps de la PR, les `Closes #N` des
+ * commits, et leurs `BREAKING CHANGE:` — une rupture ne se perd pas au squash.
  *
- * @param {{ title: string, number: number, body: string, commits: string[] }} pr -
- *   `commits` = messages des commits de la branche, dans l'ordre
+ * 🔴 Le PÉRIMÈTRE se juge par commit de travail, ici et pas au changelog : le
+ * squash touche des fichiers publiés dès qu'UN commit en touche, et tous ses
+ * en-têtes passeraient alors le filtre de `analyserCommits` — les `fix(pilotage)`
+ * de l'outillage compris. Un commit dont `published` vaut `false` part donc
+ * dans un paragraphe « Outillage » INDENTÉ, que le changelog ne lit pas. Un
+ * message nu (chaîne) est tenu pour publié : écarter dans le doute publierait
+ * un oubli pour toujours.
+ *
+ * Les commits d'ouverture et de mise de côté sont écartés sur leur SUJET
+ * (`isParkingSubject`) : ils n'ont rien à dire au changelog. Écarter « tout
+ * message qui contient le marqueur » retirait aussi un commit de travail dont le
+ * corps CITAIT la convention (revue #796, N4). Aucune ligne retenue ne porte de
+ * marqueur : recopié, il couperait la CI de la branche longue.
+ *
+ * @param {{ title: string, number: number, body: string, commits: Array<string | { message: string, published: boolean }> }} pr -
+ *   `commits` = messages des commits de la branche, dans l'ordre, avec leur
+ *   verdict de périmètre (`release-core.mjs#perimetrePublie`) quand il est connu
  * @returns {{ subject: string, body: string }}
  */
 export function squashMessage({ title, number, body, commits }) {
   const work = commits
-    .filter((m) => !hasSkipMarker(m))
-    .map((m) => `- ${m.split("\n", 1)[0]}`);
+    .map((c) => (typeof c === "string" ? { message: c, published: true } : c))
+    .filter((c) => !isParkingSubject(c.message.split("\n", 1)[0]));
+  const headline = (c) => c.message.split("\n", 1)[0];
+  const lines = work
+    .filter((c) => c.published)
+    .map((c) => `- ${headline(c)}`)
+    .filter((l) => !hasSkipMarker(l));
+  const tooling = work
+    .filter((c) => !c.published)
+    .map((c) => `  ${headline(c)}`)
+    .filter((l) => !hasSkipMarker(l));
+  /** @type {string[]} */
+  const footers = [];
   const ticket = TICKET_LINE.exec(body ?? "")?.[0];
+  if (ticket) footers.push(ticket);
+  for (const { message: m } of work) {
+    for (const l of m.split("\n").slice(1)) {
+      if (
+        (BREAKING_FOOTER.test(l) || CLOSING_FOOTER.test(l)) &&
+        !hasSkipMarker(l) &&
+        !footers.includes(l)
+      ) {
+        footers.push(l);
+      }
+    }
+  }
   const parts = [];
-  if (work.length) parts.push(work.join("\n"));
-  if (ticket) parts.push(ticket);
+  if (lines.length) parts.push(lines.join("\n"));
+  if (tooling.length)
+    parts.push(
+      `Outillage du dépôt (hors paquets publiés) :\n${tooling.join("\n")}`,
+    );
+  if (footers.length) parts.push(footers.join("\n"));
   return { subject: `${title} (#${number})`, body: parts.join("\n\n") };
 }
+
+/** Pied de rupture (Conventional Commits 1.0.0, règles 12 et 16). */
+const BREAKING_FOOTER = /^BREAKING[ -]CHANGE: \S/u;
+/** Pied de fermeture d'un ticket, mot-clé GitHub. */
+const CLOSING_FOOTER = /^(?:Closes|Fixes|Resolves) #\d+$/u;
 
 /**
  * Ce qui interdit de clore la PR — PUR.
@@ -171,8 +225,62 @@ function sh(cmd, args) {
   }).trim();
 }
 
-/** Les checks exigés par la protection d'une branche, ou `null` si elle n'est pas protégée. */
-function requiredChecksOf(base) {
+/**
+ * Ce que l'état de fusion dit SANS interdire — PUR. `DIRTY` (conflit) est un
+ * refus de {@link finishBlockers} ; les autres états se disent, sinon le geste
+ * suivant surprend (revue #796, B2).
+ *
+ * @param {{ mergeStateStatus: string, base: string }} pr
+ * @returns {string[]}
+ */
+export function finishNotices({ mergeStateStatus, base }) {
+  switch (mergeStateStatus) {
+    case "BEHIND":
+      return [
+        `la base ${base} a avancé depuis la branche : la CI a jugé l'ANCIENNE base.\n` +
+          `   → recommandé : git fetch && git merge origin/${base}, pousser (jamais de rebase d'une branche poussée)`,
+      ];
+    case "BLOCKED":
+      return [
+        "fusion BLOQUÉE par la protection de la base (checks ou approbation exigés) : la fusion automatique attendra qu'ils soient satisfaits",
+      ];
+    case "UNSTABLE":
+      return [
+        "des checks NON exigés sont rouges : la surveillance s'arrêtera dessus — les lire avant (gh pr checks)",
+      ];
+    case "UNKNOWN":
+      return [
+        "GitHub calcule encore l'état de fusion (UNKNOWN) : si un refus suit, relancer dans une minute",
+      ];
+    default:
+      return [];
+  }
+}
+
+/**
+ * Compte les checks EXIGÉS d'une base — PUR. Deux sources, cumulées : la
+ * protection classique et les RULESETS (`rules/branches/<base>`), qui l'ont
+ * remplacée chez GitHub. Ne lire que la première laissait `--auto` fusionner
+ * tout de suite sous un ruleset (revue #796, B3).
+ *
+ * @param {{ protection: number | null, rules: Array<{ type?: string, parameters?: { required_status_checks?: unknown[] } }> }} facts -
+ *   `protection` = checks exigés par la protection classique, `null` si absente
+ * @returns {number | null} `null` = ni protection ni règle de checks
+ */
+export function countRequiredChecks({ protection, rules }) {
+  const fromRules = rules
+    .filter((r) => r.type === "required_status_checks")
+    .reduce(
+      (n, r) => n + (r.parameters?.required_status_checks?.length ?? 0),
+      0,
+    );
+  const hasRule = rules.some((r) => r.type === "required_status_checks");
+  if (protection === null && !hasRule) return null;
+  return (protection ?? 0) + fromRules;
+}
+
+/** Les checks exigés par la protection classique d'une branche, ou `null` si elle n'est pas protégée. */
+function protectionChecksOf(base) {
   const r = spawnSync(
     "gh",
     [
@@ -193,6 +301,20 @@ function requiredChecksOf(base) {
   return Number(r.stdout.trim());
 }
 
+/** Les checks exigés d'une base, protection classique ET rulesets ({@link countRequiredChecks}). */
+function requiredChecksOf(base) {
+  const rules = JSON.parse(
+    sh("gh", [
+      "api",
+      `repos/${REPO}/rules/branches/${encodeURIComponent(base)}`,
+    ]) || "[]",
+  );
+  return countRequiredChecks({
+    protection: protectionChecksOf(base),
+    rules: Array.isArray(rules) ? rules : [],
+  });
+}
+
 function main() {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes("--dry-run");
@@ -211,27 +333,67 @@ function main() {
   const selector = asked ?? sh("git", ["branch", "--show-current"]);
   if (!selector)
     throw new Error("tête détachée et aucun numéro de PR — passer le numéro");
-  const pr = JSON.parse(
-    sh("gh", [
-      "pr",
-      "view",
-      selector,
-      "--repo",
-      REPO,
-      "--json",
-      "number,url,state,isDraft,baseRefName,headRefName,headRefOid,title,body,commits,mergeStateStatus",
-    ]),
-  );
+  const viewPr = () =>
+    JSON.parse(
+      sh("gh", [
+        "pr",
+        "view",
+        selector,
+        "--repo",
+        REPO,
+        "--json",
+        "number,url,state,isDraft,baseRefName,headRefName,headRefOid,title,body,commits,mergeStateStatus",
+      ]),
+    );
+  let pr = viewPr();
   if (pr.state !== "OPEN")
     throw new Error(`PR #${pr.number} n'est pas ouverte (${pr.state})`);
-  const commitMessages = pr.commits.map((c) =>
-    [c.messageHeadline, c.messageBody].filter(Boolean).join("\n\n"),
-  );
-  const message = squashMessage({ ...pr, commits: commitMessages });
+  // 🔴 Pousser AVANT de juger : la PR lue avant le push portait l'ancienne
+  // tête — message de squash sans les derniers commits, surveillance sur des
+  // checks périmés (revue #796, B1). Puis relire.
+  if (
+    !dryRun &&
+    sh("git", ["branch", "--show-current"]) === pr.headRefName &&
+    sh("git", ["rev-parse", "HEAD"]) !== pr.headRefOid
+  ) {
+    sh("git", ["push"]);
+    pr = viewPr();
+  }
 
   // Les ancêtres se constatent sur les références DISTANTES, tête de PR comprise.
   sh("git", ["fetch", "origin", "--prune", "--quiet"]);
   sh("git", ["fetch", "origin", "--quiet", pr.headRefOid]);
+  // Le message ENTIER, lu dans git : `messageHeadline` de l'API est TRONQUÉ
+  // (« … » au-delà de ~70 caractères) — le changelog recevrait des entrées coupées.
+  const commitMessages = pr.commits.map((c) =>
+    sh("git", ["log", "-1", "--format=%B", c.oid]),
+  );
+  // Une fusion de la base dans la branche n'est pas du travail de la PR.
+  const isMerge = (oid) =>
+    sh("git", ["rev-list", "--no-walk", "--parents", oid]).split(" ").length >
+    2;
+  // Le périmètre publié, par commit : MÊME règle que le changelog.
+  const published = perimetrePublie(
+    releasableWorkspaces(ROOT).map((w) => ({
+      location: w.location,
+      pkg: JSON.parse(
+        readFileSync(path.join(ROOT, w.location, "package.json"), "utf8"),
+      ),
+    })),
+  );
+  const message = squashMessage({
+    ...pr,
+    commits: pr.commits
+      .map((c, i) => ({ c, message: commitMessages[i] ?? "" }))
+      .filter(({ c }) => !isMerge(c.oid))
+      .map(({ c, message }) => ({
+        message,
+        published: sh("git", ["show", "--name-only", "--format=", c.oid])
+          .split("\n")
+          .filter(Boolean)
+          .some(published),
+      })),
+  });
   const blockers = finishBlockers({
     headMessage: commitMessages.at(-1) ?? "",
     mergeStateStatus: pr.mergeStateStatus,
@@ -249,6 +411,11 @@ function main() {
   if (blockers.length && !dryRun)
     throw new Error(`PR #${pr.number} :\n  · ${blockers.join("\n  · ")}`);
   for (const b of blockers) console.log(`⚠️ le geste réel le REFUSERA : ${b}`);
+  for (const n of finishNotices({
+    mergeStateStatus: pr.mergeStateStatus,
+    base: pr.baseRefName,
+  }))
+    console.log(`ℹ️ ${n}`);
 
   if (argv.includes("--merge-when-green")) {
     mergeWhenGreen(pr.number, message);
@@ -265,14 +432,15 @@ function main() {
     `PR #${pr.number} ${pr.headRefName} → ${pr.baseRefName}\n  voie : ${plan.mode === "auto" ? "fusion automatique" : "surveillance en arrière-plan"} — ${plan.reason}`,
   );
   if (dryRun) {
+    // Le message de squash EST le commit que lira le changelog : le montrer.
+    console.log(
+      `  message de squash :\n    ${message.subject}\n\n${message.body.replace(/^/gmu, "    ")}`,
+    );
     if (plan.mode === "watch")
       console.log(`  commande : ${watchCommand(pr.number)}`);
     return;
   }
 
-  if (sh("git", ["branch", "--show-current"]) === pr.headRefName) {
-    sh("git", ["push"]);
-  }
   if (pr.isDraft) sh("gh", ["pr", "ready", String(pr.number), "--repo", REPO]);
   console.log(`  prête : ${pr.url}`);
 
@@ -316,7 +484,12 @@ function mergeWhenGreen(number, message) {
     { cwd: ROOT, stdio: "inherit" },
   );
   if (checks.status !== 0)
-    throw new Error(`PR #${number} : checks NON verts — rien n'est fusionné`);
+    throw new Error(
+      `PR #${number} : checks NON verts — rien n'est fusionné.\n` +
+        `   Lire les rouges : gh pr checks ${number} --repo ${REPO}\n` +
+        "   · job INSTABLE (réseau, délai, course) → gh run rerun <id du run> --failed, puis relancer pr-finish --merge-when-green\n" +
+        "   · VRAI défaut → corriger sur la branche, pousser, relancer pr-finish",
+    );
   sh("gh", [
     "pr",
     "merge",

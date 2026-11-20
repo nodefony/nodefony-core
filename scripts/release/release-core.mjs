@@ -627,6 +627,11 @@ export const SECTIONS = {
  */
 export const ORDRE_SECTIONS = ["Changed", "Added", "Removed", "Fixed"];
 
+/** En-tête Conventional Commits : type, portée, `!`, description. */
+const EN_TETE = /^(\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/;
+/** Le même, dans le corps d'un squash — puce `- ` ou `* ` (forme GitHub) admise. */
+const EN_TETE_CORPS = /^(?:[-*] )?(\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/;
+
 /**
  * Lit des messages de commit ENTIERS et en tire les ruptures et les sections.
  *
@@ -658,6 +663,18 @@ export const ORDRE_SECTIONS = ["Changed", "Added", "Removed", "Fixed"];
  * commit sans liste de fichiers est gardé : écarter dans le doute publierait
  * un oubli pour toujours, garder ne coûte qu'une relecture.
  *
+ * ## Plusieurs changements dans UN commit (squash d'une demande de fusion)
+ *
+ * Une PR fusionnée en squash devient un seul commit dont le SUJET est le titre
+ * de la PR (`chore(pilotage): …`) : deux `fix` publiés qu'elle portait
+ * disparaissaient du brouillon, comptés parmi les « écartés » (revue #796, N1).
+ * Antériorité : release-please lit les en-têtes conventionnels SUPPLÉMENTAIRES
+ * écrits dans le corps (« represent multiple changes in a single commit »).
+ * Même règle ici : toute ligne du corps de la forme `[- |* ]type(portée)!: texte`
+ * dont le type a une section devient une entrée — `pr-finish.mjs#squashMessage`
+ * les écrit ainsi. Un pied `BREAKING CHANGE:` est gardé même sous un sujet sans
+ * section : une rupture ne se perd jamais à cause du type de son commit.
+ *
  * @param {Array<{sha?: string, message: string, fichiers?: string[]}>|string[]} commits — messages
  *        complets (sujet + corps), avec leur empreinte quand elle est connue,
  *        et les chemins touchés (relatifs à la racine du dépôt).
@@ -681,16 +698,31 @@ export function analyserCommits(commits, { publie } = {}) {
     const [sujet, ...reste] = texteBrut.split("\n");
     const corps = reste.join("\n");
 
-    const m = /^(\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/.exec(sujet);
+    const m = EN_TETE.exec(sujet);
     if (!m) {
       horsConvention++;
       continue;
     }
+    // Les changements que le commit porte : le sujet, puis les en-têtes
+    // supplémentaires du corps (squash). Un même en-tête n'entre qu'une fois.
+    const vus = new Set();
+    const retenus = [];
+    for (const h of [
+      m,
+      ...corps.split("\n").map((l) => EN_TETE_CORPS.exec(l)),
+    ]) {
+      if (!h || !SECTIONS[h[1]]) continue;
+      const cle = `${h[1]}(${h[2] ?? ""})${h[3] ?? ""}: ${h[4]}`;
+      if (vus.has(cle)) continue;
+      vus.add(cle);
+      retenus.push(h);
+    }
+    const pied = /^BREAKING[ -]CHANGE:[ \t]*(.+)$/m.exec(corps);
     // Un type CONVENTIONNEL mais sans effet pour l'utilisateur (`docs`, `ci`,
     // `chore`…) n'est pas « hors convention » : il est délibérément ÉCARTÉ.
     // Confondre les deux comptes donnerait à l'auteur un chiffre qui ne veut
     // rien dire — et lui ferait chercher des commits mal écrits qui n'existent pas.
-    if (!SECTIONS[m[1]]) {
+    if (retenus.length === 0 && !pied) {
       ecartes++;
       continue;
     }
@@ -704,28 +736,33 @@ export function analyserCommits(commits, { publie } = {}) {
       ecartes++;
       continue;
     }
-    const [, type, portee, bang, texte] = m;
 
-    const pied = /^BREAKING[ -]CHANGE:[ \t]*(.+)$/m.exec(corps);
-    if (bang || pied) {
-      // Quand les deux formes coexistent, le pied fait foi pour la DESCRIPTION :
-      // la spec dit que le sujet ne sert de description de rupture que si le
-      // pied est omis (« MAY be omitted … and the commit description SHALL be
-      // used to describe the breaking change »).
+    // Le pied décrit LA rupture du commit : il s'attache à la première entrée
+    // retenue (ou au sujet, si aucune n'a de section). Quand les deux formes
+    // coexistent, le pied fait foi pour la DESCRIPTION : la spec dit que le
+    // sujet ne sert de description de rupture que si le pied est omis (« MAY be
+    // omitted … and the commit description SHALL be used to describe the
+    // breaking change »).
+    if (pied) {
       ruptures.push({
-        portee: portee ?? "",
-        texte: pied?.[1]?.trim() || texte,
+        portee: (retenus[0] ?? m)[2] ?? "",
+        texte: pied[1].trim(),
         sha,
       });
     }
-
-    const section = SECTIONS[type];
-    if (!groupes.has(section)) groupes.set(section, []);
-    groupes.get(section).push({
-      portee: portee ?? "",
-      texte,
-      sha,
-      rupture: Boolean(bang || pied),
+    retenus.forEach(([, type, portee, bang, texte], i) => {
+      const porteePied = Boolean(pied) && i === 0;
+      if (bang && !porteePied) {
+        ruptures.push({ portee: portee ?? "", texte, sha });
+      }
+      const section = SECTIONS[type];
+      if (!groupes.has(section)) groupes.set(section, []);
+      groupes.get(section).push({
+        portee: portee ?? "",
+        texte,
+        sha,
+        rupture: Boolean(bang || porteePied),
+      });
     });
   }
 

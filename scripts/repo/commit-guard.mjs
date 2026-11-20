@@ -57,6 +57,19 @@ const SKIP_ALLOWED =
   /^[a-z]+(?:\([^)]+\))?!?: (?:wip — |ouvrir le travail sur #\d+)/u;
 
 /**
+ * Dit si un SUJET est celui d'un commit de mise de côté (`wip — …`) ou
+ * d'ouverture (`… ouvrir le travail sur #N`) — les seuls qui n'ont rien à dire
+ * au changelog.
+ *
+ * SEULE implémentation : la garde `commit-msg` et `pr-finish.mjs#squashMessage`
+ * (qui écarte ces commits du message de squash) l'appellent.
+ *
+ * @param {string} subject - première ligne du message
+ * @returns {boolean}
+ */
+export const isParkingSubject = (subject) => SKIP_ALLOWED.test(subject);
+
+/**
  * Le verdict de la garde — PUR.
  *
  * @param {{ branch: string, message: string, allowLongBranch: boolean, mergeOfPublished?: boolean }} input -
@@ -97,7 +110,7 @@ export function commitGuard({
         "   Amorçage décidé par l'auteur seulement : NF_ALLOW_LONG_BRANCH_COMMIT=1 git commit …",
     );
   }
-  if (hasSkipMarker(text) && !SKIP_ALLOWED.test(subject)) {
+  if (hasSkipMarker(text) && !isParkingSubject(subject)) {
     reasons.push(
       "marqueur skip-ci dans un commit de travail : GitHub le lit dans TOUT le message, corps compris,\n" +
         "   et ne lancerait AUCUNE CI pour ce push ni pour la PR (vécu : PR #805, zéro check).\n" +

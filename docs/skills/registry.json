@@ -281,6 +281,7 @@
       "env": [],
       "output": "",
       "calledBy": [
+        ".claude/skills/nodefony-ticket/scripts/pr-finish.mjs",
         "scripts/gates/check-symbol-stability.mjs",
         "scripts/lib/symbols-publish.mjs",
         "scripts/release/api-diff.mjs",
@@ -2946,6 +2947,7 @@
       "calledBy": [
         ".claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs",
         ".claude/skills/nodefony-devkit-bench/scripts/lib/decor-source.mjs",
+        ".claude/skills/nodefony-ticket/scripts/pr-finish.mjs",
         ".claude/skills/nodefony-ticket/scripts/ticket-start.mjs",
         "scripts/release/attendre-ci.mjs",
         "scripts/release/compat.mjs",

@@ -3068,3 +3068,56 @@ describe("release.mjs — chaque constat de synchro est APPLIQUÉ en entier (#79
     for (const g of gestes) expect(body).toContain(`"${g}"`);
   });
 });
+
+describe("analyserCommits — plusieurs changements dans un squash (#796, revue N1)", () => {
+  // Le cas vécu : #805 squashée sous « chore(pilotage) » portait deux `fix`
+  // publiés — ils sortaient du brouillon 10.0.1, comptés parmi les écartés.
+  const squash = {
+    sha: "abc1234",
+    message:
+      "chore(pilotage): ouvrir une branche et une PR avant tout code (#805)\n\n" +
+      "- fix(cli): nommer le caractère invisible d'un nom refusé\n" +
+      "- fix(doctor): la vitrine n'est pas un frère\n" +
+      "- chore(pilotage): outillage\n\nRefs #796",
+    fichiers: ["src/nodefony/src/cli/scaffold/engine.ts"],
+  };
+
+  it("chaque en-tête du corps dont le type a une section devient une entrée", () => {
+    const { groupes, ecartes } = analyserCommits([squash]);
+    expect(ecartes).toBe(0);
+    expect(groupes.get("Fixed")?.map((e) => e.portee)).toEqual([
+      "cli",
+      "doctor",
+    ]);
+    expect(groupes.get("Fixed")?.[0]?.sha).toBe("abc1234");
+  });
+
+  it("le périmètre publié juge toujours le COMMIT entier", () => {
+    const { groupes, ecartes } = analyserCommits(
+      [{ ...squash, fichiers: [".claude/skills/x.mjs"] }],
+      { publie: (f) => f.startsWith("src/") },
+    );
+    expect(ecartes).toBe(1);
+    expect(groupes.size).toBe(0);
+  });
+
+  it("une rupture du corps (`!`) survit au squash, et un pied BREAKING CHANGE sous un sujet chore n'est jamais perdu", () => {
+    const r1 = analyserCommits([
+      "chore(x): titre (#9)\n\n- feat(http)!: retirer y",
+    ]);
+    expect(r1.ruptures).toEqual([
+      { portee: "http", texte: "retirer y", sha: "" },
+    ]);
+    const r2 = analyserCommits([
+      "chore(x): titre (#9)\n\nBREAKING CHANGE: le défaut s'inverse",
+    ]);
+    expect(r2.ruptures.map((r) => r.texte)).toEqual(["le défaut s'inverse"]);
+  });
+
+  it("un en-tête répété (sujet = unique commit de la PR) n'entre qu'une fois", () => {
+    const { groupes } = analyserCommits([
+      "fix(http): libérer le scope\n\n- fix(http): libérer le scope",
+    ]);
+    expect(groupes.get("Fixed")).toHaveLength(1);
+  });
+});
