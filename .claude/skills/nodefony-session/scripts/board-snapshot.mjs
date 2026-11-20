@@ -45,7 +45,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chooseNextTicket } from "./board-next.mjs";
+import { chooseNextTicket, isOpenItem } from "./board-next.mjs";
 import { guardCli } from "./cli-guard.mjs";
 
 const ROOT = path.resolve(
@@ -265,7 +265,7 @@ export function renderFrise(it) {
 }
 
 export function renderMarkdown(live, generatedAt) {
-  const ouverts = live.items.filter((i) => i.status !== "Done");
+  const ouverts = live.items.filter(isOpenItem);
   const parJalon = new Map();
   for (const it of ouverts) {
     const clef = it.milestone ?? "sans jalon";
@@ -417,7 +417,7 @@ function renderProjectReadme(live, generatedAt) {
  * @returns le bloc Markdown nu
  */
 function renderAvancement(live, generatedAt) {
-  const ouverts = live.items.filter((i) => i.status !== "Done");
+  const ouverts = live.items.filter(isOpenItem);
   const choix = chooseNextTicket(ouverts, live.milestones);
 
   const jalons = [...live.milestones]
@@ -622,7 +622,7 @@ function pushDashboardIssue(live, generatedAt) {
     }
     sh("gh", ["issue", "edit", String(n), "--body", corps]);
     console.log(
-      `✅ Issue #${n} republiée — ${live.items.filter((i) => i.status !== "Done").length} tickets ouverts.`,
+      `✅ Issue #${n} republiée — ${live.items.filter(isOpenItem).length} tickets ouverts.`,
     );
     return;
   }
@@ -764,7 +764,7 @@ function main() {
     process.exit(1);
   }
 
-  const ouverts = live.items.filter((i) => i.status !== "Done").length;
+  const ouverts = live.items.filter(isOpenItem).length;
   if (unchangedOnDisk(live, ancien)) {
     console.log(
       `✅ Empreinte inchangée — ${live.items.length} items (${ouverts} ouverts) : rien réécrit, seule l'heure aurait bougé.`,

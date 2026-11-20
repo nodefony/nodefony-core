@@ -299,8 +299,28 @@ export function checkPackageDeps(
    * `node_modules` arrive déjà construit, alors qu'un frère du dépôt doit
    * l'être AVANT. Dans une application, cet ensemble ne contient que ses
    * propres modules — la règle n'y mord donc jamais sur `nodefony`.
+   *
+   * 🔴 Sauf HOMONYMIE : une application peut porter le nom d'un paquet dont
+   * elle dépend — la vitrine `nodefony/nodefony` s'appelle `nodefony` et
+   * installe `nodefony`. Un paquet ne dépend jamais de lui-même : s'il déclare
+   * son propre nom, ce nom désigne le paquet EXTERNE, venu de `node_modules`
+   * déjà construit, et non un frère. Sans cette exclusion, chaque module de
+   * l'application qui importe `nodefony` en peer était déclaré fautif (#796).
    */
-  const siblings = new Set(packages.map((p) => p.name));
+  const siblings = new Set(
+    packages
+      .filter(({ manifest, name }) =>
+        DEP_FIELDS.every((k) => {
+          const deps = manifest[k];
+          return !(
+            typeof deps === "object" &&
+            deps !== null &&
+            Object.hasOwn(deps, name)
+          );
+        }),
+      )
+      .map((p) => p.name),
+  );
 
   for (const { dir, manifest, name } of packages) {
     const declared = new Set(

@@ -628,6 +628,21 @@ export const SECTIONS = {
 export const ORDRE_SECTIONS = ["Changed", "Added", "Removed", "Fixed"];
 
 /**
+ * Le pied de rupture — SEULE grammaire, lue par `analyserCommits` et par
+ * `pr-finish.mjs#squashMessage` (deux grammaires divergeaient sur `:\t`).
+ */
+export const PIED_RUPTURE = /^BREAKING[ -]CHANGE:[ \t]*(.+)$/u;
+/** Le même, indenté sous la ligne de son commit dans un squash de `pr-finish`. */
+const PIED_INDENTE = /^\s+BREAKING[ -]CHANGE:[ \t]*(.+)$/u;
+/** Le trailer qui DÉCLARE un squash de `pr-finish` (`Squash-Of: #N`). */
+export const TRAILER_SQUASH = /^Squash-Of: #\d+$/mu;
+
+/** En-tête Conventional Commits : type, portée, `!`, description. */
+const EN_TETE = /^(\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/;
+/** Le même, dans le corps d'un squash écrit par `pr-finish` : puce `- ` en colonne 0. */
+const EN_TETE_CORPS = /^- (\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/;
+
+/**
  * Lit des messages de commit ENTIERS et en tire les ruptures et les sections.
  *
  * ⚠️ Le message entier, pas le sujet. Conventional Commits 1.0.0 admet DEUX
@@ -658,6 +673,25 @@ export const ORDRE_SECTIONS = ["Changed", "Added", "Removed", "Fixed"];
  * commit sans liste de fichiers est gardé : écarter dans le doute publierait
  * un oubli pour toujours, garder ne coûte qu'une relecture.
  *
+ * ## Plusieurs changements dans UN commit (squash d'une demande de fusion)
+ *
+ * Une PR fusionnée en squash devient un seul commit dont le SUJET est le titre
+ * de la PR (`chore(pilotage): …`) : deux `fix` publiés qu'elle portait
+ * disparaissaient du brouillon, comptés parmi les « écartés » (revue #796, N1).
+ * Antériorité : release-please lit les en-têtes conventionnels SUPPLÉMENTAIRES
+ * écrits dans le corps (« represent multiple changes in a single commit »).
+ * Même règle ici, sur UNE forme : la ligne `- type(portée)!: texte` en colonne 0,
+ * qu'écrit `pr-finish.mjs#squashMessage` après avoir écarté l'outillage, les
+ * commits d'ouverture et de mise de côté. La puce `* ` du squash par défaut de
+ * GitHub n'est PAS lue : elle recopie TOUS les commits, sans ce tri — sur
+ * `v10.0.0..release/10.0.x`, elle faisait passer le brouillon de 2 à 20 entrées,
+ * commit d'ouverture et outillage compris (revue #796, R1).
+ *
+ * Chaque pied `BREAKING CHANGE:` est une rupture, tous gardés, quel que soit
+ * le type. Il décrit son VOISIN : indenté sous une ligne `- type: …`, ce
+ * changement-là (c'est ainsi que `pr-finish` l'écrit) ; en colonne 0, le
+ * commit lui-même. Un `!` est une rupture même sans section (`chore!`).
+ *
  * @param {Array<{sha?: string, message: string, fichiers?: string[]}>|string[]} commits — messages
  *        complets (sujet + corps), avec leur empreinte quand elle est connue,
  *        et les chemins touchés (relatifs à la racine du dépôt).
@@ -665,13 +699,16 @@ export const ORDRE_SECTIONS = ["Changed", "Added", "Removed", "Fixed"];
  *        entrées sans référence, ce que le script signale.
  * @param {{publie?: (chemin: string) => boolean}} [options] — le prédicat de
  *        `perimetrePublie` ; absent, seul le type filtre.
- * @returns {{ruptures: Array<{portee: string, texte: string, sha: string}>, groupes: Map<string, Array<{portee: string, texte: string, sha: string}>>, horsConvention: number, ecartes: number}}
+ * @returns {{ruptures: Array<{portee: string, texte: string, sha: string}>, groupes: Map<string, Array<{portee: string, texte: string, sha: string}>>, horsConvention: number, ecartes: number, squashNonTries: string[]}}
+ *   `squashNonTries` = empreintes des squash au corps par défaut de GitHub
+ *   (`* type: …`), dont les sous-entrées ne sont PAS lues : à relire à la main
  */
 export function analyserCommits(commits, { publie } = {}) {
   const ruptures = [];
   const groupes = new Map();
   let horsConvention = 0;
   let ecartes = 0;
+  const squashNonTries = [];
 
   for (const entree of commits) {
     const brut = typeof entree === "string" ? entree : entree?.message;
@@ -681,19 +718,56 @@ export function analyserCommits(commits, { publie } = {}) {
     const [sujet, ...reste] = texteBrut.split("\n");
     const corps = reste.join("\n");
 
-    const m = /^(\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/.exec(sujet);
+    const m = EN_TETE.exec(sujet);
     if (!m) {
       horsConvention++;
       continue;
     }
-    // Un type CONVENTIONNEL mais sans effet pour l'utilisateur (`docs`, `ci`,
-    // `chore`…) n'est pas « hors convention » : il est délibérément ÉCARTÉ.
-    // Confondre les deux comptes donnerait à l'auteur un chiffre qui ne veut
-    // rien dire — et lui ferait chercher des commits mal écrits qui n'existent pas.
-    if (!SECTIONS[m[1]]) {
-      ecartes++;
-      continue;
+    // Les changements que le commit porte, chacun AVEC ses pieds de rupture.
+    //
+    // 🔴 Un squash de `pr-finish` se reconnaît à son TRAILER `Squash-Of: #N`,
+    // jamais à sa FORME : deviner « sujet (#N) + puces `- mot:` » prenait la
+    // prose de commits ordinaires pour des entrées — #644, #559 et #545
+    // perdaient la leur (revue #796, R-A). Sans trailer, le corps ne porte
+    // aucune entrée : un commit ordinaire se juge comme il l'a toujours été.
+    //
+    // Dans un squash, chaque pied décrit son VOISIN, jamais une position : un
+    // pied INDENTÉ sous une ligne `- type: …` décrit ce changement-là ; un pied
+    // en colonne 0, ou indenté sans voisin, décrit le TITRE de la PR. Le titre
+    // n'est pas une entrée (ses commits le sont), sauf s'il porte une rupture —
+    // `feat(http)!: …` ne se perd pas (R-B).
+    const lignes = corps.split("\n");
+    const squash = TRAILER_SQUASH.test(corps);
+    const changements = [{ h: m, pieds: [], titre: squash }];
+    let courant = null;
+    for (const l of lignes) {
+      const e = squash ? EN_TETE_CORPS.exec(l) : null;
+      if (e) {
+        courant = { h: e, pieds: [], titre: false };
+        changements.push(courant);
+        continue;
+      }
+      const indente = squash ? PIED_INDENTE.exec(l) : null;
+      if (indente) {
+        (courant ?? changements[0]).pieds.push(indente[1].trim());
+        continue;
+      }
+      const pied = PIED_RUPTURE.exec(l);
+      if (pied) changements[0].pieds.push(pied[1].trim());
+      if (!/^\s/u.test(l)) courant = null;
     }
+    // Retenu : un type qui a une section, OU une rupture — un `!` vaut rupture
+    // quel que soit le type (spec, règle 1) : `chore(deps)!: Node 24` relève le
+    // plancher et casse l'installation de qui n'a pas migré.
+    const vus = new Set();
+    const retenus = changements.filter(({ h, pieds, titre }) => {
+      if (titre && !h[3] && pieds.length === 0) return false;
+      if (!SECTIONS[h[1]] && !h[3] && pieds.length === 0) return false;
+      const cle = `${h[1]}(${h[2] ?? ""})${h[3] ?? ""}: ${h[4]}\u0000${pieds.join("\u0000")}`;
+      if (vus.has(cle)) return false;
+      vus.add(cle);
+      return true;
+    });
     const fichiers = typeof entree === "string" ? null : entree?.fichiers;
     if (
       publie &&
@@ -704,32 +778,52 @@ export function analyserCommits(commits, { publie } = {}) {
       ecartes++;
       continue;
     }
-    const [, type, portee, bang, texte] = m;
-
-    const pied = /^BREAKING[ -]CHANGE:[ \t]*(.+)$/m.exec(corps);
-    if (bang || pied) {
-      // Quand les deux formes coexistent, le pied fait foi pour la DESCRIPTION :
-      // la spec dit que le sujet ne sert de description de rupture que si le
-      // pied est omis (« MAY be omitted … and the commit description SHALL be
-      // used to describe the breaking change »).
-      ruptures.push({
-        portee: portee ?? "",
-        texte: pied?.[1]?.trim() || texte,
-        sha,
-      });
+    // Corps de squash par défaut de GitHub (`* type: …`, types connus) : ses
+    // sous-entrées ne sont pas lues (non triées), mais on le DIT — sinon des
+    // correctifs publiés disparaissent du brouillon sans un mot (revue #796, R1).
+    // Signalé APRÈS le périmètre (hors périmètre : rien à relire) mais AVANT
+    // l'écart par type : un squash au sujet `chore(deps)` porte des `* fix` publiés.
+    if (
+      /^\* (?:feat|fix|perf|refactor|revert|docs|chore|ci|build|test|style)(?:\([^)]*\))?!?:[ \t]/mu.test(
+        corps,
+      )
+    )
+      squashNonTries.push(sha);
+    // Un type CONVENTIONNEL mais sans effet pour l'utilisateur (`docs`, `ci`,
+    // `chore`…) n'est pas « hors convention » : il est délibérément ÉCARTÉ.
+    // Confondre les deux comptes donnerait à l'auteur un chiffre qui ne veut
+    // rien dire — et lui ferait chercher des commits mal écrits qui n'existent pas.
+    if (retenus.length === 0) {
+      ecartes++;
+      continue;
     }
 
-    const section = SECTIONS[type];
-    if (!groupes.has(section)) groupes.set(section, []);
-    groupes.get(section).push({
-      portee: portee ?? "",
-      texte,
-      sha,
-      rupture: Boolean(bang || pied),
-    });
+    for (const { h, pieds } of retenus) {
+      const [, type, portee, bang, texte] = h;
+      // Quand `!` ET pied coexistent, le pied fait foi pour la DESCRIPTION : la
+      // spec dit que le sujet ne la donne que si le pied est omis (« MAY be
+      // omitted … and the commit description SHALL be used to describe the
+      // breaking change »).
+      if (pieds.length) {
+        for (const p of pieds)
+          ruptures.push({ portee: portee ?? "", texte: p, sha });
+      } else if (bang) {
+        ruptures.push({ portee: portee ?? "", texte, sha });
+      }
+      // Une rupture s'ÉCRIT : le brouillon ne rend que les groupes. Un type sans
+      // section qui casse (`build(engines)!: Node 24`) va donc sous « Changed ».
+      const section = SECTIONS[type] ?? "Changed";
+      if (!groupes.has(section)) groupes.set(section, []);
+      groupes.get(section).push({
+        portee: portee ?? "",
+        texte,
+        sha,
+        rupture: Boolean(bang || pieds.length),
+      });
+    }
   }
 
-  return { ruptures, groupes, horsConvention, ecartes };
+  return { ruptures, groupes, horsConvention, ecartes, squashNonTries };
 }
 
 /**
@@ -1279,42 +1373,343 @@ export function avisDeBranche({
     typeof avance === "number" && avance > 0
       ? ` (${avance} commit${avance > 1 ? "s" : ""} d'avance)`
       : "";
+  // Tête détachée : la promotion pousse une BRANCHE — le dire avant tout geste.
+  if (!branche) {
+    return (
+      `HEAD ${ou} n'appartient PAS à « ${branchePublication} »${ecart} —\n` +
+      "  la promotion pousse une branche, pas un commit isolé.\n" +
+      "  → git switch <branche d'où l'on publie>  (release/x.y.x ou dev), puis relancer."
+    );
+  }
+  // 🔴 Ce texte conseillait « git checkout main && git merge --ff-only <branche> »
+  // — le flux d'AVANT la promotion. Depuis `--promouvoir` (qui pousse
+  // `<branche>:main` en avance rapide), le suivre sautait la poussée de la
+  // branche d'où l'on publie : l'estampille n'atteignait pas `origin/<branche>`
+  // (revue #796, G4). Le bon geste se fait d'ICI.
   return (
-    `HEAD ${ou} n'appartient PAS à « ${branchePublication} »${ecart} —\n` +
-    `  la publication l'exigera, et le tag doit être posé SUR ${branchePublication}.\n` +
-    `  Avant d'estampiller :  git checkout ${branchePublication} && ` +
-    `git merge --ff-only ${branche ?? "<branche>"}\n` +
-    `  Préparer d'ici reste légitime — mais l'estampille demandera alors ` +
-    `\`--branch ${branche ?? "<branche>"}\`,\n` +
-    `  et le commit devra REJOINDRE ${branchePublication} avant le tag.`
+    `HEAD ${ou} n'appartient pas encore à « ${branchePublication} »${ecart} —\n` +
+    `  c'est normal : préparer hors de ${branchePublication} reste légitime, et le tag doit être posé SUR ${branchePublication}.\n` +
+    `  Le geste, depuis ${ou} — sans changer de branche :\n` +
+    `    1. estampiller :  npm run release -- --version <v> --branch ${branche} --write\n` +
+    `    2. promouvoir  :  npm run release -- --version <v> --promouvoir\n` +
+    `       (pousse ${branche}:${branchePublication} en avance rapide, ET ${branche})\n` +
+    `    3. le tag, sur le commit que la promotion affiche.`
   );
 }
 
 /**
- * Ce que `--promouvoir` POUSSE : la seule branche de publication, jamais deux
- * fois le même commit.
+ * Le verdict de SYNCHRONISATION : la branche locale d'où l'on prépare est-elle
+ * à jour de `origin/<branche>` ?
  *
- * Tous les workflows de la forge se déclenchent sur `main` ET sur `dev`.
- * Pousser `dev` puis `dev:main` faisait donc tourner TOUTE la CI deux fois sur
- * le même sha, alors que `garde-main` n'en lit qu'une (par `head_sha`, quelle
- * que soit la branche). La branche de travail n'est pas poussée : elle désigne
- * déjà ce commit, et partira avec le prochain push ordinaire, dont la CI aurait
- * tourné de toute façon. Si la poussée échoue, rien n'est publié — il n'y a
- * donc aucune trace à laisser sur la branche de travail.
+ * 🔴 Le trou qu'il bouche (#796, revue du flux, bloquants 1 et 2) : en travail
+ * par demandes de fusion, `release/x.y.x` et `dev` avancent sur GitHub, jamais
+ * en local. Une branche locale en retard faisait estampiller un état FAUX — sans
+ * les correctifs fusionnés — et le refus ne tombait qu'au push de
+ * `--promouvoir`, quinze manifestes plus tard. Et la garde D9
+ * ({@link refusDeMaintenance}) lisait des `origin/release/*` jamais
+ * rafraîchies : un correctif fusionné depuis le dernier `fetch` lui restait
+ * invisible.
+ *
+ * Résilient avant d'être sévère : le seul cas SÛR — retard pur (aucun commit
+ * local en propre), arbre propre, au moment d'estampiller — se répare seul en
+ * avance rapide, et le dit. Ce qui demande un jugement (branches divergées,
+ * réseau muet) refuse à l'estampille, avec la commande exacte ; en répétition,
+ * tout n'est qu'un avis.
+ *
+ * Pure : le résultat du `fetch` et l'écart des branches sont INJECTÉS.
+ *
+ * @param {object} etat
+ * @param {string | null} etat.branche - la branche courante (`null` : HEAD détaché)
+ * @param {boolean} etat.ecrire - va-t-on estampiller ou promouvoir (refus possible) ?
+ * @param {boolean} etat.horsLigne - `--offline` : aucun `fetch` tenté
+ * @param {boolean} etat.fetchOk - `git fetch origin --prune` a-t-il réussi ?
+ * @param {boolean} etat.suivie - `origin/<branche>` existe-t-elle ?
+ * @param {number} etat.avance - commits de HEAD absents de `origin/<branche>`
+ * @param {number} etat.retard - commits de `origin/<branche>` absents de HEAD
+ * @param {boolean} etat.arbrePropre - l'arbre de travail est-il propre ?
+ * @returns {{ geste: "rien" | "avis" | "avancer" | "refus", texte: string | null }}
+ *   `avancer` = l'appelant fait `git merge --ff-only origin/<branche>` puis dit `texte`
+ */
+export function verdictDeSynchro({
+  branche,
+  ecrire,
+  horsLigne,
+  fetchOk,
+  suivie,
+  avance,
+  retard,
+  arbrePropre,
+}) {
+  if (branche === null) return { geste: "rien", texte: null };
+  const severe = (texte) => ({ geste: ecrire ? "refus" : "avis", texte });
+
+  if (horsLigne || !fetchOk) {
+    const pourquoi = horsLigne
+      ? "--offline : l'état distant n'est PAS rafraîchi"
+      : "`git fetch origin --prune` a échoué — l'état distant n'est PAS rafraîchi";
+    return severe(
+      `${pourquoi}.\n` +
+        "  Les gardes de branche liraient des références d'un autre jour : un correctif\n" +
+        "  fusionné sur GitHub depuis resterait invisible, et l'estampille porterait un état faux.\n" +
+        (horsLigne
+          ? "  → retirer --offline pour estampiller (la répétition hors ligne reste permise)."
+          : "  → vérifier la connexion, puis relancer. Pour lire l'erreur :  git fetch origin --prune"),
+    );
+  }
+  if (!suivie) {
+    return {
+      geste: "avis",
+      texte:
+        `« ${branche} » n'existe pas sur origin — rien à quoi la comparer.\n` +
+        "  Normal pour une branche jamais poussée ; une branche longue (main, dev,\n" +
+        "  release/x.y.x) absente d'origin, elle, signale un mauvais dépôt.",
+    };
+  }
+  if (retard === 0) return { geste: "rien", texte: null };
+
+  const n = `${retard} commit${retard > 1 ? "s" : ""}`;
+  if (avance === 0) {
+    if (ecrire && arbrePropre) {
+      return {
+        geste: "avancer",
+        texte:
+          `« ${branche} » avait ${n} de retard sur origin/${branche} — rattrapée en avance\n` +
+          `  rapide (git merge --ff-only origin/${branche}). Rien de local n'est perdu : il n'y\n` +
+          "  avait aucun commit en propre.",
+      };
+    }
+    return severe(
+      `« ${branche} » a ${n} de retard sur origin/${branche} : estampiller d'ici publierait\n` +
+        "  un état SANS ces commits (correctifs fusionnés sur GitHub).\n" +
+        `  → git merge --ff-only origin/${branche}` +
+        (arbrePropre
+          ? ""
+          : "   (arbre à rendre propre d'abord : commit, jamais stash)"),
+    );
+  }
+  return severe(
+    `« ${branche} » a DIVERGÉ d'origin/${branche} : ${avance} commit(s) local(aux), ${n} distant(s).\n` +
+      "  La poussée de --promouvoir serait refusée (pas une avance rapide).\n" +
+      `  → git merge origin/${branche}   (fusion, JAMAIS rebase d'une branche poussée), puis relancer.`,
+  );
+}
+
+/**
+ * Le verdict de PUBLICATION : `origin/<publication>` (`main`) porte-t-elle des
+ * commits que la branche d'où l'on publie n'a pas ?
+ *
+ * 🔴 Le trou qu'il bouche (#796, revue du flux, bloquant 4) : après une
+ * publication depuis `release/x.y.x`, le job `accueil` de `release.yml` peut
+ * commiter sur `main`. Ce commit n'atteint jamais `release/x.y.x` : au
+ * correctif suivant, `release/x.y.x:main` n'était plus une avance rapide, et la
+ * poussée atomique de `--promouvoir` tombait APRÈS l'estampille et le commit.
+ *
+ * Résilient avant d'être sévère : à l'estampille ou à la promotion, arbre
+ * propre, la branche INTÈGRE `origin/<publication>` d'elle-même (avance rapide
+ * si possible, sinon commit de fusion) — ce que `main` porte en propre se
+ * réduit aux commits d'accueil, que la publication suivante doit de toute façon
+ * annoncer. Un SEUL cas refuse, quel que soit le mode : `main` porte déjà une
+ * version qui CLÔT la ligne ({@link clotMaintenance}) — fusionner ferait entrer
+ * la mineure suivante dans la maintenance, et pousser par-dessus la ferait
+ * reculer (D8).
+ *
+ * Pure : l'écart et la version de `main` sont INJECTÉS.
+ *
+ * @param {object} etat
+ * @param {string | null} etat.branche - la branche courante (`null` : HEAD détaché)
+ * @param {string} etat.branchePublication - la branche qui porte les publications (`main`)
+ * @param {boolean} etat.ecrire - va-t-on estampiller ou promouvoir (geste permis) ?
+ * @param {number} etat.retard - commits de `origin/<publication>` absents de HEAD
+ * @param {string | null} etat.versionPublication - la version que `origin/<publication>` porte
+ * @param {boolean} etat.arbrePropre - l'arbre de travail est-il propre ?
+ * @returns {{ geste: "rien" | "avis" | "fusionner" | "refus", texte: string | null }}
+ *   `fusionner` = l'appelant fait `git merge --no-edit origin/<publication>` puis dit `texte`
+ */
+export function verdictDeBranchePublication({
+  branche,
+  branchePublication,
+  ecrire,
+  retard,
+  versionPublication,
+  arbrePropre,
+}) {
+  if (branche === null || branche === branchePublication || retard === 0) {
+    return { geste: "rien", texte: null };
+  }
+  const n = `${retard} commit${retard > 1 ? "s" : ""}`;
+  if (
+    branche.startsWith("release/") &&
+    clotMaintenance(versionPublication ?? "", branche)
+  ) {
+    return {
+      geste: ecrire ? "refus" : "avis",
+      texte:
+        `origin/${branchePublication} porte ${versionPublication} : la maintenance « ${branche} » est CLOSE (D8).\n` +
+        `  Publier d'ici ferait reculer ${branchePublication} ; y fusionner ${branchePublication} y ferait entrer la mineure suivante.\n` +
+        "  → publier le correctif depuis dev (cran suivant), puis supprimer la branche :\n" +
+        `       git push origin --delete ${branche}`,
+    };
+  }
+  if (ecrire && arbrePropre) {
+    return {
+      geste: "fusionner",
+      texte:
+        `origin/${branchePublication} avait ${n} absent(s) de « ${branche} » (accueil d'une publication) —\n` +
+        `  intégré(s) (git merge origin/${branchePublication}) : ${branche}:${branchePublication} redevient une avance rapide.`,
+    };
+  }
+  return {
+    geste: "avis",
+    texte:
+      `origin/${branchePublication} porte ${n} absent(s) de « ${branche} » (accueil d'une publication) :\n` +
+      `  la promotion ${branche}:${branchePublication} ne serait pas une avance rapide.\n` +
+      `  Rien à faire : l'estampille (--write) les intègre d'elle-même, arbre propre.\n` +
+      `  À la main :  git merge origin/${branchePublication}` +
+      (arbrePropre
+        ? ""
+        : "   (arbre à rendre propre d'abord : commit, jamais stash)"),
+  };
+}
+
+/**
+ * Une version CLÔT-elle la ligne de maintenance `x.y` ?
+ *
+ * Oui dès que sa mineure dépasse celle de la ligne — préversion comprise :
+ * `10.1.0-alpha.1` sur `main` clôt `10.0.x`, car `release/10.0.x:main` n'est
+ * plus une avance rapide et npm (≥ 11) refuse d'étiqueter `latest` une version
+ * inférieure. UNE règle, deux lecteurs : {@link refusDeMaintenance} (ne pas
+ * publier par-dessus un lot de correctifs ouvert) et `ticket-start#baseFor`
+ * (ne pas ouvrir un correctif sur une maintenance déjà close).
+ *
+ * Jugée sur la VERSION, jamais sur l'ascendance des commits : le commit du job
+ * `accueil` poussé sur `main` casse l'ascendance sans rien clore.
+ *
+ * @param {string} version - la version publiée ou à publier (`10.1.0-alpha.1`)
+ * @param {string} ligne - la ligne visée : `release/10.0.x`, `10.0.x` ou `10.0.2`
+ * @returns `true` si la ligne ne peut plus recevoir de correctif publiable
+ */
+export function clotMaintenance(version, ligne) {
+  const v = /^(\d+)\.(\d+)\./u.exec(version ?? "");
+  const l = /^(?:release\/)?(\d+)\.(\d+)\./u.exec(ligne ?? "");
+  if (v === null || l === null) return false;
+  const [vM, vm, lM, lm] = [v[1], v[2], l[1], l[2]].map(Number);
+  return vM > lM || (vM === lM && vm > lm);
+}
+
+/** Un titre de jalon de CORRECTIF : `x.y.x`, ou `x.y.z` avec z ≥ 1. */
+export function estJalonDeCorrectif(titre) {
+  const m = /^(\d+)\.(\d+)\.(x|\d+)$/u.exec(titre ?? "");
+  return m !== null && (m[3] === "x" || Number(m[3]) >= 1);
+}
+
+/**
+ * Le refus de MAINTENANCE : ce qu'une branche `release/x.y.x` vivante interdit à
+ * une publication faite depuis une AUTRE branche.
+ *
+ * Toute publication avance `main` en avance rapide. Publier depuis `dev` alors
+ * que `release/x.y.x` porte des correctifs non publiés ferme la maintenance pour
+ * de bon : `release/x.y.x:main` ne sera plus jamais une avance rapide, et
+ * `npm` (≥ 11) refuse d'étiqueter `latest` une version inférieure. Ces correctifs
+ * ne pourraient plus sortir qu'avec la mineure suivante — y compris par une
+ * simple préversion. D'où la décision D9 (#796) : **pas de publication depuis
+ * `dev` tant qu'un correctif publiable attend sur `release/x.y.x`** — on publie
+ * le x.y.z d'abord, ou l'on déplace le correctif.
+ *
+ * Second motif, l'oubli de la fusion arrière : une `release/x.y.x` dont le
+ * contenu n'est pas dans la branche publiée laisse hors de la publication
+ * l'estampille et le changelog du dernier x.y.z — et sans eux `git describe`
+ * borne mal le changelog suivant (cf `git-scm.com/docs/gitworkflows`, « merge
+ * upwards »).
+ *
+ * Seuls comptent les commits qui atteignent un installeur ({@link perimetrePublie}) :
+ * l'outillage de pilotage, qui part de la plus ancienne `release/*`, ne bloque
+ * rien. Pure : l'état des branches est INJECTÉ.
+ *
+ * Troisième motif (#796, bloquant 3) : un LOT de correctifs ouvert (jalon
+ * `x.y.x` ou `x.y.z` portant des tickets ouverts) que la version publiée
+ * clôturerait ({@link clotMaintenance}). Sans lui, une préversion de la mineure
+ * suivante passait tant qu'aucun commit n'avait encore atteint `release/x.y.x`
+ * — et les tickets du lot devenaient impubliables en x.y.z.
+ *
+ * @param {object} etat
+ * @param {string | null} etat.branche - la branche d'où l'on publie (`null` : HEAD détaché)
+ * @param {Array<{ nom: string, fusionnee: boolean, nonPublies: number }>} etat.maintenance -
+ *   par `origin/release/*` : contenue dans HEAD ?, et nombre de commits PUBLIABLES absents de `main`
+ * @param {string | null} [etat.version] - la version à publier (absente : motif 3 non jugé)
+ * @param {Array<{ titre: string, ouverts: number }> | null} [etat.lots] - jalons OUVERTS
+ *   et leurs tickets ouverts (`null` : non lus)
+ * @returns le texte du refus, ou `null` s'il n'y a rien à refuser
+ */
+export function refusDeMaintenance({
+  branche,
+  maintenance,
+  version = null,
+  lots = null,
+}) {
+  if (branche === null || branche.startsWith("release/")) return null;
+  const motifs = [];
+  for (const m of maintenance) {
+    if (m.nonPublies > 0) {
+      motifs.push(
+        `${m.nom} porte ${m.nonPublies} commit(s) publiable(s) absent(s) de main.\n` +
+          `    Publier depuis ${branche} fermerait la maintenance : ${m.nom}:main ne serait\n` +
+          "    plus une avance rapide, et ces correctifs ne sortiraient qu'avec la mineure.\n" +
+          `    → publier d'abord le correctif depuis ${m.nom} (D9) ; ou CLORE cette maintenance :\n` +
+          `      fusionner ${m.nom} dans ${branche} (release-sync), puis supprimer origin/${m.nom} (D8).`,
+      );
+    } else if (!m.fusionnee) {
+      motifs.push(
+        `${m.nom} n'est pas fusionnée dans ${branche} — fusion arrière due.\n` +
+          "    Sans elle, l'estampille et le changelog du dernier correctif manquent à\n" +
+          "    cette publication, et le changelog suivant se borne mal.\n" +
+          `    → fusionner origin/main puis ${m.nom} dans ${branche} (commit de FUSION, pas de squash) :\n` +
+          "      node .claude/skills/nodefony-ticket/scripts/release-sync.mjs",
+      );
+    }
+  }
+  for (const lot of lots ?? []) {
+    if (
+      lot.ouverts > 0 &&
+      estJalonDeCorrectif(lot.titre) &&
+      version !== null &&
+      clotMaintenance(version, lot.titre)
+    ) {
+      motifs.push(
+        `le lot ${lot.titre} a ${lot.ouverts} ticket(s) ouvert(s) : publier ${version} clôturerait sa maintenance,\n` +
+          "    et ces correctifs ne pourraient plus sortir qu'avec la mineure.\n" +
+          `    → publier d'abord ce lot ; ou déplacer ses tickets vers le jalon de ${version.replace(/-.*$/u, "")}\n` +
+          "      et clore la maintenance (D8).",
+      );
+    }
+  }
+  return motifs.length
+    ? `publication depuis ${branche} refusée :\n  · ${motifs.join("\n  · ")}`
+    : null;
+}
+
+/**
+ * Ce que `--promouvoir` POUSSE : la branche de publication ET la branche d'où
+ * l'on publie, en UNE poussée atomique.
+ *
+ * La branche d'où l'on publie (`dev`, `release/x.y.x`) DOIT porter l'estampille
+ * sur `origin`. Le travail se fait en demandes de fusion : plus aucune poussée
+ * ordinaire n'atteint une branche longue, donc une estampille laissée en local
+ * n'y arrive jamais. La suite part alors d'une `origin/<branche>` aux manifestes
+ * de la version PRÉCÉDENTE, et sa propre promotion `<branche>:main` est refusée
+ * (plus d'avance rapide). L'ancienne règle — ne pousser que la branche de
+ * publication pour ne pas rejouer la CI sur le même sha — datait du travail
+ * direct sur `dev` : le prix est une seconde CI, en parallèle, sur ce commit.
+ * Atomique : les deux références avancent ensemble, ou aucune.
  *
  * @param {{branche: string, branchePublication: string}} p
- * @returns {{refspec: string, brancheEnAttente: string | null}} la référence à
- *   pousser vers `origin`, et la branche de travail laissée en avance locale
- *   (`null` quand on promeut depuis la branche de publication elle-même).
+ * @returns {{refspecs: string[]}} les références à pousser vers `origin`, dans
+ *   une seule poussée `--atomic`.
  */
 export function planDePromotion({ branche, branchePublication }) {
   if (branche === branchePublication) {
-    return { refspec: branchePublication, brancheEnAttente: null };
+    return { refspecs: [branchePublication] };
   }
-  return {
-    refspec: `${branche}:${branchePublication}`,
-    brancheEnAttente: branche,
-  };
+  return { refspecs: [`${branche}:${branchePublication}`, branche] };
 }
 
 /**

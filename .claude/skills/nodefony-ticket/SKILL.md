@@ -395,8 +395,9 @@ la forme du **compte rendu de fermeture** vivent en référence.
 - 🔴 **65 536 caractères au plus** pour un corps d’issue comme pour un commentaire : au-delà GitHub
   refuse, et une fermeture refusée laisse le ticket ouvert. `ticket:open` le refuse avant de créer,
   `ticket-close.mjs --check` avant de fermer.
-- ⚠️ **`Closes #95` ne ferme RIEN depuis `dev`** : GitHub n'honore le mot-clé que sur la branche par
-  défaut. La fermeture est toujours un geste — `gh issue close`, avec son compte rendu.
+- ⚠️ **`Closes #95` ne mord que vers `dev`** (branche par défaut), à la fusion de la PR — et ne
+  ferme RIEN vers `release/*`. Même fermé par le mot-clé, le ticket attend son compte rendu :
+  `ticket-close.mjs` (ou `gh issue close` / `gh issue comment`).
 - **Fermer sur « fait » perd ce que la session a appris.** Deux blocs qu'aucun automate ne peut
   écrire : ce qui a **débordé** de l'énoncé, et ce qui n'a **pas** été fait, avec son motif.
 - **La console d'administration est la référence de non-régression** : tout ticket qui touche le
@@ -446,24 +447,27 @@ réécrire ; un écart estimé/constaté ne veut rien dire sans savoir ce qu'on 
 d'aucun de ceux-ci. Le câblage npm ne décide pas du placement (`board:snapshot` vit dans
 `nodefony-session` et est appelé par npm).
 
-| Script                                                                   | Ce qu'il fait                                                                                                                   | Appelé par                                              |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)                     | ouvre un ticket avec ordre dérivé du parent et champs du tableau                                                                | `npm run ticket:open`                                   |
-| [`scripts/ticket-reorder.mjs`](scripts/ticket-reorder.mjs)               | réordonne un lot : champ `Ordre` ET position sur la grille, chaînés après l’item précédent de l’empreinte                       | à la main, `--dry-run` d’abord                          |
-| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs)             | passe en `In Progress` les tickets qu'un commit cite sans les fermer                                                            | `.githooks/post-commit`                                 |
-| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)                 | confronte `Jours` au travail constaté — en SÉANCES, par tranche d'estimation, plus le délai                                     | à la main, au END de session                            |
-| [`scripts/board-lint.mjs`](scripts/board-lint.mjs)                       | confronte le TABLEAU DE BORD à ses propres règles — ce qui est absent, en double, ou se contredit                               | `npm run ticket:lint`, au RESUME et au END              |
-| [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)                 | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                                                      | à la main, au END de session                            |
-| [`scripts/proof-commands.mjs`](scripts/proof-commands.mjs)               | relance les preuves `rg … rend 0` des corps (hors « Fini quand »), `rg` seul, sans shell — démentie ou cassée = sortie 1        | `ticket-verify.mjs`, mode par défaut                    |
-| [`scripts/ticket-anchor-migrate.mjs`](scripts/ticket-anchor-migrate.mjs) | convertit les ancres `fichier:ligne` des tickets ouverts en symboles, chacune lue dans le code de SA date ; liste le reste      | à la main, quand `ANCRE-LIGNE` sonne ; `--apply` envoie |
-| [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)                   | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur)                          | à la main, avant `gh issue close`                       |
-| [`scripts/github-limits.mjs`](scripts/github-limits.mjs)                 | la limite de taille de GitHub (65 536 caractères), vérifiée AVANT l’envoi d’un corps ou d’un commentaire                        | `ticket-open.mjs`, `ticket-close.mjs --check`           |
-| [`scripts/francise.mjs`](scripts/francise.mjs)                           | repère les tournures à franciser dans un corps de ticket                                                                        | à la main                                               |
-| [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)                   | insère le bloc **Lexique** des abréviations détectées                                                                           | à la main                                               |
-| [`scripts/pr-complete.mjs`](scripts/pr-complete.mjs)                     | remplit la colonne de droite d’une PR (responsable, jalon, lot, tableau, lien) depuis ses tickets, et dit ce qui ne se pose pas | à la main, après l’ouverture d’une PR                   |
+| Script                                                                   | Ce qu'il fait                                                                                                                       | Appelé par                                              |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)                     | ouvre un ticket avec ordre dérivé du parent et champs du tableau                                                                    | `npm run ticket:open`                                   |
+| [`scripts/ticket-reorder.mjs`](scripts/ticket-reorder.mjs)               | réordonne un lot : champ `Ordre` ET position sur la grille, chaînés après l’item précédent de l’empreinte                           | à la main, `--dry-run` d’abord                          |
+| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs)             | passe en `In Progress` le ticket de la branche de travail (`<type>/<N>-…`) — jamais un ticket seulement cité                        | `.githooks/post-commit`                                 |
+| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)                 | confronte `Jours` au travail constaté — en SÉANCES, par tranche d'estimation, plus le délai                                         | à la main, au END de session                            |
+| [`scripts/board-lint.mjs`](scripts/board-lint.mjs)                       | confronte le TABLEAU DE BORD à ses propres règles — ce qui est absent, en double, ou se contredit                                   | `npm run ticket:lint`, au RESUME et au END              |
+| [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)                 | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                                                          | à la main, au END de session                            |
+| [`scripts/proof-commands.mjs`](scripts/proof-commands.mjs)               | relance les preuves `rg … rend 0` des corps (hors « Fini quand »), `rg` seul, sans shell — démentie ou cassée = sortie 1            | `ticket-verify.mjs`, mode par défaut                    |
+| [`scripts/ticket-anchor-migrate.mjs`](scripts/ticket-anchor-migrate.mjs) | convertit les ancres `fichier:ligne` des tickets ouverts en symboles, chacune lue dans le code de SA date ; liste le reste          | à la main, quand `ANCRE-LIGNE` sonne ; `--apply` envoie |
+| [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)                   | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur)                              | à la main, avant `gh issue close`                       |
+| [`scripts/github-limits.mjs`](scripts/github-limits.mjs)                 | la limite de taille de GitHub (65 536 caractères), vérifiée AVANT l’envoi d’un corps ou d’un commentaire                            | `ticket-open.mjs`, `ticket-close.mjs --check`           |
+| [`scripts/francise.mjs`](scripts/francise.mjs)                           | repère les tournures à franciser dans un corps de ticket                                                                            | à la main                                               |
+| [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)                   | insère le bloc **Lexique** des abréviations détectées                                                                               | à la main                                               |
+| [`scripts/pr-complete.mjs`](scripts/pr-complete.mjs)                     | remplit la colonne de droite d’une PR (responsable, jalon, lot, tableau, lien) depuis ses tickets, et dit ce qui ne se pose pas     | à la main, après l’ouverture d’une PR                   |
+| [`scripts/ticket-start.mjs`](scripts/ticket-start.mjs)                   | entame un ticket : branche `<type>/<N>-<sujet>` sur la bonne base, PR en brouillon, « In Progress » ; reprend une branche existante | à la main, AVANT tout code                              |
+| [`scripts/pr-finish.mjs`](scripts/pr-finish.mjs)                         | clôt la PR d’un ticket sans attendre la CI : prête, puis fusion automatique ou surveillance en arrière-plan, en squash              | à la main, à la fin d’un ticket                         |
+| [`scripts/release-sync.mjs`](scripts/release-sync.mjs)                   | fusion arrière `release/x.y.x → dev` : fusionne `origin/main` puis la maintenance, PR, fusion en COMMIT DE FUSION                   | à la main, juste après une publication de correctif     |
 
 Les deux fonctions pures qui portent une règle — `deriveOrdre` (l'ordre d'un sous-ticket) et
-`parseTargets` (les tickets qu'un message de commit cite) — sont éprouvées par
+`ticketOfBranch` (le ticket d'une branche de travail, `commit-kind.mjs`) — sont éprouvées par
 [`scripts/ticket-open.test.mjs`](scripts/ticket-open.test.mjs) et
 [`scripts/ticket-progress.test.mjs`](scripts/ticket-progress.test.mjs) ; celles du compte rendu
 (`fichiersDeTest`, `composer`) par [`scripts/ticket-close.test.mjs`](scripts/ticket-close.test.mjs).

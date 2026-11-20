@@ -15,7 +15,7 @@
 | Infrastructure | 14 |
 | Interrupteur de coût | 8 |
 | Décor de banc | 42 |
-| Runtime produit | 93 |
+| Runtime produit | 94 |
 
 ## Décor de banc
 
@@ -170,7 +170,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (93)
+## Runtime produit (94)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -183,6 +183,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:103` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:100` |
 | `NF_ADMIN_PASSWORD` | `src/packages/@nodefony/http/nodefony/tests/websockets/presence-e2e.test.ts:49` |
+| `NF_ALLOW_LONG_BRANCH_COMMIT` | `scripts/repo/commit-guard.mjs:96` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:977` |
 | `NF_BENCH_ROUTE` | `src/modules/test/index.ts:122` |
 | `NF_BIND_ALL` | `scripts/test/test-all.ts:845` |

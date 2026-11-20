@@ -47,7 +47,7 @@ describe("pr-complete — remplir la colonne de droite d'une pull request", () =
   it("vers une branche de release, le lien « Development » est DIT impossible, jamais tenté", () => {
     const plan = planPrCompletion({ ...CTX, pr: BARE, issues: [ISSUE] });
     expect(kinds(plan).some((k) => k.startsWith("closes:"))).toBe(false);
-    expect(plan.notes.join("\n")).toMatch(/IMPOSSIBLE vers release\/10\.0\.x/u);
+    expect(plan.notes.join("\n")).toMatch(/À LA MAIN vers release\/10\.0\.x/u);
     expect(plan.notes.join("\n")).toMatch(/fermer à la main/u);
   });
 

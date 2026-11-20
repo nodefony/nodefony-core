@@ -281,6 +281,7 @@
       "env": [],
       "output": "",
       "calledBy": [
+        ".claude/skills/nodefony-ticket/scripts/pr-finish.mjs",
         "scripts/gates/check-symbol-stability.mjs",
         "scripts/lib/symbols-publish.mjs",
         "scripts/release/api-diff.mjs",
@@ -2091,6 +2092,42 @@
       "testedBy": []
     },
     {
+      "path": "scripts/repo/commit-guard.mjs",
+      "test": false,
+      "purpose": "Garde `commit-msg` du travail en demandes de fusion (#796) : refuse un commit de travail sur une branche longue, et un marqueur skip-ci glissé dans un commit de vrai travail.",
+      "usage": [
+        "node scripts/repo/commit-guard.mjs <fichier-du-message>   (appelé par .githooks/commit-msg)"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "NF_ALLOW_LONG_BRANCH_COMMIT",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        ".githooks/commit-msg",
+        ".claude/skills/nodefony-ticket/scripts/pr-finish.mjs"
+      ],
+      "testedBy": [
+        "scripts/repo/commit-guard.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/repo/commit-guard.test.mjs",
+      "test": true,
+      "purpose": "Éprouve la garde `commit-msg` du travail en demandes de fusion (#796). /",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/repo/long-run-lock.mjs",
       "test": false,
       "purpose": "Verrou « un run long occupe l'arbre » — seule implémentation, trois lecteurs.",
@@ -2910,6 +2947,8 @@
       "calledBy": [
         ".claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs",
         ".claude/skills/nodefony-devkit-bench/scripts/lib/decor-source.mjs",
+        ".claude/skills/nodefony-ticket/scripts/pr-finish.mjs",
+        ".claude/skills/nodefony-ticket/scripts/ticket-start.mjs",
         "scripts/release/attendre-ci.mjs",
         "scripts/release/compat.mjs",
         "scripts/release/image-channels.mjs",
@@ -2918,6 +2957,7 @@
         "scripts/site/readme-html.mjs"
       ],
       "testedBy": [
+        ".claude/skills/nodefony-ticket/scripts/pr-finish.test.mjs",
         "scripts/release/release-core.test.mjs"
       ]
     },
@@ -2930,6 +2970,20 @@
       "env": [],
       "output": "",
       "calledBy": [
+        "npm run test:release"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/release-workflow.test.mjs",
+      "test": true,
+      "purpose": "Le déclencheur de la publication ne porte aucune majeure écrite en dur (#796).",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "release.yml",
         "npm run test:release"
       ],
       "testedBy": []
@@ -10009,8 +10063,8 @@
       ],
       "description": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application). Plan : `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"puis-je publier ?\", \"estampiller la version\", \"changelog de la release\", \"ordre de publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"trusted publishing\", \"ENEEDAUTH\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 508,
-        "approxTokens": 10717
+        "bodyLines": 535,
+        "approxTokens": 11274
       },
       "requires": [],
       "resources": {
@@ -10112,7 +10166,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "508",
+            "detail": "535",
             "advisory": true
           }
         ]
@@ -10600,8 +10654,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire de reprise, commit. RESUME et START sont dans le corps ; END dans `references/`. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"clôture la session\".",
       "cost": {
-        "bodyLines": 210,
-        "approxTokens": 3336
+        "bodyLines": 211,
+        "approxTokens": 4135
       },
       "requires": [
         "redis"
@@ -10676,6 +10730,24 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/branch-status.mjs",
+            "purpose": "Ce que la reprise dit de la BRANCHE — règles pures, éprouvées sans réseau.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/branch-status.test.mjs",
+            "purpose": "Éprouve les lignes « branche et PR » de la reprise (#796) : branche longue, branche sans PR, branche avec PR et checks rouges — et le rattrapage des PR fusionnées dont le ticket est resté ouvert. /",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/cli-guard.mjs",
             "purpose": "Garde de ligne de commande des scripts de pilotage — lit l'en-tête du script appelant et applique {@link cliGate} : aide sur `--help`, refus (code 64) d'une option que l'en-tête ne déclare pas.",
             "usage": [
@@ -10690,6 +10762,24 @@
             "env": [],
             "output": "",
             "selfDocumented": true
+          },
+          {
+            "path": "scripts/install-drift.mjs",
+            "purpose": "L'installation (`node_modules`) correspond-elle au verrou (`package-lock.json`) de la branche courante ?",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/install-drift.test.mjs",
+            "purpose": "Éprouve la règle « installation périmée » : le CONTENU du verrou contre ce que npm a posé, jamais leurs dates. /",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
           },
           {
             "path": "scripts/session-cost.mjs",
@@ -10901,7 +10991,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "210",
+            "detail": "211",
             "advisory": true
           }
         ]
@@ -11716,13 +11806,16 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée (CVSS 3.1 calculé, IEEE 1044), parents et sous-tickets, champs et dates du tableau, quand prendre un ticket, et la pull request qui le porte (colonne de droite, lien, méthode de fusion). À charger AVANT d'ouvrir une issue ou une PR. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"quelle gravité pour ce bug ?\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"explique le ticket\", \"pour les nuls\", \"la PR est à moitié remplie\", \"quand merger la PR sur dev ?\".",
       "cost": {
-        "bodyLines": 483,
-        "approxTokens": 9826
+        "bodyLines": 487,
+        "approxTokens": 10063
       },
       "requires": [
         "redis",
         "gh authentifié",
-        "droits d'écriture sur le dépôt et le tableau"
+        "droits d'écriture sur le dépôt et le tableau",
+        "gh authentifié ; arbre propre",
+        "gh authentifié ; arbre propre ; branche courante sans commit non poussé",
+        "droits d'écriture sur le dépôt et le tableau ; arbre propre"
       ],
       "resources": {
         "references": [
@@ -11881,6 +11974,37 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/pr-finish.mjs",
+            "purpose": "Clôt un ticket SANS attendre la CI : branche poussée, PR « prête », fusion confiée à GitHub.",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs            (PR de la branche courante)",
+              "node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> [--dry-run]",
+              "node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> --merge-when-green   (la surveillance, en arrière-plan)"
+            ],
+            "options": [
+              {
+                "flag": "--dry-run",
+                "help": "rend la voie choisie et ses raisons, sans rien modifier"
+              },
+              {
+                "flag": "--merge-when-green",
+                "help": "attend les checks (arrêt au premier rouge) puis fusionne en squash avec le message composé"
+              }
+            ],
+            "env": [],
+            "output": "la voie (auto ou surveillance), et la commande à lancer en arrière-plan le cas échéant",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/pr-finish.test.mjs",
+            "purpose": "Éprouve la voie de fusion de `pr-finish.mjs` : la fusion automatique n'est prise que si elle ATTEND vraiment la CI — sans check exigé, `--auto` fusionnerait tout de suite, CI rouge comprise. /",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/proof-commands.mjs",
             "purpose": "proof-commands.mjs — exécute les PREUVES écrites en commande dans un ticket.",
             "usage": [],
@@ -11892,6 +12016,36 @@
           {
             "path": "scripts/proof-commands.test.mjs",
             "purpose": "`proof-commands` — relancer les preuves d'ABSENCE écrites dans un ticket.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/release-sync.mjs",
+            "purpose": "Rapatrie une branche de maintenance dans `dev` par une PR fusionnée en COMMIT DE FUSION.",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/release-sync.mjs [release/x.y.x] [--dry-run]",
+              "node .claude/skills/nodefony-ticket/scripts/release-sync.mjs --merge-when-green <PR>   (la surveillance, en arrière-plan)"
+            ],
+            "options": [
+              {
+                "flag": "--dry-run",
+                "help": "dit ce qui serait fusionné, sans rien modifier"
+              },
+              {
+                "flag": "--merge-when-green",
+                "help": "attend les checks (arrêt au premier rouge) puis fusionne en commit de fusion"
+              }
+            ],
+            "env": [],
+            "output": "la branche, les références fusionnées, la PR et la commande de surveillance",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/release-sync.test.mjs",
+            "purpose": "Suite de la fusion arrière `release/x.y.x → dev` (D9, #796).",
             "usage": [],
             "options": [],
             "env": [],
@@ -11928,7 +12082,7 @@
             "path": "scripts/ticket-close.mjs",
             "purpose": "Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique.",
             "usage": [
-              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>"
+              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done"
             ],
             "options": [
               {
@@ -11938,6 +12092,14 @@
               {
                 "flag": "--check",
                 "help": "vérifie qu'un compte rendu tient dans un commentaire GitHub (65 536 caractères)"
+              },
+              {
+                "flag": "--close",
+                "help": "publie le compte rendu complété, ferme le ticket et pose « Done » au tableau"
+              },
+              {
+                "flag": "--done",
+                "help": "pose « Done » au tableau sur un ticket DÉJÀ fermé"
               }
             ],
             "env": [],
@@ -12068,9 +12230,9 @@
           },
           {
             "path": "scripts/ticket-progress.mjs",
-            "purpose": "Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer.",
+            "purpose": "Passe en « In Progress » le ticket de la branche de travail où l'on vient de commiter.",
             "usage": [
-              "node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)"
+              "node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs"
             ],
             "options": [
               {
@@ -12091,6 +12253,10 @@
               },
               {
                 "flag": "--project-id",
+                "help": ""
+              },
+              {
+                "flag": "--show-current",
                 "help": ""
               },
               {
@@ -12146,6 +12312,37 @@
             "env": [],
             "output": "",
             "selfDocumented": true
+          },
+          {
+            "path": "scripts/ticket-start.mjs",
+            "purpose": "Entame (ou reprend) un ticket : sa branche de travail, sa PR en brouillon, son statut « En cours ».",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N> --slug <sujet-en-anglais>",
+              "node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N>            (reprise d'une branche existante)",
+              "node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N> --slug <sujet> --dry-run"
+            ],
+            "options": [
+              {
+                "flag": "--slug",
+                "help": "sujet de la branche : anglais, kebab-case ASCII, 40 caractères au plus"
+              },
+              {
+                "flag": "--dry-run",
+                "help": "rend le plan (branche, base, corps de PR) sans rien créer"
+              }
+            ],
+            "env": [],
+            "output": "la branche, sa base, la PR, et ce qui reste à faire à la main",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/ticket-start.test.mjs",
+            "purpose": "Éprouve les règles PURES de `ticket-start.mjs` — les décisions 2, 3 et 4 de #796 : le nom de la branche, sa base, le corps de la PR, et le commit vide qui l'ouvre sans lancer de CI. /",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
           },
           {
             "path": "scripts/ticket-verify.mjs",
@@ -12236,7 +12433,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "483",
+            "detail": "487",
             "advisory": true
           }
         ]

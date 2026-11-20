@@ -3,98 +3,95 @@
  *
  * Le champ existait depuis toujours et n'avait JAMAIS servi (0 item sur 64) parce
  * que « commencer » n'est pas un instant qu'on sait nommer. Le remplacer par un
- * fait — le premier commit qui cite le ticket — ne vaut que si la lecture de ce
- * fait est juste : un message mal lu marque le mauvais ticket, ou remet « en
- * cours » un ticket que le même commit vient de fermer.
+ * fait — le premier commit sur la branche du ticket — ne vaut que si la lecture
+ * de ce fait est juste : une branche mal lue marque le mauvais ticket.
  *
  * Les cas marqués « PIÈGE » sont ceux où une lecture naïve se trompe.
  */
 import { describe, expect, it } from "vitest";
-import { parseTargets } from "./ticket-progress.mjs";
+import { mentionedTickets, ticketOfBranch } from "./commit-kind.mjs";
+import { ticketsInProgress } from "./ticket-progress.mjs";
+import { referencedIssues } from "./pr-complete.mjs";
 
-describe("tickets mis en cours par un message de commit", () => {
-  it("un ticket cité sans être fermé passe en cours", () => {
-    expect(
-      parseTargets("feat(orm): avancer\n\nPremière moitié de #41."),
-    ).to.deep.equal(["41"]);
+describe("ticket mis en cours par un commit : celui de la BRANCHE", () => {
+  it("une branche de travail met son ticket en cours", () => {
+    expect(ticketsInProgress("fix/794-http2-head-scope")).to.deep.equal([794]);
+    expect(ticketsInProgress("chore/796-branch-and-pr-first")).to.deep.equal([
+      796,
+    ]);
   });
 
-  // PIÈGE : sans cette exclusion, le commit qui FERME rouvrirait le ticket « en
-  // cours » juste après que GitHub l'a passé à Done. Le tableau afficherait
-  // l'inverse de la vérité, et c'est le pire état possible pour un instrument.
-  it("IGNORE un ticket que le commit ferme", () => {
-    for (const kw of [
-      "Closes",
-      "closes",
-      "Close",
-      "Fixes",
-      "fixed",
-      "Resolves",
+  // PIÈGE vécu (#796) : des commits de la branche de #796 citaient #794 (exemple
+  // d'essai à blanc) et #445 — tous deux passés « In Progress », remis à Todo à la
+  // main. Le message n'est plus lu : seule la branche parle.
+  it("n'a PAS de paramètre message : une mention ne met rien en cours", () => {
+    expect(ticketsInProgress.length).toBe(1);
+  });
+
+  it("hors branche de travail, rien n'est mis en cours", () => {
+    for (const branch of [
+      "dev",
+      "main",
+      "release/10.0.x",
+      "", // HEAD détaché
+      "chore(x)/12-y",
+      "fix/sans-numero",
+      "fix/12", // pas de sujet
     ]) {
-      expect(parseTargets(`fix(x): y\n\n${kw} #58`), kw).to.deep.equal([]);
+      expect(ticketsInProgress(branch), branch).to.deep.equal([]);
     }
   });
 
-  it("distingue les deux dans un même message", () => {
-    expect(
-      parseTargets("fix(x): y\n\nAvance #41 et #42.\nCloses #58"),
-    ).to.deep.equal(["41", "42"]);
+  // PIÈGE : une branche ancienne `wip/20-min-release-age` n'est pas la branche du
+  // ticket #20 — seul un type de `BRANCH_TYPES` fait une branche de travail.
+  it("refuse un préfixe hors des types de branche de travail", () => {
+    expect(ticketOfBranch("wip/20-min-release-age")).toBe(null);
+    expect(ticketOfBranch("dependabot/npm_and_yarn/vite-7")).toBe(null);
   });
+
+  it("la PR retrouve son ticket par la MÊME règle", () => {
+    expect(referencedIssues({ headRefName: "wip/20-x" })).to.deep.equal([]);
+    expect(referencedIssues({ headRefName: "fix/797-home" })).to.deep.equal([
+      797,
+    ]);
+  });
+});
+
+describe("tickets cités par un texte (`mentionedTickets`)", () => {
+  // Plus lue par la mise en cours, la règle sert encore la préparation de clôture
+  // et la lecture du `_state` : ses pièges restent gardés ici.
 
   // PIÈGE : un numéro cité deux fois ne doit pas produire deux appels réseau.
   it("dédoublonne", () => {
-    expect(parseTargets("#41 puis encore #41")).to.deep.equal(["41"]);
-  });
-
-  it("ne rend rien quand aucun ticket n'est cité", () => {
-    expect(parseTargets("chore: ménage")).to.deep.equal([]);
-  });
-
-  // PIÈGE : un commit de PILOTAGE (retex de session, recalage du tableau) cite des
-  // dizaines de tickets sans en faire avancer un seul. Sans cette exclusion, le
-  // retex de fin de session remet « en cours » tout ce qu'il énumère — vécu sur
-  // #188, monté par le commit `docs(session)` qui le mentionnait dans son corps.
-  // `board-lint.mjs` refuse déjà ces commits comme preuve de travail : les deux
-  // scripts lisent la MÊME règle (`isPilotageCommit`), sinon elle diverge.
-  it("IGNORE les tickets cités par un commit de pilotage", () => {
-    for (const sujet of [
-      "docs(session): retex 09-04e — leçons",
-      "chore(pilotage): recaler le tableau de bord",
-      "docs(claude): consigner la règle",
-    ]) {
-      expect(
-        parseTargets(`${sujet}\n\nReste #183, #184 et #188.`),
-        sujet,
-      ).to.deep.equal([]);
-    }
+    expect(mentionedTickets("#41 puis encore #41")).to.deep.equal([41]);
   });
 
   // PIÈGE : le corps d'un commit cite volontiers des ancres et des tailles.
   // `#` non suivi de chiffres, ou un dièse collé à un mot, ne sont pas des tickets.
   it("ne prend pas un dièse qui n'introduit pas un numéro", () => {
     expect(
-      parseTargets("perf: passer de 35 MB à 12 MB — cf section #\n"),
+      mentionedTickets("perf: passer de 35 MB à 12 MB — cf section #\n"),
     ).to.deep.equal([]);
   });
 
   // Vécu : « PKCS#11 » dans un message faisait citer la demande de fusion #11.
   it("ne prend pas un dièse collé à un mot (PKCS#11, C#7, chemin/#12)", () => {
     expect(
-      parseTargets(
+      mentionedTickets(
         "docs: ajouter PKCS#11, C#7 et docs/#12 au glossaire (#583)\n",
       ),
-    ).to.deep.equal(["583"]);
+    ).to.deep.equal([583]);
   });
 
   // Vécu : des numéros d'alerte CodeQL ont passé #245, #246 et #248 en cours.
   it("ne prend pas un numéro d'alerte CodeQL pour un ticket", () => {
     expect(
-      parseTargets(
+      mentionedTickets(
         "fix(x): échapper l'antislash (#227)\n\n" +
           "CodeQL js/incomplete-sanitization (#245, #246) : la barre…\n" +
           "CodeQL #248 : dans un segment de code…\n" +
           "alertes CodeQL #247 et #249 classées. CodeQL rouge, voir #12.\n",
       ),
-    ).to.deep.equal(["227", "12"]);
+    ).to.deep.equal([227, 12]);
   });
 });

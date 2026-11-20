@@ -10,6 +10,7 @@
  */
 
 import { mentionedTickets } from "../../nodefony-ticket/scripts/commit-kind.mjs";
+import { isOpenItem } from "./board-next.mjs";
 
 /** Hashes courts (≥ 7 hex) cités dans un texte — `49b5010a`, `d1930bea`. */
 export function citedHashes(text) {
@@ -141,18 +142,17 @@ export function ciHistory(shas, runs) {
 }
 
 /**
- * Tickets passés à « Done » entre deux empreintes du tableau — ce que la session
- * (ou quelqu'un d'autre) a fermé, lisible HORS LIGNE.
+ * Tickets FERMÉS entre deux empreintes du tableau — ce que la session (ou
+ * quelqu'un d'autre) a soldé, lisible HORS LIGNE. « Fermé » au sens de
+ * `isOpenItem` : ticket clos OU statut « Done » — un ticket fermé à la main
+ * qui garde « In Progress » compte.
  *
- * @param {{number: number, status: string}[]} before
- * @param {{number: number, status: string, title: string}[]} after
+ * @param {{number: number, status: string, state?: string}[]} before
+ * @param {{number: number, status: string, state?: string, title: string}[]} after
  */
 export function newlyDone(before, after) {
-  const was = new Map(before.map((i) => [i.number, i.status]));
-  return after.filter(
-    (i) =>
-      i.status === "Done" && was.has(i.number) && was.get(i.number) !== "Done",
-  );
+  const wasOpen = new Map(before.map((i) => [i.number, isOpenItem(i)]));
+  return after.filter((i) => !isOpenItem(i) && wasOpen.get(i.number) === true);
 }
 
 /** Liens `[[nom]]` d'une section `## <titre>` d'un fichier Markdown. */

@@ -4,8 +4,17 @@
 > request. **Maintenance** : vérité courante, jamais un journal ; historique = `git log`.
 
 Depuis la 10.0.0, tout passe par une pull request (PR) : `dev` reçoit la prochaine version mineure,
-`release/x.y.x` les correctifs de la version publiée. Le geste qui ouvre la branche et la PR au
-début d'un ticket est le sujet de #796 ; cette page couvre ce qui suit l'ouverture.
+`release/x.y.x` les correctifs de la version publiée. Le cycle d'un ticket tient en deux scripts,
+qui encadrent le code :
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs 794 --slug http2-head-scope   # entamer
+node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs                                  # clore, sans attendre
+```
+
+`ticket-start` ouvre la branche, la PR en brouillon et le statut « En cours » (relancé sur un ticket
+qui a déjà sa branche, il s'y place : c'est aussi la reprise d'un ticket mis de côté). Cette page
+couvre ce qui suit l'ouverture.
 
 ## 1. La colonne de droite — rien ne s'invente, tout se lit sur le ticket
 
@@ -18,7 +27,7 @@ tableau, ne dit pas quelle version elle prépare, et ne mène pas à son ticket.
 | **Milestone**   | le jalon du ticket                      | le ticket ; plusieurs tickets de jalons différents = à trancher  |
 | **Labels**      | les labels du ticket (le lot, `10.0.1`) | le ticket                                                        |
 | **Projects**    | le tableau de bord des tickets          | le même que `ticket-open.mjs`                                    |
-| **Development** | le ticket, par un mot-clé de fermeture  | seulement vers la branche par défaut — voir §2                   |
+| **Development** | le ticket                               | mot-clé vers `dev` ; À LA MAIN vers `release/*` — voir §2        |
 | **Reviewers**   | aucun                                   | projet solo : GitHub refuse qu'un auteur se relise ; la CI relit |
 
 Le ticket se trouve au corps (`Refs #N`, `Closes #N`) ou en tête du nom de branche
@@ -32,17 +41,112 @@ node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799             # l'
 Une PR ajoutée au tableau n'en trouble pas les automates : l'empreinte et `ticket:lint` ne
 retiennent que les items qui sont des tickets (`content.number`).
 
-## 2. « Development » — GitHub ne relie que vers la branche par défaut
+## 2. « Development » — par mot-clé vers `dev`, à la main ailleurs, jamais par l'API
 
-Le lien PR → ticket ne se pose que par un **mot-clé de fermeture** au corps (`Closes #N`), et
-GitHub ne l'honore que pour une PR vers la branche **par défaut** (`dev`). Il n'existe pas d'API
-pour poser ce lien autrement.
+Le lien PR → ticket (champ « Development » du ticket, « Linked pull requests » du tableau) se pose
+de trois façons, qui n'ont pas la même portée :
 
-- **PR vers `dev`** : `Closes #N` au corps. Le lien apparaît, et la fusion ferme le ticket.
-- **PR vers `release/x.y.x`** : le lien est IMPOSSIBLE. On garde `Refs #N` (la mention reste
-  visible sur le ticket), et l'on ferme le ticket **à la main** après fusion, avec son compte
-  rendu (`references/fermeture.md`). Écrire `Closes #N` ici ne fermerait rien et ferait croire le
-  contraire.
+| Voie                                        | Vers `dev` (branche par défaut) | Vers `release/x.y.x` |
+| ------------------------------------------- | ------------------------------- | -------------------- |
+| Mot-clé de fermeture au corps (`Closes #N`) | relie, et la fusion ferme       | **rien**             |
+| Clic depuis la colonne de droite du ticket  | relie                           | relie (ne ferme pas) |
+| API (REST ou GraphQL)                       | **aucune mutation n'existe**    | **aucune**           |
+
+`createLinkedBranch` relie une BRANCHE, pas une PR : ce n'est pas ce lien. La seule contrainte que
+GitHub pose au clic est « même dépôt » ; c'est la FERMETURE automatique qui exige la branche par
+défaut.
+
+- **PR vers `dev`** : `Closes #N` au corps (`ticket-start` l'écrit). Le lien apparaît, la fusion
+  ferme le ticket.
+- **PR vers `release/x.y.x`** : `Refs #N` au corps — `Closes #N` ne fermerait rien et ferait croire
+  le contraire. Le lien se pose **à la main** (le ticket → colonne de droite → Development → la
+  PR) ; `ticket-start` et `pr-complete` affichent l'adresse du ticket. Le ticket se ferme **à la
+  main** après la fusion, avec son compte rendu (`references/fermeture.md`).
+
+🔴 **Le lien se pose À L'OUVERTURE, jamais après la clôture.** L'automatisme du tableau « Pull
+request linked to issue » passe le ticket en « In Progress » à chaque lien — même FERMÉ. Vécu sur
+#797 et #801 : fermés, « Done » deux secondes plus tard (« Item closed »), puis remis « In
+Progress » par un clic « Development » fait après coup, et lus « encore ouverts ». La fermeture
+passe par `ticket-close.mjs <N> --close`, qui pose « Done » en dernier ; `board-lint` signale le
+reste (`FERME-PAS-DONE`, réparé par `--done`).
+
+## 2 bis. Clore sans attendre la CI — `pr-finish.mjs`
+
+La CI d'une PR dure ~35 min : l'attendre au premier plan, c'est une session qui ne fait rien.
+`pr-finish.mjs` pousse la branche (sortie en direct, PUIS relit la PR : sa tête et ses commits
+sont ceux du push), passe la PR en « prête », puis choisit sa voie sur ce qu'il CONSTATE — checks
+exigés comptés sur la protection classique ET les rulesets (`countRequiredChecks`) :
+
+- **fusion automatique** (`gh pr merge --squash --delete-branch --auto`) si le dépôt l'autorise ET
+  si la base exige des checks. ⚠️ Sans check exigé, `--auto` fusionne **immédiatement**, CI rouge
+  comprise — d'où la double condition ;
+- **sinon, surveillance** : il rend la commande à lancer EN ARRIÈRE-PLAN,
+  `pr-finish.mjs <N> --merge-when-green` — checks attendus (arrêt au premier rouge), puis squash
+  avec le message qu'il COMPOSE. Jamais le `gh pr merge --squash` nu : le défaut du dépôt
+  recopierait les messages des commits, marqueur skip-ci compris, dans LE commit que lit le changelog.
+
+Il REFUSE avant tout geste, avec la commande : une tête marquée skip-ci (aucun check ne tournerait),
+une PR en conflit avec sa base, et une PR qui EMBARQUE une `release/*` — la fusion arrière est un
+commit de fusion, l'affaire de `release-sync.mjs`. Les autres états de fusion se DISENT sans
+bloquer (`finishNotices`) : `BEHIND` (la CI a jugé l'ancienne base → `git merge origin/<base>`),
+`BLOCKED`, `UNSTABLE`, `UNKNOWN`. Un rouge de la surveillance rend le geste : `gh run rerun
+<id> --failed` pour un job instable, sinon corriger et pousser.
+
+**Le message du squash** (`squashMessage`, montré par `--dry-run`) — c'est LE commit que lit le
+changelog :
+
+```text
+<titre de la PR> (#PR)
+
+- fix(cli): …            ← un commit de travail qui touche le périmètre PUBLIÉ
+- feat(http)!: …         ← `!` posé si le commit porte un pied BREAKING CHANGE
+  BREAKING CHANGE: …     ← SOUS sa ligne : le changelog l'attache à ce voisin
+
+Outillage du dépôt (hors paquets publiés) :
+  fix(pilotage): …       ← indenté : le changelog ne le lit pas
+
+Refs #N                  ← pieds : le ticket, puis les Closes #N des commits
+Squash-Of: #PR           ← trailer : c'est LUI qui fait lire les lignes `- ` au changelog
+```
+
+Messages lus ENTIERS dans git (le titre de l'API est tronqué) ; commits d'ouverture et de mise de
+côté écartés sur leur SUJET ; fusions de la base écartées ; aucun marqueur skip-ci recopié.
+
+Vers `release/*`, la fusion ne ferme PAS le ticket : `pr-finish` le RAPPELLE avec la commande
+(`closeReminder`, lu sur `Refs #N`), la reprise le rattrape (« 🧾 PR fusionnée, ticket ouvert »), et
+`ticket-close.mjs` le ferme avec son compte rendu. Celui-ci trouve le travail fusionné d'où qu'on
+ferme (HEAD + branches longues d'origin) et ne retient que ce qui PORTE le ticket — `(#N)` en fin
+de sujet, composé compris (`(D7, #796)`), `Refs/Closes #N` — jamais une prose qui le cite. La branche de travail, elle,
+est finie : la reprise le dit, et rend le retour à la base.
+
+Dans les deux cas, on enchaîne aussitôt : `ticket-start <suivant>` part de `origin/<base>`, jamais
+de la branche en attente. Les deux réglages qui ouvrent la fusion automatique — « Allow
+auto-merge » et la protection de `dev` / `release/*` exigeant la CI — sont des gestes de l'auteur
+dans les réglages GitHub ; `main` doit rester ouvert à la publication, qui pousse `<branche>:main`.
+
+## 2 ter. Mettre un ticket de côté — un commit, jamais `stash`
+
+```bash
+git add -A && git commit -m "fix(http): wip — reste le test HTTP/2 [skip ci]" && git push
+node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <autre>
+```
+
+- **Type et scope du ticket** : `wip:` seul est refusé par commitlint (hors Conventional Commits).
+- **`[skip ci]`** : GitHub ne lance aucun workflow pour un push ou une PR dont le DERNIER commit le
+  porte — un marque-page ne vaut pas 35 min de CI. Le squash efface ces commits à la fusion.
+- 🔴 **GitHub lit TOUT le message, corps compris.** Un commit de vrai travail dont le corps CITE la
+  chaîne entre crochets (pour l'expliquer) coupe la CI de la PR entière. Vécu sur la PR #805 : zéro
+  check. Pour en parler dans un message, écrire « skip-ci », sans crochets.
+- **`stash` est refusé** : une remise est invisible, absente de la PR, et s'oublie.
+- **Changer de branche ne réinstalle rien** : `ticket-start` et la reprise comparent le verrou de
+  la branche à ce que npm a posé (`install-drift.mjs`) et disent « npm ci » quand ils divergent.
+  `ticket-start` le contrôle AVANT tout commit ou push (le `pre-push` rebâtit) et s'arrête avec
+  `npm ci && npm run build` ; relancé, il reprend où il s'est arrêté.
+- **On ne quitte pas des commits non poussés** : `ticket-start` refuse de changer de branche tant
+  que des commits ne sont ni sur une référence d'origin ni dans la tête d'une PR fusionnée de la
+  branche (`unpushedRevList`, `leaveBlocker` → `git push`). Une branche squashée se quitte donc —
+  son squash a une autre empreinte, et `git push` recréerait la branche supprimée — mais un commit
+  fait APRÈS la fusion reste compté.
 
 ## 3. Fusionner — deux gestes, deux méthodes
 
@@ -54,7 +158,19 @@ pour poser ce lien autrement.
 **Quand remonter `release/x.y.x` vers `dev`** : juste après la **publication** du correctif
 (`10.0.1` sur npm, tag posé). `dev` reçoit alors exactement ce qui a été publié, les conflits avec
 la mineure en cours se règlent une fois, et un correctif ne traîne jamais dans `dev` sans être sorti.
-Une PR `release/x.y.x → dev`, CI comprise, comme les autres.
+Une PR `release/x.y.x → dev`, CI comprise, comme les autres — ouverte par un script, jamais à la main :
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/release-sync.mjs --dry-run      # ce qui serait fusionné
+node .claude/skills/nodefony-ticket/scripts/release-sync.mjs                # branche, fusions, PR
+node .claude/skills/nodefony-ticket/scripts/release-sync.mjs --merge-when-green <PR>   # EN ARRIÈRE-PLAN
+```
+
+Il fusionne `origin/main` PUIS `origin/release/x.y.x` (le job `accueil` de la publication peut avoir
+commité sur `main`), sur la branche `chore/merge-release-x.y.x` — sans numéro : une fusion arrière
+n'est le travail d'aucun ticket. Un conflit l'arrête : résoudre, `git commit --no-edit`, relancer.
+`pr-finish` REFUSE une PR qui embarque une `release/*` : son squash romprait l'ancêtre commun, et
+`release.mjs` refuserait la publication suivante (`refusDeMaintenance`, D9).
 
 **Avant de fusionner** : PR sortie du brouillon (`gh pr ready N`), CI verte sur le DERNIER commit
 (`gh pr checks N` — un rouge d'un run précédent ne compte pas, un ⏳ non plus), colonne de droite

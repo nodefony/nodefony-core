@@ -24,6 +24,12 @@ npx --no-install commitlint --edit "$1" || {
   exit 1
 }
 
+# Travail en demandes de fusion (#796) : pas de commit de travail sur une branche
+# longue (main, dev, release/*), pas de marqueur skip-ci dans un commit de vrai
+# travail (GitHub le lit dans tout le message et coupe toute la CI de la PR).
+# Une lecture de fichier et un `git symbolic-ref` : placé avant les gates longs.
+node scripts/repo/commit-guard.mjs "$1" || exit 1
+
 # Message accepté : SEULEMENT maintenant les contrôles longs en lecture seule
 # (`_read-only-gates.sh`). Un message refusé ne les fait plus attendre.
 sh "$(dirname "$0")/_read-only-gates.sh" || exit 1

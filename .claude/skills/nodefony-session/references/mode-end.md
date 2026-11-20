@@ -100,22 +100,23 @@ chevauchent, et l'on ne sait plus quel run juge quel commit. Donc :
 
 - **En session** : on pousse quand on a BESOIN d'un verdict de CI (un ticket à fermer, un rouge à
   instruire), pas à chaque commit — les commits s'accumulent en local, un push les porte tous.
-- **À la clôture** : on pousse TOUJOURS — `--verify` refuse un commit non poussé. Le commit
-  d'empreinte (`.ai/BOARD.md`, `.ai/board.json`) ne relance rien : tous les workflows le portent
-  en `paths-ignore`. Une CI encore en cours sur le commit précédent n'est donc pas une raison de
-  retenir l'empreinte.
+- **À la clôture** : on pousse TOUJOURS — `--verify` refuse un commit non poussé. L'empreinte
+  (`.ai/BOARD.md`, `.ai/board.json`) n'est pas versionnée (D7) : elle ne part dans aucun commit.
 
 ```bash
-git push                                    # le dépôt — commits + .ai/ + docs/ (cf règle ci-dessus)
+git push                                    # le dépôt — commits + docs/ (cf règle ci-dessus)
 MEM="$HOME/.claude/projects/-Users-cci-repository-nodefony-core/memory"
 git -C "$MEM" add -- "$MEM"                # la mémoire, fichiers neufs compris
 git -C "$MEM" add -u                         # le reste suivi de ~/.claude (CLAUDE.md, réglages)
-git -C "$MEM" -c user.name="Christophe CAMENSULI" -c user.email="ccamensuli@gmail.com" \
-  commit -q -m "docs(memoire): session <date>, <focus court>" && git -C "$MEM" push -q
+git -C "$MEM" commit -q -m "docs(memoire): session <date>, <focus court>" && git -C "$MEM" push -q
 ```
 
 La mémoire vit HORS du dépôt, dans le dépôt git privé de `~/.claude` tout entier (`add -u`
-sauvegarde aussi le `CLAUDE.md` global et les réglages ; `git add -A` est refusé par la garde). Non poussée, un crash la perd. La
+sauvegarde aussi le `CLAUDE.md` global et les réglages ; `git add -A` est refusé par la garde). Non poussée, un crash la perd.
+L'identité de commit est posée UNE fois dans `~/.claude/.git/config` (`git config --local
+user.name/user.email`) : jamais dans la commande — un e-mail écrit dans une recette part dans
+chaque transcript et fait buter la clôture sur le classifieur. Elle manque (« Author identity
+unknown ») → la poser une fois, pas la recopier ici. La
 restauration sur un poste neuf vit dans `~/.claude/README.md` — ne pas la recopier ici. ⚠️ Le
 dossier de mémoire encode le CHEMIN ABSOLU du projet : un poste qui range le dépôt ailleurs ne voit
 plus aucune mémoire, sans le dire.

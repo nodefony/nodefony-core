@@ -131,7 +131,7 @@ droite dit à quelle **question** chacun répond.
 | Fichier                                                                        | La question                                                                               |
 | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
 | [`docs/index.md`](docs/index.md)                                               | par où entrer dans la documentation ?                                                     |
-| [`.ai/BOARD.md`](.ai/BOARD.md)                                                 | _(généré)_ quels tickets sont ouverts, dans quel ordre ? **où en est le projet ?**        |
+| `.ai/BOARD.md` (`npm run board:snapshot`, non versionné)                       | _(généré)_ quels tickets sont ouverts, dans quel ordre ? **où en est le projet ?**        |
 | [`docs/adr/`](docs/adr/README.md)                                              | pourquoi cette décision d'architecture, et qu'est-ce qui a été écarté ?                   |
 | [`.ai/ENV.md`](.ai/ENV.md)                                                     | _(généré)_ quelle variable pose ce décor — et **que se passe-t-il si elle est absente ?** |
 | [`.ai/symbols.json`](.ai/symbols.json)                                         | _(généré)_ qui étend, implémente ou importe ce symbole ? Où est-il défini ?               |

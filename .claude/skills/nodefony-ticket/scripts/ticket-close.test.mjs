@@ -16,6 +16,7 @@ import {
   composer,
   fichiersDeTest,
   motifTicket,
+  searchRefs,
 } from "./ticket-close.mjs";
 
 describe("les fichiers de test d'un diff", () => {
@@ -85,6 +86,11 @@ describe("les commits d'un ticket, contre un dépôt git réel", () => {
       "feat(a): premier — closes #9",
       "feat(b): second — closes #95",
       "feat(c): troisième, cite #950",
+      "docs(d): raconter — vécu sur #96",
+      "fix(e): quatrième (#96)",
+      "chore(f): cinquième (D7, #97)",
+      "feat(g): sixième (#97, étape 4)",
+      "fix(h): septième (#970)",
     ]) {
       git(
         "-c",
@@ -117,6 +123,18 @@ describe("les commits d'un ticket, contre un dépôt git réel", () => {
 
   it("TROUVE le commit qui cite le ticket", () => {
     expect(sujets(95)).to.deep.equal(["feat(b): second — closes #95"]);
+  });
+
+  it("prend ce qui PORTE le ticket — (#N) en fin de sujet —, jamais une prose qui le cite (revue #796, B4)", () => {
+    expect(sujets(96)).to.deep.equal(["fix(e): quatrième (#96)"]);
+    expect(sujets(950)).to.deep.equal([]);
+  });
+
+  it("reconnaît la référence de sujet COMPOSÉE — (D7, #97), (#97, étape 4) — sans prendre #970 (revue #796, B4)", () => {
+    expect(sujets(97)).to.deep.equal([
+      "chore(f): cinquième (D7, #97)",
+      "feat(g): sixième (#97, étape 4)",
+    ]);
   });
 
   it("ne confond pas #9 avec #95 ni #950", () => {
@@ -188,5 +206,26 @@ describe("checkBodyLength — la limite de GitHub vérifiée AVANT l'envoi", () 
 
   it("compte en unités UTF-16 : un émoji pèse deux, jamais moins que GitHub", () => {
     expect(checkBodyLength("🚀").length).toBe(2);
+  });
+});
+
+describe("searchRefs — le travail fusionné se trouve d'où qu'on ferme (#796, revue B4)", () => {
+  it("HEAD plus les branches LONGUES d'origin, jamais les branches de travail", () => {
+    expect(
+      searchRefs(
+        [
+          "origin/dev",
+          "origin/main",
+          "origin/release/10.0.x",
+          "origin/fix/794-http2-head-scope",
+          "origin/HEAD",
+        ],
+        undefined,
+      ),
+    ).toEqual(["HEAD", "origin/dev", "origin/main", "origin/release/10.0.x"]);
+  });
+
+  it("une borne --since garde la plage historique, seule", () => {
+    expect(searchRefs(["origin/dev"], "abc123")).toEqual(["abc123..HEAD"]);
   });
 });

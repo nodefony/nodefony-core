@@ -132,9 +132,9 @@ describe("surface publiée du barrel `nodefony/client`", () => {
       try {
         code = readFileSync(file, "utf8");
       } catch (error) {
-        // Listé puis disparu : la sonde éphémère d'un autre banc de la passe
-        // (`CliIntegration` écrit puis retire `reloadProbe<pid>.ts` dans un
-        // module) n'est pas une source du dépôt. Toute autre erreur reste fatale.
+        // Listé puis disparu : ceinture seulement — la sonde de `CliIntegration`
+        // n'est plus retirée qu'au teardown global (`reloadProbe.global.ts`).
+        // Toute autre erreur reste fatale.
         if (
           error instanceof Error &&
           "code" in error &&
