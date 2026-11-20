@@ -211,7 +211,7 @@ node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> --merge-when-gree
 | Option | Rôle |
 | --- | --- |
 | `--dry-run` | rend la voie choisie et ses raisons, sans rien modifier |
-| `--merge-when-green` | attend les checks (arrêt au premier rouge) puis fusionne en squash avec le message composé |
+| `--merge-when-green` | passe la PR en « prête », attend les checks (arrêt au premier rouge), fusionne en squash avec le message composé, puis retire la copie locale de la branche |
 
 #### `scripts/release-sync.mjs`
 
