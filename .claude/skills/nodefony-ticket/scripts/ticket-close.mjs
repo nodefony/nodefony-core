@@ -53,6 +53,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { isLongBranch } from "../../nodefony-session/scripts/branch-status.mjs";
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 import { checkBodyLength } from "./github-limits.mjs";
 import { setBoardStatus } from "./ticket-progress.mjs";
@@ -104,22 +105,62 @@ export function fichiersDeTest(fichiers) {
  * usage réel. La borne s'écrit donc en POSIX : un caractère non chiffre, ou la
  * fin de ligne — sans quoi `#9` ramènerait le travail de `#95`.
  *
+ * 🔴 **Ce qui PORTE le ticket, pas ce qui le CITE** (revue #796, B4) : un
+ * commit qui raconte « vécu sur #802 » n'est pas du travail de #802. Comptent la
+ * référence de sujet `(#N)` en fin de ligne et les mots-clés de GitHub
+ * (`closes`, `fixes`, `resolves`, leurs flexions, et `Refs`) — forme du pied
+ * qu'écrivent `ticket-start` et le squash de `pr-finish`.
+ *
  * @param numero - le numéro du ticket.
  * @returns le motif, en expression rationnelle POSIX étendue.
  */
 export function motifTicket(numero) {
-  return `#${numero}([^0-9]|$)`;
+  return `(\\(#${numero}\\)$|([Cc]los(e|es|ed)|[Ff]ix(es|ed)?|[Rr]esolv(e|es|ed)|[Rr]efs) #${numero}([^0-9]|$))`;
 }
 
 /**
- * Les commits qui citent un ticket, du plus ancien au plus récent.
+ * Les références où chercher le travail d'un ticket — PUR.
+ *
+ * 🔴 `HEAD` seul ne suffit plus en travail par PR (revue #796, B4) : fermé
+ * depuis `release/x.y.x` après la fusion, le ticket a son travail dans le
+ * commit de SQUASH de la base ; fermé depuis une autre branche, `HEAD` ramassait
+ * le travail d'un voisin (constaté en fermant #802). Les branches LONGUES
+ * d'origin ne portent que des squash (qui citent `Refs #N` ou `Closes #N`) :
+ * les ajouter trouve le travail fusionné, d'où qu'on ferme.
+ *
+ * @param {string[]} remoteRefs - références distantes (`origin/dev`, `origin/fix/1-x`…)
+ * @param {string | undefined} depuis - borne facultative : alors `<sha>..HEAD` seul
+ * @returns {string[]} les arguments de révision de `git log`
+ */
+export function searchRefs(remoteRefs, depuis) {
+  if (depuis) return [`${depuis}..HEAD`];
+  return [
+    "HEAD",
+    ...remoteRefs.filter(
+      (r) => r.startsWith("origin/") && isLongBranch(r.slice("origin/".length)),
+    ),
+  ];
+}
+
+/**
+ * Les commits qui citent un ticket, du plus ancien au plus récent — sur HEAD
+ * et les branches longues d'origin ({@link searchRefs}).
  *
  * @param numero - le numéro du ticket, en chaîne ou en nombre.
  * @param depuis - référence git facultative bornant la recherche (`<sha>..HEAD`).
  * @returns un objet par commit : `{ sha, sujet }`.
  */
 export function commitsDuTicket(numero, depuis) {
-  const plage = depuis ? [`${depuis}..HEAD`] : [];
+  const plage = searchRefs(
+    sh("git", [
+      "for-each-ref",
+      "--format=%(refname:short)",
+      "refs/remotes/origin",
+    ])
+      .split("\n")
+      .filter(Boolean),
+    depuis,
+  );
   const brut = sh("git", [
     "log",
     "--reverse",
