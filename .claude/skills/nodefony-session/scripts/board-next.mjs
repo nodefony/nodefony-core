@@ -119,13 +119,37 @@ export function newestStableVersion(tags, line) {
  * @param {object} facts
  * @param {string | null} facts.newestStable - plus haute version finale étiquetée
  * @param {string | null} facts.latest - étiquette npm `latest` de `nodefony`, `null` si non lue
- * @param {Array<{ branch: string, version: string, inBranch: boolean, inDev: boolean }>} facts.maintenance -
- *   par `release/x.y.x` distante : sa dernière version finale et où son étiquette est contenue
+ * Deux oublis de plus (revue #796, N6 et N8) : une étiquette posée en local
+ * mais jamais poussée (le `pre-push` a pu échouer) se lisait « publiée » ; et
+ * une `release/x.y.x` qui porte du travail absent de `dev` SANS publication
+ * (l'outillage de pilotage, fusionné dans la maintenance) ne rappelait rien —
+ * `dev` restait sans lui, à la mémoire de chacun.
+ *
+ * @param {Array<{ branch: string, version: string | null, inBranch: boolean, inDev: boolean, aheadOfDev?: number }>} facts.maintenance -
+ *   par `release/x.y.x` distante : sa dernière version finale (`null` si aucune),
+ *   où son étiquette est contenue, et ses commits absents de `origin/dev`
+ * @param {string[]} [facts.unpushedTags] - étiquettes `v*` locales absentes d'origin
  * @returns {string[]} une ligne par geste dû
  */
-export function afterReleaseReminders({ newestStable, latest, maintenance }) {
+export function afterReleaseReminders({
+  newestStable,
+  latest,
+  maintenance,
+  unpushedTags = [],
+}) {
   const lines = [];
+  for (const t of unpushedTags)
+    lines.push(
+      `📮 étiquette ${t} posée en LOCAL, absente d'origin → git push origin ${t} (la publication n'a pas démarré)`,
+    );
   for (const m of maintenance) {
+    if (m.version === null) {
+      if (m.aheadOfDev)
+        lines.push(
+          `↩️ ${m.branch} porte ${m.aheadOfDev} commit(s) absents de dev → node .claude/skills/nodefony-ticket/scripts/release-sync.mjs`,
+        );
+      continue;
+    }
     if (!m.inBranch)
       lines.push(
         `📮 estampille v${m.version} absente de origin/${m.branch} → git push origin ${m.branch} (la publication suivante partirait de manifestes périmés)`,
@@ -133,6 +157,10 @@ export function afterReleaseReminders({ newestStable, latest, maintenance }) {
     else if (!m.inDev)
       lines.push(
         `↩️ fusion arrière due : v${m.version} (${m.branch}) absente de dev → node .claude/skills/nodefony-ticket/scripts/release-sync.mjs`,
+      );
+    else if (m.aheadOfDev)
+      lines.push(
+        `↩️ ${m.branch} porte ${m.aheadOfDev} commit(s) absents de dev → node .claude/skills/nodefony-ticket/scripts/release-sync.mjs`,
       );
   }
   if (

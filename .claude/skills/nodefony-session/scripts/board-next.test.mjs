@@ -303,3 +303,66 @@ describe("après une publication — afterReleaseReminders", () => {
       ).toEqual([]);
   });
 });
+
+describe("après une publication — étiquette non poussée, fusion arrière sans publication (#796, revue N6 et N8)", () => {
+  it("une étiquette posée en local et absente d'origin est un geste dû", () => {
+    const lines = afterReleaseReminders({
+      newestStable: "10.0.0",
+      latest: "10.0.0",
+      maintenance: [],
+      unpushedTags: ["v10.0.1"],
+    });
+    expect(lines).toEqual([
+      "📮 étiquette v10.0.1 posée en LOCAL, absente d'origin → git push origin v10.0.1 (la publication n'a pas démarré)",
+    ]);
+  });
+
+  it("release/x.y.x qui porte du travail absent de dev le rappelle, publication ou non", () => {
+    const sansPublication = afterReleaseReminders({
+      newestStable: "10.0.0",
+      latest: "10.0.0",
+      maintenance: [
+        {
+          branch: "release/10.1.x",
+          version: null,
+          inBranch: true,
+          inDev: true,
+          aheadOfDev: 12,
+        },
+      ],
+    });
+    expect(sansPublication).toHaveLength(1);
+    expect(sansPublication[0]).toContain(
+      "release/10.1.x porte 12 commit(s) absents de dev",
+    );
+    const apres = afterReleaseReminders({
+      newestStable: "10.0.0",
+      latest: "10.0.0",
+      maintenance: [
+        {
+          branch: "release/10.0.x",
+          version: "10.0.0",
+          inBranch: true,
+          inDev: true,
+          aheadOfDev: 3,
+        },
+      ],
+    });
+    expect(apres[0]).toContain("release-sync.mjs");
+    expect(
+      afterReleaseReminders({
+        newestStable: "10.0.0",
+        latest: "10.0.0",
+        maintenance: [
+          {
+            branch: "release/10.0.x",
+            version: "10.0.0",
+            inBranch: true,
+            inDev: true,
+            aheadOfDev: 0,
+          },
+        ],
+      }),
+    ).toEqual([]);
+  });
+});

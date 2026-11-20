@@ -391,8 +391,23 @@ if (pending) {
 }
 // Un lot soldé et non publié passe AVANT le prochain ticket : sa publication
 // est la raison d'être du lot, et `chooseNextTicket` passerait au lot suivant
-// sans un mot. Les étiquettes viennent du `git fetch` ci-dessus (suivi des tags).
-const tags = git("tag", "-l", "v*");
+// sans un mot. 🔴 Connecté, les étiquettes se lisent sur ORIGIN : une étiquette
+// posée en local puis jamais poussée (`pre-push` en échec) se lisait « publiée »
+// (revue #796, N6). Hors ligne, les locales — seule source à portée.
+const localTags = git("tag", "-l", "v*");
+const remoteTags = online
+  ? git("ls-remote", "--tags", "--refs", "origin", "v*")
+  : { ok: false, out: "" };
+const tags = remoteTags.ok
+  ? {
+      ok: true,
+      out: remoteTags.out
+        .split("\n")
+        .map((l) => l.split("refs/tags/")[1] ?? "")
+        .filter(Boolean)
+        .join("\n"),
+    }
+  : localTags;
 if (tags.ok)
   for (const r of versionsToRelease(board.items, tags.out.split("\n")))
     say(
@@ -407,8 +422,14 @@ if (tags.ok) {
     .map((b) => b.trim().slice("origin/".length))
     .flatMap((b) => {
       const line = /^release\/(\d+\.\d+)\.x$/u.exec(b)?.[1];
-      const version = line && newestStableVersion(allTags, line);
-      if (!version) return [];
+      if (!line) return [];
+      const ahead = git("rev-list", "--count", `origin/dev..origin/${b}`);
+      const aheadOfDev = ahead.ok ? Number(ahead.out) : 0;
+      const version = newestStableVersion(allTags, line);
+      if (!version)
+        return [
+          { branch: b, version: null, inBranch: true, inDev: true, aheadOfDev },
+        ];
       const inRef = (ref) =>
         git("merge-base", "--is-ancestor", `v${version}`, ref).ok;
       return [
@@ -417,6 +438,7 @@ if (tags.ok) {
           version,
           inBranch: inRef(`origin/${b}`),
           inDev: inRef("origin/dev"),
+          aheadOfDev,
         },
       ];
     });
@@ -425,6 +447,9 @@ if (tags.ok) {
     newestStable: newestStableVersion(allTags),
     latest: latest.ok && latest.out ? latest.out : null,
     maintenance,
+    unpushedTags: remoteTags.ok
+      ? localTags.out.split("\n").filter((t) => t && !allTags.includes(t))
+      : [],
   }))
     say(line);
 }
