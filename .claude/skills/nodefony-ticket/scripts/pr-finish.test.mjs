@@ -64,7 +64,7 @@ describe("squashMessage — LE commit que lira le changelog", () => {
   it("sujet = titre (#PR) ; corps = commits de travail puis ligne de ticket", () => {
     expect(squashMessage(pr)).toEqual({
       subject: "fix(http): libérer le scope d'un HEAD (#812)",
-      body: "- fix(http): libérer le scope\n- test(http): voir le scope libéré\n\nRefs #794",
+      body: "- fix(http): libérer le scope\n- test(http): voir le scope libéré\n\nRefs #794\nSquash-Of: #812",
     });
   });
 
@@ -75,7 +75,7 @@ describe("squashMessage — LE commit que lira le changelog", () => {
   it("garde « Closes #N » vers dev", () => {
     expect(
       squashMessage({ ...pr, body: "Closes #900", commits: [] }).body,
-    ).toBe("Closes #900");
+    ).toBe("Closes #900\nSquash-Of: #812");
   });
 
   it("garde un commit de travail dont le CORPS cite le marqueur, sans recopier le marqueur (revue #796, N4)", () => {
@@ -98,7 +98,7 @@ describe("squashMessage — LE commit que lira le changelog", () => {
       ],
     });
     expect(body).toBe(
-      "- feat(http)!: retirer y\n  BREAKING CHANGE: y disparaît\n- fix(http): z\n\nRefs #794\nCloses #753",
+      "- feat(http)!: retirer y\n  BREAKING CHANGE: y disparaît\n- fix(http): z\n\nRefs #794\nCloses #753\nSquash-Of: #812",
     );
     // Un pied sans « ! » au sujet : le « ! » est posé sur SA ligne, le pied dessous.
     const { body: b2 } = squashMessage({
@@ -163,7 +163,7 @@ describe("squashMessage — le périmètre se juge PAR COMMIT (#796, revue N1)",
     expect(body).toBe(
       "- fix(cli): nommer le caractère invisible\n\n" +
         "Outillage du dépôt (hors paquets publiés) :\n  fix(release): promotion relancée\n\n" +
-        "Refs #796",
+        "Refs #796\nSquash-Of: #805",
     );
   });
 });
@@ -276,5 +276,31 @@ describe("closeReminder — vers release/*, la fusion ne ferme rien (#796, revue
 
   it("Closes #N (vers dev) → rien à rappeler", () => {
     expect(closeReminder({ body: "Closes #900" })).toBeNull();
+  });
+});
+
+describe("squashMessage — pied sur plusieurs lignes, grammaire du changelog (#796, 4ᵉ revue)", () => {
+  it("un pied sur plusieurs lignes n'est plus tronqué, et « BREAKING CHANGE:\\t » est lu", () => {
+    const { body } = squashMessage({
+      title: "chore(x): t",
+      number: 3,
+      body: "Refs #3",
+      commits: [
+        {
+          message:
+            "fix(http): a\n\nBREAKING CHANGE: y disparaît,\nremplacé par z\n\nRefs #3",
+          published: true,
+        },
+        {
+          message: "fix(orm): b\n\nBREAKING CHANGE:\tc casse",
+          published: true,
+        },
+      ],
+    });
+    expect(body).toContain(
+      "- fix(http)!: a\n  BREAKING CHANGE: y disparaît, remplacé par z",
+    );
+    expect(body).toContain("- fix(orm)!: b\n  BREAKING CHANGE: c casse");
+    expect(body.endsWith("Squash-Of: #3")).toBe(true);
   });
 });

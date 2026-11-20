@@ -376,20 +376,33 @@ function main() {
                 "--state",
                 "merged",
                 "--json",
-                "headRefOid",
+                "number,headRefOid",
                 "--jq",
-                ".[].headRefOid",
+                '.[] | "\\(.number) \\(.headRefOid)"',
               ])
                 .split("\n")
-                // Une tête absente du dépôt local n'est pas dans l'histoire de
-                // HEAD : la passer à rev-list le ferait échouer (« bad object »).
-                .filter(
-                  (oid) =>
-                    /^[0-9a-f]{40}$/u.test(oid) &&
+                .map((l) => l.split(" "))
+                .filter(([, oid]) => /^[0-9a-f]{40}$/u.test(oid ?? ""))
+                .map(([pr, oid]) => {
+                  // Tête poussée d'une AUTRE machine : absente en local, elle
+                  // ferait échouer rev-list (« bad object ») — et l'écarter
+                  // compterait à tort des commits déjà squashés. GitHub garde
+                  // `refs/pull/<N>/head` : on la rapatrie.
+                  const known = () =>
                     spawnSync("git", ["cat-file", "-e", `${oid}^{commit}`], {
                       cwd: ROOT,
-                    }).status === 0,
-                ),
+                    }).status === 0;
+                  if (!known())
+                    spawnSync(
+                      "git",
+                      ["fetch", "--quiet", "origin", `refs/pull/${pr}/head`],
+                      {
+                        cwd: ROOT,
+                      },
+                    );
+                  return known() ? oid : "";
+                })
+                .filter(Boolean),
             ),
           ),
         )

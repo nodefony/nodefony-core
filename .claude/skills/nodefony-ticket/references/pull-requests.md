@@ -106,6 +106,7 @@ Outillage du dépôt (hors paquets publiés) :
   fix(pilotage): …       ← indenté : le changelog ne le lit pas
 
 Refs #N                  ← pieds : le ticket, puis les Closes #N des commits
+Squash-Of: #PR           ← trailer : c'est LUI qui fait lire les lignes `- ` au changelog
 ```
 
 Messages lus ENTIERS dans git (le titre de l'API est tronqué) ; commits d'ouverture et de mise de

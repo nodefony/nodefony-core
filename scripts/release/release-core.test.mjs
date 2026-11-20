@@ -3085,7 +3085,7 @@ describe("analyserCommits — plusieurs changements dans un squash (#796, revue 
       "chore(pilotage): ouvrir une branche et une PR avant tout code (#805)\n\n" +
       "- fix(cli): nommer le caractère invisible d'un nom refusé\n" +
       "- fix(doctor): la vitrine n'est pas un frère\n" +
-      "- chore(pilotage): outillage\n\nRefs #796",
+      "- chore(pilotage): outillage\n\nRefs #796\nSquash-Of: #805",
     fichiers: ["src/nodefony/src/cli/scaffold/engine.ts"],
   };
 
@@ -3110,7 +3110,7 @@ describe("analyserCommits — plusieurs changements dans un squash (#796, revue 
 
   it("une rupture du corps (`!`) survit au squash, et un pied BREAKING CHANGE sous un sujet chore n'est jamais perdu", () => {
     const r1 = analyserCommits([
-      "chore(x): titre (#9)\n\n- feat(http)!: retirer y",
+      "chore(x): titre (#9)\n\n- feat(http)!: retirer y\n\nSquash-Of: #9",
     ]);
     expect(r1.ruptures).toEqual([
       { portee: "http", texte: "retirer y", sha: "" },
@@ -3153,7 +3153,7 @@ describe("analyserCommits — plusieurs changements dans un squash (#796, revue 
 
   it("chaque pied décrit son VOISIN — jamais par position (revue #796, N4)", () => {
     const r = analyserCommits([
-      "chore(x): t (#1)\n\n- fix(cli): a\n- feat(http)!: b\n  BREAKING CHANGE: b casse\n- refactor(orm)!: c\n  BREAKING CHANGE: c casse",
+      "chore(x): t (#1)\n\n- fix(cli): a\n- feat(http)!: b\n  BREAKING CHANGE: b casse\n- refactor(orm)!: c\n  BREAKING CHANGE: c casse\n\nSquash-Of: #1",
     ]);
     expect(r.ruptures).toEqual([
       { portee: "http", texte: "b casse", sha: "" },
@@ -3168,9 +3168,9 @@ describe("analyserCommits — plusieurs changements dans un squash (#796, revue 
 
   it("les cas qui déjouaient l'appariement par position (revue #796, N4 — 3ᵉ revue)", () => {
     const ruptures = (corps) =>
-      analyserCommits([`chore(x): t (#1)\n\n${corps}`]).ruptures.map(
-        (r) => `${r.portee}:${r.texte}`,
-      );
+      analyserCommits([
+        `chore(x): t (#1)\n\n${corps}\n\nSquash-Of: #1`,
+      ]).ruptures.map((r) => `${r.portee}:${r.texte}`);
     // Type SANS section marqué « ! » : rupture sur LUI, jamais sur le voisin.
     expect(ruptures("- chore(deps)!: monter node 24\n- feat(http): x")).toEqual(
       ["deps:monter node 24"],
@@ -3195,7 +3195,7 @@ describe("analyserCommits — plusieurs changements dans un squash (#796, revue 
     ).toEqual(["http:un", "http:deux"]);
     // Le titre de PR (« … (#N) ») n'est pas un changement : pas de doublon.
     const { groupes } = analyserCommits([
-      "fix(http): z (#5)\n\n- fix(http): z",
+      "fix(http): z (#5)\n\n- fix(http): z\n\nSquash-Of: #5",
     ]);
     expect(groupes.get("Fixed")).toHaveLength(1);
   });
@@ -3205,5 +3205,52 @@ describe("analyserCommits — plusieurs changements dans un squash (#796, revue 
       "fix(http): libérer le scope\n\n- fix(http): libérer le scope",
     ]);
     expect(groupes.get("Fixed")).toHaveLength(1);
+  });
+});
+
+describe("analyserCommits — le squash se DÉCLARE (trailer Squash-Of), jamais ne se devine (#796, 4ᵉ revue)", () => {
+  const ruptures = (msg) =>
+    analyserCommits([msg]).ruptures.map((r) => `${r.portee}:${r.texte}`);
+
+  it("R-A — un commit ordinaire « (#N) » dont le corps a une puce « - mot: » garde SON entrée", () => {
+    const { groupes } = analyserCommits([
+      "fix(http): rendre la reconnexion SSE fiable (#559)\n\n- retry: 0 du serveur ignoré\n- core: détail",
+    ]);
+    expect([...groupes.values()].flat().map((e) => e.portee)).toEqual(["http"]);
+  });
+
+  it("R-B — le « ! » du TITRE d'un squash est une rupture écrite", () => {
+    const r = analyserCommits([
+      "feat(http)!: retirer y (#9)\n\n- fix(cli): a\n\nSquash-Of: #9",
+    ]);
+    expect(r.ruptures.map((x) => `${x.portee}:${x.texte}`)).toEqual([
+      "http:retirer y (#9)",
+    ]);
+    expect(
+      [...r.groupes.values()].flat().filter((e) => e.rupture),
+    ).toHaveLength(1);
+  });
+
+  it("une rupture d'un type SANS section s'ÉCRIT, sous « Changed »", () => {
+    const { groupes } = analyserCommits([
+      "build(engines)!: relever le plancher Node",
+    ]);
+    expect(groupes.get("Changed")?.[0]).toMatchObject({
+      portee: "engines",
+      rupture: true,
+    });
+  });
+
+  it("un pied sans voisin, ou en colonne 0 dans un squash, décrit le TITRE — jamais perdu", () => {
+    expect(
+      ruptures(
+        "chore(x): t (#1)\n\n  BREAKING CHANGE: orphelin\n\nSquash-Of: #1",
+      ),
+    ).toEqual(["x:orphelin"]);
+    expect(
+      ruptures(
+        "chore(x): t (#1)\n\n- fix(a): b\n\nBREAKING CHANGE: global\nSquash-Of: #1",
+      ),
+    ).toEqual(["x:global"]);
   });
 });

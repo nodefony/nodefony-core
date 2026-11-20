@@ -171,8 +171,10 @@ pour l'utilisateur. Le test, entrée par entrée : _décrit-elle quelque chose q
 ATTEINDRE depuis `exports` ?_ Un export ajouté puis retiré dans la même fenêtre n'a jamais été
 publié — ni entrée, ni rupture (vérifier au `git log -S <symbole> -- <index.ts>`).
 
-**Un ticket = un squash : le changelog lit son CORPS.** Le sujet du squash est le titre de la PR
-(souvent `chore(…)`), écarté ; les entrées sont les lignes `- type(portée)!: …` en colonne 0 que
+**Un ticket = un squash : le changelog lit son CORPS.** Le squash se DÉCLARE par le trailer
+`Squash-Of: #N` que `pr-finish` écrit — jamais deviné à sa forme, qui prenait la prose de commits
+ordinaires pour des entrées. Son sujet est le titre de la PR (souvent `chore(…)`), qui n'est une
+entrée que s'il porte une rupture ; les entrées sont les lignes `- type(portée)!: …` en colonne 0 que
 `pr-finish.mjs#squashMessage` écrit — une par commit de travail PUBLIÉ (même `perimetrePublie`,
 jugé par commit), l'outillage partant dans un paragraphe indenté que le brouillon ne lit pas.
 Antériorité : release-please (« multiple changes in a single commit »). La puce `* ` du squash par
@@ -180,7 +182,8 @@ défaut de GitHub n'est PAS lue : elle recopie tout, sans tri — mais la répé
 (`squashNonTries`), à relire à la main. Une rupture décrit son VOISIN, jamais une position : un pied
 `  BREAKING CHANGE: …` indenté sous une ligne `- type: …` décrit ce changement-là (`pr-finish`
 l'écrit ainsi, `!` posé sur la ligne) ; en colonne 0, le commit lui-même. Un `!` est une rupture
-quel que soit le type (`chore(deps)!: Node 24`). D'où la règle : **toute PR se ferme par
+quel que soit le type, écrite sous « Changed » quand le type n'a pas de section
+(`build(engines)!: Node 24`). D'où la règle : **toute PR se ferme par
 `pr-finish`**, jamais par le bouton de fusion de GitHub.
 
 Deux cas limites qui se tranchent en ouvrant le commit, jamais sur son sujet : un **renommage

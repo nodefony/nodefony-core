@@ -52,7 +52,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { releasableWorkspaces } from "../../../../scripts/lib/workspaces.mjs";
-import { perimetrePublie } from "../../../../scripts/release/release-core.mjs";
+import {
+  PIED_RUPTURE,
+  perimetrePublie,
+} from "../../../../scripts/release/release-core.mjs";
 
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 import {
@@ -145,12 +148,25 @@ export function squashMessage({ title, number, body, commits }) {
   // se faisait déjouer par chaque cas neuf (revue #796, N4). Le `!` se pose sur
   // la ligne d'un commit publié qui porte un pied. L'outillage n'en donne aucun :
   // sa rupture n'atteint aucun installeur.
-  const breakingOf = (c) =>
-    c.message
-      .split("\n")
-      .slice(1)
-      .filter((l) => BREAKING_FOOTER.test(l) && !hasSkipMarker(l))
-      .map((l) => l.replace(/^BREAKING[ -]CHANGE:\s*/u, ""));
+  // Le pied se lit avec la MÊME grammaire que le changelog (`PIED_RUPTURE`),
+  // et ses lignes de suite le prolongent jusqu'à une ligne vide ou un autre pied
+  // (un pied sur plusieurs lignes ne se tronque plus — revue #796).
+  const breakingOf = (c) => {
+    const out = [];
+    let cur = null;
+    for (const l of c.message.split("\n").slice(1)) {
+      const p = PIED_RUPTURE.exec(l);
+      if (p) {
+        cur = [p[1].trim()];
+        out.push(cur);
+      } else if (cur && l.trim() && !/^[\w-]+(?:: | #)/u.test(l)) {
+        cur.push(l.trim());
+      } else {
+        cur = null;
+      }
+    }
+    return out.map((parts) => parts.join(" ")).filter((b) => !hasSkipMarker(b));
+  };
   const headline = (c) => {
     const h = c.message.split("\n", 1)[0];
     return c.published && breakingOf(c).length
@@ -172,6 +188,10 @@ export function squashMessage({ title, number, body, commits }) {
   const footers = [];
   const ticket = TICKET_LINE.exec(body ?? "")?.[0];
   if (ticket) footers.push(ticket);
+  // Le trailer qui DÉCLARE ce commit comme un squash de pr-finish : c'est lui,
+  // et non la forme du message, qui fait lire ses lignes `- ` au changelog
+  // (`release-core.mjs#TRAILER_SQUASH`).
+  const trailer = `Squash-Of: #${number}`;
   for (const { message: m } of work) {
     for (const l of m.split("\n").slice(1)) {
       if (CLOSING_FOOTER.test(l) && !footers.includes(l)) footers.push(l);
@@ -183,7 +203,7 @@ export function squashMessage({ title, number, body, commits }) {
     parts.push(
       `Outillage du dépôt (hors paquets publiés) :\n${tooling.join("\n")}`,
     );
-  if (footers.length) parts.push(footers.join("\n"));
+  parts.push([...footers, trailer].join("\n"));
   return { subject: `${title} (#${number})`, body: parts.join("\n\n") };
 }
 
@@ -211,8 +231,6 @@ export function closeReminder({ body }) {
   );
 }
 
-/** Pied de rupture (Conventional Commits 1.0.0, règles 12 et 16). */
-const BREAKING_FOOTER = /^BREAKING[ -]CHANGE: \S/u;
 /** Pied de fermeture d'un ticket, mot-clé GitHub. */
 const CLOSING_FOOTER = /^(?:Closes|Fixes|Resolves) #\d+$/u;
 

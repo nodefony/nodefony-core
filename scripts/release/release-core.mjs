@@ -627,6 +627,16 @@ export const SECTIONS = {
  */
 export const ORDRE_SECTIONS = ["Changed", "Added", "Removed", "Fixed"];
 
+/**
+ * Le pied de rupture — SEULE grammaire, lue par `analyserCommits` et par
+ * `pr-finish.mjs#squashMessage` (deux grammaires divergeaient sur `:\t`).
+ */
+export const PIED_RUPTURE = /^BREAKING[ -]CHANGE:[ \t]*(.+)$/u;
+/** Le même, indenté sous la ligne de son commit dans un squash de `pr-finish`. */
+const PIED_INDENTE = /^\s+BREAKING[ -]CHANGE:[ \t]*(.+)$/u;
+/** Le trailer qui DÉCLARE un squash de `pr-finish` (`Squash-Of: #N`). */
+export const TRAILER_SQUASH = /^Squash-Of: #\d+$/mu;
+
 /** En-tête Conventional Commits : type, portée, `!`, description. */
 const EN_TETE = /^(\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/;
 /** Le même, dans le corps d'un squash écrit par `pr-finish` : puce `- ` en colonne 0. */
@@ -714,40 +724,44 @@ export function analyserCommits(commits, { publie } = {}) {
       continue;
     }
     // Les changements que le commit porte, chacun AVEC ses pieds de rupture.
-    // 🔴 Attribution par VOISINAGE, jamais par position (revue #796, N4) : un
-    // pied indenté (`  BREAKING CHANGE: …`) sous une ligne `- type: …` décrit CE
-    // changement-là ; un pied en colonne 0 décrit le commit lui-même (son sujet).
-    // Apparier le k-ième pied à la k-ième entrée `!` se faisait déjouer par
-    // chaque cas neuf (type sans section, sujets identiques, marqueur retiré).
+    //
+    // 🔴 Un squash de `pr-finish` se reconnaît à son TRAILER `Squash-Of: #N`,
+    // jamais à sa FORME : deviner « sujet (#N) + puces `- mot:` » prenait la
+    // prose de commits ordinaires pour des entrées — #644, #559 et #545
+    // perdaient la leur (revue #796, R-A). Sans trailer, le corps ne porte
+    // aucune entrée : un commit ordinaire se juge comme il l'a toujours été.
+    //
+    // Dans un squash, chaque pied décrit son VOISIN, jamais une position : un
+    // pied INDENTÉ sous une ligne `- type: …` décrit ce changement-là ; un pied
+    // en colonne 0, ou indenté sans voisin, décrit le TITRE de la PR. Le titre
+    // n'est pas une entrée (ses commits le sont), sauf s'il porte une rupture —
+    // `feat(http)!: …` ne se perd pas (R-B).
     const lignes = corps.split("\n");
-    const entreesCorps = lignes.some((l) => EN_TETE_CORPS.test(l));
-    // Squash de `pr-finish` : le sujet est le TITRE de la PR (« … (#N) »), pas
-    // un changement — ses commits sont les lignes `- `. Sinon il ferait doublon.
-    const titreDePr = entreesCorps && /\(#\d+\)$/u.test(sujet);
-    const changements = [{ h: m, pieds: [] }];
+    const squash = TRAILER_SQUASH.test(corps);
+    const changements = [{ h: m, pieds: [], titre: squash }];
     let courant = null;
     for (const l of lignes) {
-      const e = EN_TETE_CORPS.exec(l);
+      const e = squash ? EN_TETE_CORPS.exec(l) : null;
       if (e) {
-        courant = { h: e, pieds: [] };
+        courant = { h: e, pieds: [], titre: false };
         changements.push(courant);
         continue;
       }
-      const indente = /^\s+BREAKING[ -]CHANGE:[ \t]*(.+)$/u.exec(l);
-      if (indente && courant) {
-        courant.pieds.push(indente[1].trim());
+      const indente = squash ? PIED_INDENTE.exec(l) : null;
+      if (indente) {
+        (courant ?? changements[0]).pieds.push(indente[1].trim());
         continue;
       }
-      const pied = /^BREAKING[ -]CHANGE:[ \t]*(.+)$/u.exec(l);
+      const pied = PIED_RUPTURE.exec(l);
       if (pied) changements[0].pieds.push(pied[1].trim());
       if (!/^\s/u.test(l)) courant = null;
     }
-    if (titreDePr) changements.shift();
     // Retenu : un type qui a une section, OU une rupture — un `!` vaut rupture
     // quel que soit le type (spec, règle 1) : `chore(deps)!: Node 24` relève le
     // plancher et casse l'installation de qui n'a pas migré.
     const vus = new Set();
-    const retenus = changements.filter(({ h, pieds }) => {
+    const retenus = changements.filter(({ h, pieds, titre }) => {
+      if (titre && !h[3] && pieds.length === 0) return false;
       if (!SECTIONS[h[1]] && !h[3] && pieds.length === 0) return false;
       const cle = `${h[1]}(${h[2] ?? ""})${h[3] ?? ""}: ${h[4]}\u0000${pieds.join("\u0000")}`;
       if (vus.has(cle)) return false;
@@ -796,8 +810,9 @@ export function analyserCommits(commits, { publie } = {}) {
       } else if (bang) {
         ruptures.push({ portee: portee ?? "", texte, sha });
       }
-      const section = SECTIONS[type];
-      if (!section) continue;
+      // Une rupture s'ÉCRIT : le brouillon ne rend que les groupes. Un type sans
+      // section qui casse (`build(engines)!: Node 24`) va donc sous « Changed ».
+      const section = SECTIONS[type] ?? "Changed";
       if (!groupes.has(section)) groupes.set(section, []);
       groupes.get(section).push({
         portee: portee ?? "",
