@@ -14,6 +14,22 @@ _Rien de noté : ce qui se découvre en travaillant ici s'écrit dans ce bloc._
 
 Index de tout l'outillage : [`scripts/`](../README.md).
 
+## [`commit-guard.mjs`](commit-guard.mjs)
+
+Garde `commit-msg` du travail en demandes de fusion (#796) : refuse un commit de travail sur une branche longue, et un marqueur skip-ci glissé dans un commit de vrai travail.
+
+- **Usage** : `node scripts/repo/commit-guard.mjs <fichier-du-message>   (appelé par .githooks/commit-msg)`
+- **Variable** `NF_ALLOW_LONG_BRANCH_COMMIT`
+- **Appelé par** : `.githooks/commit-msg`
+- **Testé par** : `repo/commit-guard.test.mjs`
+
+## [`commit-guard.test.mjs`](commit-guard.test.mjs)
+
+Éprouve la garde `commit-msg` du travail en demandes de fusion (#796). /
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `repo/commit-guard.mjs`
+
 ## [`long-run-lock.mjs`](long-run-lock.mjs)
 
 Verrou « un run long occupe l'arbre » — seule implémentation, trois lecteurs.

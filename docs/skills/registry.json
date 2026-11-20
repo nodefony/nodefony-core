@@ -2060,6 +2060,41 @@
       "testedBy": []
     },
     {
+      "path": "scripts/repo/commit-guard.mjs",
+      "test": false,
+      "purpose": "Garde `commit-msg` du travail en demandes de fusion (#796) : refuse un commit de travail sur une branche longue, et un marqueur skip-ci glissé dans un commit de vrai travail.",
+      "usage": [
+        "node scripts/repo/commit-guard.mjs <fichier-du-message>   (appelé par .githooks/commit-msg)"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "NF_ALLOW_LONG_BRANCH_COMMIT",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        ".githooks/commit-msg"
+      ],
+      "testedBy": [
+        "scripts/repo/commit-guard.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/repo/commit-guard.test.mjs",
+      "test": true,
+      "purpose": "Éprouve la garde `commit-msg` du travail en demandes de fusion (#796). /",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/repo/long-run-lock.mjs",
       "test": false,
       "purpose": "Verrou « un run long occupe l'arbre » — seule implémentation, trois lecteurs.",
