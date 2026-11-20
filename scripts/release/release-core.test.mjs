@@ -1469,11 +1469,12 @@ describe("avis de branche — ce que la RÉPÉTITION doit dire avant d'estampill
       contenue: false,
       avance: 100,
     });
-    expect(avis).toMatch(/n'appartient PAS à « main »/);
+    expect(avis).toMatch(/n'appartient pas encore à « main »/);
     expect(avis).toMatch(/100 commits d'avance/);
     // Un avertissement qui laisse chercher se contourne : il DOIT porter la
     // commande, et dire que le tag se pose sur la branche de publication.
-    expect(avis).toMatch(/git checkout main && git merge --ff-only dev/);
+    expect(avis).toMatch(/--branch dev --write/);
+    expect(avis).toMatch(/--promouvoir/);
     expect(avis).toMatch(/le tag doit être posé SUR main/);
   });
 
@@ -1521,6 +1522,21 @@ describe("avis de branche — ce que la RÉPÉTITION doit dire avant d'estampill
     expect(avis).toMatch(/git fetch origin main/);
   });
 
+  it("depuis release/x.y.x, il prescrit la PROMOTION d'ici — jamais « git checkout main » (revue #796, G4)", () => {
+    // Suivre l'ancien conseil sautait la poussée de la branche de maintenance :
+    // l'estampille n'atteignait pas origin/release/10.0.x.
+    const avis = avisDeBranche({
+      branche: "release/10.0.x",
+      branchePublication: "main",
+      brancheTrouvee: true,
+      contenue: false,
+      avance: 10,
+    });
+    expect(avis).not.toMatch(/checkout/);
+    expect(avis).toMatch(/--branch release\/10\.0\.x --write/);
+    expect(avis).toMatch(/pousse release\/10\.0\.x:main en avance rapide/);
+  });
+
   it("sur un HEAD détaché, l'avis ne prétend pas connaître de branche", () => {
     const avis = avisDeBranche({
       branche: null,
@@ -1530,6 +1546,7 @@ describe("avis de branche — ce que la RÉPÉTITION doit dire avant d'estampill
     });
     expect(avis).toMatch(/\(HEAD détaché\)/);
     expect(avis).not.toMatch(/« null »/);
+    expect(avis).toMatch(/git switch/);
   });
 });
 
@@ -3000,5 +3017,54 @@ describe("refusDeMaintenance — un LOT de correctifs ouvert (#796, bloquant 3)"
     });
     expect(refus).not.toContain("annuler");
     expect(refus).toContain("supprimer origin/release/10.0.x (D8)");
+  });
+});
+
+describe("release.mjs — chaque constat de synchro est APPLIQUÉ en entier (#796, revue N2)", () => {
+  const source = readFileSync(
+    path.join(import.meta.dirname, "release.mjs"),
+    "utf8",
+  );
+
+  it("aucun appel de constaterSynchro hors d'appliquerSynchro — la promotion ignorait « avancer »", () => {
+    const calls = [...source.matchAll(/constaterSynchro\(/g)].length;
+    const applied = [
+      ...source.matchAll(/appliquerSynchro\(constaterSynchro\(/g),
+    ].length;
+    // La définition est une flèche (`const constaterSynchro = (…) =>`) : tout
+    // `constaterSynchro(` est un appel.
+    expect(applied).toBeGreaterThanOrEqual(2);
+    expect(calls).toBe(applied);
+  });
+
+  it("appliquerSynchro traite chaque geste que verdictDeSynchro peut rendre", () => {
+    const gestes = new Set();
+    for (const ecrire of [true, false])
+      for (const horsLigne of [true, false])
+        for (const fetchOk of [true, false])
+          for (const suivie of [true, false])
+            for (const [avance, retard] of [
+              [0, 0],
+              [1, 0],
+              [0, 1],
+              [1, 1],
+            ])
+              for (const arbrePropre of [true, false])
+                gestes.add(
+                  verdictDeSynchro({
+                    branche: "release/10.0.x",
+                    ecrire,
+                    horsLigne,
+                    fetchOk,
+                    suivie,
+                    avance,
+                    retard,
+                    arbrePropre,
+                  }).geste,
+                );
+    gestes.delete("rien");
+    const body = /const appliquerSynchro = [\s\S]*?\n};/.exec(source)?.[0];
+    expect(body, "appliquerSynchro introuvable dans release.mjs").toBeTruthy();
+    for (const g of gestes) expect(body).toContain(`"${g}"`);
   });
 });

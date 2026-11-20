@@ -1279,14 +1279,27 @@ export function avisDeBranche({
     typeof avance === "number" && avance > 0
       ? ` (${avance} commit${avance > 1 ? "s" : ""} d'avance)`
       : "";
+  // Tête détachée : la promotion pousse une BRANCHE — le dire avant tout geste.
+  if (!branche) {
+    return (
+      `HEAD ${ou} n'appartient PAS à « ${branchePublication} »${ecart} —\n` +
+      "  la promotion pousse une branche, pas un commit isolé.\n" +
+      "  → git switch <branche d'où l'on publie>  (release/x.y.x ou dev), puis relancer."
+    );
+  }
+  // 🔴 Ce texte conseillait « git checkout main && git merge --ff-only <branche> »
+  // — le flux d'AVANT la promotion. Depuis `--promouvoir` (qui pousse
+  // `<branche>:main` en avance rapide), le suivre sautait la poussée de la
+  // branche d'où l'on publie : l'estampille n'atteignait pas `origin/<branche>`
+  // (revue #796, G4). Le bon geste se fait d'ICI.
   return (
-    `HEAD ${ou} n'appartient PAS à « ${branchePublication} »${ecart} —\n` +
-    `  la publication l'exigera, et le tag doit être posé SUR ${branchePublication}.\n` +
-    `  Avant d'estampiller :  git checkout ${branchePublication} && ` +
-    `git merge --ff-only ${branche ?? "<branche>"}\n` +
-    `  Préparer d'ici reste légitime — mais l'estampille demandera alors ` +
-    `\`--branch ${branche ?? "<branche>"}\`,\n` +
-    `  et le commit devra REJOINDRE ${branchePublication} avant le tag.`
+    `HEAD ${ou} n'appartient pas encore à « ${branchePublication} »${ecart} —\n` +
+    `  c'est normal : préparer hors de ${branchePublication} reste légitime, et le tag doit être posé SUR ${branchePublication}.\n` +
+    `  Le geste, depuis ${ou} — sans changer de branche :\n` +
+    `    1. estampiller :  npm run release -- --version <v> --branch ${branche} --write\n` +
+    `    2. promouvoir  :  npm run release -- --version <v> --promouvoir\n` +
+    `       (pousse ${branche}:${branchePublication} en avance rapide, ET ${branche})\n` +
+    `    3. le tag, sur le commit que la promotion affiche.`
   );
 }
 

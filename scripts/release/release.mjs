@@ -806,6 +806,36 @@ const constaterSynchro = (ecrire) => {
 };
 
 /**
+ * Applique le verdict de {@link constaterSynchro} — SEULE implémentation, lue par
+ * l'estampille ET par la promotion.
+ *
+ * 🔴 La promotion ne traitait que « refus » et « avis » : relancée après une CI
+ * d'estampille rouge corrigée par PR, la branche locale est EN RETARD d'un
+ * commit (la fusion de la PR), le verdict vaut « avancer »… ignoré, et la
+ * poussée atomique échouait en exception brute (revue #796, N2).
+ *
+ * @param {{ geste: string, texte: string, courante: string | null }} s - le constat
+ */
+const appliquerSynchro = (s) => {
+  if (s.geste === "refus") echouer(s.texte);
+  if (s.geste === "avis") alerter(s.texte);
+  if (s.geste !== "avancer") return;
+  const avant = git("rev-parse", "HEAD");
+  git("merge", "--ff-only", `origin/${s.courante}`);
+  dire(`✓ ${s.texte}`);
+  // Le verrou a changé ? Le `node_modules` installé ne décrit plus l'arbre :
+  // l'estampille et le pack partiraient d'une installation fausse.
+  try {
+    git("diff", "--quiet", avant, "HEAD", "--", "package-lock.json");
+  } catch {
+    echouer(
+      "le rattrapage a changé package-lock.json — l'installation ne décrit plus l'arbre.\n" +
+        "  → npm ci && npm run build, puis relancer la même commande.",
+    );
+  }
+};
+
+/**
  * `origin/<publication>` en avance sur HEAD — constat puis geste ; la règle vit
  * dans {@link verdictDeBranchePublication}, ici seulement git. Un refus sort ;
  * une fusion en conflit est ANNULÉE (arbre rendu tel quel) puis refusée.
@@ -889,6 +919,15 @@ const lireLotsOuverts = () => {
 
 if (PROMOUVOIR) {
   etape = "promotion";
+  // Une tête détachée n'est pas une branche : `rev-parse --abbrev-ref` y rend la
+  // chaîne « HEAD », que la garde de maintenance ne reconnaît pas, et la poussée
+  // `HEAD:main` partirait d'un commit qu'aucune branche ne porte (revue #796, B6).
+  if (!(git("branch", "--show-current") || null)) {
+    echouer(
+      "tête DÉTACHÉE — la promotion pousse une branche, pas un commit isolé.\n" +
+        "  → git switch <branche d'où l'on publie>   (release/x.y.x ou dev), puis relancer.",
+    );
+  }
   {
     const refus = refusDeMaintenance({
       branche: git("rev-parse", "--abbrev-ref", "HEAD").trim(),
@@ -973,13 +1012,12 @@ if (PROMOUVOIR) {
     }
   }
 
-  // L'estampille est commitée : l'arbre est propre, et HEAD a au moins un commit
-  // d'avance. Un retard ici = branches DIVERGÉES — la poussée atomique serait
-  // refusée ; on le dit AVANT, avec le geste, plutôt qu'après un échec de git.
+  // L'estampille est commitée, l'arbre est propre. Trois cas : HEAD en avance
+  // (estampille fraîche, à pousser) ; HEAD en RETARD seul (relance après une CI
+  // rouge corrigée par PR : la fusion de la PR est sur origin) → avance rapide ;
+  // branches DIVERGÉES → refus avec le geste, AVANT un échec de git.
   {
-    const s = constaterSynchro(true);
-    if (s.geste === "refus") echouer(s.texte);
-    if (s.geste === "avis") alerter(s.texte);
+    appliquerSynchro(constaterSynchro(true));
     // `main` a reçu un commit d'accueil depuis l'estampille ? L'intégrer ici
     // garde `<branche>:main` en avance rapide (bloquant 4 de #796).
     rattraperPublication(true);
@@ -1025,9 +1063,15 @@ if (PROMOUVOIR) {
   if (ci.status !== 0) {
     echouer(
       "la forge n'est PAS verte sur ce commit — voir ci-dessus ce qui a échoué.\n" +
-        "  Corriger, recommiter, puis relancer `--promouvoir`. NE PAS taguer :\n" +
-        "  les quinze paquets partiraient sur un rouge, et npm ne reprend jamais\n" +
-        "  une version publiée.",
+        "  NE PAS taguer : les quinze paquets partiraient sur un rouge, et npm ne\n" +
+        "  reprend jamais une version publiée. Deux voies, selon le rouge :\n" +
+        "  · job INSTABLE (réseau, délai, course) → le relancer, même commit :\n" +
+        "       gh run rerun <id du run> --failed\n" +
+        "    puis relancer la même commande `--promouvoir`.\n" +
+        "  · VRAI défaut → le corriger par une branche de travail et sa PR vers\n" +
+        `    ${branche} (ticket-start.mjs), JAMAIS par un commit sur ${branche} ;\n` +
+        "    une fois la PR fusionnée, relancer `--promouvoir` : il rattrape seul\n" +
+        "    la fusion (avance rapide) et pousse le nouveau commit.",
     );
   }
 
@@ -1159,24 +1203,7 @@ if (sale && (ECRIRE || PUBLIER)) {
 if (!PUBLIER) {
   const surBranchePreparee =
     (git("branch", "--show-current") || null) === BRANCHE_ATTENDUE;
-  const s = constaterSynchro(ECRIRE && surBranchePreparee);
-  if (s.geste === "refus") echouer(s.texte);
-  if (s.geste === "avis") alerter(s.texte);
-  if (s.geste === "avancer") {
-    const avant = git("rev-parse", "HEAD");
-    git("merge", "--ff-only", `origin/${s.courante}`);
-    dire(`✓ ${s.texte}`);
-    // Le verrou a changé ? Le `node_modules` installé ne décrit plus l'arbre :
-    // l'estampille et le pack partiraient d'une installation fausse.
-    try {
-      git("diff", "--quiet", avant, "HEAD", "--", "package-lock.json");
-    } catch {
-      echouer(
-        "le rattrapage a changé package-lock.json — l'installation ne décrit plus l'arbre.\n" +
-          "  → npm ci && npm run build, puis relancer la même commande (rien n'a été estampillé).",
-      );
-    }
-  }
+  appliquerSynchro(constaterSynchro(ECRIRE && surBranchePreparee));
   // Puis `main` : un commit d'accueil d'une publication précédente y vit sans
   // être dans la branche d'où l'on publie (bloquant 4 de #796).
   if (surBranchePreparee) rattraperPublication(ECRIRE);
