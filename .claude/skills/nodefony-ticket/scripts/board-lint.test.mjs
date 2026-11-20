@@ -137,6 +137,18 @@ describe("lintBoard — chaque incohérence est vue", () => {
     expect(findings[0].unlock).toContain("ticket-close.mjs 797 --done");
   });
 
+  it("OUVERT-DONE : un ticket ouvert passé « Done » est une ERREUR, avec son geste (revue #796, B5)", () => {
+    const findings = lintBoard({
+      items: [sain(1), sain(798, { status: "Done" })],
+      issues: [issueSaine(1), issueSaine(798)],
+      now: MAINTENANT,
+    }).filter((f) => f.code === "OUVERT-DONE");
+    expect(findings.map((f) => [f.code, f.n, f.severity])).toEqual([
+      ["OUVERT-DONE", 798, "erreur"],
+    ]);
+    expect(findings[0].unlock).toContain("ticket-close.mjs 798");
+  });
+
   it("FERME-PAS-DONE : un ticket fermé et « Done » ne dit rien, et n'entre dans AUCUN autre contrôle", () => {
     // Sans statut d'ordre ni de jalon, un fermé compté parmi les ouverts
     // lèverait SANS-ORDRE, HORS-JALON… : il doit être écarté avant.

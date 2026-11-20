@@ -43,11 +43,15 @@ export const sortMilestones = (milestones) =>
   );
 
 /**
- * Dit si un item du tableau reste à faire : ticket NON fermé ET statut ≠ « Done ».
+ * Dit si un item du tableau reste à faire : l'ÉTAT GitHub du ticket fait foi ;
+ * le statut du tableau ne décide que pour un item sans état (brouillon).
  *
- * Le statut seul ne suffit pas : un ticket fermé à la main (`gh issue close`,
- * seule voie vers `release/*`) peut garder « In Progress » sur le tableau, et la
- * reprise proposait alors un ticket déjà livré — vécu, `➡️ #797` fermé. SEULE
+ * Le statut ne suffit pas, dans les DEUX sens : un ticket fermé à la main
+ * (`gh issue close`, seule voie vers `release/*`) peut garder « In Progress »,
+ * et la reprise proposait un ticket livré — vécu, `➡️ #797` fermé ; un ticket
+ * OUVERT passé « Done » comptait comme livré, et `versionsToRelease` aurait dit
+ * « lot soldé » avec un ticket ouvert dedans (revue #796, B5). L'incohérence se
+ * signale (`board-lint` : `FERME-PAS-DONE`, `OUVERT-DONE`). SEULE
  * implémentation : la reprise et l'empreinte l'appellent, aucune ne recopie le
  * test.
  *
@@ -55,7 +59,7 @@ export const sortMilestones = (milestones) =>
  * @returns {boolean}
  */
 export const isOpenItem = (item) =>
-  item.state !== "CLOSED" && item.status !== "Done";
+  item.state ? item.state !== "CLOSED" : item.status !== "Done";
 
 /** Les items ouverts d'un jalon, dans l'ordre de travail (sans ordre = en fin). */
 export const openItemsOf = (items, milestoneTitle) =>

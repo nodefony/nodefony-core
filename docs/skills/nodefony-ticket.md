@@ -86,7 +86,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 107 |
 | `references/lexique.md` | Lexique des tickets — source unique | 145 |
 | `references/pull-requests.md` | Pull requests — la remplir, la relier, la fusionner | 144 |
-| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 290 |
+| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 291 |
 
 
 ## Scripts embarqués

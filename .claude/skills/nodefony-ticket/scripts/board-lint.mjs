@@ -236,6 +236,17 @@ export function lintBoard({
   const items = [];
   for (const item of tous) {
     if (item.state !== "CLOSED") {
+      // Le symétrique : OUVERT mais « Done » se lit « livré », et un lot
+      // passerait pour soldé avec lui dedans (revue #796, B5).
+      if (item.status === "Done") {
+        add(
+          "erreur",
+          "OUVERT-DONE",
+          item.n,
+          "ouvert mais « Done » au tableau — se lit « livré »",
+          `fermer avec son compte rendu : node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs ${item.n} — sinon le remettre « In Progress »`,
+        );
+      }
       items.push(item);
       continue;
     }

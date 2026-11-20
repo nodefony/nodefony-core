@@ -82,8 +82,11 @@ describe("ce qui reste à faire — isOpenItem", () => {
     expect(isOpenItem({ state: "CLOSED", status: "In Progress" })).toBe(false);
   });
 
-  it("un statut « Done » suffit, et un ticket ouvert en cours reste à faire", () => {
-    expect(isOpenItem({ state: "OPEN", status: "Done" })).toBe(false);
+  it("un ticket OUVERT reste à faire même « Done » — l'état fait foi (revue #796, B5)", () => {
+    expect(isOpenItem({ state: "OPEN", status: "Done" })).toBe(true);
+    // Sans état (brouillon du tableau), le statut décide.
+    expect(isOpenItem({ status: "Done" })).toBe(false);
+    expect(isOpenItem({ status: "Todo" })).toBe(true);
     expect(isOpenItem({ state: "OPEN", status: "In Progress" })).toBe(true);
     expect(isOpenItem({ state: "OPEN", status: null })).toBe(true);
   });
