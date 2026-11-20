@@ -11,7 +11,7 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | Dossier | Contenu | Scripts |
 | --- | --- | --- |
 | [`lib/`](lib/README.md) | Helpers transverses, importés par les scripts des autres dossiers. | 16 |
-| [`gates/`](gates/README.md) | Gardes de commit et de forge : chacune refuse un état précis du dépôt. | 22 |
+| [`gates/`](gates/README.md) | Gardes de commit et de forge : chacune refuse un état précis du dépôt. | 24 |
 | [`scaffold/`](scaffold/README.md) | Contrôles et mise en forme des gabarits d'application. | 4 |
 | [`deps/`](deps/README.md) | Inventaire et garde des dépendances, gabarits compris. | 8 |
 | [`deps/lib/`](deps/lib/README.md) | Helpers propres à l'inventaire des dépendances. | 5 |
@@ -22,6 +22,6 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | [`generate/`](generate/README.md) | Génération d'artefacts : graphe symbolique, page de manuel, catalogue d'environnement, logo. | 13 |
 | [`site/`](site/README.md) | Rendu du site de documentation publié et de ses pages annexes. | 18 |
 | [`site/lib/`](site/lib/README.md) | Helpers propres au rendu du site de documentation. | 8 |
-| [`repo/`](repo/README.md) | Hygiène de l'arbre de travail : verrous, rangement de tmp/, commit sans verrou orphelin. | 8 |
+| [`repo/`](repo/README.md) | Hygiène de l'arbre de travail : verrous, rangement de tmp/, commit sans verrou orphelin. | 10 |
 | [`ci/`](ci/README.md) | Ce que la forge lance ou éprouve sur elle-même. | 7 |
-| [`release/`](release/README.md) | Chaîne de publication du produit. | 35 |
+| [`release/`](release/README.md) | Chaîne de publication du produit. | 36 |

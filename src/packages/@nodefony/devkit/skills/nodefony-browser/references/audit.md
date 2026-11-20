@@ -15,7 +15,8 @@ Hors d'une application générée, ou pour passer des identifiants :
 
 ```bash
 npm i -D lighthouse
-NF_BROWSER_LOGIN=/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=nodefony-dev-42 node .../scripts/audit.mjs /tableau-de-bord
+# Mot de passe admin de développement : celui du README de l'application (tiré à la création).
+NF_BROWSER_LOGIN=/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=xxxx-xxxx-xxxx node .../scripts/audit.mjs /tableau-de-bord
 ```
 
 Il rend les scores des cinq catégories — dont **`agentic-browsing`**, qui note ce qu'un agent

@@ -310,14 +310,14 @@
 # ─── Mot de passe administrateur ────────────────────────────────────────────
 #
 # Le compte « admin » est créé au premier démarrage avec ce mot de passe. En
-# développement, un mot de passe connu s'applique si tu ne mets rien. En
-# production, aucun : sans cette variable, aucun compte n'est créé. Une fois
-# le compte créé, la variable ne sert plus.
+# développement, le mot de passe tiré à la création de l'application
+# s'applique si tu ne mets rien. En production, aucun : sans cette variable,
+# aucun compte n'est créé. Une fois le compte créé, la variable ne sert plus.
 #
 # @optional
 # @sensitive
 # @placement=secrets
-# @default="<%= it.devAdminPassword %> en développement ; aucun en production"
+# @default="tiré à la création (voir .env) en développement ; aucun en production"
 # NF_ADMIN_PASSWORD=
 
 

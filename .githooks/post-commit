@@ -1,5 +1,5 @@
 #!/bin/sh
-# Le statut d'un ticket se DÉRIVE du premier commit qui le cite — voir l'en-tête de
+# Le statut d'un ticket se DÉRIVE du premier commit sur SA branche de travail — voir l'en-tête de
 # .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs. Détaché et silencieux : un hook post-commit ne doit
 # ni ralentir le commit, ni le faire échouer (il a déjà eu lieu de toute façon).
 [ -n "$NF_NO_TICKET_PROGRESS" ] && exit 0

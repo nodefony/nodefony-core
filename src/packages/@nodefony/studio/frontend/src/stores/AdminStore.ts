@@ -1,4 +1,9 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import {
+  confirmLoginPage,
+  headStatus,
+  readLoginPage,
+} from "../auth/loginTarget";
 import type { ApiClient } from "../services/ApiClient";
 
 /**
@@ -108,6 +113,16 @@ export class AdminStore {
   frameworkRepository: boolean | null = null;
 
   /**
+   * Chemin de la page de connexion que le framework sert pour l'application
+   * (`/login` par défaut), annoncé par `/studio/api/info` PUIS constaté
+   * (`loadLoginPage`). `null` quand elle n'est pas servie ou ne répond pas —
+   * la console garde alors sa page de secours ; `undefined` tant que ce n'est
+   * pas résolu. Un échec vaut `null` : la page de secours marche toujours, une
+   * adresse supposée pourrait ne mener nulle part.
+   */
+  loginPage: string | null | undefined = undefined;
+
+  /**
    * Clés des modules CHARGÉS par le serveur, lues sur le data plane authentifié
    * (`/nodefony/kernel/api/modules`) — jamais sur `/info`, public : la
    * composition d'une application n'a pas à être donnée à un anonyme. `null`
@@ -166,6 +181,26 @@ export class AdminStore {
         this.frameworkRepository = false;
       });
     }
+  }
+
+  /**
+   * Résout la page de connexion où conduire un visiteur anonyme : celle que
+   * `/studio/api/info` annonce, CONSTATÉE par un `HEAD` (`confirmLoginPage`),
+   * sinon `null` — la page de secours de la console. Appelée par la garde sur
+   * le seul chemin anonyme : un administrateur connecté ne la paie jamais.
+   */
+  async loadLoginPage(): Promise<void> {
+    let announced: string | null = null;
+    try {
+      const info = await this.api.get<{ loginPage?: unknown }>("/info");
+      announced = readLoginPage(info.loginPage);
+    } catch {
+      /* annonce illisible → page de secours */
+    }
+    const confirmed = await confirmLoginPage(announced, headStatus);
+    runInAction(() => {
+      this.loginPage = confirmed;
+    });
   }
 
   /** Charge (ou recharge) le catalogue des producteurs admin. */

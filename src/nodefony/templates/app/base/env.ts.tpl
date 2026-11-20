@@ -220,8 +220,10 @@ export const env = defineEnv({
 
   /**
    * Mot de passe du compte admin seedé au premier boot (voir
-   * `nodefony/security/users.ts`). DEV : défaut `<%= it.devAdminPassword %>` (compte admin/<%= it.devAdminPassword %>,
-   * comme Grafana — pratique, LOCAL uniquement). PROD : OBLIGATOIRE — sans lui
+   * `nodefony/security/provisionUsers.ts`). DEV : défaut tiré au hasard à la
+   * création de l'application (`DEV_ADMIN_PASSWORD` de ce fichier, recopié dans
+   * `.env` et le README — pratique, LOCAL uniquement). La valeur n'est PAS
+   * écrite ici : ce catalogue nourrit `.env.example`, une notice commune. PROD : OBLIGATOIRE — sans lui
    * le seed refuse (jamais de mot de passe par défaut en production).
    *
    * Pas de `requiredIn` : l'exigence ne vaut qu'au PREMIER démarrage. Une fois
@@ -233,8 +235,9 @@ export const env = defineEnv({
     section: "Comptes créés au démarrage",
     title: "Mot de passe administrateur",
     description:
-      "Le compte « admin » est créé au premier démarrage avec ce mot de passe. En développement, un mot de passe connu s'applique si tu ne mets rien. En production, aucun : sans cette variable, aucun compte n'est créé. Une fois le compte créé, la variable ne sert plus.",
-    defaultNote: "<%= it.devAdminPassword %> en développement ; aucun en production",
+      "Le compte « admin » est créé au premier démarrage avec ce mot de passe. En développement, le mot de passe tiré à la création de l'application s'applique si tu ne mets rien. En production, aucun : sans cette variable, aucun compte n'est créé. Une fois le compte créé, la variable ne sert plus.",
+    defaultNote:
+      "tiré à la création (voir .env) en développement ; aucun en production",
   }),
 
   /**

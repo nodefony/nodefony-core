@@ -81,6 +81,15 @@ describe("login.css — la source des couleurs de la marque", () => {
     );
   });
 
+  it("l'image par défaut est un dégradé de la marque, sans fichier à servir (#797)", () => {
+    // Sans photo d'application, les habillages qui la placent (horizon,
+    // photo-card, panneau) montraient un aplat : un trou, pas un décor.
+    const image = dark["hero-image"] ?? "";
+    assert.match(image, /gradient\(/u);
+    assert.notInclude(image, "url(");
+    assert.include(image, dark["brand"] ?? "#");
+  });
+
   it("dessine les arcs de la jonction avec les couleurs du logo", () => {
     const arcs = decodeURIComponent(dark["arcs"] ?? "");
     const fills = [
@@ -181,7 +190,7 @@ describe("les copies confrontées à login.css", () => {
     assert.equal(background?.[1]?.toLowerCase(), dark["bg"]);
   });
 
-  it("gabarits d'application : le bouton de la vitrine", () => {
+  it("gabarits d'application : la marque de l'accueil et son bouton", () => {
     const showcase = read(
       "src",
       "nodefony",
@@ -193,9 +202,10 @@ describe("les copies confrontées à login.css", () => {
       "src",
       "showcase.css.tpl",
     );
-    const button = /\.nf-card button \{[^}]*background: (#[0-9a-f]{6})/i.exec(
-      showcase,
-    );
-    assert.equal(button?.[1]?.toLowerCase(), dark["brand"]);
+    // Le bleu de l'accueil (thème clair) est la marque, et le bouton
+    // « Se connecter » le porte.
+    const blue = /\n:root \{[^}]*?--blue: (#[0-9a-f]{6});/i.exec(showcase);
+    assert.equal(blue?.[1]?.toLowerCase(), dark["brand"]);
+    assert.match(showcase, /a\.nf-login \{[^}]*background: var\(--blue\);/u);
   });
 });

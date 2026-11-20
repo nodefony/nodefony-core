@@ -721,8 +721,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "controllers", "HomeController.ts"),
         "utf8",
       );
-      assert.include(home, 'this.renderJson({ app: "livefull" })');
+      // Négociation (#797) : un programme garde `{ app }`, un navigateur
+      // reçoit la page — ni l'un ni l'autre ne porte la version.
+      assert.include(home, 'this.renderJson({ app: "livefull" }, 200, vary)');
+      assert.include(home, "text\\/html");
       assert.notInclude(home, version);
+      const homePage = readFileSync(
+        path.join(dest, "nodefony", "home", "homePage.ts"),
+        "utf8",
+      );
+      assert.notInclude(homePage, version);
       // `/api` FERMÉ : `main` sans `anonymous`.
       const security = readFileSync(
         path.join(dest, "nodefony", "config", "security.ts"),
@@ -2165,7 +2173,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // importés (#526). Aucune copie dans `public/` que rien ne lirait.
         assert.include(
           readFileSync(path.join(dest, "frontend", "src", "brand.ts"), "utf8"),
-          'import logoUrl from "nodefony/assets/nodefony-logo.png";',
+          'import logoUrl from "nodefony/assets/nodefony-logo.svg";',
           fw,
         );
         assert.isFalse(
@@ -3552,9 +3560,27 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // refusé en texte JSX.
       assert.include(app, `Node.js {"${NODE_ENGINE_LABEL}"}`);
       assert.notInclude(app, "npx nodefony create app");
+      // #797 — la démo charge la feuille de l'accueil AVANT la sienne : les
+      // jetons et les effets n'ont qu'une source, la démo n'en recopie aucun.
+      assert.isBelow(
+        app.indexOf('import "./showcase.css";'),
+        app.indexOf('import "./demo.css";'),
+      );
+      assert.isAbove(app.indexOf('import "./showcase.css";'), -1);
+      assert.notMatch(css, /^\s*--(?:bg|blue|fg|card|spring):/mu);
+      assert.notInclude(css, "@property --spin");
+      // Les gestes de l'accueil — thème, lumière, barre de debug — viennent
+      // du module partagé ; la marque mène à l'accueil de l'application ; UN
+      // bouton pour la barre de debug.
+      assert.include(app, 'from "./homeEffects"');
+      assert.include(app, '<a className="brand" href="/">');
+      assert.notInclude(app, "minimize");
+      assert.isFalse(
+        existsSync(path.join(mod, "frontend", "src", "debugBar.ts")),
+      );
       // Sans choix mémorisé, la démo suit le thème du système.
       assert.include(
-        lireMod("frontend", "src", "kit", "theme.ts"),
+        lireMod("frontend", "src", "homeEffects.ts"),
         'matchMedia("(prefers-color-scheme: dark)")',
       );
       // Type PARTAGÉ entre le contrôleur et la page.
@@ -5010,10 +5036,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // composants), dont seule la couleur du framework différait. La feuille
       // est désormais unique ; ce test vérifie les deux moitiés du contrat :
       // (a) la feuille est bien la même partout, (b) chaque accent définit
-      // TOUTES les variables qu'elle consomme — sinon la page part sans son
-      // logo animé et sans badge, silencieusement.
+      // TOUTES les variables qu'elle consomme — sinon le badge du front part
+      // sans sa couleur, silencieusement.
       const rendered = new Map<string, { showcase: string; accent: string }>();
-      for (const fw of ["react", "vue", "angular"]) {
+      for (const fw of ["react", "vue", "angular", "svelte"]) {
         const dest = path.join(tmp, `css-${fw}`);
         scaffold(dest, { name: `css-${fw}`, preset: "minimal", frontend: fw });
         const src = path.join(dest, "frontend", "src");
@@ -5048,15 +5074,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
             `${fw} ne définit pas ${variable}`,
           );
         }
-        // L'animation nommée par la variable doit exister LÀ où elle est posée
-        // (un `@keyframes` déclaré dans les styles d'un composant Angular est
-        // renommé par l'encapsulation — l'animation serait introuvable).
-        const anim = /--nf-logo-anim:\s*([\w-]+)/u.exec(accent)?.[1];
-        assert.isString(anim, `${fw} : animation du logo non nommée`);
+        // La couleur vient de la table des fronts du moteur, seule source.
         assert.include(
           accent,
-          `@keyframes ${anim}`,
-          `${fw} : ${anim} non déclarée`,
+          `--nf-front: ${FRONTEND_PARAMS[fw as keyof typeof FRONTEND_PARAMS].badge.color};`,
+          `${fw} : couleur du front recopiée`,
         );
       }
     });

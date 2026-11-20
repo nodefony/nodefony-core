@@ -3,8 +3,14 @@ import { NODEFONY_LOGO } from "./brand";
 import { DEMOS, type IDemoEntry } from "../../demos";
 import { DEMO_ABOUT_PATH, docsVersion, docUrl, type IDemoAbout, parseDemoAbout, REPO_URL } from "./about";
 import { Catalogue } from "./Catalogue";
-import { debugBarControl, type IDebugBarControl } from "./debugBar";
-import { useCurrentSection, usePointerLight } from "./effects";
+import { useCurrentSection } from "./effects";
+import {
+  applyDarkTheme,
+  findDebugBar,
+  readDarkTheme,
+  startPointerLight,
+  type IDebugBarHandle,
+} from "./homeEffects";
 import { ChatLesson } from "./chat/ChatLesson";
 import { FirstStepsLesson } from "./first/FirstStepsLesson";
 import { GrpcLesson } from "./grpc/GrpcLesson";
@@ -17,14 +23,17 @@ import { SseLesson } from "./sse/SseLesson";
 import { VideoLesson } from "./video/VideoLesson";
 import { UploadLesson } from "./upload/UploadLesson";
 import { Account } from "./kit/Account";
-import { applyTheme, readTheme, type DemoTheme } from "./kit/theme";
 import { PartnerLesson } from "./partner/PartnerLesson";
 import { RoleTabs } from "./RoleTabs";
 import { usePulse } from "./usePulse";
+// La feuille de l'accueil d'abord — jetons, en-tête, effets, partagés avec
+// l'accueil de l'application —, puis ce qui n'appartient qu'à la démo.
+import "./showcase.css";
 import "./demo.css";
 
-// Le thème AVANT le premier rendu : sombre par défaut, sinon le choix retenu.
-applyTheme(readTheme());
+// Le thème AVANT le premier rendu : le choix retenu, sinon celui du système.
+// Même clé que l'accueil de l'application : un choix vaut pour les deux.
+applyDarkTheme(readDarkTheme(), false);
 
 /** Les sections que la barre du haut permet d'atteindre, dans l'ordre. */
 const SECTIONS = [
@@ -43,7 +52,7 @@ const SECTION_IDS = SECTIONS.map((section) => section.id);
  *
  * Guide pour un agent : la page lit son identité à `/demo/api/about`
  * (`DemoController`, type partagé `IDemoAbout`) et pilote la barre de debug
- * par sa poignée publiée (`debugBar.ts`), sans importer le widget. Le
+ * par sa poignée publiée (`homeEffects.ts`, partagé avec l'accueil), sans importer le widget. Le
  * catalogue et les onglets de métier lisent l'index `modules/demo/demos.ts`
  * — une démo s'ajoute là, jamais dans la page.
  */
@@ -107,7 +116,7 @@ export function App() {
 /** L'accueil : le haut de page, les métiers, le catalogue vivant, le socle. */
 function Home({ about }: { about: IDemoAbout | null }) {
   const version = docsVersion(about);
-  usePointerLight(".card");
+  useEffect(() => startPointerLight(".card"), []);
   const pulse = usePulse();
   return (
     <>
@@ -163,7 +172,8 @@ function Topbar({ about, home }: { about: IDemoAbout | null; home: boolean }) {
   // l'opacité, jamais sur `visibility`, qui retirerait une identité du nom.
   return (
     <header className="topbar">
-      <a className="brand" href="/demo">
+      {/* La marque mène à l'accueil de l'APPLICATION, comme partout. */}
+      <a className="brand" href="/">
         <span className="id id-app">
           {/* Espaces entre les éléments : sans eux, le texte lu est
               « mon-appdémov0.1.0 » et ne correspond plus au nom accessible. */}
@@ -207,7 +217,7 @@ function Topbar({ about, home }: { about: IDemoAbout | null; home: boolean }) {
       <div className="topbar-tools">
         <div className="tools" role="group" aria-label="Affichage">
           <ThemeButton />
-          <DebugBarButtons />
+          <DebugBarButton />
         </div>
         {/* Place RÉSERVÉE dès le premier rendu : la session se lit après, et
             l'apparition du compte faisait passer l'en-tête sur deux lignes —
@@ -222,10 +232,8 @@ function Topbar({ about, home }: { about: IDemoAbout | null; home: boolean }) {
 
 /** Sombre ou clair : le choix est retenu par le navigateur. */
 function ThemeButton() {
-  const [theme, setTheme] = useState<DemoTheme>(readTheme);
-  const next: DemoTheme = theme === "dark" ? "light" : "dark";
-  const label =
-    next === "light" ? "Passer en thème clair" : "Passer en thème sombre";
+  const [dark, setDark] = useState(readDarkTheme);
+  const label = dark ? "Passer en thème clair" : "Passer en thème sombre";
   return (
     <button
       type="button"
@@ -233,11 +241,11 @@ function ThemeButton() {
       aria-label={label}
       title={label}
       onClick={() => {
-        applyTheme(next, true);
-        setTheme(next);
+        applyDarkTheme(!dark);
+        setDark(!dark);
       }}
     >
-      {theme === "dark" ? (
+      {dark ? (
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -268,86 +276,51 @@ function ThemeButton() {
 }
 
 /**
- * Les deux boutons de la barre de debug — afficher/cacher, réduire en
- * pastille. Rendus seulement si la barre est montée (développement).
+ * UN bouton pour la barre de debug : la cacher ou la montrer — le même geste
+ * que l'accueil de l'application. Rendu seulement si la barre est montée
+ * (développement) ; la réduire en pastille se fait sur la barre elle-même.
  */
-function DebugBarButtons() {
-  const [control, setControl] = useState<IDebugBarControl | null>(null);
+function DebugBarButton() {
+  const [bar, setBar] = useState<IDebugBarHandle | null>(null);
   const [visible, setVisible] = useState(true);
-  const [minimized, setMinimized] = useState(false);
   useEffect(() => {
     // La barre est injectée par le serveur à côté de la page : elle peut
     // publier sa poignée juste après le premier rendu.
     const frame = requestAnimationFrame(() => {
-      const found = debugBarControl();
-      setControl(found);
+      const found = findDebugBar();
+      setBar(found);
       if (found) setVisible(found.isVisible());
     });
     return () => cancelAnimationFrame(frame);
   }, []);
-  if (control === null) return null;
+  if (bar === null) return null;
   return (
-    <>
-      <button
-        type="button"
-        className="dbg-btn"
-        aria-pressed={visible}
-        aria-label="Afficher ou cacher la barre de debug"
-        title="Afficher ou cacher la barre de debug"
-        onClick={() => {
-          control.setVisible(!visible);
-          setVisible(!visible);
-        }}
+    <button
+      type="button"
+      className="dbg-btn"
+      aria-pressed={!visible}
+      aria-label="Cacher la barre de debug"
+      title="Cacher la barre de debug"
+      onClick={() => {
+        bar.setVisible(!visible);
+        setVisible(!visible);
+      }}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M8 2l1.9 1.9M16 2l-1.9 1.9" />
-          <path d="M9 7.1V6a3 3 0 0 1 6 0v1.1" />
-          <path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6z" />
-          <path d="M12 20v-9M6.5 9H3M6 13H2M6 17H3M17.5 9H21M18 13h4M18 17h3" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        className="dbg-btn"
-        disabled={!visible}
-        aria-pressed={minimized}
-        aria-label={
-          minimized
-            ? "Déplier la barre de debug"
-            : "Réduire la barre de debug en pastille"
-        }
-        title={
-          minimized
-            ? "Déplier la barre de debug"
-            : "Réduire la barre de debug en pastille"
-        }
-        onClick={() => {
-          if (minimized) control.restore();
-          else control.minimize();
-          setMinimized(!minimized);
-        }}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
-        </svg>
-      </button>
-    </>
+        <path d="M8 2l1.9 1.9M16 2l-1.9 1.9" />
+        <path d="M9 7.1V6a3 3 0 0 1 6 0v1.1" />
+        <path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6z" />
+        <path d="M12 20v-9M6.5 9H3M6 13H2M6 17H3M17.5 9H21M18 13h4M18 17h3" />
+      </svg>
+    </button>
   );
 }
 

@@ -57,7 +57,22 @@
   /* Panneau de marque (mise en page « split ») : un fond, une image facultative
      (`url(...)` posée par l'application), un voile PLEIN par-dessus. */
   --nf-login-hero-bg: #0f1114;
-  --nf-login-hero-image: none;
+  /* L'image par DÉFAUT : un ciel aux couleurs du logo, en CSS pur — aucun
+     fichier à servir, aucune requête. Une application qui n'a pas (encore) sa
+     photo voit un habillage complet, jamais un trou ; la sienne la remplace
+     d'une ligne : cette variable, posée sur `:root` par sa feuille de marque. */
+  --nf-login-hero-image:
+    radial-gradient(
+      120% 90% at 18% 12%,
+      rgba(0, 160, 242, 0.55),
+      transparent 60%
+    ),
+    radial-gradient(
+      90% 80% at 88% 92%,
+      rgba(68, 132, 56, 0.5),
+      transparent 65%
+    ),
+    linear-gradient(150deg, #0a2440 0%, #0067ba 100%);
   --nf-login-hero-veil: rgba(10, 14, 22, 0.6);
   --nf-login-hero-fg: #f1f3f5;
   --nf-login-hero-muted: #8a9099;
@@ -221,6 +236,16 @@ input {
   gap: 9px;
   font-weight: 650;
   color: var(--nf-login-heading);
+}
+/* La marque mène à l'accueil de l'application (`/`), comme sur toutes ses
+   pages : un lien, sans l'habit d'un lien. */
+a.nf-strip-brand,
+a.nf-hero-brand,
+a.nf-brand {
+  text-decoration: none;
+}
+a.nf-hero-brand {
+  color: inherit;
 }
 .nf-sep {
   width: 1px;

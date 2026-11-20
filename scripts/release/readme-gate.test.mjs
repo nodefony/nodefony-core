@@ -238,6 +238,15 @@ describe("reglesDuCanal — le README est jugé pour la version qu'il ACCOMPAGNE
     ).toBe(false);
   });
 
+  it("la 11 se juge comme la 10 : canal exigé pendant ses préversions, plus à sa stable", () => {
+    expect(
+      reglesDuCanal({ latest: "10.4.2" }, "11.0.0-alpha.1").exigeCanal,
+    ).toBe(true);
+    expect(reglesDuCanal({ latest: "10.4.2" }, "11.0.0").exigeCanal).toBe(
+      false,
+    );
+  });
+
   it("dit qu'il n'a pas pu juger sans dist-tags — jamais un silence", () => {
     const r = reglesDuCanal(null, "10.0.0");
     expect(r.exigeCanal).toBe(false);

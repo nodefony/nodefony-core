@@ -115,9 +115,9 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // par `import()` au premier bloc qui en a besoin.
   "highlight.js": "^11.12.0",
   katex: "^0.19.1",
-  vue: "^3.5.45",
+  vue: "^3.5.46",
   "@vitejs/plugin-vue": "^6.0.11",
-  svelte: "^5.58.0",
+  svelte: "^5.58.1",
   "@sveltejs/vite-plugin-svelte": "^7.3.1",
   // Contrôle de l'INTÉRIEUR des composants, enchaîné par le script `typecheck`
   // (`FRONTEND_PARAMS.componentTypecheck`) : `tsgo` ne lit ni un `.vue` ni un
@@ -133,12 +133,12 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Un caret laisserait une application générée tirer la mineure suivante
   // avant qu'analogjs l'ait suivie. Monter les deux ENSEMBLE, et prouver par
   // `frontend-families.test.ts` sur le serveur de développement.
-  "@angular/core": "~22.2.6",
-  "@angular/common": "~22.2.6",
-  "@angular/platform-browser": "~22.2.6",
+  "@angular/core": "~22.3.0",
+  "@angular/common": "~22.3.0",
+  "@angular/platform-browser": "~22.3.0",
   "@analogjs/vite-plugin-angular": "^2.9.7",
-  "@angular/build": "~22.2.7",
-  "@angular/compiler-cli": "~22.2.6",
+  "@angular/build": "~22.3.0",
+  "@angular/compiler-cli": "~22.3.0",
 };
 
 /**

@@ -25,7 +25,7 @@
  * ── LE TAG EST LA CAUSE, PAS LA CONSÉQUENCE ─────────────────────────────────
  *
  * Ce script estampille, écrit un brouillon de changelog et empaquette. Il ne
- * pose PAS le tag : c'est le tag `v10.*` poussé à la main qui déclenche le flux
+ * pose PAS le tag : c'est le tag `v<version>` poussé à la main qui déclenche le flux
  * de publication. Inverser les deux enlève à l'auteur le seul point où il relit
  * ce qui va sortir sous son nom.
  *
@@ -125,6 +125,10 @@ import {
   trierPourRecalage,
   phasesDeLaPasse,
   refusDePublicationHorsBranche,
+  refusDeMaintenance,
+  estJalonDeCorrectif,
+  verdictDeBranchePublication,
+  verdictDeSynchro,
   avisDeBranche,
   planDePromotion,
   referencesFigees,
@@ -691,8 +695,259 @@ const git = (...args) =>
 //
 // Idempotent : relancé après un commit d'estampille déjà fait, il le CONSTATE au
 // lieu d'en créer un second — la reprise après une CI rouge est le cas normal.
+/**
+ * L'état des branches de maintenance `origin/release/*`, vu depuis HEAD — la
+ * matière de {@link refusDeMaintenance}, lue sur les références DISTANTES (une
+ * locale en retard mentirait).
+ *
+ * @returns {Array<{ nom: string, fusionnee: boolean, nonPublies: number }>}
+ */
+const constaterMaintenance = () => {
+  const noms = git(
+    "for-each-ref",
+    "--format=%(refname:strip=3)",
+    "refs/remotes/origin/release/",
+  )
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (noms.length === 0) return [];
+  const estPublie = perimetrePublie(listerPubliables());
+  return noms.map((nom) => {
+    const ref = `refs/remotes/origin/${nom}`;
+    let fusionnee = true;
+    try {
+      git("merge-base", "--is-ancestor", ref, "HEAD");
+    } catch {
+      fusionnee = false;
+    }
+    // Un bloc par commit : « @<sha> » puis ses fichiers.
+    const brut = git(
+      "log",
+      "--format=@%H",
+      "--name-only",
+      `refs/remotes/origin/${BRANCHE_PUBLICATION}..${ref}`,
+    );
+    let nonPublies = 0;
+    for (const bloc of brut.split("@").slice(1)) {
+      const fichiers = bloc.split("\n").slice(1).filter(Boolean);
+      if (fichiers.some(estPublie)) nonPublies++;
+    }
+    return { nom, fusionnee, nonPublies };
+  });
+};
+
+// 🔴 L'état DISTANT se rafraîchit AVANT toute garde de branche (#796, bloquants
+// 1 et 2) : la garde D9 et l'écart local/distant lisent `origin/*`, qui ne vaut
+// que ce que vaut le dernier `fetch`. Un réessai : un réseau qui hoquette ne doit
+// pas coûter une relance à l'humain. Jamais à la publication (`--publish`) :
+// c'est le TAG qui fait foi, et la forge a déjà son checkout.
+const FETCH_OK = (() => {
+  if (HORS_LIGNE || PUBLIER) return true;
+  for (let essai = 1; essai <= 2; essai++) {
+    try {
+      git("fetch", "origin", "--prune");
+      return true;
+    } catch {
+      if (essai === 1)
+        alerter("git fetch origin --prune a échoué — second essai.");
+    }
+  }
+  return false;
+})();
+
+/**
+ * L'écart de HEAD à `origin/<branche courante>`, et le verdict qui en découle —
+ * la règle vit dans {@link verdictDeSynchro} ; ici, seulement l'accès à git.
+ *
+ * @param {boolean} ecrire - refus permis (estampille, promotion) ou simple avis
+ */
+const constaterSynchro = (ecrire) => {
+  const courante = git("branch", "--show-current") || null;
+  let suivie = false;
+  let avance = 0;
+  let retard = 0;
+  if (courante) {
+    try {
+      git(
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        `refs/remotes/origin/${courante}`,
+      );
+      suivie = true;
+      const [a, r] = git(
+        "rev-list",
+        "--left-right",
+        "--count",
+        `HEAD...refs/remotes/origin/${courante}`,
+      )
+        .split(/\s+/)
+        .map(Number);
+      avance = a;
+      retard = r;
+    } catch {
+      suivie = false;
+    }
+  }
+  return {
+    courante,
+    ...verdictDeSynchro({
+      branche: courante,
+      ecrire,
+      horsLigne: HORS_LIGNE,
+      fetchOk: FETCH_OK,
+      suivie,
+      avance,
+      retard,
+      arbrePropre: git("status", "--porcelain") === "",
+    }),
+  };
+};
+
+/**
+ * Applique le verdict de {@link constaterSynchro} — SEULE implémentation, lue par
+ * l'estampille ET par la promotion.
+ *
+ * 🔴 La promotion ne traitait que « refus » et « avis » : relancée après une CI
+ * d'estampille rouge corrigée par PR, la branche locale est EN RETARD d'un
+ * commit (la fusion de la PR), le verdict vaut « avancer »… ignoré, et la
+ * poussée atomique échouait en exception brute (revue #796, N2).
+ *
+ * @param {{ geste: string, texte: string, courante: string | null }} s - le constat
+ * @param {boolean} [apresRelecture] - vrai en promotion : le CHANGELOG est déjà
+ *   écrit et relu, ce que l'avance rapide apporte n'y figure pas
+ */
+const appliquerSynchro = (s, apresRelecture = false) => {
+  if (s.geste === "refus") echouer(s.texte);
+  if (s.geste === "avis") alerter(s.texte);
+  if (s.geste !== "avancer") return;
+  const avant = git("rev-parse", "HEAD");
+  git("merge", "--ff-only", `origin/${s.courante}`);
+  dire(`✓ ${s.texte}`);
+  if (apresRelecture) {
+    // Le CHANGELOG a été écrit et relu AVANT ces commits : un correctif rattrapé
+    // ici partirait sans sa ligne, et rien ne le dirait (revue #796, N2).
+    alerter(
+      "ces commits sont arrivés APRÈS la relecture du CHANGELOG — ajouter leur ligne s'ils sont publiables,\n" +
+        "  par la même voie (PR), AVANT le tag :\n" +
+        git("log", "--format=    %h %s", `${avant}..HEAD`),
+    );
+  }
+  // Le verrou a changé ? Le `node_modules` installé ne décrit plus l'arbre :
+  // l'estampille et le pack partiraient d'une installation fausse.
+  try {
+    git("diff", "--quiet", avant, "HEAD", "--", "package-lock.json");
+  } catch {
+    echouer(
+      "le rattrapage a changé package-lock.json — l'installation ne décrit plus l'arbre.\n" +
+        "  → npm ci && npm run build, puis relancer la même commande.",
+    );
+  }
+};
+
+/**
+ * `origin/<publication>` en avance sur HEAD — constat puis geste ; la règle vit
+ * dans {@link verdictDeBranchePublication}, ici seulement git. Un refus sort ;
+ * une fusion en conflit est ANNULÉE (arbre rendu tel quel) puis refusée.
+ *
+ * @param {boolean} ecrire - geste permis (estampille, promotion) ou simple avis
+ */
+const rattraperPublication = (ecrire) => {
+  const ref = `refs/remotes/origin/${BRANCHE_PUBLICATION}`;
+  let retard = 0;
+  let versionPublication = null;
+  try {
+    retard = Number(git("rev-list", "--count", `HEAD..${ref}`));
+    versionPublication = JSON.parse(
+      git("show", `${ref}:src/nodefony/package.json`),
+    ).version;
+  } catch {
+    // Pas de `origin/<publication>` (dépôt neuf, clone partiel) : rien à juger.
+  }
+  const v = verdictDeBranchePublication({
+    branche: git("branch", "--show-current") || null,
+    branchePublication: BRANCHE_PUBLICATION,
+    ecrire,
+    retard,
+    versionPublication,
+    arbrePropre: git("status", "--porcelain") === "",
+  });
+  if (v.geste === "refus") echouer(v.texte);
+  if (v.geste === "avis") alerter(v.texte);
+  if (v.geste !== "fusionner") return;
+  const r = spawnSync(
+    "git",
+    ["merge", "--no-edit", `origin/${BRANCHE_PUBLICATION}`],
+    { cwd: ROOT, encoding: "utf8" },
+  );
+  if (r.status !== 0) {
+    spawnSync("git", ["merge", "--abort"], { cwd: ROOT });
+    echouer(
+      `l'intégration de origin/${BRANCHE_PUBLICATION} est en CONFLIT — annulée, rien n'a changé :\n` +
+        `${(r.stdout + r.stderr).trim()}\n` +
+        `  → git merge origin/${BRANCHE_PUBLICATION}, résoudre, git commit --no-edit, puis relancer.`,
+    );
+  }
+  dire(`✓ ${v.texte}`);
+};
+
+/**
+ * Les jalons de CORRECTIF ouverts et leurs tickets ouverts — la matière du
+ * troisième motif de {@link refusDeMaintenance}. `null` quand GitHub ne répond
+ * pas : on le DIT (avis), sans bloquer, car le motif des commits reste jugé.
+ *
+ * @returns {Array<{ titre: string, ouverts: number }> | null}
+ */
+const lireLotsOuverts = () => {
+  if (HORS_LIGNE || PUBLIER) return null;
+  const r = spawnSync(
+    "gh",
+    [
+      "api",
+      "repos/{owner}/{repo}/milestones?state=open&per_page=100",
+      "--jq",
+      '.[] | "\\(.title)\\t\\(.open_issues)"',
+    ],
+    { cwd: ROOT, encoding: "utf8" },
+  );
+  if (r.status !== 0) {
+    alerter(
+      "jalons GitHub non lus (gh) — un lot de correctifs ouvert ne serait pas vu.\n" +
+        "  Pour lire l'erreur :  gh api repos/{owner}/{repo}/milestones",
+    );
+    return null;
+  }
+  return r.stdout
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => {
+      const [titre, ouverts] = l.split("\t");
+      return { titre, ouverts: Number(ouverts) };
+    })
+    .filter((l) => estJalonDeCorrectif(l.titre));
+};
+
 if (PROMOUVOIR) {
   etape = "promotion";
+  // Une tête détachée n'est pas une branche : `rev-parse --abbrev-ref` y rend la
+  // chaîne « HEAD », que la garde de maintenance ne reconnaît pas, et la poussée
+  // `HEAD:main` partirait d'un commit qu'aucune branche ne porte (revue #796, B6).
+  if (!(git("branch", "--show-current") || null)) {
+    echouer(
+      "tête DÉTACHÉE — la promotion pousse une branche, pas un commit isolé.\n" +
+        "  → git switch <branche d'où l'on publie>   (release/x.y.x ou dev), puis relancer.",
+    );
+  }
+  {
+    const refus = refusDeMaintenance({
+      branche: git("rev-parse", "--abbrev-ref", "HEAD").trim(),
+      maintenance: constaterMaintenance(),
+      version: VERSION ?? null,
+      lots: lireLotsOuverts(),
+    });
+    if (refus) echouer(refus);
+  }
   if (!VERSION) {
     echouer(
       "`--promouvoir` a besoin de la version qu'il promeut.\n" +
@@ -768,25 +1023,34 @@ if (PROMOUVOIR) {
     }
   }
 
+  // L'estampille est commitée, l'arbre est propre. Trois cas : HEAD en avance
+  // (estampille fraîche, à pousser) ; HEAD en RETARD seul (relance après une CI
+  // rouge corrigée par PR : la fusion de la PR est sur origin) → avance rapide ;
+  // branches DIVERGÉES → refus avec le geste, AVANT un échec de git.
+  {
+    appliquerSynchro(constaterSynchro(true), true);
+    // `main` a reçu un commit d'accueil depuis l'estampille ? L'intégrer ici
+    // garde `<branche>:main` en avance rapide (bloquant 4 de #796).
+    rattraperPublication(true);
+  }
+
   const sha = git("rev-parse", "HEAD");
 
-  // (3) Pousser la SEULE branche de publication — jamais deux fois le même
-  // commit : la règle et son pourquoi vivent dans `planDePromotion`.
+  // (3) Pousser la branche de publication ET la branche d'où l'on publie, d'un
+  // seul geste atomique : la règle et son pourquoi vivent dans `planDePromotion`.
   const plan = planDePromotion({
     branche,
     branchePublication: BRANCHE_PUBLICATION,
   });
-  git("push", "origin", plan.refspec);
-  if (plan.brancheEnAttente) {
+  git("push", "--atomic", "origin", ...plan.refspecs);
+  if (branche !== BRANCHE_PUBLICATION) {
     // Pousser `<branche>:<pub>` avance la branche DISTANTE et laisse la locale
     // où elle était. Un `main` local en retard fait ensuite mentir tout ce qui
     // l'interroge — d'où ce rapatriement, qui n'est pas du rangement.
     git("fetch", "origin", `${BRANCHE_PUBLICATION}:${BRANCHE_PUBLICATION}`);
     dire(
-      `✓ ${BRANCHE_PUBLICATION} avancée sur ${sha.slice(0, 8)}\n` +
-        `  · ${plan.brancheEnAttente} NON poussée, délibérément : elle partira avec le\n` +
-        "    prochain push ordinaire — la pousser maintenant rejouerait toute la CI\n" +
-        "    sur le même commit.",
+      `✓ ${BRANCHE_PUBLICATION} et ${branche} avancées sur ${sha.slice(0, 8)}` +
+        " (une CI par branche, en parallèle, sur ce commit)",
     );
   } else {
     dire(`✓ ${BRANCHE_PUBLICATION} poussée — ${sha.slice(0, 8)}`);
@@ -810,9 +1074,15 @@ if (PROMOUVOIR) {
   if (ci.status !== 0) {
     echouer(
       "la forge n'est PAS verte sur ce commit — voir ci-dessus ce qui a échoué.\n" +
-        "  Corriger, recommiter, puis relancer `--promouvoir`. NE PAS taguer :\n" +
-        "  les quinze paquets partiraient sur un rouge, et npm ne reprend jamais\n" +
-        "  une version publiée.",
+        "  NE PAS taguer : les paquets partiraient sur un rouge, et npm ne\n" +
+        "  reprend jamais une version publiée. Deux voies, selon le rouge :\n" +
+        "  · job INSTABLE (réseau, délai, course) → le relancer, même commit :\n" +
+        "       gh run rerun <id du run> --failed\n" +
+        "    puis relancer la même commande `--promouvoir`.\n" +
+        "  · VRAI défaut → le corriger par une branche de travail et sa PR vers\n" +
+        `    ${branche} (ticket-start.mjs), JAMAIS par un commit sur ${branche} ;\n` +
+        "    une fois la PR fusionnée, relancer `--promouvoir` : il rattrape seul\n" +
+        "    la fusion (avance rapide) et pousse le nouveau commit.",
     );
   }
 
@@ -936,6 +1206,20 @@ if (sale && (ECRIRE || PUBLIER)) {
   );
 }
 
+// 🔴 La branche locale doit être à jour d'origin AVANT d'estampiller (#796) —
+// et AVANT le contrôle du `dist` ci-dessous : une avance rapide peut changer le
+// code, et c'est ce contrôle qui dira alors « reconstruire ».
+// Le rattrapage automatique ne vaut que sur la branche où l'on ESTAMPILLE : ailleurs,
+// la garde de branche plus bas refusera de toute façon, et l'on ne touche à rien.
+if (!PUBLIER) {
+  const surBranchePreparee =
+    (git("branch", "--show-current") || null) === BRANCHE_ATTENDUE;
+  appliquerSynchro(constaterSynchro(ECRIRE && surBranchePreparee));
+  // Puis `main` : un commit d'accueil d'une publication précédente y vit sans
+  // être dans la branche d'où l'on publie (bloquant 4 de #796).
+  if (surBranchePreparee) rattraperPublication(ECRIRE);
+}
+
 // 🔴 Le `dist` du cœur se contrôle AVANT d'écrire quoi que ce soit.
 //
 // La page de manuel est régénérée APRÈS l'estampillage, et son générateur
@@ -1040,6 +1324,15 @@ if (!PUBLIER) {
     avance: etat.avance,
   });
   if (avis) alerter(avis);
+  // Même règle qu'à la promotion : un AVIS en répétition, un REFUS dès qu'on
+  // estampille — le découvrir après quinze manifestes réécrits est le pire moment.
+  const maintenance = refusDeMaintenance({
+    branche: branche === "(HEAD détaché)" ? null : branche,
+    maintenance: constaterMaintenance(),
+    version: VERSION ?? null,
+    lots: lireLotsOuverts(),
+  });
+  if (maintenance) (ECRIRE ? echouer : alerter)(maintenance);
 }
 
 // À la PUBLICATION, la branche courante ne dit rien (HEAD détaché) : c'est
@@ -1252,7 +1545,8 @@ if (PUBLIER && !ECRIRE) {
         "  dans aucun commit, sous un tag qui promet autre chose. C'est le commit de\n" +
         "  release qui estampille, et il se relit AVANT que le tag ne soit posé :\n" +
         `       npm run release -- --version ${VERSION}${TAG_NPM ? ` --npm-tag ${TAG_NPM}` : ""} --write\n` +
-        `       git commit -am "chore(release): ${VERSION}" && git tag v${VERSION}`,
+        `       npm run release -- --version ${VERSION} --promouvoir   (commite, pousse, attend la forge)\n` +
+        `       git tag v${VERSION} <sha affiché> && git push origin v${VERSION}`,
     );
   }
   dire(`✓ cohérence — les ${paquets.length} paquets portent déjà ${VERSION}`);
@@ -1402,6 +1696,14 @@ if (!(PUBLIER && !ECRIRE)) {
         ? ` · ${analyse.horsConvention} HORS CONVENTION (ignorés — messages à corriger)`
         : ""),
   );
+  if (analyse.squashNonTries.length) {
+    alerter(
+      `${analyse.squashNonTries.length} squash fusionné(s) par le bouton de GitHub — leur corps \`* type: …\`\n` +
+        "    recopie tous les commits sans tri : seul leur sujet est au brouillon. À RELIRE à la main\n" +
+        "    (git log -1 <sha>) pour y reprendre les correctifs publiés :\n" +
+        analyse.squashNonTries.map((s) => `      ${s}`).join("\n"),
+    );
+  }
   if (!ruptures.length && /^\d+\.0\.0$/.test(VERSION)) {
     alerter(
       "version MAJEURE sans une seule rupture signalée — vérifier que les commits\n" +

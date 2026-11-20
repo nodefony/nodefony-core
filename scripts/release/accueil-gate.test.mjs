@@ -662,16 +662,19 @@ describe("comparer / pointeDeLaLigne — la stable vient après ses préversions
 
   it("rend le canal qui mène la ligne 10, et ignore la ligne 7", () => {
     expect(
-      pointeDeLaLigne({
-        latest: "7.0.2",
-        beta: "10.0.0-beta.7",
-        alpha: "10.0.0-alpha.9",
-      }),
+      pointeDeLaLigne(
+        {
+          latest: "7.0.2",
+          beta: "10.0.0-beta.7",
+          alpha: "10.0.0-alpha.9",
+        },
+        10,
+      ),
     ).toEqual({ canal: "beta", version: "10.0.0-beta.7" });
     expect(
-      pointeDeLaLigne({ latest: "10.0.0", beta: "10.0.0-beta.7" }),
+      pointeDeLaLigne({ latest: "10.0.0", beta: "10.0.0-beta.7" }, 10),
     ).toEqual({ canal: "latest", version: "10.0.0" });
-    expect(pointeDeLaLigne({ latest: "7.0.2" })).toBeNull();
+    expect(pointeDeLaLigne({ latest: "7.0.2" }, 10)).toBeNull();
   });
 });
 
@@ -817,6 +820,54 @@ describe("le corpus de PROSE — les commandes qu'une page prescrit, hors de l'a
     const ecarts = confronterAccueil({
       surfaces: [prose("```bash\nnpm create nodefony@latest mon-app\n```\n")],
       distTags: STABLE,
+    });
+    expect(ecarts).toEqual([]);
+  });
+});
+
+describe("la garde juge la 11 comme la 10 — aucune majeure écrite en dur (#796)", () => {
+  const accueil11 = (contenu) => ({
+    chemin: "README.md",
+    contenu,
+    exigeVersion: true,
+  });
+
+  it("préversions de la 11 : la ligne suit la version publiée, latest sert encore la 10", () => {
+    const TAGS_11 = { latest: "10.4.2", alpha: "11.0.0-alpha.3" };
+    expect(pointeDeLaLigne(TAGS_11, 11)).toEqual({
+      canal: "alpha",
+      version: "11.0.0-alpha.3",
+    });
+    // Une page qui annonce une alpha PÉRIMÉE de la 11 est vue…
+    const perimee = confronterAccueil({
+      surfaces: [
+        accueil11("Essayer `npm create nodefony@alpha` — 11.0.0-alpha.2"),
+      ],
+      distTags: TAGS_11,
+    });
+    expect(perimee.map((e) => e.genre)).toContain("VERSION-PERIMEE");
+    // … et la commande nue, qui installerait la 10, est refusée.
+    const nue = confronterAccueil({
+      surfaces: [
+        accueil11(
+          "11.0.0-alpha.3\n\n```bash\nnpm create nodefony mon-app\n```",
+        ),
+      ],
+      distTags: TAGS_11,
+    });
+    expect(nue.map((e) => e.genre)).toContain("COMMANDE-SANS-CANAL");
+    expect(
+      nue.find((e) => e.genre === "COMMANDE-SANS-CANAL")?.message,
+    ).toContain("n'installe pas la 11");
+  });
+
+  it("11.0.0 publiée : latest EST la ligne, la forme nue est juste", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [
+        accueil11("11.0.0\n\n```bash\nnpm create nodefony mon-app\n```"),
+      ],
+      distTags: { latest: "10.4.2" },
+      enCours: "11.0.0",
     });
     expect(ecarts).toEqual([]);
   });

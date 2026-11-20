@@ -56,6 +56,7 @@ export default defineConfig({
     globalSetup: tmpGuard(
       r("./src/tests/nodeDist.global.ts"),
       r("./src/tests/symbolsGraph.global.ts"),
+      r("./src/tests/reloadProbe.global.ts"),
     ),
     ...transformCache,
     globals: true,

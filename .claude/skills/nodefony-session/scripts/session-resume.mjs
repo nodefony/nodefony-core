@@ -20,7 +20,14 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { chooseNextTicket, openItemsOf } from "./board-next.mjs";
+import {
+  afterReleaseReminders,
+  chooseNextTicket,
+  isOpenItem,
+  newestStableVersion,
+  openItemsOf,
+  versionsToRelease,
+} from "./board-next.mjs";
 import {
   ciVerdict,
   ciHistory,
@@ -33,6 +40,13 @@ import {
   uncitedWork,
 } from "./session-lib.mjs";
 import { guardCli } from "./cli-guard.mjs";
+import { readInstallDrift } from "./install-drift.mjs";
+import {
+  branchLines,
+  checksVerdict,
+  diffSummary,
+  mergedButOpen,
+} from "./branch-status.mjs";
 
 guardCli(import.meta.url);
 
@@ -96,6 +110,14 @@ const online =
 // ── 1. Git : branche, avance/retard, arbre.
 if (online) git("fetch", "-q");
 const branch = git("branch", "--show-current").out;
+// L'étiquette npm `latest` part maintenant, lue au § des rappels d'après publication.
+const npmLatest = online
+  ? shAsync(
+      "npm",
+      ["view", "nodefony", "dist-tags.latest", "--workspaces=false"],
+      { timeout: 20_000 },
+    )
+  : Promise.resolve({ ok: false, out: "", err: "" });
 
 // Les quatre lectures réseau, lancées ENSEMBLE. Indépendantes : chacune
 // interroge GitHub (ou le dépôt mémoire) de son côté, aucune ne lit ce qu'une
@@ -138,7 +160,20 @@ const pending = online
         "--state",
         "open",
         "--json",
-        "number,title,baseRefName,author,statusCheckRollup",
+        "number,title,baseRefName,headRefName,isDraft,url,author,statusCheckRollup",
+      ]),
+      // Les PR fusionnées récentes : vers `release/*`, la fusion ne ferme pas
+      // le ticket — la reprise rattrape ce qui a fusionné pendant qu'on
+      // travaillait ailleurs (pr-finish ne l'attend pas).
+      merged: shAsync("gh", [
+        "pr",
+        "list",
+        "--state",
+        "merged",
+        "--limit",
+        "15",
+        "--json",
+        "number,body,headRefName,baseRefName",
       ]),
       snapshot: shAsync(
         process.execPath,
@@ -273,16 +308,52 @@ if (online) {
   }
   const prs = await pending.prs;
   if (!prs.ok) say("⚠️ PR NON lues — appel gh en échec");
-  else
-    for (const p of JSON.parse(prs.out || "[]")) {
-      const checks = p.statusCheckRollup ?? [];
-      const red = checks.filter((c) =>
-        ["FAILURE", "TIMED_OUT", "STARTUP_FAILURE"].includes(c.conclusion),
-      ).length;
+  else {
+    const list = JSON.parse(prs.out || "[]");
+    // ── 4 bis. La branche courante, sa PR, ses fichiers ; les tickets mis de côté.
+    const mine = list.find((p) => p.headRefName === branch) ?? null;
+    // Sans PR ouverte, une PR FUSIONNÉE de cette branche dit qu'elle est finie.
+    const mergedReply = mine ? null : await pending.merged;
+    const mergedMine = mergedReply?.ok
+      ? (JSON.parse(mergedReply.out || "[]").find(
+          (p) => p.headRefName === branch,
+        ) ?? null)
+      : null;
+    const counts = mine
+      ? git(
+          "rev-list",
+          "--left-right",
+          "--count",
+          `origin/${mine.baseRefName}...HEAD`,
+        ).out.split(/\s+/u)
+      : [];
+    for (const line of branchLines({
+      branch,
+      pr: mine,
+      vsBase:
+        counts.length === 2
+          ? { behind: Number(counts[0]), ahead: Number(counts[1]) }
+          : null,
+      pushed: ahead === "0",
+      diff: mine
+        ? diffSummary(
+            git("diff", "--numstat", `origin/${mine.baseRefName}...HEAD`).out,
+          )
+        : "",
+      dirty: dirty.length - dirtyAi,
+      parked: list.filter((p) => p.isDraft && p.headRefName !== branch),
+      merged: mergedMine,
+    }))
+      say(line);
+    for (const p of list) {
+      // Le verdict des checks a UNE règle (branch-status.mjs) : l'ancien
+      // calcul ne comptait que les rouges, et affichait ✅ sur 36 jobs en cours.
+      const v = checksVerdict(p.statusCheckRollup);
       say(
-        `PR #${p.number} → ${p.baseRefName} (${p.author.login}) ${red ? `❌ ${red}/${checks.length}` : "✅"} ${clip(p.title, 70)}`,
+        `PR #${p.number} → ${p.baseRefName} (${p.author.login}) ${v.icon}${v.red.length ? ` ${v.red.length}/${v.total}` : v.pending ? ` ${v.pending}/${v.total} en cours` : ""} ${clip(p.title, 70)}`,
       );
     }
+  }
 }
 
 // ── 5. Empreinte du tableau : LA voie de lecture, rafraîchie si on peut.
@@ -294,7 +365,14 @@ if (pending) {
       `⚠️ empreinte NON rafraîchie — ${clip((snap.err || snap.out).split("\n")[0], 80)}`,
     );
 }
-const board = JSON.parse(fs.readFileSync(BOARD, "utf8"));
+// Non versionnée (D7) : un clone neuf hors ligne n'en a aucune. On le DIT, et la
+// suite de la reprise tourne sur un tableau vide plutôt que de s'arrêter.
+const board = fs.existsSync(BOARD)
+  ? JSON.parse(fs.readFileSync(BOARD, "utf8"))
+  : (say(
+      "⚠️ aucune empreinte du tableau (clone neuf hors ligne ?) → npm run board:snapshot",
+    ),
+    { items: [], milestones: [], generatedAt: new Date().toISOString() });
 const ageDays = Math.floor(
   (Date.now() - Date.parse(board.generatedAt)) / 86_400_000,
 );
@@ -302,7 +380,79 @@ if (!online)
   say(
     `⚠️ GitHub injoignable — empreinte du ${board.generatedAt.slice(0, 10)} (il y a ${ageDays} j)`,
   );
-const open = board.items.filter((i) => i.status !== "Done");
+const open = board.items.filter(isOpenItem);
+if (pending) {
+  const merged = await pending.merged;
+  if (merged.ok)
+    for (const m of mergedButOpen(JSON.parse(merged.out || "[]"), board.items))
+      say(
+        `🧾 PR #${m.pr} fusionnée, #${m.ticket} encore ouvert → le fermer avec son compte rendu (ticket-close.mjs)`,
+      );
+}
+// Un lot soldé et non publié passe AVANT le prochain ticket : sa publication
+// est la raison d'être du lot, et `chooseNextTicket` passerait au lot suivant
+// sans un mot. 🔴 Connecté, les étiquettes se lisent sur ORIGIN : une étiquette
+// posée en local puis jamais poussée (`pre-push` en échec) se lisait « publiée »
+// (revue #796, N6). Hors ligne, les locales — seule source à portée.
+const localTags = git("tag", "-l", "v*");
+const remoteTags = online
+  ? git("ls-remote", "--tags", "--refs", "origin", "v*")
+  : { ok: false, out: "" };
+const tags = remoteTags.ok
+  ? {
+      ok: true,
+      out: remoteTags.out
+        .split("\n")
+        .map((l) => l.split("refs/tags/")[1] ?? "")
+        .filter(Boolean)
+        .join("\n"),
+    }
+  : localTags;
+if (tags.ok)
+  for (const r of versionsToRelease(board.items, tags.out.split("\n")))
+    say(
+      `🚀 lot ${r.version} soldé (${r.closed} ticket(s) fermé(s)), v${r.version} non publiée → la publier AVANT le ticket suivant (skill nodefony-release)`,
+    );
+// Après une publication : estampille poussée, fusion arrière, étiquette npm.
+// Les ancêtres se lisent sur les références DISTANTES, rafraîchies par le fetch.
+if (tags.ok) {
+  const allTags = tags.out.split("\n");
+  const maintenance = git("branch", "-r", "--list", "origin/release/*")
+    .out.split("\n")
+    .map((b) => b.trim().slice("origin/".length))
+    .flatMap((b) => {
+      const line = /^release\/(\d+\.\d+)\.x$/u.exec(b)?.[1];
+      if (!line) return [];
+      const ahead = git("rev-list", "--count", `origin/dev..origin/${b}`);
+      const aheadOfDev = ahead.ok ? Number(ahead.out) : 0;
+      const version = newestStableVersion(allTags, line);
+      if (!version)
+        return [
+          { branch: b, version: null, inBranch: true, inDev: true, aheadOfDev },
+        ];
+      const inRef = (ref) =>
+        git("merge-base", "--is-ancestor", `v${version}`, ref).ok;
+      return [
+        {
+          branch: b,
+          version,
+          inBranch: inRef(`origin/${b}`),
+          inDev: inRef("origin/dev"),
+          aheadOfDev,
+        },
+      ];
+    });
+  const latest = await npmLatest;
+  for (const line of afterReleaseReminders({
+    newestStable: newestStableVersion(allTags),
+    latest: latest.ok && latest.out ? latest.out : null,
+    maintenance,
+    unpushedTags: remoteTags.ok
+      ? localTags.out.split("\n").filter((t) => t && !allTags.includes(t))
+      : [],
+  }))
+    say(line);
+}
 const choice = chooseNextTicket(open, board.milestones);
 if (choice) {
   const ms = board.milestones.find((m) => m.title === choice.milestone);
@@ -318,10 +468,15 @@ if (choice) {
     say(`   puis #${t.number} ${clip(t.title, 70)}`);
 }
 
-// ── 6. Fermés depuis le dernier END (empreinte commitée vs fraîche) — lisible hors ligne.
-const committed = git("show", "HEAD:.ai/board.json");
-if (committed.ok) {
-  const done = newlyDone(JSON.parse(committed.out).items, board.items);
+// ── 6. Fermés depuis le dernier END (copie posée par la clôture vs fraîche) —
+// lisible hors ligne. L'empreinte n'est plus versionnée (D7) : le repère est
+// `.ai/board.end.json`, écrit par `session-end.mjs`.
+const END_MARK = path.join(ROOT, ".ai", "board.end.json");
+if (fs.existsSync(END_MARK)) {
+  const done = newlyDone(
+    JSON.parse(fs.readFileSync(END_MARK, "utf8")).items,
+    board.items,
+  );
   if (done.length)
     say(
       `Fermés depuis la dernière empreinte : ${done.map((i) => `#${i.number}`).join(" ")}`,
@@ -379,26 +534,50 @@ const modules = [
       : [];
   }),
 ];
+// Le point d'entrée bâti : `dist/index.js` pour un paquet, `dist/node/index.js`
+// pour le cœur (isomorphe). Ne lire que le premier faisait taire le contrôle sur
+// le cœur, le module le plus souvent périmé.
+const distEntry = (m) =>
+  [
+    path.join(m, "dist", "index.js"),
+    path.join(m, "dist", "node", "index.js"),
+  ].find((p) => fs.existsSync(p)) ?? null;
 const stale = modules.filter((m) => {
-  const dist = path.join(m, "dist", "index.js");
-  return fs.existsSync(dist) && newestTs(m) > fs.statSync(dist).mtimeMs;
+  const dist = distEntry(m);
+  return dist !== null && newestTs(m) > fs.statSync(dist).mtimeMs;
 });
-const lock = path.join(ROOT, "package-lock.json");
-const installed = path.join(ROOT, "node_modules", ".package-lock.json");
-const npmStale =
-  fs.existsSync(installed) &&
-  fs.statSync(lock).mtimeMs > fs.statSync(installed).mtimeMs;
-say(
-  stale.length || npmStale
-    ? `⚠️ ${
-        stale.length
-          ? `dist périmé : ${stale
-              .map((m) => path.basename(m))
-              .slice(0, 5)
-              .join(", ")}${stale.length > 5 ? "…" : ""} → npm run build`
-          : ""
-      }${npmStale ? " · package-lock plus récent que l'installation → npm install" : ""}`
-    : "✅ dist et installation à jour",
+// Le CONTENU du verrou contre ce que npm a posé — une date se trompe dans les
+// deux sens dès qu'on change de branche (`install-drift.mjs`).
+const drift = readInstallDrift(ROOT) ?? [];
+// Un clone NEUF n'a ni `node_modules` ni `dist` : rien n'y est « périmé », et
+// les deux filtres ci-dessus se taisaient — la reprise disait « à jour » sur un
+// dépôt qui ne pouvait rien lancer. Une absence se nomme avec son geste.
+const notInstalled = !fs.existsSync(
+  path.join(ROOT, "node_modules", ".package-lock.json"),
 );
+const notBuilt = distEntry(path.join(ROOT, "src", "nodefony")) === null;
+if (notInstalled || notBuilt)
+  say(
+    `⚠️ ${notInstalled ? "installation absente" : "dist absent"} (clone neuf ?) → ${
+      notInstalled ? "npm ci && " : ""
+    }npm run build`,
+  );
+else
+  say(
+    stale.length || drift.length
+      ? `⚠️ ${
+          stale.length
+            ? `dist périmé : ${stale
+                .map((m) => path.basename(m))
+                .slice(0, 5)
+                .join(", ")}${stale.length > 5 ? "…" : ""} → npm run build`
+            : ""
+        }${stale.length && drift.length ? " · " : ""}${
+          drift.length
+            ? `installation ≠ verrou de la branche (${drift.length} écart(s), ex. ${clip(drift[0], 60)}) → npm ci`
+            : ""
+        }`
+      : "✅ dist et installation à jour",
+  );
 
 console.log(out.join("\n"));

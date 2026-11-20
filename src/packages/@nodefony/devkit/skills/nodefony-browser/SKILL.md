@@ -127,13 +127,15 @@ continuation : elles passent telles quelles dans un terminal Linux, macOS, Power
 ## Ce que la sonde rend, et qu'une capture ne dit pas
 
 ```bash
-NF_BROWSER_LOGIN=/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=nodefony-dev-42 NF_BROWSER_PROBES="bouton principal=button[type=submit],titre=h1" node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /tableau-de-bord "Chiffre d affaires"
+# Mot de passe admin de développement : celui du README de l'application (tiré à la création).
+NF_BROWSER_LOGIN=/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=xxxx-xxxx-xxxx NF_BROWSER_PROBES="bouton principal=button[type=submit],titre=h1" node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /tableau-de-bord "Chiffre d affaires"
 ```
 
 <details><summary>La même chose en conteneur (dernier recours)</summary>
 
 ```bash
-docker exec -e NF_BROWSER_LOGIN=/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=nodefony-dev-42 -e "NF_BROWSER_PROBES=bouton principal=button[type=submit],titre=h1" mon-app-browser node /app/see-screen/inspect.mjs /tableau-de-bord "Chiffre d affaires"
+# Mot de passe admin de développement : celui du README de l'application (tiré à la création).
+docker exec -e NF_BROWSER_LOGIN=/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=xxxx-xxxx-xxxx -e "NF_BROWSER_PROBES=bouton principal=button[type=submit],titre=h1" mon-app-browser node /app/see-screen/inspect.mjs /tableau-de-bord "Chiffre d affaires"
 ```
 
 </details>

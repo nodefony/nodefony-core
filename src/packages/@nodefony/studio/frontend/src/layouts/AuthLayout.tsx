@@ -120,12 +120,16 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           p={48}
           style={{ position: "relative" }}
         >
-          <Group gap={14} align="center">
-            <NodefonyLogo height={42} />
-            <Text fw={650} fz={22} lh={1}>
-              Nodefony Studio
-            </Text>
-          </Group>
+          {/* La marque mène à l'accueil de l'APPLICATION, comme sur toutes
+              ses pages — la page de connexion du framework comprise. */}
+          <Anchor href="/" underline="never" c="inherit" w="fit-content">
+            <Group gap={14} align="center">
+              <NodefonyLogo height={42} />
+              <Text fw={650} fz={22} lh={1}>
+                Nodefony Studio
+              </Text>
+            </Group>
+          </Anchor>
 
           <Stack gap="xl" maw={480}>
             <Stack gap="sm">
@@ -178,12 +182,14 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         <ThemeToggle />
         <Stack gap="xl" w="100%" maw={400}>
           {/* Logo compact — visible seulement quand le hero est masqué (mobile). */}
-          <Group gap={8} hiddenFrom="md" justify="center">
-            <NodefonyLogo height={30} />
-            <Text fw={700} size="lg" c="brand">
-              Nodefony Studio
-            </Text>
-          </Group>
+          <Anchor href="/" underline="never" hiddenFrom="md">
+            <Group gap={8} justify="center">
+              <NodefonyLogo height={30} />
+              <Text fw={700} size="lg" c="brand">
+                Nodefony Studio
+              </Text>
+            </Group>
+          </Anchor>
           {children}
         </Stack>
       </Box>

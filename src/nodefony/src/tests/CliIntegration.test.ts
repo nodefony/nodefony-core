@@ -33,6 +33,7 @@ import {
   readSupervisorPid,
 } from "../service/dev/devProcess";
 import { resolveEnvCascade } from "../runtime/loadEnv";
+import { reloadProbePath } from "./reloadProbe.global";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // src/nodefony/src/tests
 const CORE_ROOT = path.resolve(HERE, "../.."); // src/nodefony
@@ -2380,15 +2381,10 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
         // suivi, change son empreinte turbo ; ses dépendances, le cœur
         // compris, restent en cache et sont rejouées sans être vidées.
         // `TURBO_FORCE` rebâtissait au contraire TOUT le graphe, cœur compris.
-        const probe = path.join(
-          REPO_ROOT,
-          "src",
-          "packages",
-          "@nodefony",
-          "documentation",
-          "nodefony",
-          `reloadProbe${process.pid}.ts`,
-        );
+        // Retirée au teardown GLOBAL, jamais ici : des bancs voisins balayent
+        // `src/` en parallèle, et un fichier listé puis disparu leur rendait
+        // ENOENT (`reloadProbe.global.ts`).
+        const probe = reloadProbePath(process.pid);
         let s: IPtySession | null = null;
         try {
           s = startPty(flavor, ["development", "--ui"], process.env, true);
@@ -2443,10 +2439,9 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           );
         } finally {
           await cleanup(s);
-          fs.rmSync(probe, { force: true });
           // Le build interrompu a pu vider `dist/` de la feuille (rolldown le
-          // nettoie AVANT d'écrire). Témoin retiré, l'empreinte redevient
-          // celle du cache : turbo le restaure.
+          // nettoie AVANT d'écrire) : turbo le rebâtit, sonde comprise — elle
+          // n'est retirée qu'au teardown global (`reloadProbe.global.ts`).
           rebuilt = spawnSync(
             "npx",
             ["turbo", "run", "build", "--filter=@nodefony/documentation"],

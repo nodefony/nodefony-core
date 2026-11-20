@@ -9,11 +9,24 @@
  *
  * La position se chaîne : le premier ticket (plus petit ordre) se place après l'item de
  * l'empreinte `.ai/board.json` qui porte le plus grand ordre inférieur au sien, puis chaque
- * ticket après le précédent. L'empreinte doit donc être fraîche (`npm run board:snapshot`).
+ * ticket après le précédent. L'empreinte doit donc être fraîche : absente (elle n'est pas
+ * versionnée — clone neuf) ou vieille de plus d'une heure, le script la RÉGÉNÈRE lui-même
+ * (`board-snapshot.mjs`) et le dit, plutôt que de planter ou de placer sur un état périmé.
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "..",
+);
+const BOARD = path.join(ROOT, ".ai", "board.json");
+const FRESH_MS = 60 * 60 * 1000;
 
 const OWNER = "nodefony";
 const REPO = "nodefony-core";
@@ -43,8 +56,29 @@ const plan = argv
     return { number, ordre };
   })
   .sort((a, b) => a.ordre - b.ordre);
+if (plan.length === 0) {
+  console.error(
+    "aucun <numéro>=<ordre> — ex. : ticket-reorder.mjs 630=4.01 472=4.02",
+  );
+  process.exit(1);
+}
 
-const board = JSON.parse(readFileSync(path.join(".ai", "board.json"), "utf8"));
+if (!existsSync(BOARD) || Date.now() - statSync(BOARD).mtimeMs > FRESH_MS) {
+  console.log(
+    `· empreinte ${existsSync(BOARD) ? "vieille de plus d'une heure" : "absente"} — régénérée (board-snapshot)`,
+  );
+  execFileSync(
+    process.execPath,
+    [
+      path.join(
+        ROOT,
+        ".claude/skills/nodefony-session/scripts/board-snapshot.mjs",
+      ),
+    ],
+    { cwd: ROOT, stdio: ["ignore", "ignore", "inherit"] },
+  );
+}
+const board = JSON.parse(readFileSync(BOARD, "utf8"));
 const items = board.items ?? board;
 const inPlan = new Set(plan.map((p) => p.number));
 const before = items
