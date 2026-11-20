@@ -5,20 +5,20 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-16
+updated: 2026-11-20
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
 
 # `nodefony-ticket`
 
-> Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps.
+> Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée (CVSS 3.1 calculé, IEEE 1044), parents et sous-tickets, champs et dates du tableau, quand prendre un ticket, et la pull request qui le porte (colonne de droite, lien, méthode de fusion).
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-ticket**
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.12.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.13.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,23 +26,23 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.12.0` |
+| Version | `1.13.0` |
 | Famille | Autres |
-| Corps | 481 lignes |
-| Coût d'activation | ~9 671 tokens (le corps est chargé à l'invocation) |
-| Description | 978 / 1024 caractères |
-| Déclencheurs | 20 |
-| Ressources `references/` | 9 page(s) |
-| Scripts | 24 |
+| Corps | 483 lignes |
+| Coût d'activation | ~9 826 tokens (le corps est chargé à l'invocation) |
+| Description | 949 / 1024 caractères |
+| Déclencheurs | 18 |
+| Ressources `references/` | 10 page(s) |
+| Scripts | 26 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps. À charger AVANT d'ouvrir une issue.
+Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée (CVSS 3.1 calculé, IEEE 1044), parents et sous-tickets, champs et dates du tableau, quand prendre un ticket, et la pull request qui le porte (colonne de droite, lien, méthode de fusion). À charger AVANT d'ouvrir une issue ou une PR.
 
 ## Prérequis
 
-Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redis**.
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redis** · **gh authentifié** · **droits d'écriture sur le dépôt et le tableau**.
 
 ## Skills voisins
 
@@ -54,7 +54,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`crée un ticket` · `ouvre une issue` · `corrige les tickets` · `ce titre est incompréhensible` · `renomme cette issue` · `ticket parent` · `découper cette issue` · `estimer un ticket` · `priorité d'un ticket` · `quelle gravité pour ce bug ?` · `CVSS` · `ce ticket est-il encore vrai ?` · `ferme ce ticket` · `quel ticket prendre maintenant ?` · `ce ticket est trop vague` · `quels tickets parlent de ce que j'ai changé ?` · `dater les tickets` · `recaler les estimations` · `explique le ticket` · `pour les nuls`
+`crée un ticket` · `ouvre une issue` · `corrige les tickets` · `renomme cette issue` · `ticket parent` · `découper cette issue` · `estimer un ticket` · `quelle gravité pour ce bug ?` · `ce ticket est-il encore vrai ?` · `ferme ce ticket` · `quel ticket prendre maintenant ?` · `ce ticket est trop vague` · `quels tickets parlent de ce que j'ai changé ?` · `dater les tickets` · `explique le ticket` · `pour les nuls` · `la PR est à moitié remplie` · `quand merger la PR sur dev ?`
 
 ## Ce que contient le corps
 
@@ -85,6 +85,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 107 |
 | `references/lexique.md` | Lexique des tickets — source unique | 145 |
+| `references/pull-requests.md` | Pull requests — la remplir, la relier, la fusionner | 62 |
 | `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 289 |
 
 
@@ -105,6 +106,8 @@ script, donc toujours à jour après régénération.
 | `scripts/github-limits.mjs` | Les limites de GitHub qu'un corps d'issue ou un commentaire ne doit pas franchir — vérifiées AVANT l'envoi, jamais découvertes au refus. | — | — |
 | `scripts/github-templates.test.mjs` | Le protocole de ticket vit à UN seul endroit — `SKILL.md` §2 — et il est désormais rendu DEUX fois : dans cette page, et dans les formulaires que GitHub sert à qui ouvre une issue depuis l'interface. | — | — |
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--write` | — |
+| `scripts/pr-complete.mjs` | Remplit la colonne de droite d'une pull request : responsable, jalon, lots, tableau de bord et lien vers les tickets — ce que `gh pr create` laisse vide. | `--dry-run` | — |
+| `scripts/pr-complete.test.mjs` | — | — | — |
 | `scripts/proof-commands.mjs` | proof-commands.mjs — exécute les PREUVES écrites en commande dans un ticket. | — | — |
 | `scripts/proof-commands.test.mjs` | `proof-commands` — relancer les preuves d'ABSENCE écrites dans un ticket. | — | — |
 | `scripts/severity.mjs` | Gravité d'un défaut — lue, validée et calculée selon une NORME, jamais estimée à l'impression. | — | — |
@@ -126,6 +129,7 @@ script, donc toujours à jour après régénération.
 node .claude/skills/nodefony-ticket/scripts/board-lint.mjs [--json] [--milestone <jalon>]
 node .claude/skills/nodefony-ticket/scripts/francise.mjs [--write]
 node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs [<numéro>…] [--write]
+node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799
 node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs [<numéro>…]
 node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>
 node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]
@@ -171,6 +175,19 @@ node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs [<numéro>…] [--w
 | Option | Rôle |
 | --- | --- |
 | `--write` | applique via `gh issue edit` (sans lui : simulation) |
+
+#### `scripts/pr-complete.mjs`
+
+Produit : le plan (gestes, puis ce qui ne se pose pas et pourquoi)
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799
+node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799 --dry-run
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--dry-run` | rend le plan sans rien modifier |
 
 #### `scripts/ticket-anchor-migrate.mjs`
 
@@ -269,14 +286,14 @@ node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --dependents <num�
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 978 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 949 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 481 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 483 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

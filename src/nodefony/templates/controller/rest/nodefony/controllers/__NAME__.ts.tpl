@@ -173,7 +173,7 @@ const itemPatch = itemBody.partial();
 
 <% if (it.hasSecurity) { %>  /**
    * `DELETE <%= it.route %>/{id}` — protégée par rôle : `@IsGranted` refuse
-   * (403) AVANT d'entrer dans l'action. En dev, `admin/<%= it.devAdminPassword %>` a le rôle.
+   * (403) AVANT d'entrer dans l'action. En dev, le compte `admin` semé à la création (`nodefony/security/provisionUsers.ts`) a le rôle.
    */
   @Delete("/{id}", { schema: { params: idParams } })
   @IsGranted("ROLE_ADMIN")

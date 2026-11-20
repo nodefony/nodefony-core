@@ -1,43 +1,12 @@
 import { useEffect, useState } from "react";
 
 /**
- * Les deux comportements animés de l'accueil, tous deux bornés. Le reste
- * (fil de lecture, apparition des blocs, ombre de la barre) est du CSS
- * piloté par le défilement, dans `demo.css`.
+ * Ce que seule la démo anime : la section en cours de lecture et la navigation
+ * au clavier dans les onglets. Les gestes de l'accueil — thème, lumière sous le
+ * pointeur, barre de debug — viennent de `homeEffects.ts`, partagé avec
+ * l'accueil de l'application ; le reste du mouvement est du CSS piloté par le
+ * défilement, dans `showcase.css` et `demo.css`.
  */
-
-/**
- * Lumière qui suit le pointeur sur les cartes : UN écouteur délégué sur le
- * document, au plus un calcul par image. La feuille lit `--mx`/`--my`.
- */
-export function usePointerLight(selector: string): void {
-  useEffect(() => {
-    let frame = 0;
-    let target: HTMLElement | null = null;
-    let x = 0;
-    let y = 0;
-    const paint = () => {
-      frame = 0;
-      if (target === null) return;
-      const box = target.getBoundingClientRect();
-      target.style.setProperty("--mx", `${x - box.left}px`);
-      target.style.setProperty("--my", `${y - box.top}px`);
-    };
-    const onMove = (event: PointerEvent) => {
-      const found =
-        event.target instanceof Element ? event.target.closest(selector) : null;
-      target = found instanceof HTMLElement ? found : null;
-      x = event.clientX;
-      y = event.clientY;
-      if (target !== null && frame === 0) frame = requestAnimationFrame(paint);
-    };
-    document.addEventListener("pointermove", onMove, { passive: true });
-    return () => {
-      document.removeEventListener("pointermove", onMove);
-      cancelAnimationFrame(frame);
-    };
-  }, [selector]);
-}
 
 /**
  * Touche → index de l'onglet visé, relatif à l'onglet courant (patron WAI-ARIA

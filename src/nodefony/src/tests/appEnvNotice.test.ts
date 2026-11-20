@@ -19,7 +19,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { version } from "../../package.json";
-import { DEV_ADMIN_PASSWORD, runScaffold } from "../cli/scaffold/engine";
+import { runScaffold } from "../cli/scaffold/engine";
 import { composeEnvExample, readManifestModules } from "../cli/env";
 import { getEnvCatalog } from "../config/defineEnv";
 
@@ -94,14 +94,12 @@ describe("notice .env.example de l'application générée", () => {
       const expected = await noticeFromCatalog(app);
 
       if (process.env.NF_WRITE_NOTICE === "1") {
-        // Chaque valeur que `env.ts.tpl` INTERPOLE redevient sa balise. Oublier
-        // le mot de passe de développement l'écrivait en dur dans le gabarit,
-        // ce que `devAdminPasswordParity` refuse : une seule source.
+        // Chaque valeur que `env.ts.tpl` INTERPOLE redevient sa balise. Le mot
+        // de passe de développement n'y figure plus : tiré par application, il
+        // changerait la notice à chaque rendu (`devAdminPasswordParity`).
         writeFileSync(
           TEMPLATES[preset],
-          expected
-            .replaceAll(APP_NAME, "<%= it.appName %>")
-            .replaceAll(DEV_ADMIN_PASSWORD, "<%= it.devAdminPassword %>"),
+          expected.replaceAll(APP_NAME, "<%= it.appName %>"),
         );
       }
 

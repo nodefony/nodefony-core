@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-18",
+  "generatedAt": "2026-11-20",
   "count": 44,
   "repoScripts": [
     {
@@ -3040,7 +3040,7 @@
       "description": "Ouvre une page réelle dans un navigateur piloté pour la VOIR et la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements, proportions sur l'écran choisi (téléphone émulé, bureau, grand écran) ; pilote aussi un socket depuis la page. Impose le thème clair ou sombre. Porte les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, viser le mauvais hôte, observer un autre bundle que celui qu'on a bâti. À charger AVANT de constater quoi que ce soit à l'écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"erreurs JS ?\", \"mesure le contraste\", \"cette couleur est-elle lisible ?\", \"capture d'écran\", \"audit WCAG\", \"en mode clair\", \"en mode sombre\", \"quelles requêtes fait la page ?\", \"teste le websocket\", \"latence du socket ?\", \"rendu mobile\", \"faut-il défiler sur téléphone ?\", \"le bouton est-il visible sans défiler ?\", \"la carte est-elle bien proportionnée ?\", \"sur un grand écran\".",
       "cost": {
         "bodyLines": 464,
-        "approxTokens": 7638
+        "approxTokens": 7654
       },
       "requires": [],
       "resources": {
@@ -11657,9 +11657,9 @@
     },
     {
       "name": "nodefony-ticket",
-      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps.",
+      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée (CVSS 3.1 calculé, IEEE 1044), parents et sous-tickets, champs et dates du tableau, quand prendre un ticket, et la pull request qui le porte (colonne de droite, lien, méthode de fusion).",
       "family": "Autres",
-      "version": "1.12.0",
+      "version": "1.13.0",
       "keywords": [
         "<fichier>.ts#<Symbole>"
       ],
@@ -11667,31 +11667,31 @@
         "crée un ticket",
         "ouvre une issue",
         "corrige les tickets",
-        "ce titre est incompréhensible",
         "renomme cette issue",
         "ticket parent",
         "découper cette issue",
         "estimer un ticket",
-        "priorité d'un ticket",
         "quelle gravité pour ce bug ?",
-        "CVSS",
         "ce ticket est-il encore vrai ?",
         "ferme ce ticket",
         "quel ticket prendre maintenant ?",
         "ce ticket est trop vague",
         "quels tickets parlent de ce que j'ai changé ?",
         "dater les tickets",
-        "recaler les estimations",
         "explique le ticket",
-        "pour les nuls"
+        "pour les nuls",
+        "la PR est à moitié remplie",
+        "quand merger la PR sur dev ?"
       ],
-      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"quelle gravité pour ce bug ?\", \"CVSS\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"recaler les estimations\", \"explique le ticket\", \"pour les nuls\".",
+      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée (CVSS 3.1 calculé, IEEE 1044), parents et sous-tickets, champs et dates du tableau, quand prendre un ticket, et la pull request qui le porte (colonne de droite, lien, méthode de fusion). À charger AVANT d'ouvrir une issue ou une PR. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"quelle gravité pour ce bug ?\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"explique le ticket\", \"pour les nuls\", \"la PR est à moitié remplie\", \"quand merger la PR sur dev ?\".",
       "cost": {
-        "bodyLines": 481,
-        "approxTokens": 9671
+        "bodyLines": 483,
+        "approxTokens": 9826
       },
       "requires": [
-        "redis"
+        "redis",
+        "gh authentifié",
+        "droits d'écriture sur le dépôt et le tableau"
       ],
       "resources": {
         "references": [
@@ -11703,9 +11703,10 @@
           "github-issues.md",
           "gravite.md",
           "lexique.md",
+          "pull-requests.md",
           "tableau-de-bord.md"
         ],
-        "referenceFilesTotal": 9,
+        "referenceFilesTotal": 10,
         "scripts": [
           {
             "path": "scripts/board-lint.mjs",
@@ -11821,6 +11822,32 @@
             "env": [],
             "output": "",
             "selfDocumented": true
+          },
+          {
+            "path": "scripts/pr-complete.mjs",
+            "purpose": "Remplit la colonne de droite d'une pull request : responsable, jalon, lots, tableau de bord et lien vers les tickets — ce que `gh pr create` laisse vide.",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799",
+              "node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799 --dry-run"
+            ],
+            "options": [
+              {
+                "flag": "--dry-run",
+                "help": "rend le plan sans rien modifier"
+              }
+            ],
+            "env": [],
+            "output": "le plan (gestes, puis ce qui ne se pose pas et pourquoi)",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/pr-complete.test.mjs",
+            "purpose": "",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
           },
           {
             "path": "scripts/proof-commands.mjs",
@@ -12136,7 +12163,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "978",
+            "detail": "949",
             "advisory": false
           },
           {
@@ -12178,7 +12205,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "481",
+            "detail": "483",
             "advisory": true
           }
         ]
@@ -13011,8 +13038,8 @@
       ],
       "description": "Ouvre un écran de ton application Nodefony dans un navigateur piloté pour le VOIR et surtout le MESURER — contrastes et tailles réellement calculés par le moteur de rendu, audit d'accessibilité par axe-core, erreurs de console, requêtes HTTP, frames WebSocket, sur ta machine ou dans un conteneur jetable. Porte les sondes prêtes à l'emploi, le thème clair ou sombre — un défaut d'affichage n'existe souvent que dans l'un des deux —, et les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, ou observer un bundle qui n'est plus celui du code. Sait aussi piloter un socket temps réel de bout en bout. À charger AVANT de conclure quoi que ce soit sur un écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"y a-t-il des erreurs JS ?\", \"mesure le contraste\", \"capture d'écran\", \"vérifie l'accessibilité\", \"audit WCAG\", \"en mode sombre\", \"la page est-elle rapide ?\", \"quelles requêtes fait la page ?\", \"teste le socket\".",
       "cost": {
-        "bodyLines": 455,
-        "approxTokens": 7284
+        "bodyLines": 457,
+        "approxTokens": 7331
       },
       "requires": [
         "serveur UP",
@@ -13270,7 +13297,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "455",
+            "detail": "457",
             "advisory": true
           }
         ]

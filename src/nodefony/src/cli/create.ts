@@ -18,11 +18,13 @@ import { BOOT_CONFIG_ERROR_LABEL } from "../kernel/bootErrorLabels";
 import { version } from "../../package.json";
 import { RESERVED_ENV } from "../config/reservedEnv";
 import { startFreshnessCheck } from "./cliFreshness";
+import { styleText } from "node:util";
+import { demoAppCommand } from "./installCommand";
+import { renderStartPanel } from "./startPanel";
 // Les sept listes de choix ont disparu d'ici AVEC la section qui les recopiait :
 // l'aide les DÉRIVE désormais de la spec (`scaffold/help.ts`).
 import { capAllows, FRONTEND_CHOICES, getScaffoldSpec } from "./scaffold/spec";
 import {
-  DEV_ADMIN_PASSWORD,
   findProjectRoot,
   listTargets,
   getScaffoldContext,
@@ -1372,10 +1374,7 @@ function poseSkillPointers(dest: string, cmd: TCommandLines): string {
     if (plan.skills.length === 0) {
       return `aucun skill livré par les paquets installés → ${cmd.exec("nodefony")} ai:sync après un ${cmd.install}`;
     }
-    return (
-      `${plan.skills.length} dans ${plan.directory}/ ` +
-      `(${plan.skills.map((s) => s.name).join(", ")}) — commite-les`
-    );
+    return `${plan.skills.length} dans ${plan.directory}/ — commite-les`;
   } catch (e) {
     return `non posés (${errorText(e)}) → ${cmd.exec("nodefony")} ai:sync`;
   }
@@ -2233,29 +2232,29 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     if (migration !== null) {
       migrationWritten = migration.written;
       databaseUnreachable = migration.databaseUnreachable;
-      process.stdout.write(`\n🗄️ migration initiale : ${migration.note}\n`);
+      process.stdout.write(`🗄️ migration initiale : ${migration.note}\n`);
     }
   }
   // AVANT git : le relevé entre dans le commit initial, comme le lockfile — il
   // décrit ce que l'application redistribue, donc il appartient à son dépôt.
   process.stdout.write(
-    `\n⚖️ licences tierces : ${poseThirdPartyNotices(result.dest, installed, cmd)}\n`,
+    `⚖️ licences tierces : ${poseThirdPartyNotices(result.dest, installed, cmd)}\n`,
   );
   // AVANT git : ces pointeurs entrent dans le premier commit, comme le lockfile.
   process.stdout.write(
-    `\n🤖 skills d'agent : ${poseSkillPointers(result.dest, cmd)}\n`,
+    `🤖 skills d'agent : ${poseSkillPointers(result.dest, cmd)}\n`,
   );
   // Les FICHIERS que livrent les paquets installés (décor Keycloak de
   // `@nodefony/security`…) : même moment, même raison — ils vivent dans
   // `node_modules` et entrent dans le premier commit. Le cœur ne sait pas
   // lesquels : chaque paquet déclare sa contribution.
   process.stdout.write(
-    `\n🧩 fichiers livrés par les paquets : ${await poseContributions(result.dest, installed, cmd)}\n`,
+    `🧩 fichiers livrés par les paquets : ${await poseContributions(result.dest, installed, cmd)}\n`,
   );
   // Même moment : la notice `.env.example` entre dans le premier commit, et ses
   // réglages de modules n'existent qu'une fois `node_modules` peuplé.
   process.stdout.write(
-    `\n📄 .env.example : ${poseEnvNotice(result.dest, installed, cmd)}\n`,
+    `📄 .env.example : ${poseEnvNotice(result.dest, installed, cmd)}\n`,
   );
   // Le câblage MCP AUSSI avant git : le `.mcp.json` est un fichier de PROJET —
   // versionné, lu tel quel par les agents qui suivent le dépôt — il a donc sa
@@ -2313,80 +2312,66 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       )
     : "sauté (--no-git)";
   process.stdout.write(`🌱 git : ${gitNote}\n`);
-  // Une base docker a été retenue : `.env` déclare `NF_DATABASE_URL` dessus, donc
-  // le premier `npm run dev` échoue tant que le service n'écoute pas. L'étape est
-  // dans la séquence, pas en note de bas de page.
-  const needsInfra =
-    answers.preset !== "minimal" &&
-    answers.database !== undefined &&
-    answers.database !== "sqlite";
-  process.stdout.write(
-    `\nProchaines étapes :\n` +
-      // Créée sur place (`create app .`), l'application EST le dossier
-      // courant : « cd . » est une étape qui n'en est pas une.
-      (relDest === "." ? "" : `  cd ${relDest}\n`) +
-      (installed ? "" : `  ${cmd.install}\n`) +
-      (built ? "" : `  ${cmd.run("build")}\n`) +
-      (needsInfra
-        ? `  ${cmd.run("infra:up")}   # docker : ${String(answers.database)} + Redis (NF_DATABASE_URL pointe dessus)\n`
-        : "") +
+  // Le bloc « Pour commencer » se COMPOSE ici, et s'écrit tout à la fin (cf
+  // {@link renderStartPanel}) : c'est la dernière chose que voit l'humain.
+  const startPanel = renderStartPanel(
+    {
+      relDest,
+      commands: cmd,
+      installed,
+      built,
+      // Une base docker a été retenue : `.env` déclare `NF_DATABASE_URL` dessus,
+      // donc le premier `npm run dev` échoue tant que le service n'écoute pas.
+      infra:
+        answers.preset !== "minimal" &&
+        answers.database !== undefined &&
+        answers.database !== "sqlite"
+          ? String(answers.database)
+          : null,
       // La migration de la table `User` : l'application la DÉCLARE, et sans
       // elle rien ne la crée en production, où le schéma appartient aux
       // migrations. `create app` l'écrit lui-même quand il a pu installer et
       // bâtir ; quand il ne l'a pas pu (`--no-install`, build en échec), le
       // geste doit être DIT — une application qui croit avoir sa migration et
       // ne l'a pas se découvre au premier déploiement, sur « table absente ».
-      // Après `infra:up` : la commande démarre l'application, donc ouvre la
-      // connexion — sans base joignable elle meurt avant d'écrire quoi que ce
-      // soit.
-      //
-      // Les DEUX gestes, dans l'ordre qui marche : écrire la migration ne crée
-      // aucune table. N'annoncer que le premier laissait l'application à
-      // mi-chemin — précisément le défaut que le commentaire ci-dessus décrit,
-      // et que ce bloc était censé fermer.
-      (!migrationWritten && appDeclareUnOrm(result.dest)
-        ? `  ${cmd.exec("nodefony")} orm:generate --name init   # écrit la migration de ta table User\n` +
-          `  ${cmd.exec("nodefony")} orm:migrate                # l'APPLIQUE — sans elle, aucune table\n`
-        : "") +
-      // La console d'administration n'existe QUE si le préset l'a installée, et
-      // le port n'est pas garanti : `portPolicy: "auto"` prend le suivant libre
-      // quand 5152 est occupé — annoncer une adresse fixe et une console absente
-      // envoie l'utilisateur sur deux 404 dès sa première minute.
+      migrationPending: !migrationWritten && appDeclareUnOrm(result.dest),
+      // La valeur tirée pour CETTE app, celle que `provisionUsers.ts.tpl` SÈME ;
+      // la console n'existe QUE si le préset l'a installée.
+      admin:
+        answers.preset === "complete" && result.devAdminPassword !== undefined
+          ? { user: "admin", password: result.devAdminPassword }
+          : null,
       // 🔴 Le mode non interactif ne pose AUCUNE interface web (`frontend` vaut
-      // `none` par défaut, et ce défaut est le bon : le moteur est un arbitrage
-      // d'équipe, et une pile front imposée à qui ne sert que des API se retire
-      // à la main). Mais ce que la commande ne fait pas, elle le DIT — et ici
-      // plus qu'ailleurs : les gabarits livrent la page, son formulaire de
+      // `none` par défaut, et ce défaut est le bon). Mais ce que la commande ne
+      // fait pas, elle le DIT : les gabarits livrent la page, son formulaire de
       // connexion et le client temps réel, si bien qu'un agent qui ignore ce
-      // geste les réécrit (291 lignes mesurées, dont un client JSON-RPC).
-      // La liste des moteurs est DÉRIVÉE : recopiée, elle survivrait à l'ajout
-      // d'un moteur sans le dire.
-      //
-      // Seulement en préset `complete` : c'est lui qui embarque
-      // `@nodefony/frontend`. En `minimal`, `create front` refuse la cible —
-      // annoncer un geste qui échoue est pire que se taire.
-      (answers.preset === "complete" && answers.frontend === "none"
-        ? `  ${cmd.exec("nodefony")} create front --frontend <${FRONTEND_CHOICES.filter(
-            (c) => c !== "none",
-          ).join("|")}>\n` +
-          `                     # page, connexion et temps réel LIVRÉS — ne les écris pas à la main\n`
-        : "") +
-      `  ${cmd.run("dev")}        # → https://127.0.0.1:5152 (ou le port libre suivant, annoncé au démarrage)\n` +
-      (answers.preset === "complete"
-        ? // La constante que `provisionUsers.ts.tpl` SÈME : jamais une copie.
-          `                     # console d'administration : /nodefony — admin / ${DEV_ADMIN_PASSWORD} en dev (NF_ADMIN_PASSWORD)\n`
-        : "") +
+      // geste les réécrit (291 lignes mesurées, dont un client JSON-RPC). La
+      // liste des moteurs est DÉRIVÉE. Seulement en `complete` : en `minimal`,
+      // `create front` refuse la cible.
+      addFrontend:
+        answers.preset === "complete" && answers.frontend === "none"
+          ? FRONTEND_CHOICES.filter((c) => c !== "none")
+          : null,
       // Le geste n'est PAS perdu quand il n'a pas été proposé (forge, --yes) ou
       // qu'il a été décliné : il se nomme. Une capacité qu'on n'atteint pas
       // n'existe pas.
-      (mcpNote !== ""
-        ? `  ${cmd.exec("nodefony")} ai:mcp # câbler ton agent IA (porte MCP + jeton)\n`
-        : "") +
-      // Porte câblée, jeton NON posé : la commande qui l'émet, et sa condition
-      // — elle démarre l'application, donc ouvre la connexion à la base.
-      (tokenNote !== ""
-        ? `  ${cmd.exec("nodefony")} security:mcp:token --write   # jeton MCP — la base doit répondre (après infra:up)\n`
-        : ""),
+      agent:
+        tokenNote !== ""
+          ? { kind: "token-missing" }
+          : mcpNote !== ""
+            ? { kind: "to-wire" }
+            : { kind: "wired" },
+      // La démo est faite pour APPRENDRE dans une app jetable (#747) : non
+      // choisie, sa commande se nomme ici — la question passe vite, la fin reste.
+      demo:
+        answers.demo === true
+          ? { installed: true }
+          : {
+              installed: false,
+              command: demoAppCommand(version),
+            },
+    },
+    (text) => styleText("bold", text),
   );
   // ⭐ Ce qu'un AGENT emporte, placé LÀ OÙ IL PASSE — la sortie de la commande
   // qu'il vient de lancer. Deux faits mesurés le veulent ici plutôt que dans
@@ -2425,6 +2410,9 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   }
   const staleNotice = await freshness;
   if (staleNotice !== null) process.stderr.write(staleNotice);
+  // EN DERNIER : démarrer, se connecter, brancher son agent, apprendre. Tout ce
+  // qui précède est le journal de la génération ; ceci est ce qu'on en fait.
+  process.stdout.write(startPanel);
   // Tout ce qui précède a été écrit et dit ; le code de sortie, lui, porte le
   // verdict — un build tenté et raté rend `SOFTWARE`, sans quoi aucun automate
   // ne peut distinguer une application prête d'une application à réparer.

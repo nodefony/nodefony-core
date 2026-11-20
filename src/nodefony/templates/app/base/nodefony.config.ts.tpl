@@ -84,9 +84,18 @@ export default defineConfig<typeof env>((ctx) => ({
    * Trois conséquences : du TLS qui ne protège rien mais en a l'air, une
    * écriture disque qui interdit `readOnlyRootFilesystem` en Kubernetes, et un
    * port que le `EXPOSE` de l'image ne publie même pas.
-   * En cloud-native le TLS se termine à l'ingress ou au proxy frontal. Qui en
-   * veut vraiment DANS le conteneur pose `NF_PORT_HTTPS` et fournit un vrai
-   * certificat (`certificates.strategy: "explicit"`), il n'est pas empêché.
+   * Où se termine le TLS est un choix de DÉPLOIEMENT, pas une règle du
+   * cloud-native. Trois modes existent :
+   * - à l'ingress ou au proxy frontal, le pod en clair derrière (le cas
+   *   que suppose l'objet Ingress de Kubernetes) ;
+   * - jusqu'au pod : Gateway API en _passthrough_, ou rechiffré par la
+   *   passerelle (`BackendTLSPolicy`) — le conteneur sert alors HTTPS ;
+   * - par un maillage de services (mTLS entre pods) : l'application reste
+   *   en clair, le maillage chiffre.
+   * Une politique zéro confiance (NIST SP 800-207) exige l'un des deux
+   * derniers. Pour servir HTTPS ici : poser `NF_PORT_HTTPS` et fournir un
+   * VRAI certificat (`certificates.strategy: "explicit"`, ses `key` et
+   * `cert`), jamais un auto-signé fabriqué au démarrage.
    * - Inspecter ou regénérer le certificat : `npx nodefony http:certificates`.
    */
   servers: {
