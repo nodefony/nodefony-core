@@ -24,18 +24,31 @@ publish: core
 
 ## Le geste, en une page
 
+Depuis la branche d'où l'on publie — `dev` pour une mineure, `release/x.y.x` pour un
+correctif — sans jamais changer de branche :
+
 ```bash
 # 1. RÉPÉTITION — ne touche aucun fichier, dit ce qui changerait
-npm run release -- --version 10.0.0
+npm run release -- --version 10.0.1 --branch release/10.0.x
 
-# 2. APPLIQUER — estampille les 15 manifestes, écrit un BROUILLON de changelog
-npm run release -- --version 10.0.0 --write
+# 2. APPLIQUER — estampille les manifestes publiables, écrit un BROUILLON de changelog
+npm run release -- --version 10.0.1 --branch release/10.0.x --write
 
 # 3. RELIRE ET RÉÉCRIRE CHANGELOG.md  ← le seul geste que rien n'automatise
-# 4. Commiter, puis POSER LE TAG — c'est lui qui déclenche la publication
-git commit -am "chore(release): 10.0.0"
-git tag v10.0.0 && git push origin main --tags
+
+# 4. PROMOUVOIR — commite l'estampille, pousse <branche>:main ET la branche
+#    (un seul push atomique), puis attend le verdict de la forge sur ce commit
+npm run release -- --version 10.0.1 --promouvoir
+
+# 5. POSER LE TAG — sur le commit que la promotion affiche ; c'est lui qui publie
+git tag v10.0.1 <sha affiché> && git push origin v10.0.1
 ```
+
+Jamais `git commit` sur la branche longue, jamais `git push origin main --tags` : la
+garde de commit refuse le premier, et le second pousserait toutes les étiquettes locales
+sur un commit qu'aucune promotion n'a jugé. Une forge rouge à l'étape 4 se traite par un
+`gh run rerun --failed` (job instable) ou une PR de correctif, puis la même commande
+`--promouvoir`, qui rattrape seule la fusion.
 
 Le reste — épreuve, publication, image, vitrine, annonce — est fait par la forge.
 
@@ -72,7 +85,7 @@ autorité :
 
 Trois autres endroits, qu'il ne faut pas confondre :
 
-- **`.github/workflows/release.yml`** — la forge. Déclenchée par un tag `v10.*`.
+- **`.github/workflows/release.yml`** — la forge. Déclenchée par un tag `v<version>` (filtre `v[1-9][0-9]+.*` : toute majeure).
 - **`docs/release/nodefony-10.md`** — le **plan** : quoi publier, les décisions et leur pourquoi,
   ce qui reste à faire. Pas un mode d'emploi.
 - **`.claude/skills/nodefony-release/`** — la **méthode, pour un agent**. Chargée à la demande
@@ -170,7 +183,7 @@ pour un motif sans rapport.
 ## La forge — `release.yml`
 
 ```
-tag v10.*  ─►  épreuve (base, front, studio, cluster) + accès + garde main  ─►  publication npm
+tag v<version>  ─►  épreuve (base, front, studio, cluster) + accès + garde main  ─►  publication npm
                                        ├─►  vitrine nodefony/nodefony
                                        │       └─►  verdict de SA chaîne
                                        ├─►  image docker

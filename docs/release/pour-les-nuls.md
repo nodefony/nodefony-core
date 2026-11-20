@@ -50,9 +50,9 @@ git push -u origin fix/794-scope-head
 # 4. ouvrir la PR vers la MAINTENANCE (pas vers dev)
 gh pr create --base release/10.0.x --title "fix(http): libérer à coup sûr le scope d'un HEAD en HTTP/2" --body "Refs #794"
 
-# 5. attendre la CI, puis fusionner en SQUASH (un ticket = un commit)
-gh pr checks <PR> --watch --fail-fast
-gh pr merge <PR> --squash --delete-branch
+# 5. attendre la CI, puis fusionner en SQUASH (un ticket = un commit) — par pr-finish, JAMAIS
+#    « gh pr merge --squash » nu : le message du squash est celui que lit le changelog
+node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> --merge-when-green
 
 # 6. fermer le ticket soi-même (vers release/*, « Closes #N » ne ferme RIEN)
 gh issue close 794 --comment "Livré par #<PR> : <ce qui a changé, en une phrase>"
