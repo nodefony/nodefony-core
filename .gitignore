@@ -23,6 +23,14 @@ dist/
 # la CI le régénère là où elle le lit. Hors de dist/ pour qu'aucun build ne
 # l'efface.
 .ai/symbols.json
+# Empreinte du tableau de bord (npm run board:snapshot) : GÉNÉRÉE depuis les
+# tickets, jamais versionnée (D7, #796). Versionnée, elle salissait l'arbre à
+# chaque reprise, son commit était refusé sur une branche longue, et deux PR
+# entraient en conflit dessus (vécu : PR #805). `board.end.json` = copie posée
+# par la clôture, que la reprise compare à la fraîche.
+.ai/BOARD.md
+.ai/board.json
+.ai/board.end.json
 .ai/symbols.verbose.json
 node_modules/
 tmp/

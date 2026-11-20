@@ -20,7 +20,7 @@ Garde `commit-msg` du travail en demandes de fusion (#796) : refuse un commit de
 
 - **Usage** : `node scripts/repo/commit-guard.mjs <fichier-du-message>   (appelé par .githooks/commit-msg)`
 - **Variable** `NF_ALLOW_LONG_BRANCH_COMMIT`
-- **Appelé par** : `.githooks/commit-msg`
+- **Appelé par** : `.githooks/commit-msg` · `.claude/skills/nodefony-ticket/scripts/pr-finish.mjs`
 - **Testé par** : `repo/commit-guard.test.mjs`
 
 ## [`commit-guard.test.mjs`](commit-guard.test.mjs)

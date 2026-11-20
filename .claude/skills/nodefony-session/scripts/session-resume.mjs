@@ -347,7 +347,14 @@ if (pending) {
       `⚠️ empreinte NON rafraîchie — ${clip((snap.err || snap.out).split("\n")[0], 80)}`,
     );
 }
-const board = JSON.parse(fs.readFileSync(BOARD, "utf8"));
+// Non versionnée (D7) : un clone neuf hors ligne n'en a aucune. On le DIT, et la
+// suite de la reprise tourne sur un tableau vide plutôt que de s'arrêter.
+const board = fs.existsSync(BOARD)
+  ? JSON.parse(fs.readFileSync(BOARD, "utf8"))
+  : (say(
+      "⚠️ aucune empreinte du tableau (clone neuf hors ligne ?) → npm run board:snapshot",
+    ),
+    { items: [], milestones: [], generatedAt: new Date().toISOString() });
 const ageDays = Math.floor(
   (Date.now() - Date.parse(board.generatedAt)) / 86_400_000,
 );
@@ -388,10 +395,15 @@ if (choice) {
     say(`   puis #${t.number} ${clip(t.title, 70)}`);
 }
 
-// ── 6. Fermés depuis le dernier END (empreinte commitée vs fraîche) — lisible hors ligne.
-const committed = git("show", "HEAD:.ai/board.json");
-if (committed.ok) {
-  const done = newlyDone(JSON.parse(committed.out).items, board.items);
+// ── 6. Fermés depuis le dernier END (copie posée par la clôture vs fraîche) —
+// lisible hors ligne. L'empreinte n'est plus versionnée (D7) : le repère est
+// `.ai/board.end.json`, écrit par `session-end.mjs`.
+const END_MARK = path.join(ROOT, ".ai", "board.end.json");
+if (fs.existsSync(END_MARK)) {
+  const done = newlyDone(
+    JSON.parse(fs.readFileSync(END_MARK, "utf8")).items,
+    board.items,
+  );
   if (done.length)
     say(
       `Fermés depuis la dernière empreinte : ${done.map((i) => `#${i.number}`).join(" ")}`,

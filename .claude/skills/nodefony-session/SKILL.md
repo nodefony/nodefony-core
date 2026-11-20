@@ -56,7 +56,7 @@ contrôles que personne ne faisait. Ses règles vivent dans
 | `❌ toujours rouge` / `🩹 rouge corrigé` | verdict PAR WORKFLOW sur les 5 derniers commits poussés : un workflow muet sur le dernier commit garde son rouge d'avant ; un rouge corrigé se nomme avec son correctif. Une annulation porte le dernier verdict réel du workflow |
 | `PR #N → <base>`                         | les PR ouvertes et leurs checks rouges — Dependabot vise `main`, invisible aux runs de `dev` comme au tableau                                                                                                                     |
 | `Jalon courant …` + `➡️ #N`              | le prochain dans l'ordre, choisi par [`board-next.mjs`](scripts/board-next.mjs) dans le **jalon COURANT** — jamais un ticket d'une version ultérieure, même mieux classé                                                          |
-| `Fermés depuis la dernière empreinte`    | diff de l'empreinte commitée contre la fraîche — lisible hors ligne                                                                                                                                                               |
+| `Fermés depuis la dernière empreinte`    | diff de la copie posée par la dernière clôture (`.ai/board.end.json`) contre la fraîche — lisible hors ligne                                                                                                                      |
 | `Tableau : N erreur(s)`                  | `board-lint` lancé UNE fois ; une erreur se solde MAINTENANT (skill `nodefony-ticket`, `references/tableau-de-bord.md`)                                                                                                           |
 | `dist périmé : …`                        | 1ʳᵉ cause d'échec de session → `npm run build` (après pull/merge : `clean && build`)                                                                                                                                              |
 
@@ -72,8 +72,8 @@ contrôles que personne ne faisait. Ses règles vivent dans
   IGNORE le travail. Un chantier sans ticket est invisible pour `➡️` : c'est la ligne `🧷` qui le
   rattrape, et elle passe avant. Vécu : le vidage du cliquet de typage, Priorité 1 sans ticket,
   relégué derrière un ticket de release.
-- **L'empreinte régénérée laisse `.ai/` modifié** — compté à part dans « non commités » ; il part
-  avec le prochain commit.
+- **L'empreinte n'est PAS versionnée** (`.ai/BOARD.md`, `.ai/board.json` ignorés par git) :
+  la régénérer ne salit pas l'arbre, et deux PR n'entrent plus en conflit dessus.
 
 ## 2. Restituer (≤ 30 lignes)
 
