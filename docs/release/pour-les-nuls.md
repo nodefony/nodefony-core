@@ -71,7 +71,7 @@ Prérequis : tous les tickets du lot `10.0.1` sont fusionnés sur `release/10.0.
 ```bash
 git fetch origin --prune --tags
 git switch release/10.0.x
-git merge --ff-only origin/release/10.0.x     # ← la locale est souvent EN RETARD : ne pas sauter
+git merge --ff-only origin/release/10.0.x     # la locale est souvent EN RETARD (l'étape 2 le rattrape seule)
 
 npm ci && npm run build
 
@@ -79,6 +79,9 @@ npm ci && npm run build
 npm run release -- --version 10.0.1 --branch release/10.0.x
 
 # 2. ESTAMPILLER — écrit les versions et un BROUILLON de CHANGELOG.md
+#    Avant d'écrire, il rattrape SEUL (arbre propre) : le retard sur origin/release/10.0.x,
+#    puis le commit d'accueil que la publication précédente a poussé sur main.
+#    Il le dit d'une ligne « ✓ » ; un conflit est annulé et refusé, avec la commande.
 npm run release -- --version 10.0.1 --branch release/10.0.x --write
 
 # 3. RELIRE et RÉÉCRIRE CHANGELOG.md à la main (le seul geste que rien n'automatise)
@@ -126,6 +129,7 @@ gestes ; la recette ci-dessus est sa version manuelle.
 | `git push` refusé : « non fast-forward »                           | `git fetch origin && git merge origin/<branche>` puis repousser — jamais `--force` sur une branche longue |
 | `npm run release` refuse                                           | lire le message : chaque refus nomme sa cause et son geste ; rien n'a été écrit                           |
 | `--promouvoir` : « la forge n'est PAS verte »                      | ne PAS taguer ; corriger par une PR vers `release/10.0.x`, la fusionner, relancer `--promouvoir`          |
+| `npm run release` : « la maintenance … est CLOSE (D8) »            | `main` porte déjà la mineure suivante : publier depuis `dev`, puis supprimer la branche `release/x.y.x`   |
 | conflit à la fusion arrière sur `.ai/BOARD.md` ou `.ai/board.json` | ces fichiers ne sont plus versionnés : `git rm .ai/BOARD.md .ai/board.json && git commit --no-edit`       |
 | autre conflit à la fusion arrière                                  | résoudre, `git add <fichiers>`, `git commit --no-edit`, puis reprendre au `git push`                      |
 | tag posé mais pas poussé                                           | `git push origin v10.0.1` — sans le push, rien n'est publié                                               |

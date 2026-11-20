@@ -127,6 +127,7 @@ import {
   refusDePublicationHorsBranche,
   refusDeMaintenance,
   estJalonDeCorrectif,
+  verdictDeBranchePublication,
   verdictDeSynchro,
   avisDeBranche,
   planDePromotion,
@@ -805,6 +806,52 @@ const constaterSynchro = (ecrire) => {
 };
 
 /**
+ * `origin/<publication>` en avance sur HEAD — constat puis geste ; la règle vit
+ * dans {@link verdictDeBranchePublication}, ici seulement git. Un refus sort ;
+ * une fusion en conflit est ANNULÉE (arbre rendu tel quel) puis refusée.
+ *
+ * @param {boolean} ecrire - geste permis (estampille, promotion) ou simple avis
+ */
+const rattraperPublication = (ecrire) => {
+  const ref = `refs/remotes/origin/${BRANCHE_PUBLICATION}`;
+  let retard = 0;
+  let versionPublication = null;
+  try {
+    retard = Number(git("rev-list", "--count", `HEAD..${ref}`));
+    versionPublication = JSON.parse(
+      git("show", `${ref}:src/nodefony/package.json`),
+    ).version;
+  } catch {
+    // Pas de `origin/<publication>` (dépôt neuf, clone partiel) : rien à juger.
+  }
+  const v = verdictDeBranchePublication({
+    branche: git("branch", "--show-current") || null,
+    branchePublication: BRANCHE_PUBLICATION,
+    ecrire,
+    retard,
+    versionPublication,
+    arbrePropre: git("status", "--porcelain") === "",
+  });
+  if (v.geste === "refus") echouer(v.texte);
+  if (v.geste === "avis") alerter(v.texte);
+  if (v.geste !== "fusionner") return;
+  const r = spawnSync(
+    "git",
+    ["merge", "--no-edit", `origin/${BRANCHE_PUBLICATION}`],
+    { cwd: ROOT, encoding: "utf8" },
+  );
+  if (r.status !== 0) {
+    spawnSync("git", ["merge", "--abort"], { cwd: ROOT });
+    echouer(
+      `l'intégration de origin/${BRANCHE_PUBLICATION} est en CONFLIT — annulée, rien n'a changé :\n` +
+        `${(r.stdout + r.stderr).trim()}\n` +
+        `  → git merge origin/${BRANCHE_PUBLICATION}, résoudre, git commit --no-edit, puis relancer.`,
+    );
+  }
+  dire(`✓ ${v.texte}`);
+};
+
+/**
  * Les jalons de CORRECTIF ouverts et leurs tickets ouverts — la matière du
  * troisième motif de {@link refusDeMaintenance}. `null` quand GitHub ne répond
  * pas : on le DIT (avis), sans bloquer, car le motif des commits reste jugé.
@@ -933,6 +980,9 @@ if (PROMOUVOIR) {
     const s = constaterSynchro(true);
     if (s.geste === "refus") echouer(s.texte);
     if (s.geste === "avis") alerter(s.texte);
+    // `main` a reçu un commit d'accueil depuis l'estampille ? L'intégrer ici
+    // garde `<branche>:main` en avance rapide (bloquant 4 de #796).
+    rattraperPublication(true);
   }
 
   const sha = git("rev-parse", "HEAD");
@@ -1127,6 +1177,9 @@ if (!PUBLIER) {
       );
     }
   }
+  // Puis `main` : un commit d'accueil d'une publication précédente y vit sans
+  // être dans la branche d'où l'on publie (bloquant 4 de #796).
+  if (surBranchePreparee) rattraperPublication(ECRIRE);
 }
 
 // 🔴 Le `dist` du cœur se contrôle AVANT d'écrire quoi que ce soit.

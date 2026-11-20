@@ -1388,6 +1388,83 @@ export function verdictDeSynchro({
 }
 
 /**
+ * Le verdict de PUBLICATION : `origin/<publication>` (`main`) porte-t-elle des
+ * commits que la branche d'où l'on publie n'a pas ?
+ *
+ * 🔴 Le trou qu'il bouche (#796, revue du flux, bloquant 4) : après une
+ * publication depuis `release/x.y.x`, le job `accueil` de `release.yml` peut
+ * commiter sur `main`. Ce commit n'atteint jamais `release/x.y.x` : au
+ * correctif suivant, `release/x.y.x:main` n'était plus une avance rapide, et la
+ * poussée atomique de `--promouvoir` tombait APRÈS l'estampille et le commit.
+ *
+ * Résilient avant d'être sévère : à l'estampille ou à la promotion, arbre
+ * propre, la branche INTÈGRE `origin/<publication>` d'elle-même (avance rapide
+ * si possible, sinon commit de fusion) — ce que `main` porte en propre se
+ * réduit aux commits d'accueil, que la publication suivante doit de toute façon
+ * annoncer. Un SEUL cas refuse, quel que soit le mode : `main` porte déjà une
+ * version qui CLÔT la ligne ({@link clotMaintenance}) — fusionner ferait entrer
+ * la mineure suivante dans la maintenance, et pousser par-dessus la ferait
+ * reculer (D8).
+ *
+ * Pure : l'écart et la version de `main` sont INJECTÉS.
+ *
+ * @param {object} etat
+ * @param {string | null} etat.branche - la branche courante (`null` : HEAD détaché)
+ * @param {string} etat.branchePublication - la branche qui porte les publications (`main`)
+ * @param {boolean} etat.ecrire - va-t-on estampiller ou promouvoir (geste permis) ?
+ * @param {number} etat.retard - commits de `origin/<publication>` absents de HEAD
+ * @param {string | null} etat.versionPublication - la version que `origin/<publication>` porte
+ * @param {boolean} etat.arbrePropre - l'arbre de travail est-il propre ?
+ * @returns {{ geste: "rien" | "avis" | "fusionner" | "refus", texte: string | null }}
+ *   `fusionner` = l'appelant fait `git merge --no-edit origin/<publication>` puis dit `texte`
+ */
+export function verdictDeBranchePublication({
+  branche,
+  branchePublication,
+  ecrire,
+  retard,
+  versionPublication,
+  arbrePropre,
+}) {
+  if (branche === null || branche === branchePublication || retard === 0) {
+    return { geste: "rien", texte: null };
+  }
+  const n = `${retard} commit${retard > 1 ? "s" : ""}`;
+  if (
+    branche.startsWith("release/") &&
+    clotMaintenance(versionPublication ?? "", branche)
+  ) {
+    return {
+      geste: ecrire ? "refus" : "avis",
+      texte:
+        `origin/${branchePublication} porte ${versionPublication} : la maintenance « ${branche} » est CLOSE (D8).\n` +
+        `  Publier d'ici ferait reculer ${branchePublication} ; y fusionner ${branchePublication} y ferait entrer la mineure suivante.\n` +
+        "  → publier le correctif depuis dev (cran suivant), puis supprimer la branche :\n" +
+        `       git push origin --delete ${branche}`,
+    };
+  }
+  if (ecrire && arbrePropre) {
+    return {
+      geste: "fusionner",
+      texte:
+        `origin/${branchePublication} avait ${n} absent(s) de « ${branche} » (accueil d'une publication) —\n` +
+        `  intégré(s) (git merge origin/${branchePublication}) : ${branche}:${branchePublication} redevient une avance rapide.`,
+    };
+  }
+  return {
+    geste: "avis",
+    texte:
+      `origin/${branchePublication} porte ${n} absent(s) de « ${branche} » (accueil d'une publication) :\n` +
+      `  la promotion ${branche}:${branchePublication} ne serait pas une avance rapide.\n` +
+      `  Rien à faire : l'estampille (--write) les intègre d'elle-même, arbre propre.\n` +
+      `  À la main :  git merge origin/${branchePublication}` +
+      (arbrePropre
+        ? ""
+        : "   (arbre à rendre propre d'abord : commit, jamais stash)"),
+  };
+}
+
+/**
  * Une version CLÔT-elle la ligne de maintenance `x.y` ?
  *
  * Oui dès que sa mineure dépasse celle de la ligne — préversion comprise :

@@ -51,6 +51,7 @@ import {
   refusDeMaintenance,
   clotMaintenance,
   estJalonDeCorrectif,
+  verdictDeBranchePublication,
   verdictDeSynchro,
   verdictCiDuCommit,
   WORKFLOWS_NON_BLOQUANTS,
@@ -2867,6 +2868,77 @@ describe("verdictDeSynchro — estampiller ce qu'origin porte (#796, bloquants 1
     expect(verdictDeSynchro(e({ branche: null, fetchOk: false })).geste).toBe(
       "rien",
     );
+  });
+});
+
+describe("verdictDeBranchePublication — main en avance sur la branche d'où l'on publie (#796, bloquant 4)", () => {
+  const e = (extra) => ({
+    branche: "release/10.0.x",
+    branchePublication: "main",
+    ecrire: true,
+    retard: 0,
+    versionPublication: "10.0.1",
+    arbrePropre: true,
+    ...extra,
+  });
+
+  it("se tait sans retard, sur la branche de publication elle-même, ou HEAD détaché", () => {
+    expect(verdictDeBranchePublication(e()).geste).toBe("rien");
+    expect(
+      verdictDeBranchePublication(e({ branche: "main", retard: 3 })).geste,
+    ).toBe("rien");
+    expect(
+      verdictDeBranchePublication(e({ branche: null, retard: 3 })).geste,
+    ).toBe("rien");
+  });
+
+  it("INTÈGRE seul le commit d'accueil poussé sur main, à l'estampille, arbre propre", () => {
+    const v = verdictDeBranchePublication(e({ retard: 1 }));
+    expect(v.geste).toBe("fusionner");
+    expect(v.texte).toContain("git merge origin/main");
+    expect(v.texte).toContain(
+      "release/10.0.x:main redevient une avance rapide",
+    );
+  });
+
+  it("vaut aussi depuis dev : la règle porte sur la branche de publication, pas sur la maintenance", () => {
+    expect(
+      verdictDeBranchePublication(
+        e({ branche: "dev", retard: 1, versionPublication: "10.0.1" }),
+      ).geste,
+    ).toBe("fusionner");
+  });
+
+  it("en répétition, ou arbre sale : un AVIS qui dit que l'estampille s'en charge", () => {
+    const r = verdictDeBranchePublication(e({ retard: 2, ecrire: false }));
+    expect(r.geste).toBe("avis");
+    expect(r.texte).toContain("l'estampille (--write) les intègre");
+    const sale = verdictDeBranchePublication(
+      e({ retard: 2, arbrePropre: false }),
+    );
+    expect(sale.geste).toBe("avis");
+    expect(sale.texte).toContain("jamais stash");
+  });
+
+  it("REFUSE quand main porte déjà la mineure suivante — maintenance close (D8), même hors écriture sévère", () => {
+    const v = verdictDeBranchePublication(
+      e({ retard: 40, versionPublication: "10.1.0-alpha.1" }),
+    );
+    expect(v.geste).toBe("refus");
+    expect(v.texte).toContain("CLOSE (D8)");
+    expect(v.texte).toContain("git push origin --delete release/10.0.x");
+    expect(
+      verdictDeBranchePublication(
+        e({ retard: 40, versionPublication: "10.1.0", ecrire: false }),
+      ).geste,
+    ).toBe("avis");
+  });
+
+  it("une version de main illisible ne clôt rien — l'intégration reste le geste", () => {
+    expect(
+      verdictDeBranchePublication(e({ retard: 1, versionPublication: null }))
+        .geste,
+    ).toBe("fusionner");
   });
 });
 
