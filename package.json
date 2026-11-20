@@ -247,9 +247,6 @@
     "@esbuild-kit/core-utils": {
       "esbuild": ">=0.25.0"
     },
-    "@angular/build": {
-      "rolldown": "$rolldown"
-    },
     "deepmerge": "$deepmerge"
   }
 }
