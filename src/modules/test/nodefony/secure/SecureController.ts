@@ -1,4 +1,3 @@
-import { RequestContext } from "nodefony";
 import type { IUser, UserService } from "@nodefony/user";
 import {
   Controller,
@@ -9,7 +8,7 @@ import {
   CurrentUser,
   Scope,
 } from "@nodefony/framework";
-import type { ContextType } from "@nodefony/http";
+import { HttpContext, type ContextType } from "@nodefony/http";
 import { recordInitializeRun } from "./initializeProbe";
 
 /**
@@ -42,8 +41,15 @@ class SecureController extends Controller {
    *   `/nodefony/test/pipeline-order/probe`.
    */
   async initialize(): Promise<this> {
-    const user = RequestContext.getUser() as IUser | undefined;
+    const user = this.user;
+    // Témoin du cas de banc (`x-witness`) : les suites parallèles ne se
+    // comptent pas les unes les autres (cf `initializeProbe.ts`).
+    const witness =
+      this.context instanceof HttpContext
+        ? this.context.request.headers["x-witness"]
+        : undefined;
     recordInitializeRun(
+      typeof witness === "string" ? witness : "",
       user?.identifier ?? null,
       Boolean(this.context?.session),
     );
@@ -95,7 +101,7 @@ class SecureController extends Controller {
   /** Identité propagée par le firewall dans l'ALS (`RequestContext`). */
   @Get("/whoami")
   whoami() {
-    const user = RequestContext.getUser() as IUser | undefined;
+    const user = this.user;
     return this.renderJson({
       identifier: user?.identifier ?? null,
       roles: user?.roles ?? [],
@@ -110,7 +116,7 @@ class SecureController extends Controller {
    */
   @Get("/encoder")
   async encoder() {
-    const user = RequestContext.getUser() as IUser | undefined;
+    const user = this.user;
     const users = this.get<UserService>("users");
     const stored = user?.identifier
       ? await users?.findByIdentifier(user.identifier)

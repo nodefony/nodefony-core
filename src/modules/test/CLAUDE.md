@@ -201,14 +201,16 @@ Prouve **quand** le hook `initialize()` d'un controller s'exécute. Le mouchard 
 (`nodefony/secure/initializeProbe.ts`), sans quoi il ne survivrait pas à sa requête. Ces deux routes
 sont **publiques** parce qu'un banc anonyme doit pouvoir relire ce qu'une zone fermée a écrit.
 
-| Route          | Méthode | Description                                                           |
-| -------------- | ------- | --------------------------------------------------------------------- |
-| `/probe`       | GET     | `{ runs, identity, session }` — état vu par le dernier `initialize()` |
-| `/probe/reset` | GET     | Remise à zéro entre deux cas de banc                                  |
+| Route                    | Méthode | Description                                                                                  |
+| ------------------------ | ------- | -------------------------------------------------------------------------------------------- |
+| `/probe?witness=X`       | GET     | `{ runs, identity, session }` vus sous le témoin X (en-tête `x-witness` des requêtes du cas) |
+| `/probe/reset?witness=X` | GET     | Remise à zéro du témoin X                                                                    |
 
 Attendu : après un **401** (firewall) ou un **403** (`@IsGranted`), `runs` reste à **0** — rien du
 controller ne s'exécute pour une requête refusée. Sur une requête servie, `identity` porte
-l'utilisateur (le hook tourne après le firewall). Banc : `http/tests/http/pipeline-order.test.ts`.
+l'utilisateur (le hook tourne après le firewall). Compté PAR TÉMOIN : les suites `http`
+et `framework` jouent en parallèle et passent aussi par `SecureController` — un compteur global les
+additionnait. Banc : `http/tests/http/pipeline-order.test.ts`.
 
 ### BackpressureRealtimeController (`/nodefony/test/bench`) — décor de banc, OPT-IN
 

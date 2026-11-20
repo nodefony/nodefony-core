@@ -1,5 +1,5 @@
 import { Controller, controller, Get } from "@nodefony/framework";
-import type { ContextType } from "@nodefony/http";
+import { HttpContext, type ContextType } from "@nodefony/http";
 import {
   readInitializeProbe,
   resetInitializeProbe,
@@ -24,17 +24,25 @@ class PipelineOrderController extends Controller {
     super("PipelineOrderController", context);
   }
 
-  /** État du mouchard : combien de passages, et ce qu'ils voyaient. */
+  /** État du mouchard sous `?witness=` : combien de passages, et ce qu'ils voyaient. */
   @Get("/probe")
   probe() {
-    return this.renderJson(readInitializeProbe());
+    return this.renderJson(readInitializeProbe(this.#witness()));
   }
 
-  /** Remise à zéro entre deux cas de banc. */
+  /** Remise à zéro du témoin `?witness=` entre deux cas de banc. */
   @Get("/probe/reset")
   reset() {
-    resetInitializeProbe();
-    return this.renderJson(readInitializeProbe());
+    const witness = this.#witness();
+    resetInitializeProbe(witness);
+    return this.renderJson(readInitializeProbe(witness));
+  }
+
+  /** Témoin du cas de banc, lu dans la requête (`""` sans témoin). */
+  #witness(): string {
+    return this.context instanceof HttpContext
+      ? (this.context.request.url.searchParams.get("witness") ?? "")
+      : "";
   }
 }
 
