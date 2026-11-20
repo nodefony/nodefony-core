@@ -349,6 +349,37 @@
       "testedBy": []
     },
     {
+      "path": "scripts/gates/check-bundle-syntax.mjs",
+      "test": false,
+      "purpose": "Gate : chaque fichier JavaScript d'un bundle de front BÂTI doit être lisible par V8.",
+      "usage": [
+        "npm run check:bundles",
+        "npm run check:bundles -- <dossier> [<dossier>…] [--allow-empty]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run check:bundles"
+      ],
+      "testedBy": [
+        "scripts/gates/check-bundle-syntax.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/gates/check-bundle-syntax.test.mjs",
+      "test": true,
+      "purpose": "Éprouve le gate de syntaxe des bundles : il doit REFUSER un fichier que V8 ne lit pas, accepter l'ESM valide, trouver les dossiers de build sous les deux séparateurs, et ne jamais rendre vert sur zéro fichier. /",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/gates/check-externals.mjs",
       "test": false,
       "purpose": "Audit de la dérive `external` ⇄ manifeste, sur TOUT le dépôt — core, packages ET modules.",

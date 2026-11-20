@@ -546,6 +546,15 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         run: npm run size:check
 
+      # Chaque fichier JS des bundles de front BÂTIS plus haut (build + build:front)
+      # passe à `node --check` : un bundler peut produire du code invalide sans
+      # échouer. Vécu #802 : Vite bâtissait avec un rolldown hors de sa plage,
+      # build et 19 000 tests verts, page de connexion de Studio morte — seul le
+      # décor navigateur l'avait vu, 30 min plus tard. Ici, sans navigateur.
+      - name: Gate — bundles de front lisibles par V8
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: npm run check:bundles
+
       # Les ancres `fichier:ligne` de la doc, résolues contre le code RÉEL.
       #
       # Le contrôle existait et personne ne le lançait — ni ici, ni dans un

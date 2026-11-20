@@ -28,6 +28,7 @@
     "build:force": "node scripts/repo/turbo.mjs run build --force && node scripts/repo/render-demo.mjs && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "build:front": "node src/nodefony/bin/nodefony frontend:build",
     "build:packages": "node scripts/repo/turbo.mjs run build --filter=./src/packages/**",
+    "check:bundles": "node scripts/gates/check-bundle-syntax.mjs",
     "check:filenames": "node scripts/gates/check-portable-filenames.mjs",
     "check:lang": "node .claude/skills/nodefony-identifiers/scripts/check-identifier-language.mjs",
     "check:lang:test": "node .claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs && node --test .claude/skills/nodefony-identifiers/scripts/rename-identifiers.test.mjs",
@@ -126,7 +127,7 @@
     "three": "0.187.0",
     "tslib": "2.9.1",
     "tsx": "4.23.15",
-    "turbo": "2.11.12",
+    "turbo": "2.11.13",
     "typescript": "6.0.3",
     "vitest": "5.1.1",
     "yaml": "2.9.1"
@@ -165,6 +166,7 @@
       "build:force": "Comme « build », mais ignore le cache turbo — à utiliser quand un dist paraît périmé.",
       "build:front": "Bâtit les bundles frontend de l'application, par la commande du framework.",
       "build:packages": "Bâtit les seuls paquets @nodefony/*, sans le cœur ni l'application.",
+      "check:bundles": "Refuse un bundle de front bâti que V8 ne sait pas lire — un bundler peut produire du code invalide sans échouer. Zéro fichier trouvé = échec.",
       "check:filenames": "Refuse un nom de fichier que Windows n'accepte pas, en nommant la raison exacte.",
       "check:lang": "Gate : les identifiants du code de production doivent être en anglais. Échoue en les nommant.",
       "check:lang:test": "Éprouve le gate de langue sur ses propres cas — il doit attraper et ne pas sur-attraper —, puis l'outil de renommage.",
@@ -234,11 +236,11 @@
   },
   "dependencies": {
     "@analogjs/vite-plugin-angular": "2.9.7",
-    "@angular/build": "22.2.7",
-    "@angular/common": "22.2.6",
-    "@angular/compiler-cli": "22.2.6",
-    "@angular/core": "22.2.6",
-    "@angular/platform-browser": "22.2.6",
+    "@angular/build": "22.3.0",
+    "@angular/common": "22.3.0",
+    "@angular/compiler-cli": "22.3.0",
+    "@angular/core": "22.3.0",
+    "@angular/platform-browser": "22.3.0",
     "@vitejs/plugin-react": "6.3.0",
     "@vitejs/plugin-vue": "6.0.11",
     "vite": "8.3.8"
@@ -246,11 +248,6 @@
   "overrides": {
     "@esbuild-kit/core-utils": {
       "esbuild": ">=0.25.0"
-    },
-    "@angular/build": {
-      "vite": "$vite",
-      "semver": "7.8.6",
-      "rolldown": "1.2.18"
     },
     "deepmerge": "$deepmerge"
   }
