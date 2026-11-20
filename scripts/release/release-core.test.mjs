@@ -49,6 +49,7 @@ import {
   avisDeBranche,
   planDePromotion,
   refusDeMaintenance,
+  verdictDeSynchro,
   verdictCiDuCommit,
   WORKFLOWS_NON_BLOQUANTS,
   MAX_BUFFER_GIT,
@@ -2790,5 +2791,79 @@ describe("refusDeMaintenance — une release/x.y.x vivante (D9, #796)", () => {
         maintenance: [m({ nonPublies: 1 })],
       }),
     ).toBeNull();
+  });
+});
+
+describe("verdictDeSynchro — estampiller ce qu'origin porte (#796, bloquants 1 et 2)", () => {
+  const e = (extra) => ({
+    branche: "release/10.0.x",
+    ecrire: true,
+    horsLigne: false,
+    fetchOk: true,
+    suivie: true,
+    avance: 0,
+    retard: 0,
+    arbrePropre: true,
+    ...extra,
+  });
+
+  it("se tait quand la branche est à jour, ou seulement en avance", () => {
+    expect(verdictDeSynchro(e()).geste).toBe("rien");
+    expect(verdictDeSynchro(e({ avance: 2 })).geste).toBe("rien");
+  });
+
+  it("RATTRAPE seule un retard pur, arbre propre, à l'estampille — et le dit", () => {
+    const v = verdictDeSynchro(e({ retard: 3 }));
+    expect(v.geste).toBe("avancer");
+    expect(v.texte).toContain("3 commits de retard");
+    expect(v.texte).toContain("git merge --ff-only origin/release/10.0.x");
+  });
+
+  it("PIÈGE : arbre sale → refus nommé, jamais une avance rapide qui échouerait", () => {
+    const v = verdictDeSynchro(e({ retard: 1, arbrePropre: false }));
+    expect(v.geste).toBe("refus");
+    expect(v.texte).toContain("git merge --ff-only origin/release/10.0.x");
+    expect(v.texte).toContain("jamais stash");
+  });
+
+  it("en répétition, un retard n'est qu'un avis — rien ne bouge", () => {
+    const v = verdictDeSynchro(e({ retard: 1, ecrire: false }));
+    expect(v.geste).toBe("avis");
+  });
+
+  it("refuse des branches DIVERGÉES, avec fusion et jamais rebase", () => {
+    const v = verdictDeSynchro(e({ retard: 2, avance: 1 }));
+    expect(v.geste).toBe("refus");
+    expect(v.texte).toContain("DIVERGÉ");
+    expect(v.texte).toContain("git merge origin/release/10.0.x");
+    expect(v.texte).toContain("JAMAIS rebase");
+  });
+
+  it("refuse d'estampiller sur un fetch échoué — le D9 lirait un état d'un autre jour", () => {
+    const v = verdictDeSynchro(e({ fetchOk: false }));
+    expect(v.geste).toBe("refus");
+    expect(v.texte).toContain("git fetch origin --prune");
+    expect(verdictDeSynchro(e({ fetchOk: false, ecrire: false })).geste).toBe(
+      "avis",
+    );
+  });
+
+  it("--offline : répétition permise (avis), estampille refusée", () => {
+    expect(verdictDeSynchro(e({ horsLigne: true, ecrire: false })).geste).toBe(
+      "avis",
+    );
+    const v = verdictDeSynchro(e({ horsLigne: true }));
+    expect(v.geste).toBe("refus");
+    expect(v.texte).toContain("retirer --offline");
+  });
+
+  it("une branche absente d'origin est un avis, jamais un refus", () => {
+    expect(verdictDeSynchro(e({ suivie: false })).geste).toBe("avis");
+  });
+
+  it("se tait sur un HEAD détaché : la forge publie un TAG", () => {
+    expect(verdictDeSynchro(e({ branche: null, fetchOk: false })).geste).toBe(
+      "rien",
+    );
   });
 });

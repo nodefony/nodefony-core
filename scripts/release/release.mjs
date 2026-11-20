@@ -126,6 +126,7 @@ import {
   phasesDeLaPasse,
   refusDePublicationHorsBranche,
   refusDeMaintenance,
+  verdictDeSynchro,
   avisDeBranche,
   planDePromotion,
   referencesFigees,
@@ -734,6 +735,74 @@ const constaterMaintenance = () => {
   });
 };
 
+// 🔴 L'état DISTANT se rafraîchit AVANT toute garde de branche (#796, bloquants
+// 1 et 2) : la garde D9 et l'écart local/distant lisent `origin/*`, qui ne vaut
+// que ce que vaut le dernier `fetch`. Un réessai : un réseau qui hoquette ne doit
+// pas coûter une relance à l'humain. Jamais à la publication (`--publish`) :
+// c'est le TAG qui fait foi, et la forge a déjà son checkout.
+const FETCH_OK = (() => {
+  if (HORS_LIGNE || PUBLIER) return true;
+  for (let essai = 1; essai <= 2; essai++) {
+    try {
+      git("fetch", "origin", "--prune");
+      return true;
+    } catch {
+      if (essai === 1)
+        alerter("git fetch origin --prune a échoué — second essai.");
+    }
+  }
+  return false;
+})();
+
+/**
+ * L'écart de HEAD à `origin/<branche courante>`, et le verdict qui en découle —
+ * la règle vit dans {@link verdictDeSynchro} ; ici, seulement l'accès à git.
+ *
+ * @param {boolean} ecrire - refus permis (estampille, promotion) ou simple avis
+ */
+const constaterSynchro = (ecrire) => {
+  const courante = git("branch", "--show-current") || null;
+  let suivie = false;
+  let avance = 0;
+  let retard = 0;
+  if (courante) {
+    try {
+      git(
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        `refs/remotes/origin/${courante}`,
+      );
+      suivie = true;
+      const [a, r] = git(
+        "rev-list",
+        "--left-right",
+        "--count",
+        `HEAD...refs/remotes/origin/${courante}`,
+      )
+        .split(/\s+/)
+        .map(Number);
+      avance = a;
+      retard = r;
+    } catch {
+      suivie = false;
+    }
+  }
+  return {
+    courante,
+    ...verdictDeSynchro({
+      branche: courante,
+      ecrire,
+      horsLigne: HORS_LIGNE,
+      fetchOk: FETCH_OK,
+      suivie,
+      avance,
+      retard,
+      arbrePropre: git("status", "--porcelain") === "",
+    }),
+  };
+};
+
 if (PROMOUVOIR) {
   etape = "promotion";
   {
@@ -816,6 +885,15 @@ if (PROMOUVOIR) {
           "  La promotion continue — vérifier que ce commit porte bien l'estampille.",
       );
     }
+  }
+
+  // L'estampille est commitée : l'arbre est propre, et HEAD a au moins un commit
+  // d'avance. Un retard ici = branches DIVERGÉES — la poussée atomique serait
+  // refusée ; on le dit AVANT, avec le geste, plutôt qu'après un échec de git.
+  {
+    const s = constaterSynchro(true);
+    if (s.geste === "refus") echouer(s.texte);
+    if (s.geste === "avis") alerter(s.texte);
   }
 
   const sha = git("rev-parse", "HEAD");
@@ -982,6 +1060,34 @@ if (sale && (ECRIRE || PUBLIER)) {
         .map((l) => `    ${l}`)
         .join("\n"),
   );
+}
+
+// 🔴 La branche locale doit être à jour d'origin AVANT d'estampiller (#796) —
+// et AVANT le contrôle du `dist` ci-dessous : une avance rapide peut changer le
+// code, et c'est ce contrôle qui dira alors « reconstruire ».
+// Le rattrapage automatique ne vaut que sur la branche où l'on ESTAMPILLE : ailleurs,
+// la garde de branche plus bas refusera de toute façon, et l'on ne touche à rien.
+if (!PUBLIER) {
+  const surBranchePreparee =
+    (git("branch", "--show-current") || null) === BRANCHE_ATTENDUE;
+  const s = constaterSynchro(ECRIRE && surBranchePreparee);
+  if (s.geste === "refus") echouer(s.texte);
+  if (s.geste === "avis") alerter(s.texte);
+  if (s.geste === "avancer") {
+    const avant = git("rev-parse", "HEAD");
+    git("merge", "--ff-only", `origin/${s.courante}`);
+    dire(`✓ ${s.texte}`);
+    // Le verrou a changé ? Le `node_modules` installé ne décrit plus l'arbre :
+    // l'estampille et le pack partiraient d'une installation fausse.
+    try {
+      git("diff", "--quiet", avant, "HEAD", "--", "package-lock.json");
+    } catch {
+      echouer(
+        "le rattrapage a changé package-lock.json — l'installation ne décrit plus l'arbre.\n" +
+          "  → npm ci && npm run build, puis relancer la même commande (rien n'a été estampillé).",
+      );
+    }
+  }
 }
 
 // 🔴 Le `dist` du cœur se contrôle AVANT d'écrire quoi que ce soit.

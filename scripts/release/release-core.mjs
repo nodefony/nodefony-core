@@ -1291,6 +1291,103 @@ export function avisDeBranche({
 }
 
 /**
+ * Le verdict de SYNCHRONISATION : la branche locale d'où l'on prépare est-elle
+ * à jour de `origin/<branche>` ?
+ *
+ * 🔴 Le trou qu'il bouche (#796, revue du flux, bloquants 1 et 2) : en travail
+ * par demandes de fusion, `release/x.y.x` et `dev` avancent sur GitHub, jamais
+ * en local. Une branche locale en retard faisait estampiller un état FAUX — sans
+ * les correctifs fusionnés — et le refus ne tombait qu'au push de
+ * `--promouvoir`, quinze manifestes plus tard. Et la garde D9
+ * ({@link refusDeMaintenance}) lisait des `origin/release/*` jamais
+ * rafraîchies : un correctif fusionné depuis le dernier `fetch` lui restait
+ * invisible.
+ *
+ * Résilient avant d'être sévère : le seul cas SÛR — retard pur (aucun commit
+ * local en propre), arbre propre, au moment d'estampiller — se répare seul en
+ * avance rapide, et le dit. Ce qui demande un jugement (branches divergées,
+ * réseau muet) refuse à l'estampille, avec la commande exacte ; en répétition,
+ * tout n'est qu'un avis.
+ *
+ * Pure : le résultat du `fetch` et l'écart des branches sont INJECTÉS.
+ *
+ * @param {object} etat
+ * @param {string | null} etat.branche - la branche courante (`null` : HEAD détaché)
+ * @param {boolean} etat.ecrire - va-t-on estampiller ou promouvoir (refus possible) ?
+ * @param {boolean} etat.horsLigne - `--offline` : aucun `fetch` tenté
+ * @param {boolean} etat.fetchOk - `git fetch origin --prune` a-t-il réussi ?
+ * @param {boolean} etat.suivie - `origin/<branche>` existe-t-elle ?
+ * @param {number} etat.avance - commits de HEAD absents de `origin/<branche>`
+ * @param {number} etat.retard - commits de `origin/<branche>` absents de HEAD
+ * @param {boolean} etat.arbrePropre - l'arbre de travail est-il propre ?
+ * @returns {{ geste: "rien" | "avis" | "avancer" | "refus", texte: string | null }}
+ *   `avancer` = l'appelant fait `git merge --ff-only origin/<branche>` puis dit `texte`
+ */
+export function verdictDeSynchro({
+  branche,
+  ecrire,
+  horsLigne,
+  fetchOk,
+  suivie,
+  avance,
+  retard,
+  arbrePropre,
+}) {
+  if (branche === null) return { geste: "rien", texte: null };
+  const severe = (texte) => ({ geste: ecrire ? "refus" : "avis", texte });
+
+  if (horsLigne || !fetchOk) {
+    const pourquoi = horsLigne
+      ? "--offline : l'état distant n'est PAS rafraîchi"
+      : "`git fetch origin --prune` a échoué — l'état distant n'est PAS rafraîchi";
+    return severe(
+      `${pourquoi}.\n` +
+        "  Les gardes de branche liraient des références d'un autre jour : un correctif\n" +
+        "  fusionné sur GitHub depuis resterait invisible, et l'estampille porterait un état faux.\n" +
+        (horsLigne
+          ? "  → retirer --offline pour estampiller (la répétition hors ligne reste permise)."
+          : "  → vérifier la connexion, puis relancer. Pour lire l'erreur :  git fetch origin --prune"),
+    );
+  }
+  if (!suivie) {
+    return {
+      geste: "avis",
+      texte:
+        `« ${branche} » n'existe pas sur origin — rien à quoi la comparer.\n` +
+        "  Normal pour une branche jamais poussée ; une branche longue (main, dev,\n" +
+        "  release/x.y.x) absente d'origin, elle, signale un mauvais dépôt.",
+    };
+  }
+  if (retard === 0) return { geste: "rien", texte: null };
+
+  const n = `${retard} commit${retard > 1 ? "s" : ""}`;
+  if (avance === 0) {
+    if (ecrire && arbrePropre) {
+      return {
+        geste: "avancer",
+        texte:
+          `« ${branche} » avait ${n} de retard sur origin/${branche} — rattrapée en avance\n` +
+          `  rapide (git merge --ff-only origin/${branche}). Rien de local n'est perdu : il n'y\n` +
+          "  avait aucun commit en propre.",
+      };
+    }
+    return severe(
+      `« ${branche} » a ${n} de retard sur origin/${branche} : estampiller d'ici publierait\n` +
+        "  un état SANS ces commits (correctifs fusionnés sur GitHub).\n" +
+        `  → git merge --ff-only origin/${branche}` +
+        (arbrePropre
+          ? ""
+          : "   (arbre à rendre propre d'abord : commit, jamais stash)"),
+    );
+  }
+  return severe(
+    `« ${branche} » a DIVERGÉ d'origin/${branche} : ${avance} commit(s) local(aux), ${n} distant(s).\n` +
+      "  La poussée de --promouvoir serait refusée (pas une avance rapide).\n" +
+      `  → git merge origin/${branche}   (fusion, JAMAIS rebase d'une branche poussée), puis relancer.`,
+  );
+}
+
+/**
  * Le refus de MAINTENANCE : ce qu'une branche `release/x.y.x` vivante interdit à
  * une publication faite depuis une AUTRE branche.
  *
