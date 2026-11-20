@@ -20,7 +20,12 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { chooseNextTicket, isOpenItem, openItemsOf } from "./board-next.mjs";
+import {
+  chooseNextTicket,
+  isOpenItem,
+  openItemsOf,
+  versionsToRelease,
+} from "./board-next.mjs";
 import {
   ciVerdict,
   ciHistory,
@@ -359,6 +364,15 @@ if (pending) {
         `🧾 PR #${m.pr} fusionnée, #${m.ticket} encore ouvert → le fermer avec son compte rendu (ticket-close.mjs)`,
       );
 }
+// Un lot soldé et non publié passe AVANT le prochain ticket : sa publication
+// est la raison d'être du lot, et `chooseNextTicket` passerait au lot suivant
+// sans un mot. Les étiquettes viennent du `git fetch` ci-dessus (suivi des tags).
+const tags = git("tag", "-l", "v*");
+if (tags.ok)
+  for (const r of versionsToRelease(board.items, tags.out.split("\n")))
+    say(
+      `🚀 lot ${r.version} soldé (${r.closed} ticket(s) fermé(s)), v${r.version} non publiée → la publier AVANT le ticket suivant (skill nodefony-release)`,
+    );
 const choice = chooseNextTicket(open, board.milestones);
 if (choice) {
   const ms = board.milestones.find((m) => m.title === choice.milestone);

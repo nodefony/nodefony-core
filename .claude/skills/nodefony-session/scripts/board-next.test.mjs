@@ -4,6 +4,7 @@ import {
   isOpenItem,
   sortMilestones,
   openItemsOf,
+  versionsToRelease,
 } from "./board-next.mjs";
 
 /**
@@ -139,5 +140,72 @@ describe("les fonctions d'appui", () => {
     expect(openItemsOf(OUVERTS, "10.0.0-alpha").map((i) => i.number)).toEqual([
       274, 271,
     ]);
+  });
+});
+
+describe("versionsToRelease — un lot soldé réclame sa publication", () => {
+  const ferme = (extra) => ({ state: "CLOSED", status: "Done", ...extra });
+  const ouvert = (extra) => ({ state: "OPEN", status: "Todo", ...extra });
+
+  it("signale un lot dont tous les tickets sont fermés et la version non étiquetée", () => {
+    const items = [
+      ferme({ milestone: "10.0.x", labels: ["10.0.1"] }),
+      ferme({ milestone: "10.0.x", labels: ["10.0.1"] }),
+      ouvert({ milestone: "10.0.x", labels: ["10.0.2"] }),
+    ];
+    expect(versionsToRelease(items, ["v10.0.0"])).toEqual([
+      { version: "10.0.1", closed: 2 },
+    ]);
+  });
+
+  it("se tait tant qu'un ticket du lot reste ouvert", () => {
+    const items = [
+      ferme({ labels: ["10.0.1"] }),
+      ouvert({ labels: ["10.0.1"] }),
+    ];
+    expect(versionsToRelease(items, [])).toEqual([]);
+  });
+
+  it("compte livré un ticket fermé resté « In Progress » — même règle que la reprise, `isOpenItem`", () => {
+    // Vécu : #797 et #801 fermés à la main, restés « In Progress » au tableau.
+    const items = [
+      { state: "CLOSED", status: "In Progress", labels: ["10.0.1"] },
+    ];
+    expect(versionsToRelease(items, [])).toEqual([
+      { version: "10.0.1", closed: 1 },
+    ]);
+  });
+
+  it("se tait quand la version est étiquetée", () => {
+    expect(
+      versionsToRelease([ferme({ labels: ["10.0.1"] })], ["v10.0.1"]),
+    ).toEqual([]);
+  });
+
+  it("lit aussi un jalon au nom de version, et ignore un jalon de maintenance", () => {
+    const items = [
+      ferme({ milestone: "10.1.0" }),
+      ferme({ milestone: "10.0.x" }),
+    ];
+    expect(versionsToRelease(items, ["v10.0.0"])).toEqual([
+      { version: "10.1.0", closed: 1 },
+    ]);
+  });
+
+  it("un canal de pré-version est sorti dès une pré-version numérotée, ou par sa version finale", () => {
+    const items = [
+      ferme({ milestone: "10.0.0-alpha" }),
+      ferme({ milestone: "10.0.0-beta" }),
+      ferme({ milestone: "11.0.0-beta" }),
+    ];
+    expect(versionsToRelease(items, ["v10.0.0", "v11.0.0-beta.1"])).toEqual([]);
+    expect(versionsToRelease(items, ["v10.0.0-alpha.9"])).toEqual([
+      { version: "10.0.0-beta", closed: 1 },
+      { version: "11.0.0-beta", closed: 1 },
+    ]);
+  });
+
+  it("un lot sans aucun ticket fermé ne réclame rien", () => {
+    expect(versionsToRelease([], [])).toEqual([]);
   });
 });

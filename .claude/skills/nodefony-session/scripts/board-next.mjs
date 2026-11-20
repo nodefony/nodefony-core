@@ -83,3 +83,67 @@ export function chooseNextTicket(openItems, milestones) {
   const orphelins = openItemsOf(openItems, null);
   return orphelins.length ? { ticket: orphelins[0], milestone: null } : null;
 }
+
+/** Un nom de lot ou de jalon qui DÉSIGNE une version : `10.0.1`, `10.0.0-beta`. */
+const VERSION_NAME = /^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?$/;
+
+/**
+ * Dit si une version est déjà sortie, d'après les étiquettes git `v*`.
+ *
+ * Un canal de pré-version (`10.0.0-beta`) est sorti dès qu'une de ses
+ * pré-versions numérotées l'est (`v10.0.0-beta.3`) ; toute version l'est aussi
+ * quand sa version FINALE est étiquetée (`v10.0.0` solde `10.0.0-alpha`).
+ *
+ * @param {string} version - nom de lot ou de jalon, sans `v`
+ * @param {Set<string>} tags - étiquettes git, avec leur `v`
+ * @returns {boolean}
+ */
+function isReleased(version, tags) {
+  const tag = `v${version}`;
+  if (tags.has(tag)) return true;
+  for (const t of tags) if (t.startsWith(`${tag}.`)) return true;
+  const core = VERSION_NAME.exec(version)?.[1];
+  return core !== undefined && tags.has(`v${core}`);
+}
+
+/**
+ * Les versions dont TOUS les tickets sont livrés mais qui ne sont pas publiées
+ * — « il faut faire la release ».
+ *
+ * Une version se lit sur un label de lot (`10.0.1` dans le jalon `10.0.x`) ou
+ * sur un jalon qui porte un nom de version (`10.1.0`). Le prochain ticket ne le
+ * dit jamais : quand le lot est soldé, `chooseNextTicket` passe au lot suivant
+ * sans un mot, et la publication — la raison d'être du lot — s'oubliait. Vécu :
+ * #797, #801 et #802 fermés, `v10.0.1` jamais étiquetée, la reprise proposait
+ * déjà #794 du lot `10.0.2`.
+ *
+ * @param {Array<{ state?: string, status?: string | null, milestone?: string | null, labels?: string[] }>} items
+ *   items de l'empreinte du tableau, fermés compris
+ * @param {Iterable<string>} tags - étiquettes git `v*`
+ * @returns {Array<{ version: string, closed: number }>} triées par version croissante
+ */
+export function versionsToRelease(items, tags) {
+  /** @type {Map<string, { open: number, closed: number }>} */
+  const lots = new Map();
+  for (const item of items) {
+    const names = new Set(
+      [...(item.labels ?? []), item.milestone].filter(
+        (v) => typeof v === "string" && VERSION_NAME.test(v),
+      ),
+    );
+    const open = isOpenItem(item);
+    for (const v of names) {
+      let count = lots.get(v);
+      if (count === undefined) lots.set(v, (count = { open: 0, closed: 0 }));
+      if (open) count.open++;
+      else count.closed++;
+    }
+  }
+  const released = new Set(tags);
+  return [...lots]
+    .filter(
+      ([v, c]) => c.open === 0 && c.closed > 0 && !isReleased(v, released),
+    )
+    .map(([version, c]) => ({ version, closed: c.closed }))
+    .sort((a, b) => compareMilestoneTitles(a.version, b.version));
+}
