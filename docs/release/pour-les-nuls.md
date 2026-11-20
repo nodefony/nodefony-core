@@ -122,18 +122,18 @@ gestes ; la recette ci-dessus est sa version manuelle.
 
 ## 5. Quand ça casse
 
-| Symptôme                                                           | Geste                                                                                                     |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `git commit` refusé : « branche longue »                           | on est sur `dev`/`main`/`release/*` → `git switch -c fix/<N>-sujet` puis recommiter                       |
-| un crochet refuse (prettier, lint, fiche de skill…)                | lire la dernière ligne : elle donne la commande (souvent `npm run skills:doc`), la lancer, recommiter     |
-| `git push` refusé : « non fast-forward »                           | `git fetch origin && git merge origin/<branche>` puis repousser — jamais `--force` sur une branche longue |
-| `npm run release` refuse                                           | lire le message : chaque refus nomme sa cause et son geste ; rien n'a été écrit                           |
-| `--promouvoir` : « la forge n'est PAS verte »                      | ne PAS taguer ; corriger par une PR vers `release/10.0.x`, la fusionner, relancer `--promouvoir`          |
-| `npm run release` : « la maintenance … est CLOSE (D8) »            | `main` porte déjà la mineure suivante : publier depuis `dev`, puis supprimer la branche `release/x.y.x`   |
-| conflit à la fusion arrière sur `.ai/BOARD.md` ou `.ai/board.json` | ces fichiers ne sont plus versionnés : `git rm .ai/BOARD.md .ai/board.json && git commit --no-edit`       |
-| autre conflit à la fusion arrière                                  | résoudre, `git add <fichiers>`, `git commit --no-edit`, puis reprendre au `git push`                      |
-| tag posé mais pas poussé                                           | `git push origin v10.0.1` — sans le push, rien n'est publié                                               |
-| dépôt cloné à neuf                                                 | `npm ci && npm run build` avant toute autre commande                                                      |
+| Symptôme                                                           | Geste                                                                                                                                                                |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git commit` refusé : « branche longue »                           | on est sur `dev`/`main`/`release/*` → `git switch -c fix/<N>-sujet` puis recommiter                                                                                  |
+| un crochet refuse (prettier, lint, fiche de skill…)                | lire la dernière ligne : elle donne la commande (souvent `npm run skills:doc`), la lancer, recommiter                                                                |
+| `git push` refusé : « non fast-forward »                           | `git fetch origin && git merge origin/<branche>` puis repousser — jamais `--force` sur une branche longue                                                            |
+| `npm run release` refuse                                           | lire le message : chaque refus nomme sa cause et son geste ; rien n'a été écrit                                                                                      |
+| `--promouvoir` : « la forge n'est PAS verte »                      | ne PAS taguer ; job instable → `gh run rerun <id> --failed` ; vrai défaut → PR vers `release/10.0.x`, la fusionner ; puis relancer `--promouvoir` (il rattrape seul) |
+| `npm run release` : « la maintenance … est CLOSE (D8) »            | `main` porte déjà la mineure suivante : publier depuis `dev`, puis supprimer la branche `release/x.y.x`                                                              |
+| conflit à la fusion arrière sur `.ai/BOARD.md` ou `.ai/board.json` | ces fichiers ne sont plus versionnés : `git rm .ai/BOARD.md .ai/board.json && git commit --no-edit`                                                                  |
+| autre conflit à la fusion arrière                                  | résoudre, `git add <fichiers>`, `git commit --no-edit`, puis reprendre au `git push`                                                                                 |
+| tag posé mais pas poussé                                           | `git push origin v10.0.1` — sans le push, rien n'est publié                                                                                                          |
+| dépôt cloné à neuf                                                 | `npm ci && npm run build` avant toute autre commande                                                                                                                 |
 
 ## 6. Où en suis-je ?
 
