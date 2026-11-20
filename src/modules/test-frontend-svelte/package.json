@@ -19,7 +19,7 @@
     "vite"
   ],
   "dependencies": {
-    "svelte": "5.58.0",
+    "svelte": "5.58.1",
     "tslib": "2.9.1"
   },
   "peerDependencies": {
