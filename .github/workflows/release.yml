@@ -485,14 +485,27 @@ jobs:
           # framework : c'est du code fait pour être collé dans le projet de
           # quelqu'un d'autre, sans NOTICE à propager ni modifications à
           # déclarer. Les deux objets sont distincts.
+          # `--demo` : la vitrine est faite pour être CLONÉE et apprise, ce pour
+          # quoi la démo existe (#747) — son défaut `false` vise les projets des
+          # utilisateurs et l'image officielle, pas ce dépôt. Elle reste
+          # `policy: "dev"` : visible en `npm run dev` (Codespace compris),
+          # absente de l'image de production — son connecteur SQLite n'a pas de
+          # migration, et chat, envoi de fichiers et MCP n'ont rien à faire sur un
+          # runtime public (#796, choix écarté : la passer `mandatory`).
           node "$GITHUB_WORKSPACE/src/nodefony/bin/nodefony" create app nodefony \
-            --preset complete --frontend react --license MIT --yes --no-git
+            --preset complete --frontend react --license MIT --demo --yes --no-git
           # La page de démonstration doit EXISTER dans l'arbre poussé : le
           # gabarit peut changer, le drapeau peut être perdu à une réécriture,
           # et rien d'autre ne le verrait — la vitrine partirait muette pour
           # toute une série de versions.
           test -f nodefony/frontend/src/App.tsx || {
             echo "::error::la vitrine n'a pas de page d'accueil : --frontend n'a rien produit"
+            exit 1
+          }
+          # Même raison pour la démo : un drapeau perdu à une réécriture ferait
+          # partir la vitrine sans elle, et rien d'autre ne le verrait.
+          test -f nodefony/modules/demo/package.json || {
+            echo "::error::la vitrine n'a pas de démo : --demo n'a rien produit"
             exit 1
           }
           # Le produit ANNONCE quand il n'a pas pu écrire la migration ; la
