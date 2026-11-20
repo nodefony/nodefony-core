@@ -10661,6 +10661,24 @@
             "selfDocumented": true
           },
           {
+            "path": "scripts/install-drift.mjs",
+            "purpose": "L'installation (`node_modules`) correspond-elle au verrou (`package-lock.json`) de la branche courante ?",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/install-drift.test.mjs",
+            "purpose": "Éprouve la règle « installation périmée » : le CONTENU du verrou contre ce que npm a posé, jamais leurs dates. /",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/session-cost.mjs",
             "purpose": "Agrège la consommation réelle des transcripts Claude Code du projet. Dédup par messageId (les JSONL répètent la même réponse à plusieurs lignes).",
             "usage": [

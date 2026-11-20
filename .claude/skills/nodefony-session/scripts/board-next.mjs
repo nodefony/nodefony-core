@@ -42,6 +42,21 @@ export const sortMilestones = (milestones) =>
       compareMilestoneTitles(a.title, b.title),
   );
 
+/**
+ * Dit si un item du tableau reste à faire : ticket NON fermé ET statut ≠ « Done ».
+ *
+ * Le statut seul ne suffit pas : un ticket fermé à la main (`gh issue close`,
+ * seule voie vers `release/*`) peut garder « In Progress » sur le tableau, et la
+ * reprise proposait alors un ticket déjà livré — vécu, `➡️ #797` fermé. SEULE
+ * implémentation : la reprise et l'empreinte l'appellent, aucune ne recopie le
+ * test.
+ *
+ * @param {{ state?: string, status?: string | null }} item
+ * @returns {boolean}
+ */
+export const isOpenItem = (item) =>
+  item.state !== "CLOSED" && item.status !== "Done";
+
 /** Les items ouverts d'un jalon, dans l'ordre de travail (sans ordre = en fin). */
 export const openItemsOf = (items, milestoneTitle) =>
   items

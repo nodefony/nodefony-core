@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   chooseNextTicket,
+  isOpenItem,
   sortMilestones,
   openItemsOf,
 } from "./board-next.mjs";
@@ -68,6 +69,42 @@ describe("le prochain ticket vient du jalon COURANT", () => {
       ...OUVERTS,
     ];
     expect(chooseNextTicket(avecOrphelin, JALONS).ticket.number).toBe(274);
+  });
+});
+
+describe("ce qui reste à faire — isOpenItem", () => {
+  // Vécu : #797 fermé à la main (base `release/*`, pas de `Closes`) gardait
+  // « In Progress » au tableau, et la reprise le proposait comme prochain ticket.
+  it("un ticket FERMÉ n'est plus à faire, même resté « In Progress »", () => {
+    expect(isOpenItem({ state: "CLOSED", status: "In Progress" })).toBe(false);
+  });
+
+  it("un statut « Done » suffit, et un ticket ouvert en cours reste à faire", () => {
+    expect(isOpenItem({ state: "OPEN", status: "Done" })).toBe(false);
+    expect(isOpenItem({ state: "OPEN", status: "In Progress" })).toBe(true);
+    expect(isOpenItem({ state: "OPEN", status: null })).toBe(true);
+  });
+
+  it("la reprise ne propose pas le ticket fermé", () => {
+    const items = [
+      {
+        number: 797,
+        ordre: 1.01,
+        milestone: "10.0.0-alpha",
+        state: "CLOSED",
+        status: "In Progress",
+      },
+      {
+        number: 802,
+        ordre: 1.02,
+        milestone: "10.0.0-alpha",
+        state: "OPEN",
+        status: "In Progress",
+      },
+    ];
+    expect(
+      chooseNextTicket(items.filter(isOpenItem), JALONS).ticket.number,
+    ).toBe(802);
   });
 });
 

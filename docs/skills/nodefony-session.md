@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-13
+updated: 2026-11-20
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | Description | 581 / 1024 caractères |
 | Déclencheurs | 9 |
 | Ressources `references/` | 1 page(s) |
-| Scripts | 13 |
+| Scripts | 15 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -93,6 +93,8 @@ script, donc toujours à jour après régénération.
 | `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` `--readme` `--issue` `--dry-run` | — |
 | `scripts/board-snapshot.test.mjs` | Éprouve le maillon où une donnée du tableau de bord peut disparaître SANS ERREUR : la projection des nœuds GraphQL en items d'empreinte. | — | — |
 | `scripts/cli-guard.mjs` | Garde de ligne de commande des scripts de pilotage — lit l'en-tête du script appelant et applique {@link cliGate} : aide sur `--help`, refus (code 64) d'une option que l'en-tête ne déclare pas. | `--help` | — |
+| `scripts/install-drift.mjs` | L'installation (`node_modules`) correspond-elle au verrou (`package-lock.json`) de la branche courante ? | — | — |
+| `scripts/install-drift.test.mjs` | Éprouve la règle « installation périmée » : le CONTENU du verrou contre ce que npm a posé, jamais leurs dates. / | — | — |
 | `scripts/session-cost.mjs` | Agrège la consommation réelle des transcripts Claude Code du projet. Dédup par messageId (les JSONL répètent la même réponse à plusieurs lignes). | `--root` `--session` | — |
 | `scripts/session-cost.selftest.mjs` | Éprouve `session-cost.mjs --session` sur des transcripts FORGÉS : le principal et chaque sous-agent sur leur ligne, nommés par leur méta, une réponse répétée comptée une seule fois, le pic de contexte pris sur la plus grosse réponse, `fable` au tarif connu, et un préfixe ambigu refusé plutôt que deviné. | `--session` | — |
 | `scripts/session-end.mjs` | session-end.mjs — la clôture de session en deux passes, mécanique d'un côté, jugement de l'autre. | `--since` `--no-publish` | — |

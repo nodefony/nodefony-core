@@ -20,7 +20,7 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { chooseNextTicket, openItemsOf } from "./board-next.mjs";
+import { chooseNextTicket, isOpenItem, openItemsOf } from "./board-next.mjs";
 import {
   ciVerdict,
   ciHistory,
@@ -33,6 +33,7 @@ import {
   uncitedWork,
 } from "./session-lib.mjs";
 import { guardCli } from "./cli-guard.mjs";
+import { readInstallDrift } from "./install-drift.mjs";
 
 guardCli(import.meta.url);
 
@@ -302,7 +303,7 @@ if (!online)
   say(
     `⚠️ GitHub injoignable — empreinte du ${board.generatedAt.slice(0, 10)} (il y a ${ageDays} j)`,
   );
-const open = board.items.filter((i) => i.status !== "Done");
+const open = board.items.filter(isOpenItem);
 const choice = chooseNextTicket(open, board.milestones);
 if (choice) {
   const ms = board.milestones.find((m) => m.title === choice.milestone);
@@ -383,13 +384,11 @@ const stale = modules.filter((m) => {
   const dist = path.join(m, "dist", "index.js");
   return fs.existsSync(dist) && newestTs(m) > fs.statSync(dist).mtimeMs;
 });
-const lock = path.join(ROOT, "package-lock.json");
-const installed = path.join(ROOT, "node_modules", ".package-lock.json");
-const npmStale =
-  fs.existsSync(installed) &&
-  fs.statSync(lock).mtimeMs > fs.statSync(installed).mtimeMs;
+// Le CONTENU du verrou contre ce que npm a posé — une date se trompe dans les
+// deux sens dès qu'on change de branche (`install-drift.mjs`).
+const drift = readInstallDrift(ROOT) ?? [];
 say(
-  stale.length || npmStale
+  stale.length || drift.length
     ? `⚠️ ${
         stale.length
           ? `dist périmé : ${stale
@@ -397,7 +396,11 @@ say(
               .slice(0, 5)
               .join(", ")}${stale.length > 5 ? "…" : ""} → npm run build`
           : ""
-      }${npmStale ? " · package-lock plus récent que l'installation → npm install" : ""}`
+      }${stale.length && drift.length ? " · " : ""}${
+        drift.length
+          ? `installation ≠ verrou de la branche (${drift.length} écart(s), ex. ${clip(drift[0], 60)}) → npm ci`
+          : ""
+      }`
     : "✅ dist et installation à jour",
 );
 
