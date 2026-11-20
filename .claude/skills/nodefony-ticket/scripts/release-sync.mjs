@@ -84,6 +84,26 @@ export function syncBranchName(maintenance) {
 }
 
 /**
+ * Comment partir sur la branche de fusion — PURE : les faits sont constatés.
+ *
+ * Une branche locale du même nom a deux vies possibles. Fusion arrière en
+ * cours (conflit résolu et commité, pas encore poussé) : elle porte des commits
+ * que `dev` n'a pas, on la REPREND. Fusion arrière d'une publication passée,
+ * déjà fusionnée (commit de fusion, donc ancêtre de `dev`) : elle est PÉRIMÉE —
+ * la reprendre ferait partir la nouvelle fusion d'un `dev` d'un autre jour, on
+ * la RECRÉE depuis `origin/dev`, sans rien perdre puisque `dev` contient tout.
+ *
+ * @param {{ current: boolean, exists: boolean, inTarget: boolean }} facts -
+ *   est-on déjà dessus ? existe-t-elle en local ? est-elle ancêtre de `origin/dev` ?
+ * @returns {"stay" | "resume" | "recreate" | "create"}
+ */
+export function syncStart({ current, exists, inTarget }) {
+  if (exists && inTarget) return "recreate";
+  if (current) return "stay";
+  return exists ? "resume" : "create";
+}
+
+/**
  * Les références à fusionner, dans l'ordre — PURE : les ancêtres sont constatés.
  *
  * @param {string} maintenance - `release/x.y.x`
@@ -227,9 +247,20 @@ function main() {
   }
 
   const local = sh("git", ["branch", "--format=%(refname:short)"]).split("\n");
-  if (sh("git", ["branch", "--show-current"]) !== name) {
-    if (local.includes(name)) sh("git", ["switch", name]);
-    else sh("git", ["switch", "-c", name, "--no-track", `origin/${TARGET}`]);
+  const start = syncStart({
+    current: sh("git", ["branch", "--show-current"]) === name,
+    exists: local.includes(name),
+    inTarget: local.includes(name) && isAncestor(name, `origin/${TARGET}`),
+  });
+  if (start === "resume") sh("git", ["switch", name]);
+  else if (start === "create")
+    sh("git", ["switch", "-c", name, "--no-track", `origin/${TARGET}`]);
+  else if (start === "recreate") {
+    // `-C` sur la branche courante comprise : l'arbre est propre (refusé plus haut).
+    sh("git", ["switch", "-C", name, "--no-track", `origin/${TARGET}`]);
+    console.log(
+      `  ${name} locale était PÉRIMÉE (déjà dans ${TARGET}) — recréée depuis origin/${TARGET}`,
+    );
   }
   for (const ref of refs) {
     const r = spawnSync("git", ["merge", "--no-ff", "--no-edit", ref], {

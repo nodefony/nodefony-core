@@ -12,6 +12,7 @@ import {
   syncBranchName,
   syncPlan,
   syncPr,
+  syncStart,
 } from "./release-sync.mjs";
 import { ticketOfBranch } from "./commit-kind.mjs";
 
@@ -103,5 +104,31 @@ describe("carriedReleases — ce qu'une PR embarque", () => {
         { name: "release/10.1.x", inHead: false, inBase: false },
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("syncStart — reprendre la fusion en cours, jamais une fusion passée", () => {
+  it("RECRÉE une branche locale déjà fusionnée dans dev, même si l'on est dessus", () => {
+    expect(syncStart({ current: false, exists: true, inTarget: true })).toBe(
+      "recreate",
+    );
+    expect(syncStart({ current: true, exists: true, inTarget: true })).toBe(
+      "recreate",
+    );
+  });
+
+  it("REPREND une branche aux commits propres (conflit résolu, pas encore poussé)", () => {
+    expect(syncStart({ current: false, exists: true, inTarget: false })).toBe(
+      "resume",
+    );
+    expect(syncStart({ current: true, exists: true, inTarget: false })).toBe(
+      "stay",
+    );
+  });
+
+  it("CRÉE quand rien n'existe", () => {
+    expect(syncStart({ current: false, exists: false, inTarget: false })).toBe(
+      "create",
+    );
   });
 });
