@@ -17,23 +17,36 @@ type CeremonyOptions = { challenge: string } & Record<string, unknown>;
  */
 export interface IWebAuthnService {
   isEnabled(): boolean;
-  generateRegistrationOptions(user: {
-    id: string;
-    name: string;
-    displayName?: string;
-    handle?: string;
-  }): Promise<CeremonyOptions>;
+  /**
+   * `host` (dernier argument de chaque cérémonie) = `Context.domain` : le
+   * service en dérive le RP ID, sous la barrière `trustedHosts` — un hôte
+   * refusé lève une erreur de `code` 421.
+   */
+  generateRegistrationOptions(
+    user: {
+      id: string;
+      name: string;
+      displayName?: string;
+      handle?: string;
+    },
+    host?: string,
+  ): Promise<CeremonyOptions>;
   verifyRegistration(
     response: unknown,
     expectedChallenge: string,
     userId: string,
     requestOrigin?: string,
+    host?: string,
   ): Promise<{ id: string }>;
-  generateAuthenticationOptions(userId?: string): Promise<CeremonyOptions>;
+  generateAuthenticationOptions(
+    userId?: string,
+    host?: string,
+  ): Promise<CeremonyOptions>;
   verifyAuthentication(
     response: unknown,
     expectedChallenge: string,
     requestOrigin?: string,
+    host?: string,
   ): Promise<{ userId: string }>;
   listUserCredentials(userId: string): Promise<
     Array<{
@@ -130,11 +143,15 @@ class WebAuthnController extends SecurityApiController {
     if (!me) return this.renderJson({ error: "Unauthorized" }, 401);
     // `id` range la passkey sous l'identifiant ; `handle` = l'UUID du compte,
     // seul candidat sans donnée personnelle pour le userHandle (WebAuthn L3).
-    const options = await svc.generateRegistrationOptions({
-      id: me.identifier,
-      name: me.identifier,
-      handle: me.id,
-    });
+    let options: CeremonyOptions;
+    try {
+      options = await svc.generateRegistrationOptions(
+        { id: me.identifier, name: me.identifier, handle: me.id },
+        this.#host(),
+      );
+    } catch (e) {
+      return this.#renderAuthError(e);
+    }
     const session = await flow.ensureSession(this.context as ContextType);
     session?.set(REG_CHALLENGE, options.challenge);
     await session?.save(); // PERSISTE le challenge (storage), pas juste en mémoire
@@ -155,6 +172,7 @@ class WebAuthnController extends SecurityApiController {
         challenge,
         me.identifier,
         this.#origin(),
+        this.#host(),
       );
       return await this.renderJson({
         verified: true,
@@ -188,7 +206,15 @@ class WebAuthnController extends SecurityApiController {
       return this.renderJson({ error: "WebAuthn unavailable" }, 503);
     }
     const me = await flow.me(this.context as ContextType);
-    const options = await svc.generateAuthenticationOptions(me?.identifier);
+    let options: CeremonyOptions;
+    try {
+      options = await svc.generateAuthenticationOptions(
+        me?.identifier,
+        this.#host(),
+      );
+    } catch (e) {
+      return this.#renderAuthError(e);
+    }
     // Démarre une session MÊME déconnecté → porte le challenge anti-replay
     // jusqu'à la vérification (sinon « No challenge » au login).
     const session = await flow.ensureSession(this.context as ContextType);
@@ -211,6 +237,7 @@ class WebAuthnController extends SecurityApiController {
         this.#body().response,
         challenge,
         this.#origin(),
+        this.#host(),
       );
       const user = await flow.establishSessionFor(
         this.context as ContextType,
@@ -286,8 +313,17 @@ class WebAuthnController extends SecurityApiController {
 
   /** Origine HTTP de la requête (validée par le service contre le rpID). */
   #origin(): string | undefined {
-    const origin = (this.context as ContextType).request?.headers.origin;
+    const origin = this.context?.request?.headers.origin;
     return typeof origin === "string" ? origin : undefined;
+  }
+
+  /**
+   * Nom d'hôte de la requête (`Context.domain`, sans port) — le service en
+   * dérive le RP ID et le juge lui-même contre `trustedHosts`.
+   */
+  #host(): string | undefined {
+    const domain = this.context?.domain;
+    return typeof domain === "string" && domain !== "" ? domain : undefined;
   }
 
   /** Lit le challenge en session puis l'INVALIDE (usage unique, anti-replay). */
@@ -302,11 +338,16 @@ class WebAuthnController extends SecurityApiController {
 
   // 401 → message uniforme (anti-énumération) ; 409 → plafond d'enrôlement
   // (message explicite : le porteur EST authentifié, rien à énumérer, et il doit
-  // pouvoir comprendre qu'il faut retirer un appareil) ; le reste → pipeline 500.
+  // pouvoir comprendre qu'il faut retirer un appareil) ; 421 → hôte hors
+  // `trustedHosts`, corps CONSTANT (l'en-tête `Host` du client n'est pas
+  // renvoyé) ; le reste → pipeline 500.
   #renderAuthError(e: unknown) {
     const code = (e as { code?: unknown }).code;
     if (code === 401) {
       return this.renderJson({ error: "WebAuthn verification failed" }, 401);
+    }
+    if (code === 421) {
+      return this.renderJson({ error: "Misdirected Request" }, 421);
     }
     if (code === 409) {
       return this.renderJson(

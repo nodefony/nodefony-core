@@ -6,6 +6,9 @@ import { nodefonyError } from "nodefony";
  * classes de `@nodefony/security`).
  *
  *  - `409` — plafond `passkeys.maxPerUser` atteint.
+ *  - `421` — cérémonie demandée sous un hôte hors `trustedHosts` : aucun RP ID
+ *    ne lui est attribué (RFC 9110 §15.5.20, même statut que la barrière du
+ *    noyau HTTP).
  *
  * Distincte de la **cérémonie** elle-même (défi/signature/origine invalides →
  * `AuthenticationError` 401, message uniforme anti-énumération) : ici la
@@ -13,8 +16,8 @@ import { nodefonyError } from "nodefony";
  * refuse d'enregistrer un credential de plus.
  */
 export class WebAuthnError extends nodefonyError {
-  // oxlint-disable-next-line no-useless-constructor -- pas redondant : il FIGE `code` à 409, seul statut que cette erreur puisse porter, là où le parent accepte n'importe quel nombre
-  constructor(message: string, code: 409) {
+  // oxlint-disable-next-line no-useless-constructor -- pas redondant : il BORNE `code` aux seuls statuts que cette erreur puisse porter (409, 421), là où le parent accepte n'importe quel nombre
+  constructor(message: string, code: 409 | 421) {
     super(message, code);
   }
 }
