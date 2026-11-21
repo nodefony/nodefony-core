@@ -1036,8 +1036,15 @@ function readCommits(numeros) {
     // commits existants passe pour inexistant. Vécu ici même : six tickets
     // déclarés « en cours sans le moindre commit » alors qu'un commit du jour
     // les citait. `git` dégrossit, la regex tranche.
+    // `--branches --remotes` : TOUTES les branches, pas la seule courante. Le
+    // travail d'un ticket vit sur SA branche (`fix/810-…`) tant que sa PR
+    // attend : lancé depuis une autre branche, `git log` nu ne le voyait pas, et
+    // un ticket travaillé le jour même passait pour « en cours sans commit
+    // depuis 14 jours » (vécu : #241 puis #810, la même séance).
     const brut = sh("git", [
       "log",
+      "--branches",
+      "--remotes",
       "-30",
       `--grep=#${n}`,
       "--format=%H%x09%cI%x09%s%x09%b%x1e",
