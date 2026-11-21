@@ -828,11 +828,16 @@ plus un défaut qu'on ne voit pas.
 
 #### La liste embarquée, et ce qu'elle coûte
 
-~10 000 empreintes de 4 octets (`Uint32Array` trié, recherche binaire) : **40 Ko**, et le module qui
-les porte est chargé par un `import()` dynamique au premier contrôle — une application qui ne crée
-aucun compte ne le lit jamais. Le clair n'est pas embarqué : seules les empreintes le sont, et elles
-ne sont pas réversibles. La troncature rend une collision possible (~2,3 × 10⁻⁶ par test) ; elle
-**refuse** alors un mot de passe sain, ce qui tombe du bon côté.
+~10 000 empreintes de 8 octets (paires d'entiers dans un `Uint32Array` trié, recherche binaire) :
+**80 Ko**, et le module qui les porte est chargé par un `import()` dynamique au premier contrôle —
+une application qui ne crée aucun compte ne le lit jamais. Le clair n'est pas embarqué : seules les
+empreintes le sont, et elles ne sont pas réversibles. La troncature rend une collision possible,
+mais négligeable (~5 × 10⁻¹⁶ par contrôle) : elle refuserait un mot de passe sain. Sur 4 octets,
+elle valait ~2,3 × 10⁻⁶ — assez pour qu'une application générée sur ~430 000 ne sème pas son
+compte d'administration, dont le mot de passe est tiré au hasard.
+
+`truncatedPasswordHash` rend toujours les **4** premiers octets du SHA-1 : la liste ne se compare
+plus sur cette valeur.
 
 Le corpus vient de [SecLists](https://github.com/danielmiessler/SecLists) (licence MIT, attribution
 portée dans l'artefact). Regénérer l'artefact :
