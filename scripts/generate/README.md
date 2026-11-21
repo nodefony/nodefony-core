@@ -63,6 +63,7 @@ Catalogue des variables d'environnement — projection DÉRIVÉE, jamais saisie.
 - **Usage** : `tsx scripts/generate/env-snapshot.ts --check`
 - **Variable** `NF_X`
 - **Appelé par** : `npm run env:snapshot` · `.githooks/pre-commit`
+- **Testé par** : `site/llms-plan.test.mjs`
 - **Utilise** : `lib/repo-root.mjs` · `test/vitest/gates.ts` · `generate/env-catalog.ts` · `generate/env-reference.ts`
 
 ## [`generate-man.mjs`](generate-man.mjs)

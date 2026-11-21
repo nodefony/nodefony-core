@@ -37,7 +37,7 @@ Construit le SITE de documentation publié — toute la doc Nodefony en HTML aut
 - **Usage** : `node scripts/site/build-docs-site.mjs [--out tmp/sites/docs] [--mount /docs] [--channel published|next] [--quiet]`
 - **Usage** : `node scripts/site/build-docs-site.mjs --list`
 - **Appelé par** : `node.js.yml` · `.githooks/pre-push` · `site/build-site.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs` · `.claude/skills/nodefony-documentation/scripts/doc-lint.mjs` · `.claude/skills/nodefony-documentation/scripts/render-figures.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `deps/shims/deepmerge/index.js` · `site/lib/admonitions.mjs` · `site/lib/api-reference.mjs` · `site/lib/html-text.mjs` · `site/lib/markdown-source.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `deps/shims/deepmerge/index.js` · `site/lib/admonitions.mjs` · `site/lib/api-reference.mjs` · `site/lib/html-text.mjs` · `site/lib/markdown-source.mjs` · `site/lib/out-dir.mjs` · `site/lib/page-summary.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs`
 
 ## [`build-perf-site.mjs`](build-perf-site.mjs)
 
@@ -62,7 +62,7 @@ Publie le PLAN du site : `llms.txt`, `sitemap.xml` et `robots.txt`.
 - **Usage** : `npm run site:plan`
 - **Usage** : `node scripts/site/build-site-plan.mjs [--out tmp/sites/docs] [--base <url>]`
 - **Appelé par** : `npm run site:plan` · `site/build-site.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/app-template-deps.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/app-template-deps.mjs` · `site/lib/llms-plan.mjs`
 
 ## [`build-site.mjs`](build-site.mjs)
 
@@ -86,6 +86,13 @@ Refuse un site dont un lien interne ne mène nulle part.
 
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `site/lib/html-text.mjs`
+
+## [`llms-plan.test.mjs`](llms-plan.test.mjs)
+
+Éprouve le plan `llms.txt` du site et le résumé de page qu'il cite.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `generate/env-snapshot.ts` · `site/lib/llms-plan.mjs` · `site/lib/page-summary.mjs`
 
 ## [`markdown-highlight.mjs`](markdown-highlight.mjs)
 

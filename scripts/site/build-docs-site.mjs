@@ -114,6 +114,7 @@ import { prepareOutDir } from "./lib/out-dir.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
 import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs";
 import { extractApiModel, renderApiPages } from "./lib/api-reference.mjs";
+import { pageSummary } from "./lib/page-summary.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -1416,34 +1417,12 @@ function renderPage(d, published, index, publishedPaths) {
     .filter(Boolean)
     .join("");
 
-  // Première phrase de la page, ou son titre — c'est l'extrait qu'un moteur de
-  // recherche montrera. Sans elle, il en invente un, souvent une ligne de code.
-  // L'extrait qu'un moteur de recherche montrera. À défaut, il en invente un —
-  // souvent le fil d'Ariane ou une ligne de code, ce qui ne dit rien de la page.
-  // L'intro d'une page de ce corpus est fréquemment une CITATION (le résumé en
-  // tête), d'où le `>` retiré plutôt que la ligne écartée.
-  const prose = body
-    .replace(/```[\s\S]*?```/g, "") // un bloc de code n'est pas une phrase
-    .replace(/^\s*>\s?\[!.*$/gm, "") // ni le marqueur d'une admonition
-    .replace(/^\s*>\s?/gm, ""); // une citation, si : c'est souvent le résumé
-  const firstText = (
-    metaString(d.meta, "description") ??
-    prose
-      .split("\n")
-      .map((l) => l.trim())
-      .find(
-        (l) =>
-          l.length > 30 &&
-          !/^[#|\-*[\d]/.test(l) &&
-          !l.includes("›") && // fil d'Ariane
-          !l.startsWith("!["), // image seule
-      ) ??
-    d.title
-  )
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // les liens gardent leur texte
-    .replace(/[*`_]/g, "")
-    .trim()
-    .slice(0, 180);
+  // Le résumé de la page — `<meta name="description">`, et l'extrait que cite `llms.txt`.
+  const firstText = pageSummary(
+    body,
+    metaString(d.meta, "description"),
+    d.title,
+  );
 
   const page = doc({
     title: d.title,
