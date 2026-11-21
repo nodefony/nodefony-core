@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  readPushedHead,
   closeReminder,
   countRequiredChecks,
   finishBlockers,
@@ -336,5 +337,35 @@ describe("finishSteps — l'ordre des gestes de clôture (#796, fusion de #805)"
         mode: "auto",
       }),
     ).toEqual(["auto-merge"]);
+  });
+});
+
+describe("readPushedHead — la tête de PR se relit APRÈS que GitHub l'a mise à jour (#821)", () => {
+  it("relit tant que la tête n'est pas le sha poussé", () => {
+    const heads = ["ancien", "ancien", "neuf"];
+    let waits = 0;
+    const pr = readPushedHead(
+      () => ({ headRefOid: heads.shift() ?? "neuf" }),
+      "neuf",
+      {
+        wait: () => waits++,
+      },
+    );
+    expect(pr.headRefOid).toBe("neuf");
+    expect(waits).toBe(2);
+  });
+
+  it("borne l'attente et rend la dernière lecture, sans inventer la tête", () => {
+    let reads = 0;
+    const pr = readPushedHead(
+      () => (reads++, { headRefOid: "ancien" }),
+      "neuf",
+      {
+        attempts: 3,
+        wait: () => {},
+      },
+    );
+    expect(pr.headRefOid).toBe("ancien");
+    expect(reads).toBe(3);
   });
 });

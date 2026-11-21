@@ -229,13 +229,26 @@ function get(
   });
 }
 
-/** Un port où personne n'écoute : ouvert, lu, refermé. */
-async function deadPort(): Promise<number> {
+/**
+ * Un port où personne n'écoute — tenu OCCUPÉ jusqu'à `release()`.
+ *
+ * 🔴 Le refermer tout de suite ne suffit pas : sous Windows, le port libéré est
+ * redonné au `listen(0)` suivant — celui du frontal. Le proxy visait alors
+ * LUI-MÊME, reconnaissait son propre `Via` et répondait 508 (vu sur la forge).
+ * Le libérer seulement APRÈS que le frontal a reçu le sien rend la collision
+ * impossible.
+ */
+async function deadPort(): Promise<{
+  port: number;
+  release: () => Promise<void>;
+}> {
   const s = net.createServer();
   await new Promise<void>((resolve) => s.listen(0, "127.0.0.1", resolve));
   const { port } = s.address() as AddressInfo;
-  await new Promise<void>((resolve) => s.close(() => resolve()));
-  return port;
+  return {
+    port,
+    release: () => new Promise<void>((resolve) => s.close(() => resolve())),
+  };
 }
 
 describe("ReverseProxy — requêtes HTTP/1.1", () => {
@@ -428,11 +441,13 @@ describe("ReverseProxy — requêtes HTTP/1.1", () => {
   });
 
   it("amont injoignable → 502, sans détail interne", async () => {
+    const dead = await deadPort();
     const port = await front(
       proxyWith({
-        "/svc/": { target: `http://127.0.0.1:${await deadPort()}` },
+        "/svc/": { target: `http://127.0.0.1:${dead.port}` },
       }),
     );
+    await dead.release();
     const r = await get(port, "/svc/");
     expect(r.status).toBe(502);
     expect(r.body).toBe("Bad Gateway");
@@ -728,14 +743,16 @@ describe("ReverseProxy — upgrade WebSocket", () => {
   });
 
   it("amont injoignable → 502 sur l'upgrade", async () => {
+    const dead = await deadPort();
     const port = await front(
       proxyWith({
         "/hmr/": {
-          target: `http://127.0.0.1:${await deadPort()}`,
+          target: `http://127.0.0.1:${dead.port}`,
           websocket: true,
         },
       }),
     );
+    await dead.release();
     await expect(open(port, "/hmr/")).rejects.toThrow("HTTP 502");
   });
 

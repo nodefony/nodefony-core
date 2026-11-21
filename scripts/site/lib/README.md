@@ -35,7 +35,7 @@ Référence d'API du site : ce que chaque paquet publié EXPOSE, rendu en pages 
 Les dépendances de production d'une application MINIMALE, lues dans le gabarit que `nodefony create app` rend.
 
 - **Usage** : `import { APP_TEMPLATE_PATH, minimalAppDependencies } from "./lib/app-template-deps.mjs"`
-- **Appelé par** : `site/build-site-plan.mjs`
+- **Appelé par** : `site/build-site-plan.mjs` · `site/lib/llms-plan.mjs`
 - **Testé par** : `site/site-plan.test.mjs`
 
 ## [`html-text.mjs`](html-text.mjs)
@@ -45,6 +45,15 @@ Retrait des balises HTML — **une seule implémentation pour tout le dépôt**.
 - **Usage** : `import { sansBalises, anchorHeadings } from "./lib/html-text.mjs"`
 - **Appelé par** : `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/readme-html.mjs`
 - **Testé par** : `site/html-text.test.mjs`
+
+## [`llms-plan.mjs`](llms-plan.mjs)
+
+Le plan de lecture du site au format llms.txt (https://llmstxt.org) — en ANGLAIS, et COURT.
+
+- **Usage** : `import { llmsPlan } from "./lib/llms-plan.mjs"`
+- **Appelé par** : `site/build-site-plan.mjs`
+- **Testé par** : `site/llms-plan.test.mjs`
+- **Utilise** : `site/lib/app-template-deps.mjs` · `release/release-core.mjs`
 
 ## [`markdown-source.mjs`](markdown-source.mjs)
 
@@ -61,6 +70,14 @@ Dossier de sortie d'un générateur du site : neuf à chaque rendu, ou refusé.
 - **Usage** : `import { prepareOutDir } from "./lib/out-dir.mjs"`
 - **Appelé par** : `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-site.mjs`
 - **Testé par** : `site/site-versions.test.mjs`
+
+## [`page-summary.mjs`](page-summary.mjs)
+
+Le résumé d'une page publiée : l'extrait qu'un moteur de recherche montrera (`<meta name="description">`), et que le plan `llms.txt` cite à côté du lien. Sans lui, le moteur en invente un — souvent le fil d'Ariane ou une ligne de code, ce qui ne dit rien de la page.
+
+- **Usage** : `import { pageSummary } from "./lib/page-summary.mjs"`
+- **Appelé par** : `site/build-docs-site.mjs`
+- **Testé par** : `site/llms-plan.test.mjs`
 
 ## [`site-nav.mjs`](site-nav.mjs)
 

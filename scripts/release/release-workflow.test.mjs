@@ -128,6 +128,33 @@ describe("une seule CI par sha — rien ne rejoue la CI sur main (#796)", () => 
     expect(on.pull_request?.paths).toBeUndefined();
   });
 
+  it("le ruleset versionné exige un check qu'un job de node.js.yml rend vraiment", () => {
+    // Le ruleset vit sur la forge, pas dans git : `.github/rulesets/` en garde
+    // la définition. Un check exigé qu'aucun job ne porte (renommé, retiré)
+    // bloquerait TOUTE fusion vers dev et release/**, sans un mot.
+    const ruleset = JSON.parse(
+      readFileSync(
+        path.join(WORKFLOWS, "..", "rulesets", "branches-longues.json"),
+        "utf8",
+      ),
+    );
+    const required = ruleset.rules
+      .filter((r) => r.type === "required_status_checks")
+      .flatMap((r) =>
+        r.parameters.required_status_checks.map((c) => c.context),
+      );
+    const { jobs } = parse(
+      readFileSync(path.join(WORKFLOWS, "node.js.yml"), "utf8"),
+    );
+    const names = Object.values(jobs).map((j) => j.name);
+    expect(required).toEqual(["ci-ok"]);
+    for (const context of required) expect(names).toContain(context);
+    // `main` reste ouverte à la publication, qui y pousse `<branche>:main`.
+    expect(ruleset.conditions.ref_name.include).not.toContain(
+      "refs/heads/main",
+    );
+  });
+
   it("chaque workflow de CI poussé couvre dev ET release/** — sinon le sha publié n'aurait aucune CI", () => {
     const missing = pushBranches()
       .filter(({ file }) => !MAIN_PUSH_ALLOWED.has(file))

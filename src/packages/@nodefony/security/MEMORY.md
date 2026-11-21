@@ -206,9 +206,14 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   §7.1 registration / §7.2 authentication) déléguées à **`@simplewebauthn/server`** (lazy `import()`,
   externalisé rolldown, vendorless côté `/browser`). `generateRegistrationOptions`/`verifyRegistration`
   (stocke le credential) + `generateAuthenticationOptions`/`verifyAuthentication` (vérifie sig + counter
-  anti-clone, MAJ état). RP résolu au boot : `rpId` = config ?? kernel.domain, **IP→`localhost`** auto
-  (le navigateur refuse une IP). `#expectedOrigin` = liste blanche config, sinon **origine requête SI
-  hostname===rpId** (dev localhost:port sûr). `authenticatorAttachment:"platform"` (défaut) = Touch ID/
+  anti-clone, MAJ état). RP de BASE au boot : `rpId` = config ?? kernel.domain, **IP→`localhost`** auto
+  (le navigateur refuse une IP). RP PAR CÉRÉMONIE = `relyingPartyIdFor(host)` (dernier arg `host` des 4
+  cérémonies, `Context.domain` passé par `WebAuthnController#host`) : pas d'hôte / IP / hôte = base ou
+  SOUS la base → base (inchangé) ; autre hôte → lui-même en punycode SSI `HttpKernel.isTrustedHostname`
+  (par NOM) ; sinon `WebAuthnError` **421** (corps constant au contrôleur), barrière absente = 421
+  (fail-closed). Gotcha : `domainCheck` vaut `false` par défaut → aucun 421 avant routage, `Host` brut
+  dans `context.domain` — le service est alors le SEUL juge. `#expectedOrigin(rpID)` = liste blanche
+  config (vaut pour TOUS les hôtes), sinon **origine requête SI hostname===rpID** (dev localhost:port sûr). `authenticatorAttachment:"platform"` (défaut) = Touch ID/
   Hello **sans QR** ; `"cross-platform"`=clé/tél, `"any"`=les deux. Lazy import = règle gravée.
 - `IWebAuthnCredential` (id b64url, **publicKey COSE** b64url, signCount, transports, BE/BS, userId,
   lastUsedAt) + `IWebAuthnCredentialStore` (findById/findByUser/**countByUser**/save/update/delete).

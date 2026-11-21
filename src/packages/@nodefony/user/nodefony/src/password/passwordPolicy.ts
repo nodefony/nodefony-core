@@ -12,7 +12,7 @@
  *
  * ## Pourquoi la liste est LAZY
  *
- * Les empreintes pèsent 40 Ko de tas décodé, et 53 Ko de source. Le module qui
+ * Les empreintes pèsent 80 Ko de tas décodé, et 117 Ko de source. Le module qui
  * les porte est donc chargé par un `import()` DYNAMIQUE, au premier contrôle
  * réellement atteint — lors d'une création ou d'un changement de mot de passe,
  * jamais au démarrage, jamais dans le chemin d'une requête. Une application qui
@@ -35,7 +35,7 @@ import type {
   IPasswordBlocklist,
   IPasswordSubjectHint,
 } from "../../contracts/IPasswordBlocklist";
-import { truncatedPasswordHash } from "./passwordHash";
+import { commonPasswordHash } from "./passwordHash";
 
 /** Réglages d'une politique — tout est optionnel, les défauts sont sains. */
 export interface IPasswordPolicyOptions {
@@ -144,7 +144,10 @@ const MIN_IDENTIFIER_FRAGMENT = 4;
 export class PasswordPolicy implements IPasswordBlocklist {
   readonly options: Required<IPasswordPolicyOptions>;
 
-  /** Empreintes décodées — `null` tant qu'aucun contrôle n'en a eu besoin. */
+  /**
+   * Empreintes décodées, à plat par paires (poids fort, poids faible) — `null`
+   * tant qu'aucun contrôle n'en a eu besoin.
+   */
   #commonHashes: Uint32Array | null = null;
 
   /** Valeurs refusées en propre, repliées en minuscules — lazy, comme le reste. */
@@ -237,29 +240,42 @@ export class PasswordPolicy implements IPasswordBlocklist {
     return denied;
   }
 
-  /** Recherche binaire dans les empreintes triées (chargées au premier appel). */
+  /**
+   * Recherche binaire dans les empreintes triées (chargées au premier appel).
+   *
+   * Chaque empreinte occupe deux cases consécutives — poids fort, poids faible —
+   * et l'ordre est celui de la paire : on compare le poids fort, puis le faible.
+   */
   async #isCommon(plain: string): Promise<boolean> {
     if (this.#commonHashes === null) {
       const { COMMON_PASSWORD_HASHES_BASE64, COMMON_PASSWORD_HASH_COUNT } =
         await import("./commonPasswordHashes");
       const bytes = Buffer.from(COMMON_PASSWORD_HASHES_BASE64, "base64");
-      const hashes = new Uint32Array(COMMON_PASSWORD_HASH_COUNT);
+      const hashes = new Uint32Array(COMMON_PASSWORD_HASH_COUNT * 2);
       for (let index = 0; index < hashes.length; index += 1) {
         hashes[index] = bytes.readUInt32BE(index * 4);
       }
       this.#commonHashes = hashes;
     }
-    const needle = truncatedPasswordHash(plain);
+    const [needleHigh, needleLow] = commonPasswordHash(plain);
     const hashes = this.#commonHashes;
     let low = 0;
-    let high = hashes.length - 1;
+    let high = (hashes.length >>> 1) - 1;
     while (low <= high) {
       const middle = (low + high) >>> 1;
-      const value = hashes[middle];
-      if (value === undefined) break; // hors bornes : impossible tant que low <= high
-      if (value === needle) return true;
-      if (value < needle) low = middle + 1;
-      else high = middle - 1;
+      const valueHigh = hashes[middle * 2];
+      const valueLow = hashes[middle * 2 + 1];
+      // hors bornes : impossible tant que low <= high
+      if (valueHigh === undefined || valueLow === undefined) break;
+      if (valueHigh === needleHigh && valueLow === needleLow) return true;
+      if (
+        valueHigh < needleHigh ||
+        (valueHigh === needleHigh && valueLow < needleLow)
+      ) {
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
     }
     return false;
   }

@@ -192,10 +192,21 @@ const DEFAULTS: ResolvedOptions = {
  * Mesuré sur la forge : le cas d'intégration du décalage de port tué à 60 s
  * (`4 tentatives × startupTimeoutMs`) quand les cinq autres du même fichier
  * tenaient en 300 à 700 ms.
+ *
+ * 🔴 **Sous Windows, un port pris se dit AUSSI `EACCES`.** Un port tenu en
+ * exclusivité par un autre processus, ou rangé dans une plage que le système
+ * réserve (Hyper-V, WinNAT), fait échouer `listen` en `EACCES` — jamais en
+ * `EADDRINUSE`. Vu sur la forge : `listen EACCES: permission denied
+ * 127.0.0.1:55879`, vite mort, aucun repli, frontend perdu. Le motif exige
+ * `listen` ET un port : un `EACCES` d'ouverture de fichier est une vraie panne,
+ * qu'aucun changement de port ne réparerait. Sous Linux, le même texte vise un
+ * port privilégié (< 1024) : le repli échoue alors à son tour, borné par
+ * `portRetryAttempts`, et l'erreur finale reste nommée.
  */
 export function isPortInUseMessage(text: string): boolean {
   return (
     /EADDRINUSE/i.test(text) ||
+    /listen\s+EACCES\b[^\n]*:\d+/i.test(text) ||
     /address already in use/i.test(text) ||
     /port\s+\d+\s+is\s+already\s+in use/i.test(text)
   );

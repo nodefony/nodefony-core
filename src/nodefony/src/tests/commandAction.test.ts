@@ -57,8 +57,17 @@ describe("Une commande n'est pas un hook de boot — borne de temps", () => {
   it("la garde décide PAR écouteur : le hook tombe, l'action va au bout", async () => {
     const ev = new Event();
     const acheve: string[] = [];
+    // 🔴 Le hook ne finit qu'APRÈS les assertions, libéré à la main. Un hook
+    // « lent » de 60 ms contre une borne de 10 ms pariait sur l'ordre de deux
+    // minuteries : Node ne le garantit pas quand la boucle est bloquée plus de
+    // 60 ms (il traite ses minuteries par listes de même durée, et une liste de
+    // 60 ms déjà en file passe devant celle de 10 ms). Vu sur la forge macOS :
+    // le hook avait fini avant que la garde ne regarde, zéro erreur.
+    let releaseHook = (): void => {};
     const lent = async (): Promise<string> => {
-      await new Promise((r) => setTimeout(r, 60));
+      await new Promise<void>((r) => {
+        releaseHook = r;
+      });
       acheve.push("hook");
       return "hook";
     };
@@ -80,9 +89,11 @@ describe("Une commande n'est pas un hook de boot — borne de temps", () => {
     // travail, on ne l'a pas désarmée.
     expect(r.errors).to.have.length(1);
     expect(r.errors[0]?.timedOut).to.equal(true);
-    // …et l'action, elle, a été ATTENDUE jusqu'au bout.
-    expect(acheve).to.deep.equal(["hook", "action"]);
+    // …et l'action, elle, a été ATTENDUE jusqu'au bout — le hook abandonné,
+    // lui, n'a toujours pas fini.
+    expect(acheve).to.deep.equal(["action"]);
     expect(r.results).to.deep.equal(["action"]);
+    releaseHook();
   });
 
   it("une borne NUMÉRIQUE s'applique à tout le monde (pas de régression)", async () => {
