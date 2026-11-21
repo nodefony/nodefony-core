@@ -121,8 +121,10 @@ est finie : la reprise le dit, et rend le retour à la base.
 
 Dans les deux cas, on enchaîne aussitôt : `ticket-start <suivant>` part de `origin/<base>`, jamais
 de la branche en attente. Les deux réglages qui ouvrent la fusion automatique — « Allow
-auto-merge » et la protection de `dev` / `release/*` exigeant la CI — sont des gestes de l'auteur
-dans les réglages GitHub ; `main` doit rester ouvert à la publication, qui pousse `<branche>:main`.
+auto-merge » et la protection de `dev` / `release/*` exigeant le SEUL check `ci-ok` (job agrégateur de
+`node.js.yml`, ADR-0029 D11) — sont des gestes de l'auteur dans les réglages GitHub ; `main` doit
+rester ouvert à la publication, qui pousse `<branche>:main`. Aucun workflow de CI ne tourne sur un
+push vers `main` (D10) : exiger un check sur `main` bloquerait la publication.
 
 ## 2 ter. Mettre un ticket de côté — un commit, jamais `stash`
 

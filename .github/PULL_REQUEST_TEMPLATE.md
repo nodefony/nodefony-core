@@ -14,7 +14,11 @@ sécurité — https://github.com/nodefony/nodefony-core/security/policy
 <!-- Deux à quatre phrases. Le POURQUOI avant le QUOI : un diff se lit, une
 intention non. -->
 
-Ferme #
+<!-- Vers `dev` : « Closes #N » ferme le ticket à la fusion.
+Vers `release/x.y.x` : « Refs #N » — GitHub ne ferme rien hors de la branche
+par défaut, le ticket se ferme à la main après la fusion. -->
+
+Closes #
 
 ## Comment on le constate
 

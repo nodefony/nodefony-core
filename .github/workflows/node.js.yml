@@ -2,22 +2,14 @@ name: nodefony-core
 
 on:
   push:
-    branches: ["main", "dev", "release/**"]
-    paths-ignore: &prose
-      # Ce workflow est le SEUL sans filtre, et il est le plus cher : 17 jobs
-      # sur trois systèmes. Mesuré — le commit `90497f81`, qui ne touchait que
-      # `MIGRATION_STATUS.md` et des retex, a fait tourner les 17, soit ~35 min
-      # de runner pour de la prose. Les quatre autres workflows filtrent déjà.
-      #
-      # 🔴 La liste est CIBLÉE, et surtout PAS `**/*.md` : ce workflow lance
-      # `skills:check`, dont la matière EST faite de `SKILL.md`. Le filtre
-      # évident aurait éteint ce gate sans que rien ne le signale — un gate
-      # qu'on désactive en croyant économiser du runner est le pire des deux.
-      - "docs/**"
-      - "MIGRATION_STATUS.md"
+    # Pas `main` : elle ne reçoit que des commits déjà poussés sur dev ou release/**
+    # (`--promouvoir`, poussée atomique) — une seule CI par sha (#796).
+    branches: ["dev", "release/**"]
+  # Pas de `paths-ignore` ici : le filtre de prose vit dans le job `changes`.
+  # Un workflow filtré au déclencheur ne démarre PAS, et le check exigé `ci-ok`
+  # ne se rapporterait jamais sur une PR de prose — fusion bloquée en attente.
   pull_request:
     branches: ["main", "dev", "release/**"]
-    paths-ignore: *prose
   workflow_dispatch:
 
 # Annule les runs précédents sur la même branche / PR si un nouveau push arrive.
@@ -69,6 +61,63 @@ env:
   TURBO_CONCURRENCY: 4
 
 jobs:
+  # ─── Le changement touche-t-il autre chose que de la prose ? ───────────────
+  #
+  # Les jobs de test en dépendent : de la prose seule les SAUTE (un saut compte
+  # vert pour `ci-ok`), le workflow démarre quand même et `ci-ok` se rapporte.
+  # Coût : un runner de quelques secondes devant les autres.
+  changes:
+    name: Prose seule ?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Lire la liste des fichiers d'une PR exige `pull-requests: read`.
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - name: Fichiers touchés hors prose
+        id: diff
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        # Mesuré — le commit `90497f81`, qui ne touchait que `MIGRATION_STATUS.md`
+        # et des retex, a fait tourner les 17 jobs, soit ~35 min de runner pour de
+        # la prose.
+        #
+        # 🔴 La liste est CIBLÉE, et surtout PAS `**/*.md` : ce workflow lance
+        # `skills:check`, dont la matière EST faite de `SKILL.md`. Le filtre
+        # évident aurait éteint ce gate sans que rien ne le signale — un gate
+        # qu'on désactive en croyant économiser du runner est le pire des deux.
+        #
+        # Dans le doute, on TESTE : API muette, comparaison tronquée (300
+        # fichiers), première poussée d'une branche, lancement manuel → code.
+        run: |
+          code=true
+          files=""
+          if [ "$EVENT" = pull_request ]; then
+            files=$(gh pr diff "$PR" --repo "$GITHUB_REPOSITORY" --name-only) || files=""
+          elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ -n "${BEFORE//0/}" ]; then
+            files=$(gh api "repos/$GITHUB_REPOSITORY/compare/$BEFORE...$AFTER" \
+              --jq 'if (.files | length) < 300 then .files[].filename else empty end') || files=""
+          fi
+          if [ -n "$files" ]; then
+            code=false
+            while IFS= read -r file; do
+              case "$file" in
+                docs/*|MIGRATION_STATUS.md) ;;
+                *) code=true; break ;;
+              esac
+            done <<< "$files"
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "Hors prose : $code"
+
   # ─── Statique multi-plateformes + GATES DU DÉPÔT ───────────────────────────
   #
   # Ce job ne PRODUIT rien pour les autres : il compile pour vérifier que ça
@@ -94,6 +143,8 @@ jobs:
   # pas la plateforme. Les rejouer six fois coûterait six fois le même verdict.
   checks:
     name: Statique + gates du dépôt (${{ matrix.os }} / Node ${{ matrix.node-version }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     # `issues: read` : le gate des promesses d'ADR lit le corps des tickets
     # qu'un ADR charge d'un geste. Rien d'autre n'écrit ni ne lit au-delà du code.
@@ -722,6 +773,8 @@ jobs:
   # dire SA propre vérité, en parallèle des autres.
   test-unit:
     name: Tests unit (${{ matrix.os }} / Node ${{ matrix.node-version }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -791,6 +844,8 @@ jobs:
   # et Linux celle d'util-linux — deux outils différents, donc deux preuves.
   test-cli:
     name: Filet CLI (${{ matrix.os }} / Node ${{ matrix.node-version }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -864,6 +919,8 @@ jobs:
   # un serveur prêt en comptant des lignes de journal ne prouvait pas qu'il l'était.
   test-integration:
     name: Tests intégration (${{ matrix.os }} / Node ${{ matrix.node-version }} / ${{ matrix.mode }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1235,6 +1292,8 @@ jobs:
   # l'attente d'une poussée au-delà du job le plus long.
   test-decors:
     name: Décor (${{ matrix.decor }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -1436,3 +1495,37 @@ jobs:
           path: nodefony-server.log
           retention-days: 7
           if-no-files-found: ignore
+
+  # ─── LE CHECK EXIGÉ — `ci-ok` ──────────────────────────────────────────────
+  #
+  # Seul check que les règles de protection de `dev` et `release/**` exigent
+  # (et qu'attend `gh pr merge --auto`) : un nom stable, quelles que soient les
+  # matrices. Il échoue sur `failure` ou `cancelled` d'un job — un job
+  # sauté (prose seule) compte vert, c'est voulu. `needs` doit couvrir TOUS les
+  # jobs de ce workflow : `scripts/release/release-workflow.test.mjs` le garde.
+  # Il ne voit pas les autres workflows (mémoire, ORM, e2e, CodeQL, code
+  # généré) : filtrés par chemins, ils ne se rapportent pas sur toute PR.
+  ci-ok:
+    name: ci-ok
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [changes, checks, test-unit, test-cli, test-integration, test-decors]
+    if: always()
+    steps:
+      - name: Chaque job a rendu un verdict acceptable
+        shell: bash
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key) : \(.value.result)"'
+          bad=$(echo "$RESULTS" | jq -r '[to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key] | join(", ")')
+          if [ -n "$bad" ]; then
+            echo "::error::jobs en échec ou annulés : $bad"
+            exit 1
+          fi
+          # `changes` doit avoir RÉUSSI : sauté, il aurait fait sauter tous les
+          # tests, et un vert sans test n'en est pas un.
+          if [ "$(echo "$RESULTS" | jq -r '.changes.result')" != success ]; then
+            echo "::error::le tri prose/code n'a pas rendu de verdict"
+            exit 1
+          fi

@@ -35,7 +35,9 @@ name: Bancs sur infrastructure réelle
 
 on:
   push:
-    branches: ["main", "dev", "release/**"]
+    # Pas `main` : elle ne reçoit que des commits déjà poussés sur dev ou release/**
+    # (`--promouvoir`, poussée atomique) — une seule CI par sha (#796).
+    branches: ["dev", "release/**"]
     paths:
       - "src/packages/@nodefony/drizzle/**"
       - "src/packages/@nodefony/redis/**"
