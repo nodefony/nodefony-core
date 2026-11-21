@@ -183,10 +183,16 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
 - Écart global ≠ projet → `versionMismatchNotice` (pure, `bin/resolveLocalCli.ts`) : 1 ligne stderr
   D'OFFICE, muette à versions égales, sous `--json`/`--json=` et `__complete`. Vit dans le bundle du
   bin → aucun import du core (garde `binBundle.test.ts`).
-- `create app` → `startFreshnessCheck` (`cli/cliFreshness.ts`) lancé AVANT l'install, attendu à la
-  fin, stderr. Compare TOUS les `dist-tags` (`latest` de `nodefony` = la 7.x !) ; stable → stable
-  seulement, préversion → même majeure. Geste = `npm i -g nodefony@<tag réel>`. Borne 1,5 s, ne lève
-  jamais. Coupé par `CI`, `NF_NO_UPDATE_CHECK`, `--link`, et dans les tests (`vitest.setup.ts`).
+- `create app` → `startFreshnessCheck` (`cli/cliFreshness.ts`) lancé AVANT l'install, écrit sur stderr
+  SOUS le panneau de démarrage (au-dessus, il se noyait). Compare TOUS les `dist-tags` ; stable →
+  stable seulement, préversion → même majeure ; à version égale, le tag de SON canal gagne
+  (`latest` pour une stable, jamais `@beta` par ordre du document). Geste selon le LANCEUR
+  (`createLauncherOf`) : `npm create nodefony@<tag> <app>` derrière `create-nodefony`, sinon
+  `npm i -g nodefony@<tag>`. Borne 1,5 s, ne lève jamais. Coupé par `CI`, `NF_NO_UPDATE_CHECK`,
+  `--link`, et dans les tests (`vitest.setup.ts`).
+- `npm create nodefony` NU a repris une version gardée juste après une publication (constaté à la
+  10.0.1). Cause non prouvée : le cache npx est rangé par version RÉSOLUE, donc le suspect est le
+  cache HTTP du document du paquet, pas npx. D'où l'annonce, et `@latest` dans son geste.
 - Banc réel : scénario `global` de `npm run release:smoke` (préfixe `npm i -g --prefix` jetable).
 
 ## Environnement — `nodefony env`

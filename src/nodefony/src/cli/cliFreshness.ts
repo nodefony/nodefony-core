@@ -1,5 +1,7 @@
 import semver from "semver";
 import { RESERVED_ENV } from "../config/reservedEnv";
+import { npmChannelOf } from "./installCommand";
+import type { TCreateLauncher } from "./create";
 
 /** Délai maximal accordé au registre : au-delà, on se tait. */
 export const FRESHNESS_TIMEOUT_MS = 1500;
@@ -30,6 +32,11 @@ export interface INewerRelease {
  *   de la même majeure — on ne pousse pas qui tourne en stable vers une bêta,
  *   ni qui teste la 10 vers une alpha de la 11.
  *
+ * Plusieurs tags pour la même version (une stable sert souvent `latest`,
+ * `beta` et `alpha` à la fois) : le tag de SON canal l'emporte — `latest` pour
+ * une stable. Sinon l'ordre du document décidait, et l'annonce envoyait vers
+ * `@beta` qui tournait en stable.
+ *
  * @param self - version du CLI qui tourne.
  * @param distTags - les `dist-tags` du paquet, tels que le registre les rend.
  * @returns la plus haute version retenue et son tag, ou `null`.
@@ -52,28 +59,57 @@ export function newerPublishedRelease(
     ) {
       continue;
     }
-    if (best === null || semver.gt(candidate, best.version)) {
+    if (
+      best === null ||
+      semver.gt(candidate, best.version) ||
+      (semver.eq(candidate, best.version) &&
+        tag === npmChannelOf(candidate.version))
+    ) {
       best = { version: candidate.version, tag };
     }
   }
   return best;
 }
 
+/** Qui a lancé la génération, et sous quel nom — le geste en dépend. */
+export interface IStaleNoticeContext {
+  /** `npm-create` : le shim `create-nodefony` (cf `createLauncherOf`). */
+  launcher: TCreateLauncher;
+  /** Nom de l'application générée, repris dans la ligne à relancer. */
+  appName: string;
+}
+
 /**
- * Rend l'annonce d'un CLI périmé, avec le geste qui le met à jour.
+ * Rend l'annonce d'une génération sur une version périmée, avec le geste qui
+ * la refait sur la bonne.
+ *
+ * Le geste suit le LANCEUR : à qui a tapé `npm create nodefony`, conseiller
+ * `npm i -g` met à jour un binaire qu'il n'a pas, et la prochaine génération
+ * repart du même cache npx. On lui rend donc sa propre commande, canal nommé
+ * (`@latest`) : c'est la forme qui ne réutilise jamais une copie gardée.
  *
  * @param self - version du CLI qui tourne.
  * @param newer - la version plus récente retenue.
+ * @param context - lanceur et nom d'application (défaut : binaire global).
  * @returns le texte à écrire sur la sortie d'erreur.
  */
 export function renderStaleCliNotice(
   self: string,
   newer: INewerRelease,
+  context: IStaleNoticeContext | null = null,
 ): string {
+  const head =
+    `\n⚠ cette application vient d'être générée avec la ${self}, ` +
+    `et la ${newer.version} est publiée.\n`;
+  if (context?.launcher === "npm-create") {
+    return (
+      head +
+      `  npm create nodefony@${newer.tag} ${context.appName}   ` +
+      `# la régénère en ${newer.version} (dossier à retirer d'abord)\n`
+    );
+  }
   return (
-    `\n⚠ ce CLI est en ${self}, et ${newer.version} est publiée : ` +
-    `l'application vient d'être engendrée sur la ${self}.\n` +
-    `  npm i -g nodefony@${newer.tag}   # met le CLI global à jour\n`
+    head + `  npm i -g nodefony@${newer.tag}   # met le CLI global à jour\n`
   );
 }
 
@@ -140,12 +176,14 @@ export async function fetchDistTags(
  * @param self - version du CLI qui tourne.
  * @param env - environnement (désactivation, registre configuré par npm).
  * @param fetchImpl - `fetch` injectable (tests).
+ * @param context - lanceur et nom d'application, qui choisissent le geste.
  * @returns l'annonce à écrire, ou `null`.
  */
 export function startFreshnessCheck(
   self: string,
   env: Readonly<Record<string, string | undefined>>,
   fetchImpl?: typeof fetch,
+  context: IStaleNoticeContext | null = null,
 ): Promise<string | null> {
   if (freshnessCheckDisabled(env)) return Promise.resolve(null);
   return fetchDistTags("nodefony", {
@@ -153,6 +191,6 @@ export function startFreshnessCheck(
     ...(fetchImpl ? { fetchImpl } : {}),
   }).then((tags) => {
     const newer = tags ? newerPublishedRelease(self, tags) : null;
-    return newer ? renderStaleCliNotice(self, newer) : null;
+    return newer ? renderStaleCliNotice(self, newer, context) : null;
   });
 }
