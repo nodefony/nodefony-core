@@ -280,7 +280,7 @@ Suite du cœur de release — écrite pour FAIRE ÉCHOUER le script, pas pour l'
 
 Le déclencheur de la publication ne porte aucune majeure écrite en dur (#796).
 
-- **Lancé par** : `release.yml` · `npm run test:release`
+- **Lancé par** : `node.js.yml` · `release.yml` · `npm run test:release`
 
 ## [`release.mjs`](release.mjs)
 

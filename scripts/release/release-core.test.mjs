@@ -48,6 +48,7 @@ import {
   refusDePublicationHorsBranche,
   avisDeBranche,
   planDePromotion,
+  refusDepuisPublication,
   refusDeMaintenance,
   clotMaintenance,
   estJalonDeCorrectif,
@@ -2743,13 +2744,26 @@ describe("promotion — un seul push, jamais deux fois le même commit", () => {
     ).toEqual({ refspecs: ["dev:main", "dev"] });
   });
 
+  it("refuse d'estampiller ou de promouvoir DEPUIS main — aucune CI ne s'y déclenche", () => {
+    const refus = refusDepuisPublication({
+      branche: "main",
+      branchePublication: "main",
+    });
+    expect(refus).toMatch(/aucune CI/u);
+    expect(refus).toMatch(/--branch/u);
+    for (const branche of ["dev", "release/10.0.x", null])
+      expect(
+        refusDepuisPublication({ branche, branchePublication: "main" }),
+      ).toBeNull();
+  });
+
   it("depuis la branche de publication, la pousse telle quelle", () => {
     expect(
       planDePromotion({ branche: "main", branchePublication: "main" }),
     ).toEqual({ refspecs: ["main"] });
   });
 
-  it("release.mjs ne pousse qu'UNE fois — la forge se déclenche sur main ET dev", () => {
+  it("release.mjs ne pousse qu'UNE fois — deux push rejoueraient la CI sur le même sha", () => {
     // Deux `push` (dev, puis dev:main) faisaient tourner toute la CI deux fois
     // sur le même sha. Le compte se lit dans la source : c'est le geste, pas le
     // plan, qui coûte.
