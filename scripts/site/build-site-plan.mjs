@@ -25,30 +25,11 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  minimalAppDependencies,
-  APP_TEMPLATE_HREF,
-} from "./lib/app-template-deps.mjs";
+import { minimalAppDependencies } from "./lib/app-template-deps.mjs";
+import { llmsPlan } from "./lib/llms-plan.mjs";
 import { REPO_ROOT } from "../lib/repo-root.mjs";
 
 const DEFAULT_BASE = "https://nodefony.net";
-
-/**
- * Les pages d'ENTRÉE, dans l'ordre où on veut qu'elles soient lues.
- *
- * C'est la seule liste écrite à la main de ce fichier, et elle est VÉRIFIÉE :
- * une entrée qui ne correspond à aucune page rendue fait échouer le script. Sans
- * ce contrôle, renommer une page de départ la ferait disparaître du plan en
- * silence — l'agent tomberait alors dans le catalogue, c'est-à-dire nulle part.
- */
-const ENTRY_POINTS = ["", "docs/", "docs/demarrer/"];
-
-/** Les groupes du plan, dans l'ordre de lecture. La clé est le premier segment. */
-const GROUPS = [
-  { segment: "docs", heading: "Documentation" },
-  { segment: "performance", heading: "Optional" },
-  { segment: "qualite", heading: "Optional" },
-];
 
 /**
  * Les pages rendues sous un dossier, avec ce que leur `<head>` déclare.
@@ -119,215 +100,9 @@ const decodeEntities = (text) =>
     .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ");
 
-/**
- * Raccourcit une description sur une frontière de mot.
- *
- * @param text - description complète.
- * @param max - longueur maximale rendue.
- * @returns la description, éventuellement suivie d'une ellipse.
- */
-function shorten(text, max = 150) {
-  if (text.length <= max) return text;
-  const cut = text.slice(0, max);
-  return `${cut.slice(0, cut.lastIndexOf(" ")).replace(/[,;:.]$/, "")}…`;
-}
-
 /** Échappe ce qui ne peut pas entrer tel quel dans du XML. */
 const xmlEscape = (text) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-/**
- * Replie un paragraphe à 80 colonnes, sur des frontières de mot.
- *
- * @param text - le paragraphe, en une seule ligne.
- * @param width - largeur maximale d'une ligne.
- * @returns les lignes repliées.
- */
-function wrap(text, width = 80) {
-  const lines = [];
-  let line = "";
-  for (const word of text.split(" ")) {
-    if (line && `${line} ${word}`.length > width) {
-      lines.push(line);
-      line = word;
-    } else line = line ? `${line} ${word}` : word;
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-/**
- * Le plan de lecture au format llms.txt (https://llmstxt.org).
- *
- * L'en-tête porte les deux faits qu'un agent ne peut pas déduire du site : ce
- * qu'une application installe, et ce que le dépôt de développement n'est pas.
- * Aucun NUMÉRO de préversion n'y figure : il se périmerait à chaque publication,
- * et rien ici ne le contrôlerait — le canal, lui, reste vrai toute la série.
- *
- * @param pages - les pages rendues.
- * @param base - racine d'URL du site publié.
- * @returns le contenu du fichier.
- */
-function llmsPlan(pages, base) {
-  const deps = minimalAppDependencies(REPO_ROOT);
-  const packageCount = fs
-    .readdirSync(path.join(REPO_ROOT, "src", "packages", "@nodefony"), {
-      withFileTypes: true,
-    })
-    .filter((e) => e.isDirectory()).length;
-
-  const lines = [
-    "# Nodefony",
-    "",
-    "> Framework Node.js fullstack en TypeScript strict, ESM uniquement, où HTTP et",
-    "> WebSocket partagent la même route, la même session et le même pare-feu : un",
-    "> même contrôleur répond aux deux, sans pont ni second serveur.",
-    "",
-    ...wrap(
-      "Ce site est la documentation du framework, écrite pour qui construit une " +
-        "application avec lui.",
-    ),
-    "",
-    ...wrap(
-      "**Ce qu'une application déclare.** Une application créée par " +
-        "`npm create nodefony@alpha`, en version minimale, déclare " +
-        `${numberWord(deps.length)} dépendances : ` +
-        `${deps.map((d) => `\`${d}\``).join(", ")}. C'est ce qu'elle ÉCRIT dans son ` +
-        "`package.json` ; l'arbre que npm installe en compte une centaine, comme tout " +
-        "projet Node — ce qui se vérifie, c'est qu'aucun n'est un paquet maison qui " +
-        "doublerait l'écosystème : les serveurs sont ceux de Node (`node:http`, " +
-        "`node:http2`), l'ORM est Drizzle, le front est Vite, la validation est Zod. " +
-        `Le dépôt de développement du framework, lui, est un monorepo de ${packageCount} ` +
-        "paquets qui porte en plus ses bancs de mesure, ses gabarits et son outillage " +
-        "d'agent : rien de cela n'entre dans une application, et le lire ne dit rien du " +
-        `coût d'adoption. Se constate : \`${APP_TEMPLATE_HREF}\`.`,
-    ),
-    "",
-    ...wrap(
-      "**État.** La ligne 10 est en préversion, publiée sur le canal `alpha` de npm — " +
-        "`npm install nodefony` sert encore la génération précédente, écrite en " +
-        "JavaScript. Projet libre sous licence Apache 2.0, développé bénévolement par " +
-        "une seule personne.",
-    ),
-    "",
-    ...wrap(
-      "**Ce qui reste avant la version stable, et ce qui peut casser.** Les jalons " +
-        "du dépôt portent le compte exact des tickets ouverts par version, et une " +
-        "échéance qui GLISSE — le compte fait foi, pas la date : " +
-        "https://github.com/nodefony/nodefony-core/milestones. L'engagement de " +
-        "compatibilité, lui, est écrit : ce qui casse, ce qui se déprécie et ce qui " +
-        `reçoit des correctifs — ${citedUrl(pages, "docs/guides/compatibilite/", base)}.`,
-    ),
-    "",
-    ...wrap(
-      "**La documentation voyage avec les paquets.** Chaque paquet publie son " +
-        "dossier `docs/` sur npm : une fois l'application installée, tout se lit " +
-        "hors ligne depuis `node_modules/@nodefony/<paquet>/docs/`, dans la version " +
-        "INSTALLÉE — sans revenir ici, et sans dépendre d'un hébergeur de code.",
-    ),
-    "",
-    ...wrap(
-      "**Les sources sont en Markdown** et se lisent brutes, sans HTML : " +
-        "`https://raw.githubusercontent.com/nodefony/nodefony-core/dev/<chemin>`.",
-    ),
-    "",
-  ];
-
-  // Les points d'entrée d'abord, et chacun doit exister.
-  const entries = ENTRY_POINTS.map((urlPath) => {
-    const page = pages.find((p) => p.urlPath === urlPath);
-    if (!page)
-      throw new Error(
-        `page d'entrée absente du site rendu : « ${urlPath || "/"} » — ` +
-          `corriger ENTRY_POINTS ou la page`,
-      );
-    return page;
-  });
-  lines.push("## Commencer", "");
-  for (const page of entries) lines.push(entryLine(page, base));
-  lines.push("");
-
-  for (const group of dedupeHeadings(GROUPS)) {
-    const segments = new Set(
-      GROUPS.filter((g) => g.heading === group.heading).map((g) => g.segment),
-    );
-    const members = pages.filter(
-      (p) => segments.has(p.segment) && !entries.includes(p),
-    );
-    if (!members.length) continue;
-    lines.push(`## ${group.heading}`, "");
-    for (const page of members) lines.push(entryLine(page, base));
-    lines.push("");
-  }
-  return lines.join("\n");
-}
-
-/**
- * L'URL d'une page que la PROSE du plan cite nommément.
- *
- * Elle lève si la page n'est pas publiée : une phrase qui promet un lien et
- * n'en donne aucun est ce qui a fait conclure à un agent qu'aucun calendrier
- * n'existait — alors qu'il existe. Une promesse non tenue coûte plus qu'un
- * silence.
- *
- * @param pages - les pages rendues.
- * @param urlPath - le chemin de la page dans le site.
- * @param base - racine d'URL du site.
- * @returns l'URL à citer, markdown si la page en publie un.
- */
-function citedUrl(pages, urlPath, base) {
-  const page = pages.find((p) => p.urlPath === urlPath);
-  if (!page)
-    throw new Error(`page citée par le plan mais non publiée : « ${urlPath} »`);
-  const html = page.canonical || `${base}/${page.urlPath}`;
-  return page.markdown ? `${html}index.md` : html;
-}
-
-/**
- * Une ligne de lien du plan.
- *
- * @param page - la page rendue.
- * @param base - racine d'URL du site.
- * @returns la ligne markdown, description comprise quand la page en déclare une.
- */
-function entryLine(page, base) {
-  const html = page.canonical || `${base}/${page.urlPath}`;
-  const url = page.markdown ? `${html}index.md` : html;
-  const description = shorten(page.description);
-  return `- [${page.title}](${url})${description ? `: ${description}` : ""}`;
-}
-
-/** Les groupes, un par titre, dans l'ordre de première apparition. */
-const dedupeHeadings = (groups) =>
-  groups.filter(
-    (g, i) => groups.findIndex((o) => o.heading === g.heading) === i,
-  );
-
-/**
- * Écrit un nombre en toutes lettres quand il est petit.
- *
- * La phrase est lue par un humain autant que par un agent : « quatre
- * dépendances » se retient, « 4 dépendances » se survole.
- *
- * @param n - le nombre.
- * @returns le mot, ou le chiffre au-delà de dix.
- */
-function numberWord(n) {
-  const words = [
-    "zéro",
-    "une",
-    "deux",
-    "trois",
-    "quatre",
-    "cinq",
-    "six",
-    "sept",
-    "huit",
-    "neuf",
-    "dix",
-  ];
-  return words[n] ?? String(n);
-}
 
 /**
  * Le plan pour les moteurs, au format sitemap 0.9.
@@ -426,7 +201,22 @@ const base = (
   flag("base", rootCanonical || DEFAULT_BASE) ?? DEFAULT_BASE
 ).replace(/\/+$/, "");
 
-fs.writeFileSync(path.join(out, "llms.txt"), llmsPlan(pages, base));
+// Les faits du plan se lisent ici, au bord : `llms-plan.mjs` reste pur.
+const facts = {
+  deps: minimalAppDependencies(REPO_ROOT),
+  packageCount: fs
+    .readdirSync(path.join(REPO_ROOT, "src", "packages", "@nodefony"), {
+      withFileTypes: true,
+    })
+    .filter((e) => e.isDirectory()).length,
+  version: JSON.parse(
+    fs.readFileSync(
+      path.join(REPO_ROOT, "src", "nodefony", "package.json"),
+      "utf8",
+    ),
+  ).version,
+};
+fs.writeFileSync(path.join(out, "llms.txt"), llmsPlan(pages, base, facts));
 fs.writeFileSync(path.join(out, "sitemap.xml"), sitemapXml(pages, base));
 fs.writeFileSync(path.join(out, "robots.txt"), robotsTxt(base));
 
