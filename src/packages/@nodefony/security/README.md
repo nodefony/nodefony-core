@@ -14,7 +14,7 @@ Consomme [`@nodefony/user`](https://www.npmjs.com/package/@nodefony/user).
 > **`@CsrfProtect`**, appliqués par le `Resolver` avant l'action.
 >
 > Reste : ACL fine par ressource (niveau B de `authorization.ts`), journal d'authentification
-> dédié, `rpId` WebAuthn dérivé du `Host` (multi-vhost), `MTlsAuthenticator` (niche). Le serveur
+> dédié, `MTlsAuthenticator` (niche). Le serveur
 > d'autorisation OAuth 2.1 est tranché **après** la 10.0.0.
 
 ## Principes

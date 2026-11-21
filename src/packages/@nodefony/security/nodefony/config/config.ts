@@ -580,7 +580,7 @@ const passkeysSchema = z
       .string()
       .optional()
       .describe(
-        "Relying Party ID (domaine). Omis = domaine de l'app au boot. Un domaine international s'écrit tel quel : il est converti en punycode (`xn--…`) au démarrage, forme que présente le navigateur.",
+        "Relying Party ID (domaine) de BASE. Omis = domaine de l'app au boot. Toute requête servie sous ce domaine ou un de ses sous-domaines l'emploie ; un autre hôte accepté par `http.trustedHosts` obtient son propre rpId, un hôte hors liste est refusé (421). Un domaine international s'écrit tel quel : il est converti en punycode (`xn--…`) au démarrage, forme que présente le navigateur.",
       ),
     rpName: z
       .string()
