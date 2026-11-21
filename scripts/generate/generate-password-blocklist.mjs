@@ -9,10 +9,15 @@
  *
  * Pourquoi des hashs tronqués, et pas les chaînes : 10 000 chaînes dans un `Set`
  * pèsent ~600 Ko de tas PERMANENT, pour une vérification qui n'arrive qu'à la
- * création ou au changement d'un mot de passe. On garde les 4 premiers octets du
- * SHA-1, triés dans un `Uint32Array` (40 Ko, recherche binaire, zéro allocation
- * de chaîne). La collision vaut ~2,3 × 10⁻⁶ par test et REFUSE un mot de passe :
- * l'erreur tombe du bon côté.
+ * création ou au changement d'un mot de passe. On garde les 8 premiers octets du
+ * SHA-1, en paires d'entiers 32 bits (poids fort, poids faible) triées dans un
+ * `Uint32Array` (80 Ko, recherche binaire, zéro allocation de chaîne).
+ *
+ * Pourquoi 8 octets et pas 4 : à 32 bits, la collision valait ~2,3 × 10⁻⁶ par
+ * test. On la croyait du bon côté parce qu'elle REFUSE — mais elle refusait un
+ * mot de passe sain à un utilisateur, et le mot de passe admin qu'une
+ * application générée tire au hasard (une sur ~430 000 ne semait pas son
+ * compte). À 64 bits, elle tombe à ~5 × 10⁻¹⁶.
  *
  * Usage :
  *   node scripts/generate/generate-password-blocklist.mjs <fichier-source> [...autres]
@@ -28,10 +33,14 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-/** Les 4 premiers octets du SHA-1, en entier non signé. */
-export function truncatedHash(plain) {
+/**
+ * Les 8 premiers octets du SHA-1, en deux entiers non signés gros-boutiens
+ * `[poidsFort, poidsFaible]` — copie de `commonPasswordHash` du paquet, que
+ * `passwordPolicy.test.ts` confronte à celle-ci.
+ */
+export function commonHash(plain) {
   const digest = createHash("sha1").update(plain, "utf8").digest();
-  return digest.readUInt32BE(0);
+  return [digest.readUInt32BE(0), digest.readUInt32BE(4)];
 }
 
 /** Une entrée retenue : non vide, sans blanc de bord. */
@@ -40,14 +49,14 @@ function normalize(line) {
 }
 
 // Importable sans rien produire : un test confronte la troncature écrite ici à
-// celle du paquet (`truncatedPasswordHash`). Deux copies d'un même hachage
+// celle du paquet (`commonPasswordHash`). Deux copies d'un même hachage
 // divergeraient en silence — la liste deviendrait muette, et le contrôle
 // passerait pour vert.
 const lanceDirectement =
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(process.argv[1]).href;
 if (!lanceDirectement) {
-  // Rien d'autre à faire : le module n'expose que `truncatedHash`.
+  // Rien d'autre à faire : le module n'expose que `commonHash`.
 } else {
   main();
 }
@@ -61,7 +70,8 @@ function main() {
     process.exit(2);
   }
 
-  const seen = new Set();
+  // Clé = les 16 chiffres hexadécimaux de la paire : dédoublonne sans BigInt.
+  const seen = new Map();
   const provenance = [];
   for (const source of sources) {
     const raw = readFileSync(source);
@@ -69,7 +79,11 @@ function main() {
     let kept = 0;
     for (const line of lines) {
       if (line.length === 0) continue;
-      seen.add(truncatedHash(line));
+      const [high, low] = commonHash(line);
+      seen.set(
+        high.toString(16).padStart(8, "0") + low.toString(16).padStart(8, "0"),
+        [high, low],
+      );
       kept += 1;
     }
     provenance.push({
@@ -79,10 +93,11 @@ function main() {
     });
   }
 
-  const sorted = Uint32Array.from([...seen].sort((a, b) => a - b));
-  const bytes = Buffer.alloc(sorted.length * 4);
-  for (const [index, value] of sorted.entries()) {
-    bytes.writeUInt32BE(value, index * 4);
+  const sorted = [...seen.values()].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const bytes = Buffer.alloc(sorted.length * 8);
+  for (const [index, [high, low]] of sorted.entries()) {
+    bytes.writeUInt32BE(high, index * 8);
+    bytes.writeUInt32BE(low, index * 8 + 4);
   }
   const base64 = bytes.toString("base64");
 
@@ -97,7 +112,9 @@ function main() {
     .join("\n");
 
   const chunks = base64.match(/.{1,76}/g) ?? [];
-  const literal = chunks.map((c) => `  "${c}"`).join(" +\n");
+  // Un tableau joint, pas une chaîne de `+` : 1 400 concaténations font un arbre
+  // syntaxique de 1 400 niveaux, sur lequel prettier sature sa pile d'appels.
+  const literal = chunks.map((c) => `  "${c}",`).join("\n");
 
   writeFileSync(
     target,
@@ -107,8 +124,8 @@ function main() {
  * Regénérer :
  * \`node scripts/generate/generate-password-blocklist.mjs <fichier-source>\`
  *
- * Contenu : les 4 premiers octets du SHA-1 de chaque mot de passe, triés, en
- * base64 d'un \`Uint32Array\` gros-boutien. Le clair n'est PAS embarqué — ni
+ * Contenu : les 8 premiers octets du SHA-1 de chaque mot de passe, en paires
+ * (poids fort, poids faible) triées, base64 d'un \`Uint32Array\` gros-boutien. Le clair n'est PAS embarqué — ni
  * lisible, ni reconstructible depuis ce fichier.
  *
  * Sources :
@@ -120,8 +137,9 @@ ${lignesSource}
  */
 
 /** ${sorted.length} empreintes triées (${bytes.length} octets décodés). */
-export const COMMON_PASSWORD_HASHES_BASE64 =
-${literal};
+export const COMMON_PASSWORD_HASHES_BASE64 = [
+${literal}
+].join("");
 
 /** Nombre d'empreintes — sert de contrôle au décodage. */
 export const COMMON_PASSWORD_HASH_COUNT = ${sorted.length};
