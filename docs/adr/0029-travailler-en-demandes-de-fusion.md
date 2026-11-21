@@ -127,6 +127,10 @@ au déclencheur ne démarre pas, et le check exigé ne se rapporterait jamais su
 `gh pr merge --auto` n'attend que les checks exigés ; sans protection, `pr-finish.mjs` le
 constate et surveille la PR en arrière-plan au lieu de fusionner tout de suite.
 
+Le ruleset vit sur la forge, pas dans git : sa définition est versionnée dans
+`.github/rulesets/branches-longues.json` (réimportable depuis _Settings → Rules_), et
+`release-workflow.test.mjs` vérifie que le check qu'il exige est bien rendu par un job.
+
 ## Compatibilité
 
 Aucune surface publiée n'est touchée : scripts, skills, workflows et crochets ne partent pas sur
