@@ -113,6 +113,21 @@ describe("une seule CI par sha — rien ne rejoue la CI sur main (#796)", () => 
     expect(offenders).toEqual([]);
   });
 
+  it("ci-ok, le check exigé, attend TOUS les jobs de node.js.yml et tourne quoi qu'il arrive", () => {
+    // Un job ajouté sans entrer dans `needs` serait invisible au check exigé :
+    // la PR fusionnerait sur son rouge.
+    const { jobs, on } = parse(
+      readFileSync(path.join(WORKFLOWS, "node.js.yml"), "utf8"),
+    );
+    const others = Object.keys(jobs).filter((j) => j !== "ci-ok");
+    expect([...jobs["ci-ok"].needs].sort()).toEqual(others.sort());
+    expect(jobs["ci-ok"].if).toBe("always()");
+    // Filtré au déclencheur, le workflow ne démarrerait pas sur une PR de
+    // prose et `ci-ok` ne se rapporterait jamais : fusion bloquée en attente.
+    expect(on.pull_request?.["paths-ignore"]).toBeUndefined();
+    expect(on.pull_request?.paths).toBeUndefined();
+  });
+
   it("chaque workflow de CI poussé couvre dev ET release/** — sinon le sha publié n'aurait aucune CI", () => {
     const missing = pushBranches()
       .filter(({ file }) => !MAIN_PUSH_ALLOWED.has(file))
