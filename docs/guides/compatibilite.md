@@ -220,6 +220,10 @@ issue](https://github.com/nodefony/nodefony-core/issues).
 Dès que `11.0.0` sort, la série `10.x` cesse de recevoir des correctifs — y compris de sécurité.
 Elle reste téléchargeable indéfiniment sur npm, mais elle n'est plus suivie.
 
+Dans la majeure courante, c'est la **dernière mineure** qui reçoit les correctifs : dès que
+`10.1.0` sort, un correctif sort en `10.1.1`, plus en `10.0.z`. Monter de mineure ne casse rien
+(c'est la promesse d'une mineure) ; c'est donc le geste à faire pour recevoir un correctif.
+
 C'est une politique étroite, et c'est délibéré. Nodefony est développé par une seule personne, sans
 financement : promettre douze mois de rétroportages produirait un engagement qui serait rompu au
 premier trimestre chargé. Mieux vaut une règle courte et vraie qu'une garantie confortable et

@@ -105,8 +105,13 @@ Elles ne sont pas des goûts : chacune a été payée par un défaut réel.
   `type(scope): sujet` — par exemple `fix(http): le drain ne coupait pas les WebSocket`.
   Le français est accepté dans le sujet.
 - Une PR = **un sujet**. Une PR qui corrige un bug _et_ reformate 40 fichiers ne peut pas être relue.
-- Partez de `main`, gardez la branche à jour, et laissez la forge tourner : les matrices
-  ubuntu / macOS / Windows sont là pour trouver ce que votre poste ne peut pas voir.
+- Partez de `dev`, la prochaine version mineure et la branche par défaut. Un correctif de la
+  version publiée part de sa branche de maintenance, `release/<majeure>.<mineure>.x` (par
+  exemple `release/10.0.x`). `main` ne porte que ce qui est publié : n'y ouvrez pas de PR.
+- Gardez la branche à jour par `git merge` de sa base (jamais de rebase d'une branche déjà
+  poussée), et laissez la forge tourner : les matrices ubuntu / macOS / Windows sont là pour
+  trouver ce que votre poste ne peut pas voir. Le check `ci-ok` résume la CI ; la PR entre en
+  squash, un sujet = un commit.
 - Décrivez **comment vous avez prouvé** que ça marche. « Les tests passent » n'est pas une preuve
   si aucun test ne couvrait le cas.
 
