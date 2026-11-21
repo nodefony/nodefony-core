@@ -171,6 +171,12 @@ export interface IMigrationDrift {
   expected: string;
   /** Empreinte du fichier tel qu'il est aujourd'hui. */
   actual: string;
+  /**
+   * Chemin du fichier sur le disque — posé par l'applicateur, qui l'a lu. C'est
+   * lui qui permet de CONSTATER qu'un geste s'applique (git le connaît-il ?)
+   * au lieu de le supposer.
+   */
+  path?: string;
 }
 
 /**

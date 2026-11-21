@@ -248,17 +248,15 @@ describe("Applicateur de migrations (sqlite)", () => {
         assert.equal(e.verdict.code, "NF_MIGRATE_HASH_MISMATCH");
         assert.equal(e.verdict.connector, "banc");
         assert.equal(e.verdict.tag, "0000_init");
-        // 🔴 L'ORDRE est le contrat, pas la seule présence. Le geste SÛR —
-        // restaurer le fichier — vient en premier ; le ré-alignement des
-        // empreintes, que la commande de réparation documente comme « presque
-        // toujours faux », ne vient qu'après. Un agent exécute le premier
-        // geste sans lire la prose : l'inverse lui faisait déclarer conforme
-        // un fichier trafiqué, et la dérive devenait invisible pour toujours.
+        // 🔴 Restaurer le fichier n'est proposé que si git le CONSTATE
+        // applicable (#196) : ce décor n'est pas un dépôt, rien n'est
+        // constaté, et le geste qui s'applique passe en tête. Le cas où la
+        // restauration vient en premier — et marche — est éprouvé dans un vrai
+        // dépôt par `migrate-drift-remedy.test.ts`.
         const gestes = e.verdict.nextActions.map((a) => a.command);
-        assert.match(
-          gestes[0] ?? "",
-          /^git checkout -- /,
-          `le geste sûr doit venir en premier : ${gestes.join(" | ")}`,
+        assert.ok(
+          !gestes.some((c) => c.startsWith("git ")),
+          `aucun geste git hors dépôt : ${gestes.join(" | ")}`,
         );
         assert.ok(
           gestes.some((c) => c.includes("--update-hashes")),

@@ -686,6 +686,10 @@ class DrizzleService extends Service {
         divergence: mode === "off" ? null : await describeDivergence(plan),
         divergenceMode: mode,
         canReset: resetAllowed(readMigrationEnv(kernel)),
+        // Le geste publié à la sonde (`nextActions[0]`) ne propose de
+        // restaurer un fichier que si git le CONSTATE — dans un conteneur sans
+        // dépôt, rien n'est constaté, et le geste qui s'applique passe devant.
+        restorable: await migrator.restorableDrifts(plan),
       });
       // Une base EN AVANCE sur ce code n'est pas une anomalie : c'est l'état
       // normal d'une mise à jour progressive et d'un retour arrière. Le verdict
