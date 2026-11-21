@@ -327,6 +327,13 @@ EFFECTIVE de chacune et sa PROVENANCE, puis ce qui est ignoré. Standalone **par
 (même raison que `doctor`, en plus tranchée) : on cherche une variable précisément quand l'app
 NE démarre pas. Sort en **78** (`EX_CONFIG`) si une variable requise manque.
 
+⚠️ **`--example` ne juge ni n'écrit sur une lecture amputée** : un module DÉCLARÉ dont le schéma
+est illisible (non construit, export absent — `readModuleShortcuts` → `unreadable`) rend
+`syncEnvExample` → `incomplete`, nommé avec sa raison, sortie **69**. Comparer conclurait
+« désynchronisé » à tort, et régénérer RETIRERAIT ses variables. D'où `env:check` APRÈS `build`
+dans le `verify` généré (ordre recopié en prose dans quatre gabarits, confrontés par
+`envExampleUnbuiltModule.test.ts`).
+
 Architecture en deux morceaux : `cli/envReport.ts` = calcul **PUR** (`buildEnvReport` — reçoit
 les fichiers déjà lus + l'env effectif, conclut) ; `cli/env.ts` = adaptateur (lecture fichiers,
 import du catalogue depuis `dist/index.js` de l'app, rendu humain/JSON).
