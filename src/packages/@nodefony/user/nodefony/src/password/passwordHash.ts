@@ -24,7 +24,8 @@ import { createHash } from "node:crypto";
  * @returns les 4 premiers octets du SHA-1, gros-boutiens, en entier non signé.
  */
 export function truncatedPasswordHash(plain: string): number {
-  return createHash("sha1").update(plain, "utf8").digest().readUInt32BE(0);
+  // Le poids fort de la paire : un seul point de hachage pour les deux fonctions.
+  return commonPasswordHash(plain)[0];
 }
 
 /**
