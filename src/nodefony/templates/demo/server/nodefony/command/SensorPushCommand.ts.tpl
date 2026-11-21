@@ -20,6 +20,7 @@ import {
 } from "../../frontend/src/grpc/grpcDemo";
 import { MACHINES, QUANTITIES } from "../../frontend/src/sensor/sensorDemo";
 import { TELEMETRY_AREA } from "../config/security";
+import { servedOrigin } from "../kit/servedAddress";
 import { createPlant, temperatureSlot } from "../sensor/plant";
 import { createRandom } from "../sensor/random";
 import PartnerTokenService, {
@@ -70,8 +71,11 @@ const options: OptionsCommandInterface = {
  * de l'itérable ferme l'envoi, et le serveur répond alors. Le jeton vient du
  * même service que `demo:partner:call` (`PartnerTokenService`), pour la
  * ressource de la zone `demo-telemetry`, avec le scope qui ouvre `Push`.
+ * La cible est le port TLS que l'application SERT, lu sur ce que son serveur
+ * a publié (`kit/servedAddress.ts`) — pas celui de la config, qu'un port déjà
+ * pris fait glisser ; `--url` vise une application qui tourne ailleurs.
  * Lancée par `nodefony`, la commande reconnaît d'office l'autorité de
- * développement qui a signé le certificat de 5152 — un script Node isolé
+ * développement qui a signé le certificat de ce port — un script Node isolé
  * devrait la déclarer (`NODE_EXTRA_CA_CERTS`). Doc :
  * `@nodefony/framework/docs/grpc.md` ; skill livré :
  * `nodefony-add-grpc-service`.
@@ -128,7 +132,12 @@ class SensorPushCommand extends Command {
       );
       const tokens = this.#tokens();
       const resource = tokens.resource(TELEMETRY_AREA);
-      const base = opts.url ?? new URL(resource).origin;
+      // L'adresse SERVIE d'abord : la ressource du jeton est un identifiant,
+      // calculé sur le port de la config — un port glissé le rendrait faux.
+      const base =
+        opts.url ??
+        servedOrigin(this.kernel?.path ?? process.cwd(), "https") ??
+        new URL(resource).origin;
       // Le scope est DEMANDÉ ; l'émetteur ne le donne qu'à un administrateur.
       // Un autre compte reçoit un jeton sans lui, et c'est le SERVEUR qui
       // refuse (7) : la commande ne juge pas à sa place.
@@ -170,7 +179,7 @@ class SensorPushCommand extends Command {
     hz: number,
     count: number,
   ): Promise<{ sent: number; accepted: number }> {
-    // gRPC natif : HTTP/2 obligatoire, donc le port TLS (5152 en développement).
+    // gRPC natif : HTTP/2 obligatoire, donc le port TLS de l'application.
     const client = createClient(
       TelemetryService,
       createGrpcTransport({ baseUrl: base }),
@@ -249,7 +258,8 @@ function pushFailure(error: unknown, base: string): CallFailure {
     if (error.code === Code.Unauthenticated) {
       return new CallFailure(
         `jeton refusé (16 UNAUTHENTICATED) par ${base}.`,
-        "l'application qui tourne a-t-elle la même configuration ? relance `npm run dev`",
+        "est-ce bien CETTE application qui écoute là ? `npx nodefony status` dit où elle tourne ;\n" +
+          "    sinon, même configuration ? relance `npm run dev`",
       );
     }
     if (error.code === Code.PermissionDenied) {
@@ -265,7 +275,11 @@ function pushFailure(error: unknown, base: string): CallFailure {
       );
     }
   }
-  return networkFailure(error, `L'application (${base})`, "npm run dev");
+  return networkFailure(
+    error,
+    `L'application (${base})`,
+    "npm run dev — ou --url <adresse> si elle tourne ailleurs",
+  );
 }
 
 /**

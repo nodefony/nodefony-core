@@ -4,6 +4,7 @@ import { defineMcpGate, type IMcpGate } from "@nodefony/ai";
 import { TokenService } from "@nodefony/security";
 import type { IMcpFeedEntry } from "../../frontend/src/mcp/mcpDemo";
 import { MCP_AREA } from "../config/security";
+import { servedBrowserOrigins } from "../kit/servedAddress";
 import { demoTools } from "../mcp/demoTools";
 import ChatService from "./ChatService";
 import PartnerTokenService, {
@@ -30,9 +31,10 @@ export const MCP_FEED_MAX_PER_S = 10;
  * usage, quand cette adresse est connue. Ce que la définition décide :
  *  • MIXTE (`anonymous: true`) : sans jeton, les outils publics ; un outil à
  *    `scopes` n'existe que pour un jeton qui les porte ;
- *  • `allowedOrigins` : la seule page web admise est celle de l'application
- *    (son adresse publique) — sans elle, la page de la démo reçoit 403, et
- *    l'admettre d'après l'en-tête `Host` rouvrirait le DNS rebinding ;
+ *  • `allowedOrigins` : les seules pages admises sont celles de l'application
+ *    — son adresse publique, et les ports qu'elle SERT sous chaque nom local
+ *    (`kit/servedAddress.ts`) ; sans elles, la page de la démo reçoit 403, et
+ *    les admettre d'après l'en-tête `Host` rouvrirait le DNS rebinding ;
  *  • `allowRemote` : un agent d'une autre machine peut appeler ; c'est le
  *    jeton qui protège l'outil réservé, plus l'adresse.
  */
@@ -53,6 +55,12 @@ class DemoMcpService extends Service {
       module?.container ?? undefined,
       module?.notificationsCenter,
     );
+    // La porte est définie une première fois AVANT l'écoute, quand le
+    // framework monte son document RFC 9728 : les ports servis n'existent pas
+    // encore. Une fois ouverts, elle se redéfinit au premier appel, avec eux.
+    this.kernel?.once("onPostReady", () => {
+      this.#gate = null;
+    });
   }
 
   // #region mcp-gate
@@ -94,7 +102,15 @@ class DemoMcpService extends Service {
         "pour voir de quoi on parle avant d'écrire.",
       tools: demoTools(chat),
       allowRemote: true,
-      allowedOrigins: [new URL(resource).origin],
+      // Les pages de l'application : son adresse publique (celle de la
+      // ressource), et les ports qu'elle SERT sous chaque nom local — la
+      // config dit le port demandé, un port pris le fait glisser.
+      allowedOrigins: [
+        ...new Set([
+          new URL(resource).origin,
+          ...servedBrowserOrigins(this.kernel?.path ?? process.cwd()),
+        ]),
+      ],
       authorization: {
         authorizationServers: [published],
         resource,

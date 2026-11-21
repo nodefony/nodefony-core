@@ -13,6 +13,7 @@ import {
 } from "@nodefony/security";
 import { defineDemoConfig } from "../config/defineModuleConfig";
 import { PARTNER_PATH } from "../config/security";
+import { servedOrigin } from "../kit/servedAddress";
 import PartnerTokenService, {
   PARTNER_TOKEN_SERVICE,
   PartnerTokenError,
@@ -92,9 +93,9 @@ export class CallFailure extends Error {
 }
 
 /**
- * L'adresse de `whoami` : sous la ressource de la zone — l'adresse publique
- * de l'application, plus le chemin de l'API —, ou sous l'adresse donnée par
- * `--url` quand l'application appelée n'est pas celle-ci.
+ * L'adresse de `whoami` : sous `base` — `--url`, ou à défaut l'adresse où
+ * l'application SERT (un port déjà pris la fait glisser hors de sa config) —,
+ * ou sous la ressource de la zone quand aucun serveur n'a publié d'adresse.
  */
 function whoamiUrl(resource: string, base: string | undefined): URL {
   const root =
@@ -220,7 +221,12 @@ class PartnerCallCommand extends Command {
     try {
       const partnerTokens = this.#partnerTokens();
       const resource = partnerTokens.resource();
-      const url = whoamiUrl(resource, opts.url);
+      const url = whoamiUrl(
+        resource,
+        opts.url ??
+          servedOrigin(this.kernel?.path ?? process.cwd(), "https") ??
+          undefined,
+      );
       const accessToken =
         issuer === "keycloak"
           ? await this.#keycloakToken(resource)
@@ -335,7 +341,7 @@ class PartnerCallCommand extends Command {
       throw networkFailure(
         error,
         `L'application (${url.origin})`,
-        "npm run dev",
+        "npm run dev — ou --url <adresse> si elle tourne ailleurs",
       );
     }
     const body: unknown = await response.json().catch(() => null);
