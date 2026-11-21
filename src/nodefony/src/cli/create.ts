@@ -2174,7 +2174,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // au registre, en parallèle de l'installation, et on le DIT à la fin. Sauté
   // en `--link`, où le CLI est le checkout lui-même.
   const freshness =
-    answers.link === true ? null : startFreshnessCheck(version, process.env);
+    answers.link === true
+      ? null
+      : startFreshnessCheck(version, process.env, undefined, {
+          launcher: createLauncherOf(process.env),
+          appName: String(answers.name),
+        });
   const linkNote = result.linked.length
     ? `\n🔗 link : ${result.linked.length} paquets nodefony câblés en file: sur le checkout local ` +
       `(dev framework — ne pas publier ce package.json tel quel)\n`
@@ -2408,11 +2413,14 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   if (installed) {
     await showAppState(result.dest, compact);
   }
+  // Démarrer, se connecter, brancher son agent, apprendre. Tout ce qui précède
+  // est le journal de la génération ; ceci est ce qu'on en fait.
+  process.stdout.write(startPanel);
+  // SOUS le panneau, tout en bas : une application générée sur une version
+  // périmée se refait, ce qui passe avant d'apprendre à s'en servir. Placée
+  // au-dessus, l'annonce se noyait sous le panneau (vécu à la 10.0.1, #809).
   const staleNotice = await freshness;
   if (staleNotice !== null) process.stderr.write(staleNotice);
-  // EN DERNIER : démarrer, se connecter, brancher son agent, apprendre. Tout ce
-  // qui précède est le journal de la génération ; ceci est ce qu'on en fait.
-  process.stdout.write(startPanel);
   // Tout ce qui précède a été écrit et dit ; le code de sortie, lui, porte le
   // verdict — un build tenté et raté rend `SOFTWARE`, sans quoi aucun automate
   // ne peut distinguer une application prête d'une application à réparer.
