@@ -1,9 +1,12 @@
-import { readRuntimeState } from "nodefony";
+import { isLoopbackHostname, readRuntimeState } from "nodefony";
 
 /**
- * Les noms qu'un navigateur peut donner à cette machine. Une page ouverte sur
- * `https://127.0.0.1:5152` et une autre sur `https://localhost:5152` visent le
- * même serveur, mais ne présentent pas la même origine.
+ * Les noms qu'un navigateur donne d'ordinaire à cette machine — une liste à
+ * ÉNUMÉRER pour composer des origines. Savoir si un nom DÉSIGNE la boucle
+ * locale est une autre question, tranchée par la règle du cœur
+ * (`isLoopbackHostname`). Une page ouverte sur `https://127.0.0.1:5152` et une
+ * autre sur `https://localhost:5152` visent le même serveur, mais ne
+ * présentent pas la même origine.
  */
 const LOOPBACK_NAMES: readonly string[] = ["localhost", "127.0.0.1", "[::1]"];
 
@@ -47,10 +50,10 @@ export function servedBrowserOrigins(root: string): string[] {
   const origins = new Set<string>();
   for (const raw of readRuntimeState(root)?.urls ?? []) {
     const url = new URL(raw);
-    if (!LOOPBACK_NAMES.includes(url.hostname)) {
-      origins.add(url.origin);
-      continue;
-    }
+    // L'origine publiée d'abord, telle quelle — `127.0.0.2` désigne la boucle
+    // locale sans figurer parmi les noms à énumérer.
+    origins.add(url.origin);
+    if (!isLoopbackHostname(url.hostname)) continue;
     // Un port par défaut du schéma (443, 80) disparaît de l'URL normalisée.
     const port = url.port === "" ? "" : `:${url.port}`;
     for (const name of LOOPBACK_NAMES) {
