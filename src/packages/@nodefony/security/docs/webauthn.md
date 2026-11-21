@@ -359,20 +359,20 @@ exactement les porteurs à risque de verrouillage.
 Table dérivée du schéma Zod `passkeysSchema` (`config.ts#passkeysSchema`), monté sous la clé `passkeys`
 (`config.ts#securityConfigSchema`).
 
-| Option                    | Type                                       | Défaut       | Effet                                                                                     |
-| ------------------------- | ------------------------------------------ | ------------ | ----------------------------------------------------------------------------------------- |
-| `enabled`                 | boolean                                    | `true`       | Active les cérémonies ; `false` → endpoints en 503 (`config.ts#passkeysSchema`)           |
-| `rpId`                    | string?                                    | domaine app  | Domaine de liaison des passkeys ; IP → `localhost` (`config.ts#passkeysSchema`)           |
-| `rpName`                  | string?                                    | `"Nodefony"` | Nom affiché dans l'invite OS/navigateur (`config.ts#passkeysSchema`)                      |
-| `origins`                 | string[]                                   | `[]`         | Liste blanche d'origines ; vide = déduction depuis `rpId` (`config.ts#passkeysSchema`)    |
-| `userVerification`        | `required` \| `preferred` \| `discouraged` | `preferred`  | Exiger biométrie/PIN — `required` = AAL2 (`config.ts#passkeysSchema`)                     |
-| `residentKey`             | `required` \| `preferred` \| `discouraged` | `preferred`  | Passkey découvrable → login sans identifiant (`config.ts#passkeysSchema`)                 |
-| `authenticatorAttachment` | `platform` \| `cross-platform` \| `any`    | `platform`   | Biométrie intégrée / clé externe / les deux (`config.ts#passkeysSchema`)                  |
-| `attestation`             | `none` \| `direct` \| `enterprise`         | `none`       | Conveyance du certificat fabricant (`config.ts#passkeysSchema`)                           |
-| `timeoutMs`               | number (ms)                                | `60000`      | Délai laissé à l'utilisateur pour la cérémonie (`config.ts#passkeysSchema`)               |
-| `maxPerUser`              | number                                     | `20`         | Plafond de passkeys par porteur, `409` au-delà (`config.ts#passkeysSchema`)               |
-| `challengeTtlS`           | number (s)                                 | `300`        | **RÉSERVÉ, non câblé** : le défi suit la session (`config.ts#passkeysSchema`)             |
-| `store`                   | string                                     | `"auto"`     | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts#passkeysSchema`) |
+| Option                    | Type                                       | Défaut       | Effet                                                                                                                    |
+| ------------------------- | ------------------------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `enabled`                 | boolean                                    | `true`       | Active les cérémonies ; `false` → endpoints en 503 (`config.ts#passkeysSchema`)                                          |
+| `rpId`                    | string?                                    | domaine app  | Domaine de BASE des passkeys ; IP → `localhost` ; un autre hôte de `trustedHosts` a le sien (`config.ts#passkeysSchema`) |
+| `rpName`                  | string?                                    | `"Nodefony"` | Nom affiché dans l'invite OS/navigateur (`config.ts#passkeysSchema`)                                                     |
+| `origins`                 | string[]                                   | `[]`         | Liste blanche d'origines ; vide = déduction depuis `rpId` (`config.ts#passkeysSchema`)                                   |
+| `userVerification`        | `required` \| `preferred` \| `discouraged` | `preferred`  | Exiger biométrie/PIN — `required` = AAL2 (`config.ts#passkeysSchema`)                                                    |
+| `residentKey`             | `required` \| `preferred` \| `discouraged` | `preferred`  | Passkey découvrable → login sans identifiant (`config.ts#passkeysSchema`)                                                |
+| `authenticatorAttachment` | `platform` \| `cross-platform` \| `any`    | `platform`   | Biométrie intégrée / clé externe / les deux (`config.ts#passkeysSchema`)                                                 |
+| `attestation`             | `none` \| `direct` \| `enterprise`         | `none`       | Conveyance du certificat fabricant (`config.ts#passkeysSchema`)                                                          |
+| `timeoutMs`               | number (ms)                                | `60000`      | Délai laissé à l'utilisateur pour la cérémonie (`config.ts#passkeysSchema`)                                              |
+| `maxPerUser`              | number                                     | `20`         | Plafond de passkeys par porteur, `409` au-delà (`config.ts#passkeysSchema`)                                              |
+| `challengeTtlS`           | number (s)                                 | `300`        | **RÉSERVÉ, non câblé** : le défi suit la session (`config.ts#passkeysSchema`)                                            |
+| `store`                   | string                                     | `"auto"`     | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts#passkeysSchema`)                                |
 
 ### Mise en situation — trois politiques, trois publics
 
@@ -435,11 +435,44 @@ production) ; sinon **l'origine de la requête, mais seulement si son hostname e
 est ignoré, sans jamais ouvrir à un domaine tiers) ; en dernier recours `https://{rpId}`
 (`webAuthn.ts#WebAuthnService.removeUserCredential`).
 
+### Plusieurs domaines — un `rpId` par hôte validé
+
+Le `rpId` du boot est une **base**. Chaque cérémonie reçoit l'hôte de sa requête (`Context.domain`)
+et `WebAuthnService.relyingPartyIdFor()` (`webAuthn.ts#WebAuthnService.relyingPartyIdFor`) en tire
+le `rpId` :
+
+| Hôte de la requête                                 | `rpId` de la cérémonie                        |
+| -------------------------------------------------- | --------------------------------------------- |
+| absent, adresse IP, égal à la base ou sous-domaine | la base — comportement d'un seul domaine      |
+| autre hôte **accepté par `http.trustedHosts`**     | l'hôte lui-même (en punycode)                 |
+| autre hôte **hors `trustedHosts`**                 | aucun : `421 Misdirected Request`, corps fixe |
+
+Un sous-domaine garde la base parce que WebAuthn l'admet (le `rpId` peut être un suffixe enregistrable
+de l'origine) et que les passkeys déjà enrôlées sous la base y restent valables.
+
+```typescript
+// nodefony.config.ts (extrait) — deux marques servies par la même application
+export default defineConfig(() => ({
+  domain: "marque-a.example", // la base : son rpId vaut pour lui et ses sous-domaines
+  modules: [
+    // marque-b obtient son propre rpId parce que la barrière d'hôtes le déclare
+    use("@nodefony/http", { trustedHosts: ["marque-b.example"] }),
+    use("@nodefony/security", { passkeys: { enabled: true } }),
+  ],
+}));
+```
+
 > [!WARNING]
-> **Un seul `rpId` par instance.** Il est résolu une fois au boot et stocké dans le service ; il n'y a
-> **aucune** résolution par en-tête `Host`. Un déploiement multi-domaine (`a.example.com` et
-> `b.example.com`) doit choisir un `rpId` parent commun (`example.com`) — sinon les passkeys enrôlées
-> sur l'un ne fonctionneront pas sur l'autre.
+> **Le `Host` n'est jamais suivi sans barrière.** Cet en-tête est écrit par le client : le service
+> interroge `HttpKernel.isTrustedHostname` — la même liste que le noyau — même quand `domainCheck` est
+> coupé, son défaut (aucun 421 n'est alors émis avant le routage, le service est le seul juge). Sous
+> `trustedHosts: true`, tout hôte passe : c'est le proxy inverse qui filtre, comme pour le reste de
+> l'application.
+
+> [!NOTE]
+> Une liste `passkeys.origins` non vide vaut pour **tous** les hôtes : en multi-domaine, y inscrire
+> l'origine de chaque domaine, ou la laisser vide (l'origine de la requête est alors acceptée si son
+> nom d'hôte égale le `rpId` de la cérémonie).
 
 ## 🔐 Le point à ne pas rater — plafond d'enrôlement et `login/options` ouvert
 

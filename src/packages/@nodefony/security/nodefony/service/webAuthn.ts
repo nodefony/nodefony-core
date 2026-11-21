@@ -96,6 +96,31 @@ export function userHandleBytes(user: IWebAuthnUser): Uint8Array<ArrayBuffer> {
   return new Uint8Array(createHash("sha256").update(user.id, "utf8").digest());
 }
 
+/**
+ * Vue minimale de la barrière d'hôtes du noyau HTTP (`HttpKernel`, résolu par
+ * NOM au conteneur — security n'importe jamais `@nodefony/http` au runtime).
+ * C'est LA politique `trustedHosts` : la recompiler ici la ferait diverger.
+ */
+interface IHostBarrier {
+  isTrustedHostname(hostname: string): boolean;
+}
+
+/** Littéral d'adresse IP : IPv4 pointée, ou IPv6 (reconnue à son `:`). */
+const IP_LITERAL = /^(\d{1,3}\.){3}\d{1,3}$|:/;
+
+/**
+ * Forme ASCII (punycode) d'un nom d'hôte, telle qu'un RP ID l'exige — ou `""`
+ * si ce nom ne peut pas en être un : adresse IP (v4, ou v6 reconnue à son `:`),
+ * que le navigateur refuse comme RP ID, ou domaine invalide.
+ *
+ * @param hostname - nom d'hôte sans port (config, `kernel.domain` ou requête).
+ * @returns le domaine en ASCII minuscule, ou `""`.
+ */
+export function relyingPartyDomain(hostname: string): string {
+  if (IP_LITERAL.test(hostname)) return "";
+  return domainToASCII(hostname);
+}
+
 /** Résultat d'une authentification WebAuthn vérifiée. */
 export interface IWebAuthnAssertionResult {
   /** Le credential résolu (état déjà mis à jour : compteur, sauvegarde, usage). */
@@ -185,9 +210,8 @@ class WebAuthnService extends Service {
     // les lui présente en punycode (`xn--…`), un domaine international doit
     // donc lui parler sous cette forme. Converti UNE fois ici, jamais par
     // cérémonie.
-    const isIp = /^(\d{1,3}\.){3}\d{1,3}$|:/.test(rawDomain);
-    const asciiDomain = isIp ? "" : domainToASCII(rawDomain);
-    if (!isIp && asciiDomain === "") {
+    const asciiDomain = relyingPartyDomain(rawDomain);
+    if (asciiDomain === "" && !IP_LITERAL.test(rawDomain)) {
       this.log(
         `passkeys : domaine « ${rawDomain} » invalide comme RP ID — repli sur « localhost »`,
         "ERROR",
@@ -337,17 +361,23 @@ class WebAuthnService extends Service {
    *
    * `excludeCredentials` liste les passkeys déjà enregistrés du même utilisateur
    * pour empêcher un double enregistrement sur le même authenticator (§7.1).
+   *
+   * @param host - nom d'hôte de la requête (`Context.domain`) : fixe le RP ID
+   *   (cf {@link WebAuthnService.relyingPartyIdFor}). Omis = RP ID du boot.
+   * @throws WebAuthnError (421) — hôte étranger au domaine de base et hors `trustedHosts`.
    */
   async generateRegistrationOptions(
     user: IWebAuthnUser,
+    host?: string,
   ): Promise<PublicKeyCredentialCreationOptionsJSON> {
     const { store, config } = this.#ensureReady();
+    const rpID = this.relyingPartyIdFor(host);
     const lib = await this.#ensureLib();
     const pk = config.passkeys;
     const existing = await store.findByUser(user.id);
     return lib.generateRegistrationOptions({
       rpName: this.#rpName,
-      rpID: this.#rpID,
+      rpID,
       userName: user.name,
       userID: userHandleBytes(user),
       userDisplayName: user.displayName ?? user.name,
@@ -376,16 +406,20 @@ class WebAuthnService extends Service {
    * @param expectedChallenge - le challenge émis par {@link generateRegistrationOptions} (session).
    * @param userId - propriétaire du credential (utilisateur authentifié/en création).
    * @param requestOrigin - origine HTTP de la requête (validée si aucune origine n'est configurée).
+   * @param host - nom d'hôte de la requête : même RP ID que l'émission des options.
    * @throws AuthenticationError (401) — vérification échouée.
    * @throws WebAuthnError (409) — plafond `passkeys.maxPerUser` atteint.
+   * @throws WebAuthnError (421) — hôte étranger au domaine de base et hors `trustedHosts`.
    */
   async verifyRegistration(
     response: RegistrationResponseJSON,
     expectedChallenge: string,
     userId: string,
     requestOrigin?: string,
+    host?: string,
   ): Promise<IWebAuthnCredential> {
     const { store, config } = this.#ensureReady();
+    const rpID = this.relyingPartyIdFor(host);
     const lib = await this.#ensureLib();
     const pk = config.passkeys;
     let verification: Awaited<
@@ -395,8 +429,8 @@ class WebAuthnService extends Service {
       verification = await lib.verifyRegistrationResponse({
         response,
         expectedChallenge,
-        expectedOrigin: this.#expectedOrigin(this.#origins, requestOrigin),
-        expectedRPID: this.#rpID,
+        expectedOrigin: this.#expectedOrigin(rpID, requestOrigin),
+        expectedRPID: rpID,
         requireUserVerification: pk.userVerification === "required",
       });
     } catch {
@@ -445,11 +479,15 @@ class WebAuthnService extends Service {
    *   `credentialId` est corrélable entre sites (W3C WebAuthn L3, « Privacy leak
    *   via credential IDs »). Le controller BFF applique cette règle —
    *   `WebAuthnController.loginOptions()` ne cible que depuis la session.
+   * @param host - nom d'hôte de la requête (`Context.domain`) : fixe le RP ID.
+   * @throws WebAuthnError (421) — hôte étranger au domaine de base et hors `trustedHosts`.
    */
   async generateAuthenticationOptions(
     userId?: string,
+    host?: string,
   ): Promise<PublicKeyCredentialRequestOptionsJSON> {
     const { store, config } = this.#ensureReady();
+    const rpID = this.relyingPartyIdFor(host);
     const lib = await this.#ensureLib();
     const pk = config.passkeys;
     let allowCredentials: { id: string; transports?: string[] }[] | undefined;
@@ -461,7 +499,7 @@ class WebAuthnService extends Service {
       }));
     }
     return lib.generateAuthenticationOptions({
-      rpID: this.#rpID,
+      rpID,
       ...(allowCredentials !== undefined && { allowCredentials }),
       userVerification: pk.userVerification,
       timeout: pk.timeoutMs,
@@ -474,14 +512,18 @@ class WebAuthnService extends Service {
    * sauvegarde, usage). Résout l'utilisateur propriétaire via le credentialId.
    *
    * @param expectedChallenge - le challenge émis par {@link generateAuthenticationOptions} (session).
+   * @param host - nom d'hôte de la requête : même RP ID que l'émission des options.
    * @throws AuthenticationError (401) — credential inconnu ou vérification échouée.
+   * @throws WebAuthnError (421) — hôte étranger au domaine de base et hors `trustedHosts`.
    */
   async verifyAuthentication(
     response: AuthenticationResponseJSON,
     expectedChallenge: string,
     requestOrigin?: string,
+    host?: string,
   ): Promise<IWebAuthnAssertionResult> {
     const { store, config } = this.#ensureReady();
+    const rpID = this.relyingPartyIdFor(host);
     const lib = await this.#ensureLib();
     const pk = config.passkeys;
     const stored = await store.findById(response.id);
@@ -495,8 +537,8 @@ class WebAuthnService extends Service {
       verification = await lib.verifyAuthenticationResponse({
         response,
         expectedChallenge,
-        expectedOrigin: this.#expectedOrigin(this.#origins, requestOrigin),
-        expectedRPID: this.#rpID,
+        expectedOrigin: this.#expectedOrigin(rpID, requestOrigin),
+        expectedRPID: rpID,
         credential: {
           id: stored.id,
           publicKey: new Uint8Array(Buffer.from(stored.publicKey, "base64url")),
@@ -572,6 +614,49 @@ class WebAuthnService extends Service {
     return true;
   }
 
+  /**
+   * RP ID d'une cérémonie servie sous l'hôte `host` — dérivé de l'hôte, mais
+   * seulement d'un hôte que la barrière `trustedHosts` accepte.
+   *
+   * - pas d'hôte, une adresse IP, ou un hôte ÉGAL au domaine de base
+   *   (`passkeys.rpId`, sinon `kernel.domain`) ou SOUS lui → le RP ID du boot,
+   *   inchangé : WebAuthn L3 (§5.1.3) l'admet pour toute origine dont il est un
+   *   suffixe de domaine enregistrable, et les passkeys déjà enrôlées y restent
+   *   valables ;
+   * - un autre hôte → lui-même en ASCII, s'il franchit
+   *   `HttpKernel.isTrustedHostname`. Un en-tête `Host` est écrit par le client :
+   *   sans cette barrière, n'importe qui obtiendrait un défi pour le domaine de
+   *   son choix. La barrière est interrogée même si `domainCheck` est coupé
+   *   (son défaut) — c'est alors le seul endroit où l'hôte est jugé.
+   *
+   * Chemin froid (une cérémonie, jamais une requête courante) : aucun cache —
+   * sous `trustedHosts: true` il ne serait pas borné.
+   *
+   * @param host - nom d'hôte de la requête, sans port (`Context.domain`).
+   * @returns le RP ID à présenter au navigateur et à exiger de l'assertion.
+   * @throws WebAuthnError (421) — hôte étranger hors `trustedHosts`, ou barrière
+   *   introuvable (fail-closed) : aucun RP ID ne lui est attribué.
+   */
+  relyingPartyIdFor(host?: string): string {
+    const base = this.#rpID;
+    if (host === undefined || host === "") return base;
+    const ascii = relyingPartyDomain(host);
+    if (ascii === "" || ascii === base || ascii.endsWith(`.${base}`)) {
+      return base;
+    }
+    const barrier = this.get<IHostBarrier>("HttpKernel");
+    if (
+      typeof barrier?.isTrustedHostname !== "function" ||
+      !barrier.isTrustedHostname(host)
+    ) {
+      throw new WebAuthnError(
+        `passkeys : hôte « ${host} » hors trustedHosts — aucun RP ID`,
+        421,
+      );
+    }
+    return ascii;
+  }
+
   // ── Internes ─────────────────────────────────────────────────────────────────
 
   /**
@@ -580,26 +665,23 @@ class WebAuthnService extends Service {
    * si son hostname == rpID** (dev : `localhost:port` quel que soit le port, sans
    * jamais ouvrir à un domaine tiers). Dernier recours : `https://{rpID}`.
    *
-   * @param origins - liste blanche `passkeys.origins` de la config prête.
+   * @param rpID - RP ID de la cérémonie ({@link WebAuthnService.relyingPartyIdFor}).
    * @param requestOrigin - origine HTTP de la requête, si connue.
    */
-  #expectedOrigin(
-    origins: readonly string[],
-    requestOrigin?: string,
-  ): string | string[] {
-    if (origins.length > 0) {
-      return [...origins];
+  #expectedOrigin(rpID: string, requestOrigin?: string): string | string[] {
+    if (this.#origins.length > 0) {
+      return [...this.#origins];
     }
     if (requestOrigin) {
       try {
-        if (new URL(requestOrigin).hostname === this.#rpID) {
+        if (new URL(requestOrigin).hostname === rpID) {
           return requestOrigin;
         }
       } catch {
         /* origine malformée → ignorée */
       }
     }
-    return `https://${this.#rpID}`;
+    return `https://${rpID}`;
   }
 
   async #ensureLib(): Promise<Lib> {
