@@ -10,6 +10,24 @@
  */
 
 /**
+ * Retire les commentaires HTML (« GÉNÉRÉ par … » n'est pas un résumé) jusqu'au
+ * point fixe : un seul passage laisse `<!--` dans `<!-<!---->-`, qui se recompose
+ * une fois le commentaire intérieur retiré.
+ *
+ * @param text - le markdown.
+ * @returns le markdown sans aucun commentaire, ni ouverture orpheline.
+ */
+function withoutHtmlComments(text) {
+  let current = text;
+  let previous;
+  do {
+    previous = current;
+    current = current.replace(/<!--[\s\S]*?-->/g, "");
+  } while (current !== previous);
+  return current.replaceAll("<!--", "");
+}
+
+/**
  * Le premier paragraphe de prose de la page, nettoyé de sa syntaxe markdown.
  *
  * Un PARAGRAPHE, pas une ligne : le corpus est replié à 100 colonnes, et prendre
@@ -24,9 +42,9 @@
  * @returns le résumé, 180 caractères au plus.
  */
 export function pageSummary(body, declared, title) {
-  const prose = body
-    .replace(/```[\s\S]*?```/g, "") // un bloc de code n'est pas une phrase
-    .replace(/<!--[\s\S]*?-->/g, "") // ni un commentaire (« GÉNÉRÉ par … »)
+  const prose = withoutHtmlComments(
+    body.replace(/```[\s\S]*?```/g, ""), // un bloc de code n'est pas une phrase
+  )
     .replace(/^\s*>\s?\[!.*$/gm, "") // ni le marqueur d'une admonition
     .replace(/^\s*>\s?/gm, ""); // une citation, si : c'est souvent le résumé
   const text =

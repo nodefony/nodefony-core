@@ -149,6 +149,19 @@ describe("résumé d'une page", () => {
     );
   });
 
+  it("un commentaire imbriqué ne laisse aucune ouverture `<!--` derrière lui", () => {
+    // Un seul passage de la regex rend `<!--` à partir de `<!-<!---->-` : le
+    // retrait se répète jusqu'au point fixe (alerte CodeQL
+    // js/incomplete-multi-character-sanitization).
+    const body =
+      "Une phrase <!-<!---->- reste --> de prose assez longue pour servir de résumé.\n";
+    const summary = pageSummary(body, undefined, "t");
+    expect(summary).not.toContain("<!--");
+    expect(summary).toBe(
+      "Une phrase  de prose assez longue pour servir de résumé.",
+    );
+  });
+
   it("garde les soulignés d'un identifiant, retire ceux d'une emphase", () => {
     const body =
       "Changer `NF_DATABASE_URL` de postgres à mongodb ne doit _rien_ changer à ce que voit l'application.\n";
