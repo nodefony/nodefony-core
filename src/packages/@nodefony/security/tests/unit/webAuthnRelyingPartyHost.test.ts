@@ -95,7 +95,9 @@ function buildService(
     options: { passkeys: { enabled: true, ...options.passkeys } },
   } as unknown as Module;
   const svc = new WebAuthnService(module);
-  svc.log = (() => undefined) as WebAuthnService["log"];
+  svc.log = ((_msg: unknown, _level?: string) => {
+    /* journal muet — hors sujet ici */
+  }) as WebAuthnService["log"];
   handlers.onBoot?.();
   return svc;
 }
