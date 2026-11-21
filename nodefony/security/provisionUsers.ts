@@ -6,12 +6,12 @@ import {
 } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
 import {
-  describeSeedFailure,
   InMemoryUserRepository,
   UserService,
   listUserStores,
+  seedAccount,
 } from "@nodefony/user";
-import type { IPasswordEncoder } from "@nodefony/user";
+import type { IPasswordEncoder, SeedLog } from "@nodefony/user";
 import { DrizzleUserRepository } from "@nodefony/drizzle";
 import type { DrizzleOrm } from "@nodefony/drizzle";
 import { env } from "../../env";
@@ -216,13 +216,17 @@ export async function provisionUsers(module: Module): Promise<void> {
 }
 
 /**
- * Seed idempotent de la base Drizzle. Crée les comptes manquants seulement.
+ * Seed idempotent de la base Drizzle. Crée les comptes manquants seulement —
+ * la règle vit dans `@nodefony/user` (`seedAccount`) : un compte existant n'est
+ * jamais réécrit, et une variable de mot de passe alors ignorée s'annonce en
+ * `NOTICE`.
  *
- * - **PROD** : aucun mot de passe par défaut (le hash de `secret` est public dans
- *   le code). Un admin n'est seedé QUE si `NF_ADMIN_PASSWORD` est fourni
+ * - **PROD** : aucun mot de passe par défaut (un défaut écrit dans le code est
+ *   public). Un admin n'est seedé QUE si `NF_ADMIN_PASSWORD` est fourni
  *   (gestionnaire de secrets) ; sinon, avertissement et aucun compte créé.
- * - **DEV** : comptes de fixture connus (`admin`/`user`, mot de passe `secret` par
- *   défaut, surchargeable via `.env`) → bancs d'intégration out-of-the-box.
+ * - **DEV** : comptes de fixture connus (`admin`/`user`, mot de passe
+ *   `secret-de-dev-42` par défaut — {@link DEV_FIXTURE_PASSWORD} —, surchargeable
+ *   via `.env` AVANT la création du compte) → bancs d'intégration out-of-the-box.
  *
  * @param users - service utilisateur déjà branché sur un dépôt persistant.
  * @param module - module applicatif (pour les logs + l'environnement).
@@ -234,13 +238,23 @@ async function seedPersistentUsers(
   backend: string,
 ): Promise<void> {
   const isProd = module.kernel?.environment === "production";
+  const log: SeedLog = (message, severity) =>
+    module.log(message, severity, LOG_CTX);
 
   if (isProd) {
-    if (await users.findByIdentifier(ADMIN_IDENTIFIER)) {
-      return;
-    }
-    const adminPwd = env.NF_ADMIN_PASSWORD;
-    if (!adminPwd) {
+    const outcome = await seedAccount(
+      users,
+      {
+        identifier: ADMIN_IDENTIFIER,
+        roles: ADMIN_PROD_ROLES,
+        envVar: "NF_ADMIN_PASSWORD",
+        envValue: env.NF_ADMIN_PASSWORD,
+        fallbackPassword: null,
+        admin: true,
+      },
+      log,
+    );
+    if (outcome === "no-password") {
       module.log(
         `Aucun admin et NF_ADMIN_PASSWORD non défini → aucun compte seedé. Créez-en ` +
           `un (\`nodefony security:user:add\`) ou définissez NF_ADMIN_PASSWORD ` +
@@ -248,18 +262,7 @@ async function seedPersistentUsers(
         "WARNING",
         LOG_CTX,
       );
-      return;
-    }
-    if (
-      await seedOne(users, module, {
-        identifier: ADMIN_IDENTIFIER,
-        plainPassword: adminPwd,
-        roles: ADMIN_PROD_ROLES,
-        envVar: "NF_ADMIN_PASSWORD",
-        fromEnv: true,
-        admin: true,
-      })
-    ) {
+    } else if (outcome === "created") {
       module.log(
         `Admin de production seedé (mot de passe via NF_ADMIN_PASSWORD).`,
         "INFO",
@@ -270,27 +273,29 @@ async function seedPersistentUsers(
   }
 
   // DEV — comptes de fixture (idempotents : créés seulement si absents).
-  const adminPwd = env.NF_ADMIN_PASSWORD ?? DEV_FIXTURE_PASSWORD;
-  const userPwd = env.NF_USER_PASSWORD ?? DEV_FIXTURE_PASSWORD;
-  if (!(await users.findByIdentifier(ADMIN_IDENTIFIER))) {
-    await seedOne(users, module, {
+  await seedAccount(
+    users,
+    {
       identifier: ADMIN_IDENTIFIER,
-      plainPassword: adminPwd,
       roles: ADMIN_DEV_ROLES,
       envVar: "NF_ADMIN_PASSWORD",
-      fromEnv: env.NF_ADMIN_PASSWORD != null,
+      envValue: env.NF_ADMIN_PASSWORD,
+      fallbackPassword: DEV_FIXTURE_PASSWORD,
       admin: true,
-    });
-  }
-  if (!(await users.findByIdentifier(USER_IDENTIFIER))) {
-    await seedOne(users, module, {
+    },
+    log,
+  );
+  await seedAccount(
+    users,
+    {
       identifier: USER_IDENTIFIER,
-      plainPassword: userPwd,
       roles: USER_ROLES,
       envVar: "NF_USER_PASSWORD",
-      fromEnv: env.NF_USER_PASSWORD != null,
-    });
-  }
+      envValue: env.NF_USER_PASSWORD,
+      fallbackPassword: DEV_FIXTURE_PASSWORD,
+    },
+    log,
+  );
   module.log(
     `Comptes de fixture dev prêts (${ADMIN_IDENTIFIER} + ${USER_IDENTIFIER}) — dépôt ${backend}.`,
     "INFO",
@@ -308,52 +313,3 @@ async function seedPersistentUsers(
  * `admin`, refusé parce qu'il contient l'identifiant du compte.
  */
 export const DEV_FIXTURE_PASSWORD = "secret-de-dev-42";
-
-/** Ce qu'il faut pour semer un compte, et pour EXPLIQUER si ça rate. */
-interface ISeedRequest {
-  /** Identifiant du compte. */
-  identifier: string;
-  /** Mot de passe en clair (haché par `createUser`). */
-  plainPassword: string;
-  /** Rôles à plat. */
-  roles: string[];
-  /** Variable d'environnement qui porte ce mot de passe. */
-  envVar: string;
-  /** La valeur vient-elle de cette variable, ou du défaut de ce fichier ? */
-  fromEnv: boolean;
-  /** Compte d'administration (décide du `--admin` du remède). */
-  admin?: boolean;
-}
-
-/**
- * Sème un compte — et si ça rate, le DIT sans tuer le démarrage.
- *
- * **Tranché, pas laissé au hasard d'un `try` absent** : amorcer un compte est un
- * confort de première minute ; une application sans compte démarre parfaitement,
- * et l'exploitant en crée un par `nodefony security:user:add`. La dégradation,
- * elle, est bruyante — un `ERROR` au boot est compté dans le bilan du dernier
- * démarrage (`var/last-boot.json`), donc relisible par `nodefony doctor` bien
- * après que le terminal qui l'a vu passer a été fermé.
- *
- * @param users - service utilisateur branché sur son dépôt.
- * @param module - module applicatif (logs).
- * @param request - le compte à semer, et de quoi expliquer un refus.
- * @returns `true` si le compte a été créé, `false` si le semis a échoué.
- */
-async function seedOne(
-  users: UserService,
-  module: Module,
-  request: ISeedRequest,
-): Promise<boolean> {
-  try {
-    await users.createUser({
-      identifier: request.identifier,
-      plainPassword: request.plainPassword,
-      roles: request.roles,
-    });
-    return true;
-  } catch (e) {
-    module.log(describeSeedFailure(e, request), "ERROR", LOG_CTX);
-    return false;
-  }
-}
