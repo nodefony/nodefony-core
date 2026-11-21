@@ -116,7 +116,7 @@ function buildSteps(machine: string): readonly [IGrpcStep, ...IGrpcStep[]] {
       short: "La machine pousse",
       gesture: "createGrpcTransport",
       title: "La machine pousse, en gRPC natif",
-      text: "La machine est une commande de l'application, lancée dans un second terminal : un client gRPC Node, en HTTP/2 et TLS sur le port 5152. Elle ouvre UN appel `Push` et y envoie une mesure par tour de cadence ; la page passe à « machine connectée ». À la fin du flux, le serveur répond par son total.",
+      text: "La machine est une commande de l'application, lancée dans un second terminal : un client gRPC Node, en HTTP/2 et TLS sur le port TLS de l'application. Elle ouvre UN appel `Push` et y envoie une mesure par tour de cadence ; la page passe à « machine connectée ». À la fin du flux, le serveur répond par son total.",
       excerpts: [
         { file: MACHINE, region: "grpc-client" },
         { file: MACHINE, region: "grpc-readings" },
@@ -402,7 +402,8 @@ export function GrpcLesson({ about }: { about: IDemoAbout | null }) {
           <ul>
             <li>
               <strong>gRPC natif exige HTTP/2.</strong> La machine vise le port
-              TLS (5152 en développement) ; Connect, lui, passe aussi en
+              TLS que l&apos;application sert — celui de sa config, ou le
+              suivant s&apos;il était pris ; Connect, lui, passe aussi en
               HTTP/1.1.
             </li>
             <li>
