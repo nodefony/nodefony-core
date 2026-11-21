@@ -1,9 +1,9 @@
 {
   "_note": "cliquet — plafonds abaissés par --update, jamais montés (#572)",
-  "total": 1512,
+  "total": 1509,
   "ceilings": {
     "modules/mediasoup": 2,
-    "modules/test": 46,
+    "modules/test": 43,
     "modules/test-frontend-angular": 8,
     "modules/test-frontend-react": 9,
     "modules/test-frontend-svelte": 2,

@@ -100,19 +100,27 @@ src/modules/test/
 
 Sondes ALS (AsyncLocalStorage) pour BUG-001 (WS messages) + BUG-002 (`onAfterResponse`). État partagé `alsTestState` exporté, relu via `/state`.
 
-| Route                       | Méthode   | Description                                                                                |
-| --------------------------- | --------- | ------------------------------------------------------------------------------------------ |
-| `/after`                    | GET       | register hook `onAfterResponse` → capture `requestId` ALS dans `byContext`                 |
-| `/after/user`               | GET       | `RequestContext.set("user")` puis hook lit le user                                         |
-| `/after/late`               | GET       | hook1 (ALS restauré) register hook2 late → exerce la branche `_afterResponseFired`         |
-| `/state` / `/reset`         | GET       | lecture / reset de `alsTestState`                                                          |
-| `/ws`                       | WEBSOCKET | echo `requestId`/`user`/`traceparent` ALS à chaque message + handshake                     |
-| `/ws/user`                  | WEBSOCKET | message "login" → `set("user")`, persiste au message suivant                               |
-| `/ws/after`                 | WEBSOCKET | hook `onAfterResponse` au handshake → lit ALS à la fermeture                               |
-| `/scopes`                   | GET       | scopes `request` ouverts (registre du conteneur) — compte exact du gate mémoire            |
-| `/contexts/arm` · `/disarm` | GET       | arme / désarme le traceur de contextes HTTP (`FinalizationRegistry` sur `onCreateContext`) |
-| `/contexts/mark`            | GET       | ouvre une époque : seuls les contextes nés après sont comptés                              |
-| `/contexts`                 | GET       | `{ created, finalized, alive }` de l'époque, après GC forcé — compte exact du gate         |
+| Route                       | Méthode   | Description                                                                                           |
+| --------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| `/after`                    | GET       | register hook `onAfterResponse` → capture `requestId` ALS dans `byContext`                            |
+| `/after/user`               | GET       | `RequestContext.set("user")` puis hook lit le user                                                    |
+| `/after/late`               | GET       | hook1 (ALS restauré) register hook2 late → exerce la branche `_afterResponseFired`                    |
+| `/state` / `/reset`         | GET       | lecture / reset de `alsTestState`                                                                     |
+| `/ws`                       | WEBSOCKET | echo `requestId`/`user`/`traceparent` ALS à chaque message + handshake                                |
+| `/ws/user`                  | WEBSOCKET | message "login" → `set("user")`, persiste au message suivant                                          |
+| `/ws/after`                 | WEBSOCKET | hook `onAfterResponse` au handshake → lit ALS à la fermeture                                          |
+| `/scopes`                   | GET       | scopes `request` ouverts (registre du conteneur) — compte GLOBAL du gate mémoire                      |
+| `/scopes/watch?mark=X`      | GET       | arme le témoin pour la marque X (`scopeWitness.ts`) : ne compte que les requêtes `x-scope-witness: X` |
+| `/scopes/witness?mark=X`    | GET       | `{ seen, open }` : scopes inscrits sous X, et encore ouverts (`closed` faux)                          |
+| `/scopes/unwatch?mark=X`    | GET       | oublie X ; la dernière marque oubliée retire les écouteurs                                            |
+| `/contexts/arm` · `/disarm` | GET       | arme / désarme le traceur de contextes HTTP (`FinalizationRegistry` sur `onCreateContext`)            |
+| `/contexts/mark`            | GET       | ouvre une époque : seuls les contextes nés après sont comptés                                         |
+| `/contexts`                 | GET       | `{ created, finalized, alive }` de l'époque, après GC forcé — compte exact du gate                    |
+
+> ⚠️ **`/scopes` compte TOUTES les requêtes en vol**, celles des suites d'autres paquets comprises
+> (turbo les joue en parallèle contre ce serveur) : un banc qui prouve que SES requêtes rendent leur
+> scope prend le témoin par marque — `watchScopes` de `http/nodefony/tests/helpers/scopeDrain.ts`,
+> prémisse `seen` affirmée. Vécu : 8 flux gRPC de framework lus comme 8 HEAD qui fuyaient.
 
 > ⚠️ Au handshake WS, l'action reçoit `undefined` (pas `null`) → détecter via `message == null`, jamais `.toString()` un message absent.
 
