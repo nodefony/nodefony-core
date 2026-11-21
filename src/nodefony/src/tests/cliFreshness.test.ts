@@ -19,6 +19,9 @@ const REAL_TAGS = {
   beta: "10.0.0-beta.3",
 };
 
+/** Après une stable, ses trois tags pointent la même version — `beta` d'abord. */
+const STABLE_TIE = { beta: "10.0.1", alpha: "10.0.1", latest: "10.0.1" };
+
 /** Un `fetch` factice qui rend `body` (ou échoue selon `mode`). */
 const fakeFetch =
   (body: unknown, mode: "ok" | "404" | "throw" | "hang" = "ok"): typeof fetch =>
@@ -94,6 +97,27 @@ describe("newerPublishedRelease — la version du même canal", () => {
       null,
     );
     assert.strictEqual(newerPublishedRelease("10.0.0", { latest: 12 }), null);
+  });
+
+  it("#809 — plusieurs tags sur la même stable : `latest` l'emporte, quel que soit l'ordre", () => {
+    assert.deepEqual(newerPublishedRelease("10.0.0", STABLE_TIE), {
+      version: "10.0.1",
+      tag: "latest",
+    });
+  });
+
+  it("#809 — rien quand on est déjà à la dernière", () => {
+    assert.strictEqual(newerPublishedRelease("10.0.1", STABLE_TIE), null);
+  });
+
+  it("#809 — une préversion lancée exprès (@beta) n'est pas renvoyée vers la stable plus ancienne", () => {
+    assert.strictEqual(
+      newerPublishedRelease("10.1.0-beta.1", {
+        latest: "10.0.1",
+        beta: "10.1.0-beta.1",
+      }),
+      null,
+    );
   });
 });
 
@@ -180,6 +204,24 @@ describe("startFreshnessCheck — l'annonce et son geste", () => {
     assert.match(notice, /10\.0\.0-beta\.3 est publiée/);
     assert.match(notice, /npm i -g nodefony@beta/);
     assert.doesNotMatch(notice, /@latest/);
+  });
+
+  // #809 : à qui a tapé `npm create nodefony`, `npm i -g` met à jour un binaire
+  // qu'il n'a pas — on lui rend SA commande, canal nommé.
+  it("lancé par `npm create` : rend la commande npm create, canal nommé, avec le nom de l'app", async () => {
+    const notice = await startFreshnessCheck(
+      "10.0.0",
+      {},
+      fakeFetch({ "dist-tags": STABLE_TIE }),
+      { launcher: "npm-create", appName: "probe" },
+    );
+    assert.ok(notice !== null);
+    assert.match(
+      notice,
+      /générée avec la 10\.0\.0, et la 10\.0\.1 est publiée/u,
+    );
+    assert.match(notice, /npm create nodefony@latest probe /u);
+    assert.doesNotMatch(notice, /npm i -g/u);
   });
 
   it("n'interroge rien quand elle est coupée", async () => {
