@@ -141,7 +141,8 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
   error>warning>info, dédoublonnés code+message. Lazy (`null`). Notice/lien déclaré APRÈS
   `writeBootSummary` → `last-boot.json` réécrit (Vite finit après `onPostReady`) ; durée figée
   à la 1ʳᵉ écriture (`bootDurationMs`).
-- Codes émis : `FIREWALL_PUBLIC_ROUTES` (security, `onKernelReady`), `DB_SQLITE_FALLBACK`
+- Codes émis : `FIREWALL_PUBLIC_ROUTES` (security, `onKernelReady`), `JWT_ISSUER_PORT_NOT_SERVED`
+  (security, `onServersReady` — émetteur local sur un port non servi, port glissé), `DB_SQLITE_FALLBACK`
   (drizzle), `REALTIME_LOCAL_ONLY`/`REALTIME_BACKPLANE_DOWN` (realtime),
   `FRONTEND_BUILD_FAILED`/`FRONTEND_PARTIAL` (frontend). Lien `studio` (studio).
 - Rendu dev = `BootReporter` → `buildStartupView` → `renderStartupHuman` / `renderStartupPlain` /
