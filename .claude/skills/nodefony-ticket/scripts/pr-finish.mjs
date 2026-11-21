@@ -75,6 +75,30 @@ const REPO = "nodefony/nodefony-core";
  *   `null` si la base n'est pas protégée
  * @returns {{ mode: "auto" | "watch", reason: string }}
  */
+/**
+ * Relit la PR jusqu'à ce que sa tête soit le commit qu'on vient de pousser.
+ *
+ * GitHub met la tête d'une PR à jour quelques secondes APRÈS le push : relue
+ * aussitôt, elle portait encore l'ancienne tête — vécu sur #821, refus « tête
+ * marquée skip-ci » visant le commit d'ouverture alors que le travail était
+ * poussé. Au-delà des essais, rend la dernière lecture : les gardes suivantes
+ * jugent sur ce que GitHub dit, jamais sur ce qu'on espère.
+ *
+ * @template {{ headRefOid: string }} T
+ * @param {() => T} read - lit la PR
+ * @param {string} expected - le sha poussé
+ * @param {{ attempts?: number, wait?: () => void }} [options]
+ * @returns {T}
+ */
+export function readPushedHead(read, expected, { attempts = 15, wait } = {}) {
+  let pr = read();
+  for (let i = 1; i < attempts && pr.headRefOid !== expected; i++) {
+    wait?.();
+    pr = read();
+  }
+  return pr;
+}
+
 export function mergePlan({ allowAutoMerge, requiredChecks }) {
   if (!allowAutoMerge) {
     return {
@@ -421,7 +445,10 @@ function main() {
       throw new Error(
         "git push refusé — lire la sortie ci-dessus, puis relancer",
       );
-    pr = viewPr();
+    pr = readPushedHead(viewPr, sh("git", ["rev-parse", "HEAD"]), {
+      wait: () =>
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000),
+    });
   }
 
   // Les ancêtres se constatent sur les références DISTANTES, tête de PR comprise.
