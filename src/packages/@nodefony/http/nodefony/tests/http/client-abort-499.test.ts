@@ -4,7 +4,7 @@ import https from "node:https";
 import http2 from "node:http2";
 import { randomUUID } from "node:crypto";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";
-import { drainTo } from "../helpers/scopeDrain";
+import { watchScopes } from "../helpers/scopeDrain";
 import {
   compteDansJournal,
   journalDuServeur,
@@ -27,6 +27,20 @@ function getJson(path: string): Promise<{ status: number }> {
     const req = https.request({ ...BASE, path, method: "GET" }, (res) => {
       res.resume();
       res.on("end", () => resolve({ status: res.statusCode! }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+/** GET HTTP/1.1, corps JSON décodé — la voie du témoin des scopes. */
+function getBody(path: string): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const req = https.request({ ...BASE, path, method: "GET" }, (res) => {
+      let s = "";
+      res.setEncoding("utf8");
+      res.on("data", (c: string) => (s += c));
+      res.on("end", () => resolve(JSON.parse(s)));
     });
     req.on("error", reject);
     req.end();
@@ -115,6 +129,17 @@ interface IProfil {
   durationMs: number | null;
 }
 
+/** Champs utiles d'un profil, lus sans conversion (absents → `null`). */
+function toProfil(body: unknown): IProfil {
+  const field = (key: string): number | null => {
+    if (typeof body !== "object" || body === null || !(key in body))
+      return null;
+    const value: unknown = Reflect.get(body, key);
+    return typeof value === "number" ? value : null;
+  };
+  return { status: field("status"), durationMs: field("durationMs") };
+}
+
 /** Profil d'une requête par son identifiant — course avec le teardown. */
 async function profilDe(requestId: string, cookie: string): Promise<IProfil> {
   for (let i = 0; i < 20; i++) {
@@ -138,7 +163,7 @@ async function profilDe(requestId: string, cookie: string): Promise<IProfil> {
         r.end();
       },
     );
-    if (res.status === 200) return JSON.parse(res.body) as IProfil;
+    if (res.status === 200) return toProfil(JSON.parse(res.body));
     await new Promise((r) => setTimeout(r, 50));
   }
   throw new Error(`profil introuvable pour ${requestId}`);
@@ -257,22 +282,10 @@ describe.skipIf(IS_PROD_TARGET)(
       // Pour un HEAD, Node clôt le flux dès `respond()` et la réponse de
       // compatibilité n'émettait plus ni `finish` ni `close` : aucun démontage,
       // donc ni ligne d'accès ni libération du scope — une fuite par requête.
-      const scopes = async (): Promise<number> => {
-        const body = await new Promise<string>((resolve, reject) => {
-          const r = https.request(
-            { ...BASE, path: "/nodefony/test/als-test/scopes", method: "GET" },
-            (res) => {
-              let s = "";
-              res.on("data", (c: Buffer) => (s += c.toString()));
-              res.on("end", () => resolve(s));
-            },
-          );
-          r.on("error", reject);
-          r.end();
-        });
-        return (JSON.parse(body) as { requestScopes: number }).requestScopes;
-      };
-      const base = await scopes();
+      // Témoin PAR MARQUE, jamais le compte global : la suite gRPC de
+      // framework, jouée en parallèle, ouvrait 8 flux longs pendant l'attente
+      // et ils passaient pour 8 HEAD retenus (#794).
+      const witness = await watchScopes(getBody);
       const marque = randomUUID();
       const N = 20;
       const statuts: number[] = [];
@@ -280,14 +293,17 @@ describe.skipIf(IS_PROD_TARGET)(
         statuts.push(
           await h2Request(`/nodefony/test/index?m=${marque}`, {
             ":method": "HEAD",
+            ...witness.headers,
           }),
         );
       }
       expect(statuts[0], "prémisse : le HEAD répond 200").to.equal(200);
-      const reste = await drainTo(scopes, base);
-      expect(reste, `${N} HEAD en HTTP/2 : scopes jamais libérés`).to.be.below(
-        5,
-      );
+      const reste = await witness.drain();
+      expect(reste.seen, "prémisse : le témoin a vu chaque HEAD").to.equal(N);
+      expect(
+        reste.open,
+        `${N} HEAD en HTTP/2 : scopes jamais libérés`,
+      ).to.equal(0);
       if (journal === null) {
         ctx.skip("aucun journal alimenté par le serveur sous test");
         return;

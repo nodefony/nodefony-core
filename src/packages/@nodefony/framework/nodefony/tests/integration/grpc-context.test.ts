@@ -29,7 +29,7 @@ import {
 } from "@connectrpc/connect-node";
 import { GuardedEchoService } from "../../../../../../modules/test/nodefony/gen/nodefony/test/v1/guarded_pb.js";
 import { IS_PROD_TARGET } from "../../../../http/nodefony/tests/helpers/targetEnv";
-import { drainTo } from "../../../../http/nodefony/tests/helpers/scopeDrain";
+import { watchScopes } from "../../../../http/nodefony/tests/helpers/scopeDrain";
 import { accessToken } from "../support/accessToken";
 
 const TLS = { rejectUnauthorized: false };
@@ -116,12 +116,11 @@ async function drain<T>(
   }
 }
 
-async function openScopes(): Promise<number> {
-  const r = await fetch(`${H1}/nodefony/test/als-test/scopes`);
+/** GET vers le serveur de dev, corps JSON décodé — la voie du témoin des scopes. */
+async function getBody(path: string): Promise<unknown> {
+  const r = await fetch(`${H1}${path}`);
   const body: unknown = await r.json();
-  return typeof body === "object" && body !== null && "requestScopes" in body
-    ? Number(body.requestScopes)
-    : Number.NaN;
+  return body;
 }
 
 /** `jti` d'un JWT (charge utile, sans vérification : c'est le nôtre). */
@@ -212,7 +211,9 @@ describe("gRPC — flux de 2 minutes (critère 29, ADR-0026 D6)", () => {
   it(
     "au DERNIER message : même identité, même requestId, même exemplaire du service request ; aucun scope ouvert ensuite",
     async () => {
-      const base = await openScopes();
+      // Témoin PAR MARQUE : le compte global additionne les requêtes en vol
+      // des suites jouées en parallèle contre le même serveur (#794).
+      const witness = await watchScopes(getBody);
       const token = await accessToken("user");
       const decor = DECORS[0];
       if (decor === undefined) throw new Error("aucun décor");
@@ -223,7 +224,7 @@ describe("gRPC — flux de 2 minutes (critère 29, ADR-0026 D6)", () => {
         client.follow(
           { count: LONG_MS / STEP_MS + 1, intervalMs: STEP_MS },
           {
-            headers: bearer(token),
+            headers: { ...bearer(token), ...witness.headers },
             onHeader: (h) => (seen.requestId = h.get("x-request-id")),
           },
         ),
@@ -233,7 +234,9 @@ describe("gRPC — flux de 2 minutes (critère 29, ADR-0026 D6)", () => {
       expect(messages).to.have.length(LONG_MS / STEP_MS + 1);
       expectSameBubble(decor.label, messages, seen.requestId);
       // Le scope de la requête du flux est refermé avec lui.
-      expect(await drainTo(openScopes, base, 1)).to.be.lessThan(1);
+      const reste = await witness.drain();
+      expect(reste.seen, "prémisse : le témoin a vu le flux").to.equal(1);
+      expect(reste.open).to.equal(0);
     },
     LONG_MS + 60_000,
   );

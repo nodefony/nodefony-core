@@ -16,7 +16,7 @@
 import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
-import { drainTo } from "../helpers/scopeDrain.js";
+import { watchScopes } from "../helpers/scopeDrain.js";
 import { asError, rawDataText } from "../helpers/wsText";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
@@ -67,16 +67,18 @@ async function cleanedState(serial: number): Promise<IProbeState> {
   return state;
 }
 
-async function liveScopes(): Promise<number> {
-  return (await get("/nodefony/test/als-test/scopes")).body
-    .requestScopes as number;
-}
-
 /** Une connexion : chaque message part après la réponse au précédent. */
-function wsSession(path: string, messages: string[]): Promise<Json[]> {
+function wsSession(
+  path: string,
+  messages: string[],
+  headers: Record<string, string> = {},
+): Promise<Json[]> {
   return new Promise((resolve, reject) => {
     const received: Json[] = [];
-    const ws = new WebSocket(`${WSS}${path}`, { rejectUnauthorized: false });
+    const ws = new WebSocket(`${WSS}${path}`, {
+      rejectUnauthorized: false,
+      headers,
+    });
     let sent = 0;
     ws.on("message", (data: WebSocket.RawData) => {
       try {
@@ -137,8 +139,14 @@ describe("#485 — portée request de l'injecteur, sur le serveur réel", () => 
   });
 
   it("WebSocket : une connexion, trois messages — même exemplaire, nettoyé une fois à la fermeture", async () => {
-    const before = await liveScopes();
-    const msgs = await wsSession(`${PREFIX}/ws`, ["a", "b", "c"]);
+    // Témoin PAR MARQUE : le compte global additionne les requêtes en vol des
+    // suites jouées en parallèle (#794).
+    const witness = await watchScopes(async (path) => (await get(path)).body);
+    const msgs = await wsSession(
+      `${PREFIX}/ws`,
+      ["a", "b", "c"],
+      witness.headers,
+    );
     expect(msgs, "handshake + 3 messages").to.have.length(4);
     const serial = msgs[0]!.serial as number;
     expect(msgs[0]!.handshake).to.equal(true);
@@ -152,7 +160,8 @@ describe("#485 — portée request de l'injecteur, sur le serveur réel", () => 
     expect(state.cleanedBySerial[serial], "une fois, à la fermeture").to.equal(
       1,
     );
-    const delta = await drainTo(liveScopes, before, 1);
-    expect(delta, "scope de la connexion refermé").to.be.at.most(0);
+    const reste = await witness.drain();
+    expect(reste.seen, "prémisse : le témoin a vu la connexion").to.equal(1);
+    expect(reste.open, "scope de la connexion refermé").to.equal(0);
   });
 });
