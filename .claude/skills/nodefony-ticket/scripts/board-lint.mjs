@@ -1036,8 +1036,15 @@ function readCommits(numeros) {
     // commits existants passe pour inexistant. Vécu ici même : six tickets
     // déclarés « en cours sans le moindre commit » alors qu'un commit du jour
     // les citait. `git` dégrossit, la regex tranche.
+    // ⚠️ TOUTES les branches, pas `HEAD` seul : `pr-finish` fait entamer le
+    // ticket suivant pendant que la PR précédente attend sa CI. Lu depuis la
+    // nouvelle branche, le travail de l'autre ticket était invisible, et il
+    // passait pour « en cours sans commit » — vécu sur #812 et #830, deux PR en
+    // vol, chacune déclarée menteuse depuis la branche de l'autre.
     const brut = sh("git", [
       "log",
+      "--branches",
+      "--remotes",
       "-30",
       `--grep=#${n}`,
       "--format=%H%x09%cI%x09%s%x09%b%x1e",
