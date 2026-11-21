@@ -1547,7 +1547,9 @@
         "npm run env:snapshot",
         ".githooks/pre-commit"
       ],
-      "testedBy": []
+      "testedBy": [
+        "scripts/site/llms-plan.test.mjs"
+      ]
     },
     {
       "path": "scripts/generate/generate-man.mjs",
@@ -1863,7 +1865,8 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "scripts/site/build-site-plan.mjs"
+        "scripts/site/build-site-plan.mjs",
+        "scripts/site/lib/llms-plan.mjs"
       ],
       "testedBy": [
         "scripts/site/site-plan.test.mjs"
@@ -1886,6 +1889,23 @@
       ],
       "testedBy": [
         "scripts/site/html-text.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/llms-plan.mjs",
+      "test": false,
+      "purpose": "Le plan de lecture du site au format llms.txt (https://llmstxt.org) — en ANGLAIS, et COURT.",
+      "usage": [
+        "import { llmsPlan } from \"./lib/llms-plan.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-site-plan.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/llms-plan.test.mjs"
       ]
     },
     {
@@ -1922,6 +1942,23 @@
       ],
       "testedBy": [
         "scripts/site/site-versions.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/page-summary.mjs",
+      "test": false,
+      "purpose": "Le résumé d'une page publiée : l'extrait qu'un moteur de recherche montrera (`<meta name=\"description\">`), et que le plan `llms.txt` cite à côté du lien. Sans lui, le moteur en invente un — souvent le fil d'Ariane ou une ligne de code, ce qui ne dit rien de la page.",
+      "usage": [
+        "import { pageSummary } from \"./lib/page-summary.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-docs-site.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/llms-plan.test.mjs"
       ]
     },
     {
@@ -1964,6 +2001,19 @@
       "testedBy": [
         "scripts/site/site-versions.test.mjs"
       ]
+    },
+    {
+      "path": "scripts/site/llms-plan.test.mjs",
+      "test": true,
+      "purpose": "Éprouve le plan `llms.txt` du site et le résumé de page qu'il cite.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
     },
     {
       "path": "scripts/site/markdown-highlight.mjs",
@@ -2954,6 +3004,7 @@
         "scripts/release/image-channels.mjs",
         "scripts/release/pack-all.mjs",
         "scripts/release/release.mjs",
+        "scripts/site/lib/llms-plan.mjs",
         "scripts/site/readme-html.mjs"
       ],
       "testedBy": [

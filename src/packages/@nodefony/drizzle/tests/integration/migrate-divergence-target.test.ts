@@ -243,6 +243,7 @@ describe("Divergence — la base VISÉE fait foi sous NF_MIGRATE_DATABASE_URL", 
           consulted = true;
           return Promise.reject(new Error("ne doit pas être appelé"));
         },
+        restorableDrifts: () => Promise.resolve([]),
       };
       const report = await composeReport(
         plan,

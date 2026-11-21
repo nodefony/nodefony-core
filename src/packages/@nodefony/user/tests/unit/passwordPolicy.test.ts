@@ -9,6 +9,7 @@ import {
   PasswordPolicy,
   truncatedPasswordHash,
 } from "../../index";
+import { commonPasswordHash } from "../../nodefony/src/password/passwordHash";
 
 // Le jetable du test, le test le supprime : scripts/test/vitest/tmp-guard.ts fait échouer
 // la passe sur tout dossier laissé dans le dossier temporaire.
@@ -157,6 +158,19 @@ describe("PasswordPolicy — les mots de passe les plus courants", () => {
     }
   });
 
+  it("un mot de passe sain dont les 4 premiers octets collisionnent n'est PAS refusé", async () => {
+    // `eh8u-nsv3-u8xn` est un tirage réel de `drawDevAdminPassword` (#810) :
+    // ses 4 premiers octets de SHA-1 tombent sur une empreinte de la liste, donc
+    // une comparaison sur 32 bits le refusait comme « courant » — et l'application
+    // générée ne semait pas son compte admin. Sur 8 octets, il passe. Revenir à
+    // 4 octets dans la comparaison fait tomber ce test.
+    const politique = new PasswordPolicy();
+    assert.equal(
+      await politique.violation("eh8u-nsv3-u8xn", { identifier: "admin" }),
+      null,
+    );
+  });
+
   it("le contrôle de liste se débranche explicitement, et alors le mot passe", async () => {
     const politique = new PasswordPolicy({ checkCommonPasswords: false });
     assert.equal(await politique.violation("basketball"), null);
@@ -174,7 +188,18 @@ describe("PasswordPolicy — les mots de passe les plus courants", () => {
   });
 });
 
-describe("truncatedPasswordHash — la même troncature que le générateur", () => {
+describe("commonPasswordHash — la même troncature que le générateur", () => {
+  it("`truncatedPasswordHash` (public) rend toujours les 4 premiers octets", () => {
+    // Fonction publiée en 10.0.0 : la liste se compare désormais sur 8 octets,
+    // mais sa valeur rendue ne change pas — c'est le poids fort de la paire.
+    for (const candidat of ["password", "basketball", "é→漢"]) {
+      assert.equal(
+        truncatedPasswordHash(candidat),
+        commonPasswordHash(candidat)[0],
+      );
+    }
+  });
+
   it("concorde avec `scripts/generate/generate-password-blocklist.mjs`", async () => {
     // Les deux copies sont inévitables (un script `.mjs` du dépôt ne peut pas
     // importer le `.ts` du paquet), donc elles se comparent. Sans ce test, une
@@ -196,7 +221,7 @@ describe("truncatedPasswordHash — la même troncature que le générateur", ()
     const programme =
       `const m = await import(${JSON.stringify(script)});` +
       `process.stdout.write(JSON.stringify(` +
-      `${JSON.stringify(candidats)}.map((p) => m.truncatedHash(p))));`;
+      `${JSON.stringify(candidats)}.map((p) => m.commonHash(p))));`;
     const rendu = execFileSync(
       process.execPath,
       ["--input-type=module", "-e", programme],
@@ -204,14 +229,11 @@ describe("truncatedPasswordHash — la même troncature que le générateur", ()
         encoding: "utf8",
       },
     );
-    const empreintes = JSON.parse(rendu) as number[];
-    candidats.forEach((candidat, index) => {
-      assert.equal(
-        truncatedPasswordHash(candidat),
-        empreintes[index],
-        candidat,
-      );
-    });
+    const empreintes: unknown = JSON.parse(rendu);
+    assert.deepEqual(
+      empreintes,
+      candidats.map((candidat) => commonPasswordHash(candidat)),
+    );
   });
 });
 
