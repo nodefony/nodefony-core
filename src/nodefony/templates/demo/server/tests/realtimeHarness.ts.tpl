@@ -1,9 +1,10 @@
 import { execFile } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
-import { createServer } from "node:net";
+import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { readRuntimeState } from "nodefony";
 import * as nodefonyCbor from "nodefony/cbor";
 import { NodefonySocket, type IRealtimeContract } from "nodefony/client";
 import {
@@ -50,7 +51,11 @@ declare module "vitest" {
 
 let server: ISpareApp | null = null;
 
-/** Le port HTTPS de l'exemplaire démarré — HTTP/2, celui du gRPC natif. */
+/**
+ * Le port HTTPS où l'exemplaire démarré écoute VRAIMENT — HTTP/2, celui du
+ * gRPC natif. Lu sur ce que le serveur publie, jamais recopié de sa config :
+ * en développement, un port pris le fait glisser au suivant.
+ */
 let httpsPortOf: number | null = null;
 
 /**
@@ -113,13 +118,47 @@ function freePort(): Promise<number> {
 }
 
 /**
+ * Occupe un port comme le ferait un autre serveur du poste : la connexion est
+ * acceptée puis aussitôt coupée — un client égaré échoue vite, jamais en
+ * attendant son délai.
+ */
+function squat(port: number): Promise<Server> {
+  return new Promise((resolve, reject) => {
+    const squatter = createServer((socket) => socket.destroy());
+    squatter.once("error", reject);
+    squatter.listen(port, "127.0.0.1", () => resolve(squatter));
+  });
+}
+
+/** Le port HTTPS que l'exemplaire publie, ou `null` s'il n'en publie aucun. */
+function publishedHttpsPort(): number | null {
+  const url = readRuntimeState(process.cwd(), {
+    purgeStale: false,
+  })?.urls?.find((u) => u.startsWith("https:"));
+  return url === undefined ? null : Number(new URL(url).port);
+}
+
+/** Les réglages d'un exemplaire. */
+export interface IDemoServerOptions {
+  /**
+   * Occupe le port HTTPS configuré avant le démarrage : l'exemplaire glisse
+   * au suivant, comme une application lancée pendant qu'une autre tient
+   * 5151/5152. Sa config dit alors un port, et il en sert un autre.
+   */
+  httpsPortTaken?: boolean;
+}
+
+/**
  * Démarre l'exemplaire de développement qui sert la démo.
  *
+ * @param options - le décor des ports
  * @returns l'arrêt, à appeler en `afterAll`
  * @throws Error — en cible externe : la suite qui l'appelle devait être
  * décrite par `demoDescribe`
  */
-export async function startDemoServer(): Promise<() => Promise<void>> {
+export async function startDemoServer(
+  options: IDemoServerOptions = {},
+): Promise<() => Promise<void>> {
   if (externalTarget) {
     throw new Error(
       "startDemoServer() en cible externe (`NF_E2E_BASE_URL`) : la démo n'y " +
@@ -127,6 +166,12 @@ export async function startDemoServer(): Promise<() => Promise<void>> {
     );
   }
   const [port, httpsPort] = [await freePort(), await freePort()];
+  const squatter = options.httpsPortTaken ? await squat(httpsPort) : null;
+  const release = () =>
+    new Promise<void>((resolve) => {
+      if (squatter === null) resolve();
+      else squatter.close(() => resolve());
+    });
   // La base est celle que `tests/e2e.setup.ts` a CHOISIE et remise à neuf,
   // transmise par `provide` — jamais une copie de sa règle. Un moteur
   // serveur : la même base `<base>_e2e` (une entité écrite pour un dialecte
@@ -161,12 +206,13 @@ export async function startDemoServer(): Promise<() => Promise<void>> {
     httpsPort,
     timeoutMs: 120_000,
     env,
-  }).catch((error: unknown) => {
+  }).catch(async (error: unknown) => {
+    await release();
     cleanup();
     throw error;
   });
   server = spare;
-  httpsPortOf = httpsPort;
+  httpsPortOf = publishedHttpsPort() ?? httpsPort;
   disposableBase = dir !== null;
   memberReady = null;
   // Les ports aussi : l'émetteur des jetons (`jwt.issuer`) en dépend, donc
@@ -183,6 +229,7 @@ export async function startDemoServer(): Promise<() => Promise<void>> {
     disposableBase = false;
     memberReady = null;
     await spare.stop();
+    await release();
     cleanup();
   };
 }

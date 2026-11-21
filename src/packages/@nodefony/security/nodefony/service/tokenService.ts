@@ -51,6 +51,7 @@ import {
 import { JwtKeystore } from "../src/token/JwtKeystore";
 import { ScopeGrantPolicy, refusedScopes } from "../src/token/scopeGrants";
 import type { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
+import { issuerPortNotice, servedPortsOf } from "../src/boot/issuerPortNotice";
 import {
   defaultAudience,
   resolveJwtRuntime,
@@ -130,6 +131,24 @@ class TokenService extends Service {
       }
     };
     this.kernel?.once("onBoot", tokenServiceBoot);
+    // Ports ouverts, bilan pas encore écrit : le seul moment où l'on sait si
+    // l'émetteur nomme un port réellement servi (`onServersReady` n'est émis
+    // que si des serveurs écoutent — jamais pour une commande console).
+    this.kernel?.once("onServersReady", () => this.#reportIssuerPort());
+  }
+
+  /**
+   * Déclare au bilan de démarrage un émetteur qui nomme un port que
+   * l'application ne sert pas (port glissé en développement) — cf
+   * {@link issuerPortNotice}.
+   */
+  #reportIssuerPort(): void {
+    if (this.#runtime === null) return;
+    const notice = issuerPortNotice(
+      this.#runtime.issuer,
+      servedPortsOf(this.container?.get("HttpKernel")),
+    );
+    if (notice) this.kernel?.reportBootNotice(notice);
   }
 
   // ── Cycle de vie ─────────────────────────────────────────────────────────────
