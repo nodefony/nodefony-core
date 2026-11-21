@@ -770,7 +770,10 @@ Trois choses valent d'être dites, parce qu'elles décident de ce que vous pouve
   de la corriger : les autres bases ont reçu l'ancienne version du fichier et ne recevront jamais la
   nouvelle. C'est pour cela que le refus propose d'abord de RÉTABLIR le fichier, et ce
   ré-alignement seulement en second — ne l'utilisez qu'en sachant que la modification était sans
-  effet (une reformulation, un commentaire).
+  effet (une reformulation, un commentaire). La restauration n'est proposée que si Nodefony a
+  **constaté** que git ramène exactement la version appliquée : un fichier livré par un module,
+  ou changé dans git lui-même (mise à jour du module, commit), n'a rien à restaurer — le
+  ré-alignement passe alors en tête, et le rapport dit de quelle source vient le fichier.
 - **`orm:migrate --dry-run` n'écrit rien du tout** — pas même la table d'historique, et il ne prend
   pas le verrou. Un compte en lecture seule suffit donc à voir le plan, et la base reste
   bit-à-bit celle d'avant : c'est ce qui rend l'essai vérifiable.

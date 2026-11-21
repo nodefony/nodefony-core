@@ -14,7 +14,8 @@ import {
 import { APP_SOURCE } from "./paths";
 import { MIGRATE_URL_ENV } from "./types";
 import { createdTables, loadSources } from "./sources";
-import { alreadyInTargetState } from "./explain";
+import { alreadyInTargetState, driftActions } from "./explain";
+import { restorableDrifts } from "./restorable";
 import { schemaReader, type SqlQuery } from "./catalog";
 import {
   compareSchema,
@@ -276,7 +277,12 @@ export class DrizzleMigrator {
         history,
         loaded.absent,
       );
-      this.#assertApplicable(plan, loaded.files, options);
+      this.#assertApplicable(
+        plan,
+        loaded.files,
+        options,
+        await this.restorableDrifts(plan),
+      );
       if (isDryRun) {
         return { runId, applied: [] };
       }
@@ -361,24 +367,24 @@ export class DrizzleMigrator {
   }
 
   /**
-   * Dossier des migrations de l'application, tel qu'on l'écrit dans un GESTE.
+   * Les fichiers dérivés d'un plan que `git checkout --` ramènerait EXACTEMENT
+   * à la version appliquée — constatés auprès de git, jamais supposés.
    *
-   * Dérivé du registre de sources, jamais littéral : une application peut
-   * ranger ses migrations ailleurs, et un geste qui nomme un dossier inexistant
-   * est un geste qu'on ne peut pas suivre.
+   * Les chemins sont relatifs à la racine de l'application (le parent du
+   * dossier de la source `app`, d'où l'on tape les commandes), en barres
+   * obliques : ils VOYAGENT dans une commande que quelqu'un copie.
    *
-   * Écrit avec des barres obliques, toujours : ce chemin VOYAGE — il part dans
-   * une commande que quelqu'un copie, y compris sous Windows, où `git` les
-   * accepte et où le séparateur natif serait une échappée.
-   *
-   * @returns le chemin à citer, terminé par une barre.
+   * @param plan - plan calculé par {@link DrizzleMigrator.status}.
+   * @returns les chemins à restaurer ; vide quand rien n'est constaté (pas de
+   *   dérive, pas de git, fichier livré par un paquet, ou changé DANS git).
    */
-  #migrationsPath(): string {
-    const app = this.#options.sources.find((s) => s.name === APP_SOURCE);
-    if (app === undefined) {
-      return "migrations/";
+  async restorableDrifts(plan: IMigrationPlan): Promise<string[]> {
+    if (plan.drifted.length === 0) {
+      return [];
     }
-    return `${path.basename(app.dir).split(path.sep).join("/")}/`;
+    const app = this.#options.sources.find((s) => s.name === APP_SOURCE);
+    const root = app === undefined ? process.cwd() : path.dirname(app.dir);
+    return restorableDrifts(plan.drifted, root);
   }
 
   async baseline(upTo?: string): Promise<IMigrationApplied[]> {
@@ -561,6 +567,7 @@ export class DrizzleMigrator {
           tag: row.tag,
           expected: row.hash,
           actual: file.hash,
+          path: file.path,
         });
       }
     }
@@ -588,12 +595,15 @@ export class DrizzleMigrator {
    * @param plan - plan calculé.
    * @param files - fichiers chargés, qui portent l'index de journal.
    * @param options - assouplissements explicitement demandés.
+   * @param restorable - fichiers dérivés que git restaure EXACTEMENT, cf
+   *   {@link DrizzleMigrator.restorableDrifts}.
    * @throws MigrationVerdictError portant le verdict structuré.
    */
   #assertApplicable(
     plan: IMigrationPlan,
     files: readonly IMigrationFile[],
     options: IMigrateOptions,
+    restorable: readonly string[],
   ): void {
     const first = plan.failed.at(0);
     if (first) {
@@ -631,21 +641,11 @@ export class DrizzleMigrator {
           // `orm:migrate:status`, proposait déjà la restauration en premier :
           // deux réponses à une seule question, et c'est la dangereuse qui
           // vivait dans le refus qui ARRÊTE le geste.
-          actions: [
-            {
-              command: `git checkout -- ${this.#migrationsPath()}`,
-              args: ["checkout", "--", this.#migrationsPath()],
-            },
-            {
-              command: `nodefony orm:migrate:repair --update-hashes --connector ${this.connector}`,
-              args: [
-                "orm:migrate:repair",
-                "--update-hashes",
-                "--connector",
-                this.connector,
-              ],
-            },
-          ],
+          // 🔴 Mais « sûr » ne vaut que s'il S'APPLIQUE : la restauration n'est
+          // proposée que si git la constate (`restorable`), sinon elle visait
+          // un dossier sans le fichier, ou une modification inexistante. Un
+          // seul composeur pour le refus et le rapport (`driftActions`).
+          actions: driftActions(` --connector ${this.connector}`, restorable),
         },
         `Le fichier de la migration « ${drift.tag} » (source « ${drift.source} ») ` +
           `a changé depuis son application. Une migration déjà jouée est immuable : ` +

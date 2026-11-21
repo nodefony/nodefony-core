@@ -45,8 +45,11 @@ interface IRepairOptions extends IMigrateSharedOptions {
  * Ré-aligner les empreintes déclare que les fichiers modifiés APRÈS avoir été
  * appliqués sont réputés conformes. C'est presque toujours faux : les autres
  * bases ont reçu l'ancienne version et ne recevront jamais la nouvelle. Le
- * geste normal face à un fichier modifié est de le restaurer
- * (`git checkout -- migrations/`) et d'écrire une NOUVELLE migration.
+ * geste normal face à une copie modifiée localement est de la restaurer depuis
+ * git et d'écrire une NOUVELLE migration — le rapport ne le propose que s'il a
+ * constaté que git ramène exactement la version appliquée (`restorableDrifts`).
+ * Quand c'est la version LIVRÉE qui a changé (mise à jour d'un module), il n'y
+ * a rien à restaurer, et ce ré-alignement est le geste qui s'applique.
  *
  * L'option existe pour le cas où l'on sait que la modification était sans effet
  * — une reformulation, un commentaire. Elle ne touche jamais la base.

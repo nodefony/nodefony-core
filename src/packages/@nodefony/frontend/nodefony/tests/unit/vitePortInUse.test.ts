@@ -83,6 +83,25 @@ describe("Vite — reconnaître un port occupé", () => {
     ).to.equal(true);
   });
 
+  it("🔴 Windows : un port pris se dit `listen EACCES` — c'est un conflit, il se replie", () => {
+    // Copié tel quel de la forge Windows : vite mourait, aucun repli, frontend
+    // perdu. Un port tenu en exclusivité, ou dans une plage réservée par le
+    // système, ne rend JAMAIS `EADDRINUSE` sous Windows.
+    expect(
+      isPortInUseMessage(
+        "error when starting dev server:\nError: listen EACCES: permission denied 127.0.0.1:55879\n" +
+          "    at Server.setupListenHandle [as _listen2] (node:net:2368:21)",
+      ),
+    ).to.equal(true);
+    // Un EACCES qui n'est pas un `listen` sur un port est une vraie panne :
+    // changer de port ne la réparerait pas.
+    expect(
+      isPortInUseMessage(
+        "Error: EACCES: permission denied, open '/app/vite.config.generated.mjs'",
+      ),
+    ).to.equal(false);
+  });
+
   it("« address already in use » seul", () => {
     expect(isPortInUseMessage("Error: address already in use")).to.equal(true);
   });

@@ -86,6 +86,15 @@ export function failureFrom(
 }
 
 /**
+ * Ce que l'assembleur du rapport demande à l'applicateur — satisfait par
+ * `DrizzleMigrator`.
+ */
+export interface IReportTarget extends IDivergenceTarget {
+  /** Fichiers dérivés que git restaure EXACTEMENT (cf `restorableDrifts`). */
+  restorableDrifts(plan: IMigrationPlan): Promise<readonly string[]>;
+}
+
+/**
  * Compose la charge utile d'un état — le SEUL endroit où le contexte du rendu
  * est assemblé.
  *
@@ -102,6 +111,7 @@ export function failureFrom(
  * @param migrator - l'applicateur qui a calculé le plan : quand
  *   `NF_MIGRATE_DATABASE_URL` le détourne, c'est SA base que la divergence
  *   compare au code — l'ORM enregistré, lui, reste sur la base configurée.
+ *   C'est aussi lui qui CONSTATE quels fichiers dérivés git sait restaurer.
  * @returns la charge utile, prête pour `--json` comme pour l'écran.
  */
 export async function composeReport(
@@ -109,7 +119,7 @@ export async function composeReport(
   resolution: Extract<IConnectorResolution, { kind: "ready" }>,
   config: IDrizzleConfig,
   kernel: Kernel | null,
-  migrator: IDivergenceTarget,
+  migrator: IReportTarget,
 ): Promise<IMigrationReport> {
   const mode = config.migrations.divergence;
   const target = resolution.fromMigrateUrl ? migrator : null;
@@ -127,6 +137,8 @@ export async function composeReport(
     // migration oubliée détournait chaque commande en silence.
     target: describeTargetSafely(resolution.target),
     fromMigrateUrl: resolution.fromMigrateUrl,
+    // « Restaurer le fichier » ne part que si git le CONSTATE applicable.
+    restorable: await migrator.restorableDrifts(plan),
   });
 }
 

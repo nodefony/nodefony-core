@@ -6,6 +6,7 @@ import type {
   IMigrationVerdict,
 } from "./types";
 import { HISTORY_TABLE } from "./types";
+import { APP_SOURCE } from "./paths";
 import type { ISchemaComparison, ISchemaGap } from "./schemaDiff";
 import type { IDestructiveFinding } from "./destructive";
 import type { IDiscoveryFacts } from "./refusals";
@@ -201,6 +202,45 @@ export const EXIT = {
 /** Fabrique une action affichable et exécutable. */
 export function action(command: string): IMigrationAction {
   return { command, args: command.split(" ").slice(1) };
+}
+
+/**
+ * Les gestes face à un fichier de migration modifié après son application —
+ * le SEUL endroit où ils se composent, pour le rapport comme pour le refus.
+ *
+ * Restaurer le fichier est le geste sûr, mais il ne vient en tête que s'il a
+ * été CONSTATÉ applicable (`restorable`, cf `restorableDrifts`). Proposé à
+ * l'aveugle, il visait un dossier qui ne contenait pas le fichier (migration
+ * livrée par un paquet), ou annulait une modification qui n'existait pas (le
+ * fichier avait changé DANS git) : un agent qui suit un geste inopérant conclut
+ * que l'outil se trompe, et le bon remède arrivait en second. Le ré-alignement
+ * reste toujours offert : c'est lui qui s'applique quand la version appliquée
+ * n'existe plus nulle part.
+ *
+ * @param connectorFlag - suffixe qui nomme le connecteur (`""` ou
+ *   ` --connector <nom>`).
+ * @param restorable - fichiers que git ramène EXACTEMENT à la version
+ *   appliquée, chemins en barres obliques ; vide quand rien n'est constaté.
+ * @returns les gestes, dans l'ordre où les tenter.
+ */
+export function driftActions(
+  connectorFlag: string,
+  restorable: readonly string[] = [],
+): IMigrationAction[] {
+  const repair = action(
+    `nodefony orm:migrate:repair${connectorFlag} --update-hashes`,
+  );
+  if (restorable.length === 0) {
+    return [repair];
+  }
+  const shown = restorable.map((p) => (/\s/.test(p) ? `"${p}"` : p));
+  return [
+    {
+      command: `git checkout -- ${shown.join(" ")}`,
+      args: ["checkout", "--", ...restorable],
+    },
+    repair,
+  ];
 }
 
 /**
@@ -463,6 +503,15 @@ export interface IReportContext {
    * pas POURQUOI c'est celle-là.
    */
   fromMigrateUrl?: boolean;
+  /**
+   * Fichiers dérivés que `git checkout --` ramènerait EXACTEMENT à la version
+   * appliquée, tels que `restorableDrifts` les a CONSTATÉS.
+   *
+   * Absent ou vide : rien n'est constaté, et la restauration n'est PAS
+   * proposée — jamais supposée ici, faute de quoi le rapport prescrit un geste
+   * qui ne fait rien.
+   */
+  restorable?: readonly string[];
 }
 
 /**
@@ -502,6 +551,7 @@ export function buildReport(
       verdict,
       ctx.canReset === true && ctx.ddl === "auto",
       divergence,
+      ctx.restorable,
     ),
     sources,
     // Posée SEULEMENT quand elle a quelque chose à dire : un objet vide
@@ -620,8 +670,16 @@ function summaryOf(
       const parts: string[] = [];
       const [d] = plan.drifted;
       if (d !== undefined) {
+        // D'où vient le fichier : une migration livrée par un module ne vit pas
+        // dans le dossier de l'application, et y chercher la modification
+        // envoie au mauvais endroit — c'est souvent une MISE À JOUR du paquet,
+        // pas une main qui a touché au fichier.
+        const origin =
+          d.source === APP_SOURCE
+            ? ""
+            : ` — il est livré par la source « ${d.source} », pas par les migrations de l'application`;
         parts.push(
-          `le fichier « ${d.source}/${d.tag} » a été modifié APRÈS avoir été appliqué (son empreinte a changé)`,
+          `le fichier « ${d.source}/${d.tag} » a changé depuis son application (son empreinte diffère)${origin}`,
         );
       }
       const [m] = plan.missing;
@@ -669,6 +727,7 @@ function summaryOf(
  * @param canReset - `orm:reset` est-elle acceptée dans cet environnement ?
  * @param divergence - les écarts nommés : le geste n'est pas le même selon
  *   qu'il manque une colonne ou une table entière.
+ * @param restorable - fichiers dérivés que git restaure EXACTEMENT (constaté).
  * @returns les gestes, dans l'ordre où les tenter.
  */
 function actionsOf(
@@ -676,6 +735,7 @@ function actionsOf(
   verdict: MigrationVerdictName,
   canReset = false,
   divergence: ISchemaComparison | null = null,
+  restorable: readonly string[] = [],
 ): IMigrationAction[] {
   const c = plan.connector;
   const suffixe = c === "default" ? "" : ` --connector ${c}`;
@@ -690,10 +750,7 @@ function actionsOf(
     case "drift": {
       const out: IMigrationAction[] = [];
       if (plan.drifted.length > 0) {
-        out.push(action(`git checkout -- migrations/`));
-        out.push(
-          action(`nodefony orm:migrate:repair${suffixe} --update-hashes`),
-        );
+        out.push(...driftActions(suffixe, restorable));
       }
       if (plan.missing.length > 0) {
         out.push(action(`nodefony orm:migrate${suffixe} --ignore-missing`));
@@ -1168,7 +1225,7 @@ const REFUSAL_MEANING: Record<IMigrationVerdict["code"], string> = {
   NF_MIGRATE_FAILED_MARKER:
     "Une migration n'est pas allée au bout — celle que ce passage vient de lancer, ou une précédente dont l'échec est resté inscrit. Reprendre à l'aveugle par-dessus un état partiel est le meilleur moyen d'aggraver la situation. Regarde l'état réel de la base, corrige-le si besoin, puis lève le marqueur.",
   NF_MIGRATE_HASH_MISMATCH:
-    "Un fichier déjà appliqué a été modifié depuis. Les autres bases ont reçu l'ancienne version et ne recevront jamais la nouvelle : le fichier et la réalité ont divergé. Le geste normal est de restaurer le fichier et d'écrire une nouvelle migration.",
+    "Un fichier déjà appliqué a changé depuis — modifié à la main, ou remplacé par la mise à jour du module qui le livre. Les autres bases ont reçu l'ancienne version et ne recevront jamais la nouvelle : le fichier et la réalité ont divergé. Si ta copie locale a été modifiée, la restaurer puis écrire une nouvelle migration ; si c'est la version livrée qui a changé, il n'y a rien à restaurer : ré-aligner l'empreinte.",
   NF_MIGRATE_OUT_OF_ORDER:
     "Une migration en attente se range avant la dernière appliquée de sa source — c'est la trace d'une fusion de branches. L'appliquer quand même est souvent juste, mais c'est une décision : deux bases pourraient ne pas avoir reçu les mêmes changements dans le même ordre.",
   NF_MIGRATE_MISSING_FILE:

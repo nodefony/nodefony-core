@@ -152,7 +152,10 @@ describe("doctor --live — ce que seule l'application démarrée sait", () => {
           summary:
             "Le connecteur « default » ne concorde plus avec son historique",
           nextActions: [
-            { command: "git checkout -- migrations/", args: ["checkout"] },
+            {
+              command: "nodefony orm:migrate:repair --update-hashes",
+              args: ["orm:migrate:repair", "--update-hashes"],
+            },
           ],
         }),
         firewallSain,
@@ -165,7 +168,10 @@ describe("doctor --live — ce que seule l'application démarrée sait", () => {
       live.findings[0]?.message,
       "Le connecteur « default » ne concorde plus avec son historique",
     );
-    assert.equal(live.findings[0]?.action, "git checkout -- migrations/");
+    assert.equal(
+      live.findings[0]?.action,
+      "nodefony orm:migrate:repair --update-hashes",
+    );
     assert.equal(live.findings[0]?.source, "orm/migrations");
   });
 

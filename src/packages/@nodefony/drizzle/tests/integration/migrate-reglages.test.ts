@@ -773,15 +773,13 @@ for (const cible of CIBLES) {
         const verdict = await refus(() => migrator().migrate());
         assert.equal(verdict.code, "NF_MIGRATE_HASH_MISMATCH");
         assertRefusUtilisable(verdict);
-        // 🔴 L'ordre EST le contrat : restaurer le fichier d'abord, réaligner
-        // les empreintes ensuite. Le ré-alignement grave la version trafiquée
-        // comme conforme — les autres bases ne recevront jamais la correction,
-        // et la dérive devient invisible. Le mettre en tête revenait à le
-        // recommander, puisqu'un agent exécute le premier geste.
-        assert.match(
-          verdict.commande,
-          /^git checkout -- /,
-          `le geste sûr doit venir en premier : ${verdict.gestes.join(" | ")}`,
+        // 🔴 Restaurer le fichier ne vient en tête que si git le CONSTATE
+        // applicable (#196) ; ce décor n'est pas un dépôt, donc jamais ici.
+        // L'ordre restauration → ré-alignement est éprouvé dans un vrai dépôt
+        // par `migrate-drift-remedy.test.ts`.
+        assert.ok(
+          !verdict.gestes.some((g) => g.startsWith("git ")),
+          `aucun geste git hors dépôt : ${verdict.gestes.join(" | ")}`,
         );
         assert.ok(
           verdict.gestes.some((g) => g.includes("--update-hashes")),
