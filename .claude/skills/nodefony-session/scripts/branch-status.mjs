@@ -149,22 +149,35 @@ export function branchLines({
 }
 
 /**
- * Les PR FUSIONNÉES dont un ticket est resté ouvert — à fermer avec compte rendu.
+ * Les tickets restés ouverts après la fusion de leurs PR — UNE entrée par
+ * ticket, toutes ses PR fusionnées nommées.
  *
  * Vers `release/*`, `Closes` ne ferme rien : sans cette ligne, un ticket livré
- * resterait ouvert jusqu'à ce que quelqu'un s'en souvienne.
+ * resterait ouvert jusqu'à ce que quelqu'un s'en souvienne. Mais une PR
+ * fusionnée ne prouve pas que le ticket est SOLDÉ : un ticket peut se livrer en
+ * plusieurs PR (vécu #796 : #805 et #807 fusionnées, un « Reste » de six
+ * points). Le rappel ne tranche donc pas — il dit « fermer si le reste est
+ * soldé » — et se tait quand une PR OUVERTE porte encore le ticket : le
+ * travail continue.
  *
  * @param {{ number: number, body?: string, headRefName?: string }[]} merged - PR fusionnées récentes
  * @param {{ number: number, state?: string }[]} items - items de l'empreinte du tableau
- * @returns {{ pr: number, ticket: number }[]}
+ * @param {{ number: number, body?: string, headRefName?: string }[]} [openPrs] - PR ouvertes
+ * @returns {{ ticket: number, prs: number[] }[]} dans l'ordre de première apparition
  */
-export function mergedButOpen(merged, items) {
+export function mergedButOpen(merged, items, openPrs = []) {
   const open = new Set(
     items.filter((i) => i.state === "OPEN").map((i) => i.number),
   );
-  return merged.flatMap((pr) =>
-    referencedIssues(pr)
-      .filter((n) => open.has(n))
-      .map((ticket) => ({ pr: pr.number, ticket })),
-  );
+  const inProgress = new Set(openPrs.flatMap((pr) => referencedIssues(pr)));
+  /** @type {Map<number, number[]>} */
+  const byTicket = new Map();
+  for (const pr of merged)
+    for (const ticket of referencedIssues(pr)) {
+      if (!open.has(ticket) || inProgress.has(ticket)) continue;
+      const prs = byTicket.get(ticket);
+      if (prs === undefined) byTicket.set(ticket, [pr.number]);
+      else if (!prs.includes(pr.number)) prs.push(pr.number);
+    }
+  return [...byTicket].map(([ticket, prs]) => ({ ticket, prs }));
 }
