@@ -191,6 +191,11 @@ export function renderUpgrade(report: IUpgradeReport): string {
     // Catalogue illisible : le dire, plutôt qu'un « à jour » faux.
     unavailable:
       "non vérifié — catalogue illisible (`nodefony env --example` dit pourquoi)",
+    // Un module illisible : régénérer retirerait ses variables, donc rien.
+    incomplete:
+      `non vérifié — module(s) illisible(s) : ` +
+      `${report.envExample.unreadable.map((u) => u.module).join(", ")} ` +
+      "(`nodefony env --example` dit pourquoi)",
   };
   lines.push(
     `  ${".env.example".padEnd(16)} ${envLabel[report.envExample.status]}`,

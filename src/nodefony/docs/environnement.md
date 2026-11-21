@@ -223,7 +223,10 @@ npx nodefony env --example --check    # vérifie sans écrire ; sortie 78 si ell
 ```
 
 Une application générée lance le contrôle dans `npm run verify` (script `env:check`), donc en
-CI : une variable ajoutée à `env.ts` sans régénérer la notice y est refusée.
+CI : une variable ajoutée à `env.ts` sans régénérer la notice y est refusée. Le contrôle passe
+**après** `build` : le schéma d'un module local se lit dans son `dist`. Un module déclaré mais
+non construit suspend le jugement (sortie 69, le module nommé avec sa raison), et `--example`
+refuse alors d'écrire plutôt que de retirer ses variables de la notice.
 
 Chaque variable s'y présente de la même façon, générée depuis `env.ts` : un **bandeau** avec son
 titre, une **explication** en phrases simples (à quoi elle sert, ce qui se passe sans elle), puis
