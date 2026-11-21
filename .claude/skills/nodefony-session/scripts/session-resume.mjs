@@ -382,11 +382,15 @@ if (!online)
   );
 const open = board.items.filter(isOpenItem);
 if (pending) {
-  const merged = await pending.merged;
+  const [merged, open] = await Promise.all([pending.merged, pending.prs]);
   if (merged.ok)
-    for (const m of mergedButOpen(JSON.parse(merged.out || "[]"), board.items))
+    for (const m of mergedButOpen(
+      JSON.parse(merged.out || "[]"),
+      board.items,
+      open.ok ? JSON.parse(open.out || "[]") : [],
+    ))
       say(
-        `🧾 PR #${m.pr} fusionnée, #${m.ticket} encore ouvert → le fermer avec son compte rendu (ticket-close.mjs)`,
+        `🧾 #${m.ticket} encore ouvert, PR ${m.prs.map((n) => `#${n}`).join(", ")} fusionnée(s) → relire son « Reste » : soldé → ticket-close.mjs ${m.ticket} ; sinon → ticket-start.mjs ${m.ticket}`,
       );
 }
 // Un lot soldé et non publié passe AVANT le prochain ticket : sa publication

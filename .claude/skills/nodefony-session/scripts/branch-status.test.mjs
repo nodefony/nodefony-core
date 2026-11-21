@@ -138,8 +138,32 @@ describe("mergedButOpen", () => {
       { number: 808, state: "OPEN" },
     ];
     expect(mergedButOpen(merged, items)).toEqual([
-      { pr: 804, ticket: 802 },
-      { pr: 810, ticket: 808 },
+      { ticket: 802, prs: [804] },
+      { ticket: 808, prs: [810] },
     ]);
+  });
+
+  it("un ticket livré en plusieurs PR : UNE entrée, toutes ses PR nommées", () => {
+    const merged = [
+      { number: 807, body: "Refs #796", headRefName: "fix/796-a" },
+      { number: 805, body: "Refs #796", headRefName: "chore/796-b" },
+    ];
+    expect(mergedButOpen(merged, [{ number: 796, state: "OPEN" }])).toEqual([
+      { ticket: 796, prs: [807, 805] },
+    ]);
+  });
+
+  it("se tait quand une PR OUVERTE porte encore le ticket — le travail continue", () => {
+    const merged = [{ number: 805, body: "Refs #796", headRefName: "x" }];
+    const openPrs = [
+      {
+        number: 819,
+        body: "Refs #796",
+        headRefName: "chore/796-pr-workflow-finish",
+      },
+    ];
+    expect(
+      mergedButOpen(merged, [{ number: 796, state: "OPEN" }], openPrs),
+    ).toEqual([]);
   });
 });

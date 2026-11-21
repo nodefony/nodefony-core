@@ -131,6 +131,7 @@ import {
   verdictDeSynchro,
   avisDeBranche,
   planDePromotion,
+  refusDepuisPublication,
   referencesFigees,
   rendreChangelog,
   validerVersion,
@@ -940,6 +941,13 @@ if (PROMOUVOIR) {
     );
   }
   {
+    const refus = refusDepuisPublication({
+      branche: git("branch", "--show-current") || null,
+      branchePublication: BRANCHE_PUBLICATION,
+    });
+    if (refus) echouer(refus);
+  }
+  {
     const refus = refusDeMaintenance({
       branche: git("rev-parse", "--abbrev-ref", "HEAD").trim(),
       maintenance: constaterMaintenance(),
@@ -1263,6 +1271,13 @@ if (branche !== BRANCHE_ATTENDUE && ECRIRE) {
     `branche « ${branche} », attendue « ${BRANCHE_ATTENDUE} ».\n` +
       `  Délibéré ? \`--branch ${branche}\`.`,
   );
+}
+if (ECRIRE) {
+  const refus = refusDepuisPublication({
+    branche,
+    branchePublication: BRANCHE_PUBLICATION,
+  });
+  if (refus) echouer(refus);
 }
 
 /**
