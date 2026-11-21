@@ -79,7 +79,7 @@ verify:
       console.error("MongoDB : aucun primaire élu en 60 s");
       process.exit(1);
       JS
-<% } %>    # typecheck, lint, format:check, env:check, test, build, `nodefony doctor` — l'ordre du script.
+<% } %>    # typecheck, lint, format:check, test, build, env:check, `nodefony doctor` — l'ordre du script.
     - <%= it.pmRun %> verify
 <% if (it.hasSecurity) { %>    # Les clés de PRODUCTION que la suite e2e exige (second facteur, webhooks,
     # signature des jetons) : sans elles, ces briques démarrent DÉSACTIVÉES.

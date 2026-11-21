@@ -76,7 +76,8 @@ Chaque variable y porte ses métadonnées : `@required` / `@optional`, `@require
 émet des jetons »), `@sensitive`, `@default`, et **`@placement`**, qui dit où la poser en
 production : `platform` (variables du déploiement), `secrets` (gestionnaire de secrets, ou
 `<NOM>_FILE`), `workstation` (le poste seulement — ne la pose pas en production).
-`npm run env:check` échoue (78) quand la notice a dérivé d'`env.ts`.
+`npm run env:check` échoue (78) quand la notice a dérivé d'`env.ts`, et (69) quand un module
+déclaré n'est pas construit — c'est pourquoi `verify` le lance après `build`.
 
 ## 3. Le suffixe `_FILE` — les secrets montés
 
