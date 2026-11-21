@@ -2,7 +2,9 @@ name: nodefony-core
 
 on:
   push:
-    branches: ["main", "dev", "release/**"]
+    # Pas `main` : elle ne reçoit que des commits déjà poussés sur dev ou release/**
+    # (`--promouvoir`, poussée atomique) — une seule CI par sha (#796).
+    branches: ["dev", "release/**"]
     paths-ignore: &prose
       # Ce workflow est le SEUL sans filtre, et il est le plus cher : 17 jobs
       # sur trois systèmes. Mesuré — le commit `90497f81`, qui ne touchait que

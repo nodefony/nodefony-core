@@ -58,7 +58,9 @@ name: Code généré (3 systèmes)
 
 on:
   push:
-    branches: ["main", "dev", "release/**"]
+    # Pas `main` : elle ne reçoit que des commits déjà poussés sur dev ou release/**
+    # (`--promouvoir`, poussée atomique) — une seule CI par sha (#796).
+    branches: ["dev", "release/**"]
     paths-ignore: &prose
       # Même filtre que `node.js.yml`, et pour la même raison : ce job est cher
       # (une installation npm RÉELLE par système), il n'a rien à dire sur de la

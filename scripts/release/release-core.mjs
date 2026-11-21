@@ -1688,6 +1688,30 @@ export function refusDeMaintenance({
 }
 
 /**
+ * Refuse d'estampiller ou de promouvoir DEPUIS la branche de publication.
+ *
+ * `main` ne reçoit que des commits déjà poussés sur `dev` ou `release/x.y.x`,
+ * et aucun workflow de CI ne se déclenche sur un push vers elle (une seule CI
+ * par sha, #796). Une estampille commitée sur `main` partirait donc sans AUCUNE
+ * CI : la garde de publication la refuserait après sa fenêtre de grâce, tag
+ * déjà posé. On le dit avant d'écrire quoi que ce soit.
+ *
+ * Pure : la branche est INJECTÉE.
+ *
+ * @param {{branche: string | null, branchePublication: string}} p
+ * @returns {string | null} le refus, ou `null` si la branche convient
+ */
+export function refusDepuisPublication({ branche, branchePublication }) {
+  if (branche !== branchePublication) return null;
+  return (
+    `on n'estampille plus sur « ${branchePublication} » : aucune CI ne s'y déclenche (une seule CI par sha, sur la branche d'où l'on publie).\n` +
+    "  → publier depuis la branche qui porte la version :\n" +
+    "       git switch release/x.y.x   (correctif)   ou   git switch dev   (mineure, majeure)\n" +
+    "       npm run release -- --version <v> --branch <cette branche> --write"
+  );
+}
+
+/**
  * Ce que `--promouvoir` POUSSE : la branche de publication ET la branche d'où
  * l'on publie, en UNE poussée atomique.
  *
@@ -1696,9 +1720,9 @@ export function refusDeMaintenance({
  * ordinaire n'atteint une branche longue, donc une estampille laissée en local
  * n'y arrive jamais. La suite part alors d'une `origin/<branche>` aux manifestes
  * de la version PRÉCÉDENTE, et sa propre promotion `<branche>:main` est refusée
- * (plus d'avance rapide). L'ancienne règle — ne pousser que la branche de
- * publication pour ne pas rejouer la CI sur le même sha — datait du travail
- * direct sur `dev` : le prix est une seconde CI, en parallèle, sur ce commit.
+ * (plus d'avance rapide). Aucun workflow de CI ne se déclenche sur un push
+ * vers `main` : la CI de ce commit tourne UNE fois, sur la branche d'où l'on
+ * publie — c'est elle que `attendre-ci.mjs` juge.
  * Atomique : les deux références avancent ensemble, ou aucune.
  *
  * @param {{branche: string, branchePublication: string}} p
