@@ -156,7 +156,7 @@ jobs:
           FLUSH PRIVILEGES;
           SQL
 <% } %><% } %>
-      # typecheck, lint, format:check, env:check, test, build, `nodefony doctor` — l'ordre du script.
+      # typecheck, lint, format:check, test, build, env:check, `nodefony doctor` — l'ordre du script.
       - run: <%= it.pmRun %> verify
 
 <% if (it.hasSecurity) { %>      # Les clés de PRODUCTION que la suite e2e exige — chiffrement du second

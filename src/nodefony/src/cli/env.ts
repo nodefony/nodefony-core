@@ -187,6 +187,12 @@ export const ENV_USAGE: IUsagePage = {
   exitCodes: [
     { term: "66", text: "aucune application ici (EX_NOINPUT)" },
     {
+      term: "69",
+      text:
+        "avec --example : l'app ou un module déclaré n'est pas lisible " +
+        "(non construit) — rien n'est jugé ni écrit (EX_UNAVAILABLE)",
+    },
+    {
       term: "78",
       text:
         "une variable requise manque, ou .env.example diverge sous --check " +
@@ -645,11 +651,15 @@ export function applyEnvExample(
 export interface IEnvExampleSync {
   /**
    * `synced` : déjà conforme · `wrote` : réécrit · `pending` : diverge, rien
-   * écrit (vérification) · `unavailable` : catalogue illisible, rien jugé.
+   * écrit (vérification) · `unavailable` : catalogue illisible, rien jugé ·
+   * `incomplete` : un module DÉCLARÉ est illisible (non construit, export
+   * absent), rien jugé ni écrit — ses variables manqueraient au modèle.
    */
-  status: "synced" | "wrote" | "pending" | "unavailable";
+  status: "synced" | "wrote" | "pending" | "unavailable" | "incomplete";
   /** Variables du catalogue (0 quand il est illisible). */
   variables: number;
+  /** Les modules déclarés illisibles, avec leur raison — vide hors `incomplete`. */
+  unreadable: readonly IUnreadableModule[];
 }
 
 /**
@@ -662,30 +672,48 @@ export interface IEnvExampleSync {
  * coup sûr, et le contrôle `env:check` de `verify` échouait juste après
  * `upgrade` si celui-ci ne le rejouait pas.
  *
+ * Un module DÉCLARÉ dont le schéma est illisible suspend tout : comparer
+ * conclurait « désynchronisé » à tort, et écrire RETIRERAIT ses variables du
+ * modèle — le remède aggraverait le mal (vécu : vitrine générée `--demo`,
+ * `env:check` lancé avant `build` en CI).
+ *
  * @param projectRoot - racine de l'application.
  * @param check - `true` : comparer sans écrire.
  * @returns le constat ; `unavailable` quand le catalogue est illisible (ni
- *   `env.ts` ni le build n'exportent `env`, cf {@link readCatalog}).
+ *   `env.ts` ni le build n'exportent `env`, cf {@link readCatalog}) ;
+ *   `incomplete` quand un module déclaré est illisible (cf
+ *   {@link readModuleShortcuts}), sans rien écrire.
  */
 export async function syncEnvExample(
   projectRoot: string,
   check: boolean,
 ): Promise<IEnvExampleSync> {
   const catalog = await readCatalog(projectRoot);
-  if (catalog === null) return { status: "unavailable", variables: 0 };
+  if (catalog === null) {
+    return { status: "unavailable", variables: 0, unreadable: [] };
+  }
+  const modules = await readModuleShortcuts(projectRoot);
+  if (modules.unreadable.length > 0) {
+    return {
+      status: "incomplete",
+      variables: catalog.length,
+      unreadable: modules.unreadable,
+    };
+  }
   const { synced, wrote } = applyEnvExample(
     projectRoot,
     composeEnvExample(
       catalog,
       readExampleHeader(projectRoot),
       readManifestModules(projectRoot),
-      (await readModuleShortcuts(projectRoot)).shortcuts,
+      modules.shortcuts,
     ),
     check,
   );
   return {
     status: !synced ? "pending" : wrote ? "wrote" : "synced",
     variables: catalog.length,
+    unreadable: [],
   };
 }
 
@@ -715,6 +743,20 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
       process.stderr.write(
         `env: catalogue introuvable — l'app n'est pas construite, ou son index\n` +
           `n'exporte pas \`env\` (env.ts). Lancer d'abord : npm run build\n`,
+      );
+      return SysExit.UNAVAILABLE;
+    }
+    if (sync.status === "incomplete") {
+      // Jamais « désynchronisé », jamais un conseil de régénérer : le fichier
+      // n'est pas en cause, c'est la lecture qui est amputée.
+      process.stderr.write(
+        `❌ .env.example ${parsed.check ? "non vérifié" : "non écrit"} — ` +
+          `${sync.unreadable.length} module(s) déclaré(s) illisible(s), ` +
+          `leurs variables manqueraient :\n` +
+          sync.unreadable
+            .map((u) => `   • ${u.module} : ${u.reason}\n`)
+            .join("") +
+          `Régler d'abord ces modules (non construit : npm run build), puis relancer.\n`,
       );
       return SysExit.UNAVAILABLE;
     }

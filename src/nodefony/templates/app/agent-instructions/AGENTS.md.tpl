@@ -195,7 +195,7 @@ s'enrichit, ta mémoire non.
 ## Gates — vérifier avant de dire « fait »
 
 ```bash
-npm run verify        # ⬅ LA commande. typecheck, lint, format:check, env:check, test, build, doctor
+npm run verify        # ⬅ LA commande. typecheck, lint, format:check, test, build, env:check, doctor
 ```
 
 **Une seule à retenir, et c'est délibéré.** Les gates ci-dessous existent séparément

@@ -221,7 +221,7 @@ describe("isUpgradePending — ce que `--check` compte", () => {
       preserves: [],
     },
     contributions: [],
-    envExample: { status: "synced", variables: 3 },
+    envExample: { status: "synced", variables: 3, unreadable: [] },
   };
   const contribution = {
     packageName: "@nodefony/security",
@@ -262,7 +262,7 @@ describe("isUpgradePending — ce que `--check` compte", () => {
   it(".env.example à régénérer : en retard, et l'écran le dit", () => {
     const report: IUpgradeReport = {
       ...base,
-      envExample: { status: "pending", variables: 3 },
+      envExample: { status: "pending", variables: 3, unreadable: [] },
     };
     assert.strictEqual(isUpgradePending(report), true);
     assert.match(renderUpgrade(report), /\.env\.example\s+à régénérer/u);
@@ -270,10 +270,26 @@ describe("isUpgradePending — ce que `--check` compte", () => {
   it(".env.example illisible : pas en retard, mais NON VÉRIFIÉ — jamais « à jour »", () => {
     const report: IUpgradeReport = {
       ...base,
-      envExample: { status: "unavailable", variables: 0 },
+      envExample: { status: "unavailable", variables: 0, unreadable: [] },
     };
     assert.strictEqual(isUpgradePending(report), false);
     assert.match(renderUpgrade(report), /\.env\.example\s+non vérifié/u);
+  });
+  // #808 : un module déclaré non construit — régénérer retirerait ses variables.
+  it(".env.example avec un module illisible : pas en retard, NON VÉRIFIÉ, le module nommé", () => {
+    const report: IUpgradeReport = {
+      ...base,
+      envExample: {
+        status: "incomplete",
+        variables: 3,
+        unreadable: [{ module: "./modules/demo", reason: "non construit" }],
+      },
+    };
+    assert.strictEqual(isUpgradePending(report), false);
+    assert.match(
+      renderUpgrade(report),
+      /\.env\.example\s+non vérifié — module\(s\) illisible\(s\) : \.\/modules\/demo/u,
+    );
   });
   /*
    *   Vécu : « 41 rafraîchi(s) » annoncés pour un décor Keycloak que
