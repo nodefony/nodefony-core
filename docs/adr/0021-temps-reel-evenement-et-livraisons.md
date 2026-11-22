@@ -1,6 +1,7 @@
 ---
 adr: 21
 title: Temps réel — un événement générique, plusieurs livraisons
+description: "Un événement temps réel générique livré par socket, SSE, webhook ou gRPC : garanties écrites par livraison, enveloppe entre instances figée."
 lang: fr
 navTitle: Temps réel, le socle
 date: 2026-10-28

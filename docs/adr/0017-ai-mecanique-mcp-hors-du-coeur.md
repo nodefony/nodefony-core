@@ -1,6 +1,7 @@
 ---
 adr: 17
 title: "@nodefony/ai — la mécanique MCP hors du cœur, une porte se déclare"
+description: "Pourquoi la mécanique MCP vit hors du cœur, dans @nodefony/ai : une porte déclarée par defineMcpGate, servie par un contrôleur, sans coût sans porte."
 lang: fr
 navTitle: MCP dans @nodefony/ai
 date: 2026-10-16

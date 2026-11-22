@@ -1,6 +1,7 @@
 ---
 adr: 26
 title: Service gRPC — un point d'entrée déclaré par un module, servi par le pipeline
+description: "Pourquoi un service gRPC se déclare comme un contrôleur servi par le pipeline HTTP : pare-feu, @IsGranted et arrêt gracieux inchangés."
 lang: fr
 navTitle: Service gRPC
 date: 2026-11-11

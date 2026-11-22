@@ -1,6 +1,7 @@
 ---
 adr: 25
 title: Présence répartie d'un canal temps réel — portée par le canal lui-même
+description: "La présence d'un canal entre plusieurs instances, portée par le canal : changements numérotés par lots, battement léger, coût au repos selon les instances."
 lang: fr
 navTitle: Présence d'un canal
 date: 2026-11-10

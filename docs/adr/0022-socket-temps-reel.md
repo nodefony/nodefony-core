@@ -1,6 +1,7 @@
 ---
 adr: 22
 title: Socket temps réel — un canal, une enveloppe, un contrat pour les deux bouts
+description: "Le protocole de la socket temps réel : des canaux, une enveloppe JSON-RPC 2.0, un codec JSON ou CBOR binaire négocié par connexion, un contrat typé."
 lang: fr
 navTitle: Socket temps réel
 date: 2026-10-28
