@@ -73,6 +73,29 @@ export function exportEntries(pkg, dir) {
 }
 
 /**
+ * Les fichiers d'entrée d'un paquet qui n'existent pas sur le disque.
+ *
+ * Une surface de types se lit dans un fichier : absent, il rend une surface
+ * VIDE, et la comparaison conclut que tout a été retiré. Vécu sur un arbre où
+ * seul le cœur était bâti : le changelog estampillé annonçait quatorze ruptures
+ * qui n'existaient pas. Mesurer un `dist` absent n'est pas une mesure — elle se
+ * refuse, elle ne se rend pas.
+ *
+ * @param entries - `{ [sousChemin]: { js, dts } }` rendu par {@link exportEntries}.
+ * @param exists - le test d'existence (injecté : `fs.existsSync` en vrai).
+ * @returns les chemins absents, sans doublon, dans l'ordre des sous-chemins.
+ */
+export function missingEntryFiles(entries, exists) {
+  const missing = new Set();
+  for (const { js, dts } of Object.values(entries)) {
+    for (const file of [js, dts]) {
+      if (file !== null && !exists(file)) missing.add(file);
+    }
+  }
+  return [...missing];
+}
+
+/**
  * Compare deux listes de noms.
  *
  * @returns `{ removed, added }` — ce que `before` avait et `after` n'a plus, et l'inverse.

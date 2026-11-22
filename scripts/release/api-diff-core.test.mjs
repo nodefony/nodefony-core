@@ -13,6 +13,7 @@ import {
   countTypeLooseness,
   diffNames,
   exportEntries,
+  missingEntryFiles,
   normalizeDeclaration,
   resolveExportTarget,
   TYPES_CONDITIONS,
@@ -47,6 +48,33 @@ describe("exportEntries", () => {
       dts: path.join("/p", "t/i.d.ts"),
     });
     expect(entries["./x/*"]).toEqual({ js: null, dts: null });
+  });
+});
+
+describe("missingEntryFiles — un dist absent ne se mesure pas", () => {
+  const entries = {
+    ".": { js: "/p/dist/index.js", dts: "/p/dist/types/index.d.ts" },
+    "./client": { js: "/p/dist/client.js", dts: null },
+    "./*": { js: null, dts: null },
+  };
+
+  it("tout est sur le disque → rien d'absent", () => {
+    expect(missingEntryFiles(entries, () => true)).toEqual([]);
+  });
+
+  it("dist non bâti → chaque entrée absente nommée (le cas des quatorze fausses ruptures)", () => {
+    expect(missingEntryFiles(entries, () => false)).toEqual([
+      "/p/dist/index.js",
+      "/p/dist/types/index.d.ts",
+      "/p/dist/client.js",
+    ]);
+  });
+
+  it("types seuls absents → signalés : c'est eux qui rendaient une surface vide", () => {
+    const exists = (f) => !f.endsWith(".d.ts");
+    expect(missingEntryFiles(entries, exists)).toEqual([
+      "/p/dist/types/index.d.ts",
+    ]);
   });
 });
 

@@ -73,6 +73,7 @@ import {
   fusionnerChangelog,
   ordreTopologique,
   paquetsNonEstampilles,
+  verrouNonEstampille,
   pairsTropLarges,
   alignerReferencesInternes,
   referencesFigees,
@@ -1004,6 +1005,51 @@ describe("detecterSuspectsImage — la même règle, sur une image publiée", ()
         "app/nodefony/config/certificates/server/publickey.pem",
       ]),
     ).toHaveLength(6);
+  });
+});
+
+describe("verrouNonEstampille — le verrou suit l'estampille", () => {
+  const paquets = [
+    { nom: "nodefony", location: "src/nodefony" },
+    { nom: "@nodefony/http", location: "src/packages/@nodefony/http" },
+  ];
+  const verrou = (a, b) => ({
+    packages: {
+      "": { name: "racine" },
+      "src/nodefony": { version: a },
+      "src/packages/@nodefony/http": { version: b },
+    },
+  });
+
+  it("verrou régénéré → rien à redire", () => {
+    expect(
+      verrouNonEstampille(verrou("10.0.2", "10.0.2"), paquets, "10.0.2"),
+    ).toEqual([]);
+  });
+
+  it("verrou resté sur la version d'avant (le cas de la 10.0.1) → chaque paquet nommé avec la version du verrou", () => {
+    expect(
+      verrouNonEstampille(verrou("10.0.0", "10.0.0"), paquets, "10.0.1"),
+    ).toEqual(["nodefony@10.0.0", "@nodefony/http@10.0.0"]);
+  });
+
+  it("paquet ABSENT du verrou → signalé, jamais tenu pour aligné", () => {
+    expect(
+      verrouNonEstampille(
+        { packages: { "src/nodefony": { version: "10.0.1" } } },
+        paquets,
+        "10.0.1",
+      ),
+    ).toEqual(["@nodefony/http@(absent du verrou)"]);
+  });
+
+  it("location écrite à la Windows → cherchée en `/`, comme le verrou l'écrit", () => {
+    const win = [
+      { nom: "@nodefony/http", location: "src\\packages\\@nodefony\\http" },
+    ];
+    expect(
+      verrouNonEstampille(verrou("10.0.1", "10.0.1"), win, "10.0.1"),
+    ).toEqual([]);
   });
 });
 

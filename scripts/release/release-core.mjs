@@ -562,6 +562,38 @@ export function referencesFigees(paquets, version) {
 }
 
 /**
+ * Les paquets que le VERROU (`package-lock.json`) n'annonce pas à la version
+ * demandée — absents compris.
+ *
+ * ## Pourquoi le verrou se contrôle à part
+ *
+ * L'estampille réécrit les `package.json`, pas le verrou, qui garde la version
+ * d'avant pour chaque paquet du dépôt. Vécu sur la 10.0.1 : le verrou annonçait
+ * 10.0.0 pour les seize paquets, tout `npm ci` installait autre chose que ce
+ * qu'il décrivait, et la garde « installation ≠ verrou » de l'outillage de
+ * tickets refusait toute branche ouverte sur la maintenance. Une estampille se
+ * termine donc par un verrou régénéré, et ce constat dit qu'il l'a bien été.
+ *
+ * Les clés du verrou s'écrivent en `/` sur toutes les plateformes : la
+ * `location` est normalisée AVANT d'être cherchée.
+ *
+ * @param verrou - le `package-lock.json` lu (`{ packages }`).
+ * @param paquets - `{ nom, location }` de chaque publiable.
+ * @param version - celle que l'estampille vient d'écrire.
+ * @returns `["nom@versionDuVerrou", …]` — vide si le verrou suit l'estampille.
+ */
+export function verrouNonEstampille(verrou, paquets, version) {
+  const entrees = verrou?.packages ?? {};
+  return paquets
+    .map((p) => ({
+      nom: p.nom,
+      trouvee: entrees[p.location.replaceAll("\\", "/")]?.version,
+    }))
+    .filter((p) => p.trouvee !== version)
+    .map((p) => `${p.nom}@${p.trouvee ?? "(absent du verrou)"}`);
+}
+
+/**
  * Les paquets dont le `package.json` ne porte PAS la version demandée.
  *
  * ## Pourquoi cette vérification existe séparément de l'estampillage
