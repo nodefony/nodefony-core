@@ -13,7 +13,7 @@ import {
   llmsPlan,
   releaseStatus,
 } from "./lib/llms-plan.mjs";
-import { pageSummary } from "./lib/page-summary.mjs";
+import { SUMMARY_MAX, clipSummary, pageSummary } from "./lib/page-summary.mjs";
 
 const BASE = "https://nodefony.net";
 
@@ -147,6 +147,18 @@ describe("résumé d'une page", () => {
     expect(pageSummary(body, undefined, "t")).toBe(
       "Toutes les variables que le framework lit, et ce qui se passe sans elles.",
     );
+  });
+
+  it("coupe un résumé trop long en fin de phrase, sinon au mot — jamais en plein mot", () => {
+    const phrase =
+      "Une première phrase qui pose le sujet de la page et dit à quoi elle sert vraiment.";
+    const long = `${phrase} Une seconde phrase qui déborde largement de la place laissée par un moteur de recherche.`;
+    expect(clipSummary(long)).toBe(phrase);
+    const sansPoint = "mot ".repeat(60).trim();
+    const coupe = clipSummary(sansPoint);
+    expect(coupe.length).toBeLessThanOrEqual(SUMMARY_MAX);
+    expect(coupe).toMatch(/ mot…$/);
+    expect(clipSummary("Court.")).toBe("Court.");
   });
 
   it("un commentaire imbriqué ne laisse aucune ouverture `<!--` derrière lui", () => {

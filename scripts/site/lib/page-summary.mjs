@@ -39,7 +39,7 @@ function withoutHtmlComments(text) {
  * @param body - le markdown de la page, sans frontmatter.
  * @param declared - la description déclarée au frontmatter, qui l'emporte.
  * @param title - le titre, en dernier recours.
- * @returns le résumé, 180 caractères au plus.
+ * @returns le résumé, coupé en fin de phrase ou de mot ({@link clipSummary}).
  */
 export function pageSummary(body, declared, title) {
   const prose = withoutHtmlComments(
@@ -59,14 +59,42 @@ export function pageSummary(body, declared, title) {
           !p.includes("›"), // fil d'Ariane
       ) ??
     title;
-  return (
+  return clipSummary(
     text
       .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // les liens gardent leur texte
       .replace(/[*`]/g, "")
       // L'emphase `_mot_` perd ses marques ; un identifiant (`NF_DATABASE_URL`)
       // garde les siennes — les retirer toutes en faisait `NFDATABASEURL`.
       .replace(/(^|[\s(])_([^_\s][^_]*?)_(?=$|[\s).,;:!?])/g, "$1$2")
-      .trim()
-      .slice(0, 180)
+      .trim(),
   );
+}
+
+/** Longueur au-delà de laquelle un moteur de recherche coupe une description. */
+export const SUMMARY_MAX = 160;
+
+/**
+ * Coupe un résumé trop long à la dernière fin de PHRASE qui tient, sinon au
+ * dernier mot entier, suivi de « … ».
+ *
+ * Une coupe au caractère près laissait des descriptions finir en plein mot
+ * (« …les ports qu'il ouvre dé ») : c'est ce que l'aperçu d'un résultat de
+ * recherche affiche tel quel.
+ *
+ * @param text - le résumé complet, sur une ligne
+ * @param max - longueur maximale, {@link SUMMARY_MAX} par défaut
+ * @returns le résumé, `max` caractères au plus
+ */
+export function clipSummary(text, max = SUMMARY_MAX) {
+  if (text.length <= max) return text;
+  const head = text.slice(0, max);
+  // Une phrase entière d'au moins la moitié de la place vaut mieux qu'une coupe.
+  const sentence = Math.max(
+    head.lastIndexOf(". "),
+    head.lastIndexOf("! "),
+    head.lastIndexOf("? "),
+  );
+  if (sentence >= max / 2) return head.slice(0, sentence + 1);
+  const word = text.slice(0, max - 1).lastIndexOf(" ");
+  return `${text.slice(0, word > 0 ? word : max - 1).replace(/[\s,;:—-]+$/, "")}…`;
 }
