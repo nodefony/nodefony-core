@@ -1,6 +1,7 @@
 ---
-title: "Boîte à outils MCP — exposer les outils d'une application à un agent"
+title: "Serveur MCP en Node.js : outils pour agents IA"
 navTitle: Boîte à outils MCP
+description: "Exposer les outils d'une application Node.js aux agents IA par le Model Context Protocol : HTTP ou stdio, scopes OAuth par outil, déclarés par module."
 lang: fr
 module: "@nodefony/ai"
 topic: mcp
@@ -15,13 +16,15 @@ updated: 2026-10-22
 source: "src/packages/@nodefony/ai/docs/mcp.md"
 ---
 
-# Boîte à outils MCP — exposer les outils d'une application à un agent
+# Serveur MCP en Node.js : outils pour agents IA
 
-> Un agent d'intelligence artificielle (Claude Code, Cursor, un agent maison) appelle les
-> **outils** d'un logiciel par le _Model Context Protocol_. Cette boîte à outils fait de chaque
-> module Nodefony un fournisseur d'outils : tu écris une fonction, elle décrit ce qu'elle rend, et
-> le protocole — versions, erreurs, autorisation, progression, annulation — est tenu pour toi, une
-> fois, selon la norme. Ancrée sur `src/packages/@nodefony/ai/nodefony/mcp/` et `src/nodefony/src/types/IMcpTool.ts`.
+> Le _Model Context Protocol_ (MCP) est la norme par laquelle un agent d'intelligence artificielle
+> (Claude Code, Cursor, un agent maison) appelle les **outils** d'un logiciel. Cette boîte à outils
+> fait d'une application Nodefony un serveur MCP, en TypeScript : chaque module déclare ses outils,
+> tu écris une fonction, et le protocole — versions, erreurs, autorisation, progression,
+> annulation — est tenu pour toi, une fois, selon la norme. La même porte se joint en HTTP ou en
+> stdio ; protégée, elle répond `401` sans jeton, `403` s'il manque un scope, et publie son
+> document RFC 9728. Ancrée sur `src/packages/@nodefony/ai/nodefony/mcp/` et `src/nodefony/src/types/IMcpTool.ts`.
 
 📍 [Documentation](../../../../../docs/index.md) › [@nodefony/ai](index.md) › **Boîte à outils MCP**
 
@@ -751,4 +754,9 @@ Couverture : `npm run coverage` dans `src/packages/@nodefony/ai`.
   [devkit](../../devkit/docs/index.md)
 - Le flux d'événements serveur sur lequel la porte répond → [Server-Sent Events](../../http/docs/sse.md)
 - Le contexte de requête, dont le signal sert l'annulation → [Contexte de requête](../../../../nodefony/docs/request-context.md)
+- Cette page dit le **comment** ; le **pourquoi** — la mécanique MCP hors du cœur — est dans
+  [ADR-0017](../../../../../docs/adr/0017-ai-mecanique-mcp-hors-du-coeur.md)
+- Voir aussi, les deux autres entrées d'une application : un contrat typé entre services →
+  [gRPC](../../framework/docs/grpc.md) · des frames binaires vers le navigateur →
+  [Codec CBOR sur WebSocket](../../../../nodefony/docs/cbor.md)
 - La norme, hors ligne : skill `nodefony-rfc` (`references/mcp-2026-07-28/`)

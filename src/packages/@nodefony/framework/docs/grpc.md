@@ -1,6 +1,7 @@
 ---
-title: "gRPC — servir un service déclaré par un module"
+title: "gRPC en Node.js sur HTTP/2, sans second serveur"
 navTitle: gRPC
+description: "Un service gRPC se déclare comme une route TypeScript. gRPC, gRPC-Web et Connect passent par le pipeline HTTP : même pare-feu, aucun second serveur."
 lang: fr
 module: "@nodefony/framework"
 topic: grpc
@@ -15,13 +16,15 @@ coverageModule: framework
 coverageFiles: GrpcController.ts,GrpcService.ts,GrpcEndpoint.ts,GrpcCall.ts,refusal.ts
 ---
 
-# gRPC — servir un service déclaré par un module
+# gRPC en Node.js sur HTTP/2, sans second serveur
 
-> Un service gRPC se **déclare** comme une route : une classe `GrpcController` marquée
-> `@GrpcService(Contrat)`, listée dans `@controllers([...])`. Nodefony le sert sur les ports
-> qu'il ouvre déjà, sous le pare-feu et `@IsGranted`, en gRPC, gRPC-Web et Connect à la fois.
-> Cette page montre comment écrire le contrat et le contrôleur, puis ce que le framework décide à
-> ta place — tailles, échéances, refus, erreurs, arrêt, CORS, journal — et **pourquoi**.
+> gRPC est un appel de fonction à travers le réseau, sous un contrat `.proto` partagé par le client
+> et le serveur. Dans Nodefony, un service gRPC se **déclare** comme une route : une classe
+> `GrpcController` marquée `@GrpcService(Contrat)`, listée dans `@controllers([...])`. Il est servi
+> par les serveurs HTTP/2 et HTTP/1.1 déjà ouverts — aucun second serveur, aucun port neuf —, dans
+> le même pipeline qu'une requête HTTP : pare-feu, `@IsGranted`, journal, en gRPC, gRPC-Web et
+> Connect à la fois. Cette page montre comment écrire le contrat et le contrôleur, puis ce que le
+> framework décide à ta place — tailles, échéances, refus, erreurs, arrêt, CORS — et **pourquoi**.
 > Surface **expérimentale** : sa forme peut encore changer en version mineure.
 
 📍 [Documentation](../../../../../docs/index.md) › [Framework](index.md) › **gRPC**
@@ -685,6 +688,9 @@ Couverture : `npm run coverage` dans `@nodefony/framework` et `@nodefony/http`.
 - 🧭 **Pages sœurs** : [Contrôleurs](controller.md) (cycle de vie, injection) · [Décorateurs](decorateurs.md) (`@IsGranted`, `@Scope`) · [Routage](routing.md) (hôtes virtuels, ordre)
 - Ports, TLS, h2c et proxy inverse → [Serveurs](../../http/docs/servers.md)
 - Qui authentifie avant ta méthode → [Firewall](../../security/docs/firewall.md) · [CORS](../../security/docs/cors.md)
-- Les décisions et leurs essais → [ADR-0026](../../../../../docs/adr/0026-service-grpc-declare-par-un-module.md)
+- Cette page dit le **comment** ; le **pourquoi**, décisions et essais, est dans [ADR-0026](../../../../../docs/adr/0026-service-grpc-declare-par-un-module.md)
+- Voir aussi, les deux autres entrées d'une application : des frames binaires vers le navigateur →
+  [Codec CBOR sur WebSocket](../../../../nodefony/docs/cbor.md) · des outils pour les agents IA →
+  [MCP](../../ai/docs/mcp.md)
 - Ce qu'« expérimental » engage → [Politique de compatibilité](../../../../../docs/guides/compatibilite.md)
 - Signatures exactes → graphe symbolique `.ai/symbols.json`
