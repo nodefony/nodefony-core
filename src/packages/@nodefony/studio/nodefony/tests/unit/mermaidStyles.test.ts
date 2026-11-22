@@ -8,7 +8,9 @@
  * pour être adoptée par `adoptStyles`.
  */
 import { describe, it, expect } from "vitest";
+import type { MantineColorsTuple } from "@mantine/core";
 import {
+  diagramThemeVariables,
   fromStyleTemplate,
   splitSvgStyles,
   toStyleTemplate,
@@ -61,4 +63,50 @@ describe("patron de feuille par thème", () => {
     expect(suivant).toBe(css.replaceAll("mermaid-r1-1", "mermaid-r9-42"));
     expect(suivant).not.toContain("mermaid-r1-1");
   });
+});
+
+describe("diagramThemeVariables — couleurs de la console, jamais celles de mermaid", () => {
+  /** Dix teintes distinctes par nuancier : chaque couleur rendue doit en venir. */
+  const t = (p: string, i: number): string => `#${p}${i}${i}${i}${i}`;
+  const teintes = (p: string): MantineColorsTuple => [
+    t(p, 0),
+    t(p, 1),
+    t(p, 2),
+    t(p, 3),
+    t(p, 4),
+    t(p, 5),
+    t(p, 6),
+    t(p, 7),
+    t(p, 8),
+    t(p, 9),
+  ];
+  const palette = {
+    brand: teintes("a"),
+    gray: teintes("b"),
+    dark: teintes("c"),
+    black: "#000001",
+    white: "#fffffe",
+    fontFamily: "Inter, sans-serif",
+  };
+  const permises = new Set([
+    ...palette.brand,
+    ...palette.gray,
+    ...palette.dark,
+    palette.black,
+    palette.white,
+  ]);
+
+  for (const scheme of ["light", "dark"] as const) {
+    it(`${scheme} : toute couleur vient de la palette Studio`, () => {
+      const vars = diagramThemeVariables(scheme, palette);
+      const couleurs = Object.entries(vars).filter(
+        ([, v]) => typeof v === "string" && v.startsWith("#"),
+      );
+      expect(couleurs.length).toBeGreaterThan(10);
+      for (const [cle, v] of couleurs) expect(permises, cle).toContain(v);
+      expect(vars.darkMode).toBe(scheme === "dark");
+      expect(vars.dropShadow).toBe("none");
+      expect(vars.fontFamily).toBe(palette.fontFamily);
+    });
+  }
 });

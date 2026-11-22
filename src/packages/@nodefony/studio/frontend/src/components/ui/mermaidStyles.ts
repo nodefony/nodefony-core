@@ -9,6 +9,8 @@
  * CSSOM et que la politique ne gouverne pas.
  */
 
+import type { MantineColorsTuple } from "@mantine/core";
+
 /** Toute balise `<style>` du SVG, attributs compris. Le rendu vient de mermaid, pas d'un tiers. */
 const STYLE_ELEMENT = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
 
@@ -36,6 +38,71 @@ export function splitSvgStyles(svg: string): ISvgStyles {
     return "";
   });
   return { svg: stripped, css };
+}
+
+/** Nuanciers du thème Studio dont un schéma tire ses couleurs (dix teintes, clair → foncé). */
+export interface IDiagramPalette {
+  /** Bleu de marque (`brand`). */
+  readonly brand: MantineColorsTuple;
+  /** Gris du schéma clair (`gray`). */
+  readonly gray: MantineColorsTuple;
+  /** Surfaces du schéma sombre (`dark`, celles de la barre de debug). */
+  readonly dark: MantineColorsTuple;
+  /** Texte du schéma clair. */
+  readonly black: string;
+  /** Fond du schéma clair. */
+  readonly white: string;
+  /** Police de l'interface. */
+  readonly fontFamily: string;
+}
+
+/**
+ * Variables du thème `base` de mermaid, tirées de la palette de Studio.
+ *
+ * Les thèmes livrés par mermaid (`default` : grappes jaunes, nœuds lavande)
+ * n'ont rien de commun avec la console. Le thème `base` est le seul que mermaid
+ * laisse entièrement régler : nœuds sur la surface des cartes, filet et flèches
+ * neutres, bordure de nœud au bleu de marque, grappe en retrait. Les couleurs
+ * sont LUES dans le thème Mantine, jamais recopiées : la console reste la
+ * seule source.
+ *
+ * @param scheme - schéma de couleur affiché.
+ * @param p - nuanciers du thème Studio.
+ * @returns les `themeVariables` à passer à `mermaid.initialize`.
+ */
+export function diagramThemeVariables(
+  scheme: "light" | "dark",
+  p: IDiagramPalette,
+): Record<string, string | boolean> {
+  const dark = scheme === "dark";
+  const surface = dark ? p.dark[6] : p.white;
+  const text = dark ? p.dark[0] : p.black;
+  const line = dark ? p.dark[2] : p.gray[6];
+  const accent = dark ? p.brand[4] : p.brand[6];
+  return {
+    darkMode: dark,
+    background: dark ? p.dark[7] : p.white,
+    fontFamily: p.fontFamily,
+    fontSize: "14px",
+    primaryColor: surface,
+    primaryTextColor: text,
+    primaryBorderColor: accent,
+    secondaryColor: surface,
+    tertiaryColor: surface,
+    nodeBorder: accent,
+    nodeTextColor: text,
+    mainBkg: surface,
+    textColor: text,
+    titleColor: dark ? p.dark[1] : p.gray[7],
+    lineColor: line,
+    defaultLinkColor: line,
+    clusterBkg: dark ? p.dark[8] : p.gray[0],
+    clusterBorder: dark ? p.dark[4] : p.gray[3],
+    edgeLabelBackground: dark ? p.dark[7] : p.white,
+    // Ombre portée des nœuds (gris fixe de mermaid) : elle bave sur fond
+    // sombre et alourdit le trait en clair. Les cartes de Studio n'en ont pas.
+    dropShadow: "none",
+  };
 }
 
 /** Jeton qui remplace l'id du schéma dans un patron de feuille. */

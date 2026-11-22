@@ -25,6 +25,7 @@ import {
   Typography,
   rem,
   useMantineColorScheme,
+  useMantineTheme,
 } from "@mantine/core";
 import {
   IconAlertCircle,
@@ -48,6 +49,7 @@ import { valueText } from "./json/jsonFormat";
 import { adoptStylesOnce } from "../../utils/adoptStylesOnce";
 import { adoptStyles } from "nodefony/client";
 import {
+  diagramThemeVariables,
   fromStyleTemplate,
   releaseStyles,
   splitSvgStyles,
@@ -359,6 +361,7 @@ function parseAdmonition(
 /** Rend un block ```mermaid``` en SVG vectoriel (lazy, theme-aware). */
 export function MermaidDiagram({ code }: { code: string }) {
   const { colorScheme } = useMantineColorScheme();
+  const mantine = useMantineTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const baseId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [error, setError] = useState<string | null>(null);
@@ -382,12 +385,23 @@ export function MermaidDiagram({ code }: { code: string }) {
     void (async () => {
       try {
         const mermaid = (await import("mermaid")).default;
-        const theme = colorScheme === "light" ? "default" : "dark";
+        // Le patron de feuille dépend du schéma de couleur : c'est sa clé.
+        const theme = colorScheme === "dark" ? "dark" : "light";
         mermaid.initialize({
           startOnLoad: false,
-          theme,
+          theme: "base",
+          themeVariables: diagramThemeVariables(theme, {
+            brand: mantine.colors.brand ?? mantine.colors.blue,
+            gray: mantine.colors.gray,
+            dark: mantine.colors.dark,
+            black: mantine.black,
+            white: mantine.white,
+            fontFamily: mantine.fontFamily,
+          }),
           securityLevel: "strict",
-          fontFamily: "inherit",
+          // Libellés sur leurs lignes `<br/>`, sans coupure à chaque mot ;
+          // marge pour que la bordure d'un nœud ne touche pas le bord du dessin.
+          flowchart: { wrappingWidth: 320, padding: 12, diagramPadding: 16 },
         });
         const id = `mermaid-${baseId}-${Date.now()}`;
         // Mermaid MESURE ses libellés pendant le rendu : sa feuille doit être
@@ -421,7 +435,7 @@ export function MermaidDiagram({ code }: { code: string }) {
       cancelled = true;
       if (sheet !== null) releaseStyles(sheet);
     };
-  }, [code, colorScheme, baseId]);
+  }, [code, colorScheme, baseId, mantine]);
   if (error) {
     return (
       <Alert color="orange" icon={<IconAlertTriangle size={16} />} my="md">
