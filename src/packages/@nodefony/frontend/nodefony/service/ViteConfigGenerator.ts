@@ -149,6 +149,16 @@ export class ViteConfigGenerator {
     }
 
     const root = toGeneratedPath(first.root);
+    // Le cache de pré-compilation des dépendances, PROPRE à la racine. Par
+    // défaut Vite le pose sous le `package.json` le plus proche : deux fronts
+    // d'un même paquet (deux familles d'une application, deux fixtures de test)
+    // partageaient alors `node_modules/.vite/deps`, et l'un le vidait pendant que
+    // l'autre le lisait — sous Windows, un dossier ouvert ne se supprime pas
+    // (ENOTEMPTY, axiome 7). Quand la racine porte son propre `package.json`,
+    // c'est exactement le défaut de Vite : rien ne change.
+    const cacheDir = toGeneratedPath(
+      path.join(first.root, "node_modules", ".vite"),
+    );
     const outDir = toGeneratedPath(first.outDir);
 
     // Multi-bundle fix (P14.6) : autorise `/@fs/<abs>` pour chaque entry root.
@@ -266,6 +276,7 @@ ${imports.join("\n")}
 export default defineConfig({
   mode: ${JSON.stringify(mode)},
 ${baseLine}${dedupeLine}  root: ${JSON.stringify(root)},
+  cacheDir: ${JSON.stringify(cacheDir)},
   plugins: [${pluginsExprs.join(", ")}],
   optimizeDeps: {
     include: [
