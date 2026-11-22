@@ -1,5 +1,11 @@
 # @nodefony/devkit
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/devkit** — Development tooling for Nodefony apps: project card, development MCP server and agent skills shipped with the package. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/devkit/).
+
+<!-- nf-en:end -->
+
 L'outillage de **développement** d'une application Nodefony : sa carte de visite,
 les **skills d'agent** qui disent comment faire les tâches courantes, et les
 portes qui mènent au reste.

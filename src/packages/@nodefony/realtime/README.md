@@ -1,5 +1,11 @@
 # @nodefony/realtime
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/realtime** — Nodefony realtime server: channels, presence, bidirectional JSON-RPC 2.0 calls in JSON or binary CBOR, backpressure, multi-instance fan-out. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/realtime/).
+
+<!-- nf-en:end -->
+
 Couche realtime serveur Nodefony — **la Socket Nodefony** : hub WebSocket fan-out, protocole
 JSON-RPC 2.0 (peer isomorphe partagé avec le client du cœur) et backplane cluster interchangeable
 (`loopback`, `cluster` IPC, `redis`) ouvert aux drivers écrits par l'application.

@@ -15,6 +15,7 @@ import {
   readMinimalAppDependencies,
 } from "./lib/app-template-deps.mjs";
 import { REPO_ROOT as RACINE } from "../lib/repo-root.mjs";
+import { modifiedDate, sitemapXml } from "./lib/sitemap.mjs";
 
 const gabarit = fs.readFileSync(path.join(RACINE, APP_TEMPLATE_PATH), "utf8");
 
@@ -73,5 +74,50 @@ describe("dépendances d'une application minimale", () => {
     // peut pas garder sa sincérité, c'est la formulation qui s'en charge.
     expect(accueil).toContain(`${mots[deps.length]} dépendances déclarées`);
     for (const dep of deps) expect(accueil).toContain(`\`${dep}\``);
+  });
+});
+
+describe("sitemap.xml", () => {
+  const base = "https://x.test";
+  const pg = (urlPath, extra = {}) => ({
+    urlPath,
+    canonical: `${base}/${urlPath}`,
+    robots: null,
+    lastmod: "",
+    ...extra,
+  });
+  const locs = (xml) =>
+    [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1]);
+
+  it("dédoublonne sur la canonique (copies latest/)", () => {
+    const xml = sitemapXml(
+      [pg("p/1.0.0/"), pg("p/latest/", { canonical: `${base}/p/1.0.0/` })],
+      base,
+    );
+    expect(locs(xml)).toEqual([`${base}/p/1.0.0/`]);
+  });
+
+  it("écarte les pages noindex", () => {
+    const xml = sitemapXml(
+      [pg("a/"), pg("404/", { robots: "noindex, follow" })],
+      base,
+    );
+    expect(locs(xml)).toEqual([`${base}/a/`]);
+  });
+
+  it("n'écrit <lastmod> que si la page déclare sa date", () => {
+    const ld = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      dateModified: "2026-11-01",
+    });
+    expect(modifiedDate([ld])).toBe("2026-11-01");
+    expect(modifiedDate(["{oups"])).toBe("");
+    const xml = sitemapXml(
+      [pg("a/", { lastmod: modifiedDate([ld]) }), pg("b/")],
+      base,
+    );
+    expect(xml).toContain("<lastmod>2026-11-01</lastmod>");
+    expect(xml.match(/<lastmod>/g)).toHaveLength(1);
   });
 });

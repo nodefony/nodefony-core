@@ -75,6 +75,8 @@ interface DocSearch {
   scanned: number;
   matched: number;
   hits: DocSearchHit[];
+  /** Requête rattrapée quand le texte tapé ne trouvait rien (`grcp` → `grpc`). */
+  correctedQuery?: string;
 }
 interface DocPage {
   slug: string;
@@ -621,7 +623,7 @@ const DocumentationPortal = observer(() => {
                 <Text fw={700} size="lg">
                   {search.data?.matched ?? 0} page
                   {(search.data?.matched ?? 0) > 1 ? "s" : ""} pour «&nbsp;
-                  {q}&nbsp;»
+                  {search.data?.correctedQuery ?? q}&nbsp;»
                 </Text>
                 {/* Dire ce qui a été BALAYÉ, et ce qui est montré : « 20 résultats »
                     se lit sinon comme « il n'y en a que 20 ». */}
@@ -632,6 +634,18 @@ const DocumentationPortal = observer(() => {
                     : ""}
                 </Text>
               </Group>
+              {/* Une faute de frappe rattrapée se DIT : sans ce bandeau, le
+                  lecteur verrait des résultats pour un mot qu'il n'a pas tapé. */}
+              {search.data?.correctedQuery && (
+                <Alert
+                  color="blue"
+                  variant="light"
+                  icon={<IconSearch size={18} />}
+                >
+                  Aucun résultat pour «&nbsp;{q}&nbsp;» — résultats pour «&nbsp;
+                  <b>{search.data.correctedQuery}</b>&nbsp;».
+                </Alert>
+              )}
               {search.data?.hits.length === 0 && (
                 <Alert
                   color="gray"

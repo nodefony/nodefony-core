@@ -45,16 +45,18 @@
  *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95 --close compte-rendu.md
  *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95 --done
  *
- * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done
+ * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done | <numéro> --prune
  * @option --since  début de la plage de commits du ticket
  * @option --check  vérifie qu'un compte rendu tient dans un commentaire GitHub (65 536 caractères)
  * @option --close  publie le compte rendu complété, ferme le ticket et pose « Done » au tableau
  * @option --done   pose « Done » au tableau sur un ticket DÉJÀ fermé
+ * @option --prune  supprime la branche locale d'un ticket dont la PR est fusionnée (la fermeture le fait d'elle-même)
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { isLongBranch } from "../../nodefony-session/scripts/branch-status.mjs";
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
+import { ticketOfBranch } from "./commit-kind.mjs";
 import { checkBodyLength } from "./github-limits.mjs";
 import { setBoardStatus } from "./ticket-progress.mjs";
 
@@ -249,7 +251,7 @@ function main() {
   if (!numero || !/^\d+$/.test(numero)) {
     console.error(
       "usage : ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>\n" +
-        "        ticket-close.mjs <numéro> --close <fichier> | <numéro> --done\n" +
+        "        ticket-close.mjs <numéro> --close <fichier> | <numéro> --done | <numéro> --prune\n" +
         "  sans option : imprime le brouillon de compte rendu, n'écrit RIEN sur GitHub.",
     );
     process.exit(2);
@@ -261,6 +263,12 @@ function main() {
   }
   if (process.argv.includes("--done")) {
     markDone(numero);
+    return;
+  }
+  // `--prune` : la même règle que la fermeture, pour un ticket DÉJÀ fermé dont
+  // la branche locale est restée (fermé avant que la règle existe, ou à la main).
+  if (process.argv.includes("--prune")) {
+    pruneTicketBranches(numero);
     return;
   }
   const i = process.argv.indexOf("--since");
@@ -286,6 +294,124 @@ function main() {
   console.log(
     `  node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs ${numero} --close compte-rendu.md`,
   );
+}
+
+/**
+ * Les branches LOCALES d'un ticket qu'on peut supprimer à sa fermeture — et
+ * celles qu'on garde, avec le motif.
+ *
+ * Une PR fusionnée en squash laisse sa branche locale : git ne la reconnaît pas
+ * comme fusionnée (le commit de `release/*` n'est pas le sien), et rien ne la
+ * supprime — 15 branches mortes sur 21 constatées. Une branche ne part que si
+ * sa PR est FUSIONNÉE et que sa pointe est le commit fusionné OU l'un de ses
+ * ancêtres (branche locale en retard sur sa PR : rien à perdre) : un commit
+ * absent de la PR serait du travail que la fusion n'a pas emporté. La branche
+ * courante ne part jamais (git le refuserait, et c'est là que l'on travaille).
+ *
+ * @param {number} numero - le ticket.
+ * @param {{ name: string, tip: string }[]} locales - branches locales et leur pointe.
+ * @param {{ head: string, oid: string }[]} fusionnees - PR fusionnées : branche et commit fusionné.
+ * @param {string | null} courante - la branche courante.
+ * @param {(tip: string, oid: string) => boolean} [isAncestor] - `tip` est-il un
+ *   ancêtre de `oid` ? (injecté : `git merge-base --is-ancestor` en vrai)
+ * @returns {{ prune: string[], keep: { name: string, why: string }[] }}
+ */
+export function branchesToPrune(
+  numero,
+  locales,
+  fusionnees,
+  courante,
+  isAncestor = () => false,
+) {
+  const prune = [];
+  const keep = [];
+  for (const { name, tip } of locales) {
+    if (ticketOfBranch(name) !== numero) continue;
+    const pr = fusionnees.find((m) => m.head === name);
+    if (pr === undefined) keep.push({ name, why: "aucune PR fusionnée" });
+    else if (pr.oid !== tip && !isAncestor(tip, pr.oid))
+      keep.push({ name, why: "porte un commit absent de la PR fusionnée" });
+    else if (name === courante)
+      keep.push({
+        name,
+        why: "branche courante — en changer, puis git branch -D",
+      });
+    else prune.push(name);
+  }
+  return { prune, keep };
+}
+
+/**
+ * Supprime les branches locales du ticket que {@link branchesToPrune} libère,
+ * et dit celles qu'il garde. Un échec ne remet pas en cause la fermeture.
+ *
+ * @param {string} numero - le ticket.
+ */
+function pruneTicketBranches(numero) {
+  const n = Number(numero);
+  const locales = sh("git", [
+    "for-each-ref",
+    "--format=%(refname:short) %(objectname)",
+    "refs/heads",
+  ])
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => {
+      const [name = "", tip = ""] = l.split(" ");
+      return { name, tip };
+    })
+    .filter((b) => ticketOfBranch(b.name) === n);
+  if (locales.length === 0) return;
+  const fusionnees = [];
+  for (const { name } of locales) {
+    const out = sh("gh", [
+      "pr",
+      "list",
+      "--state",
+      "merged",
+      "--head",
+      name,
+      "--json",
+      "headRefName,headRefOid",
+    ]);
+    try {
+      for (const pr of JSON.parse(out || "[]"))
+        fusionnees.push({ head: pr.headRefName, oid: pr.headRefOid });
+    } catch {
+      // Réponse illisible : rien n'est tenu pour fusionné, rien ne part.
+    }
+  }
+  const courante = sh("git", ["branch", "--show-current"]).trim() || null;
+  const isAncestor = (tip, oid) => {
+    try {
+      execFileSync("git", ["merge-base", "--is-ancestor", tip, oid], {
+        stdio: "ignore",
+      });
+      return true;
+    } catch {
+      // Non-ancêtre, ou commit fusionné absent du dépôt local : on garde.
+      return false;
+    }
+  };
+  const { prune, keep } = branchesToPrune(
+    n,
+    locales,
+    fusionnees,
+    courante,
+    isAncestor,
+  );
+  for (const name of prune) {
+    try {
+      execFileSync("git", ["branch", "-D", name], { stdio: "ignore" });
+      console.log(`branche locale ${name} supprimée (PR fusionnée)`);
+    } catch {
+      console.log(
+        `branche locale ${name} NON supprimée — git branch -D ${name}`,
+      );
+    }
+  }
+  for (const { name, why } of keep)
+    console.log(`branche locale ${name} gardée : ${why}`);
 }
 
 /**
@@ -333,6 +459,7 @@ function closeTicket(numero, fichier) {
   }
   console.log(`#${numero} fermé avec son compte rendu`);
   markDone(numero);
+  pruneTicketBranches(numero);
 }
 
 /**

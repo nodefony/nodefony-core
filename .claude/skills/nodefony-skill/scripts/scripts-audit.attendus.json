@@ -115,6 +115,7 @@
     "scripts/generate/brand-assets.mjs",
     "scripts/generate/demo-video.mjs",
     "scripts/repo/safe-commit.sh",
+    "scripts/site/render-og-image.mjs",
     "scripts/test/realtime-coverage-map.mjs",
     "scripts/test/testbed-report.ts"
   ]

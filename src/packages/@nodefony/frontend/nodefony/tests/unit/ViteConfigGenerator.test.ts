@@ -88,6 +88,27 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.include('root: "/abs/path/to/frontend"');
   });
 
+  // Vite pose par défaut son cache sous le package.json le plus proche : deux
+  // fronts d'un même paquet le partageaient, et sous Windows l'un mourait au
+  // démarrage (ENOTEMPTY sur node_modules/.vite/deps) pendant que l'autre le
+  // lisait — vu en CI sur le test « port de base OCCUPÉ ».
+  it("pose un cache de pré-compilation PROPRE à chaque racine", () => {
+    const a = gen.toMjs([baseEntry], "development");
+    expect(a).to.include(
+      'cacheDir: "/abs/path/to/frontend/node_modules/.vite"',
+    );
+    const b = gen.toMjs(
+      [{ ...baseEntry, root: "/abs/path/to/peer/frontend" }],
+      "development",
+    );
+    const cacheOf = (out: string): string | undefined =>
+      /cacheDir: "([^"]+)"/.exec(out)?.[1];
+    expect(cacheOf(b)).to.equal(
+      "/abs/path/to/peer/frontend/node_modules/.vite",
+    );
+    expect(cacheOf(a)).to.not.equal(cacheOf(b));
+  });
+
   it("uses entry outDir for build", () => {
     const out = gen.toMjs([baseEntry], "production");
     expect(out).to.include('outDir: "/abs/path/to/public/dist"');
@@ -223,6 +244,10 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.include("C:/Users/dev/my-app/dist");
     // tsconfig angular résolu depuis ce root — même normalisation attendue.
     expect(out).to.include("C:/Users/dev/my-app/frontend/tsconfig.app.json");
+    // Le cache de pré-compilation suit la même normalisation.
+    expect(out).to.include(
+      'cacheDir: "C:/Users/dev/my-app/frontend/node_modules/.vite"',
+    );
     // Aucun backslash brut ne doit survivre dans la sortie.
     expect(out).to.not.include("C:\\\\Users");
   });

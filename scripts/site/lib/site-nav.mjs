@@ -12,9 +12,11 @@
  * racine et sous `/next/`, et la copie `latest/` d'une version doit rester
  * juste sans être recalculée.
  *
- * @usage import { siteNav, relativeUrl } from "./lib/site-nav.mjs"
+ * @usage import { siteNav, relativeUrl, menuTargets } from "./lib/site-nav.mjs"
  * @module
  */
+
+import path from "node:path";
 
 /**
  * Le plan des sites voisins, en chemins absolus depuis la racine du site.
@@ -98,4 +100,27 @@ export function siteNav(from, sites = SIBLING_SITES) {
     `<a class="nav-up" href="${escapeHtml(relativeUrl(from, "/"))}">← Accueil Nodefony</a>` +
     `<ul class="nav-flat">${items}</ul>`
   );
+}
+
+/**
+ * Les adresses qu'un menu rendu atteint, résolues en absolu depuis sa page.
+ *
+ * Sert la garde « aucune page publiée hors du menu » : une page qu'aucune entrée
+ * n'atteint ne se trouve que par lien ou par moteur de recherche — vécu, les ADR
+ * publiés n'avaient aucune entrée. Lire le HTML RENDU plutôt que recopier les
+ * règles du menu : la garde voit ce que le lecteur voit, et ne diverge pas.
+ *
+ * @param {string} navHtml - le menu tel que la page le rend
+ * @param {string} fromUrl - l'adresse absolue de cette page (`/docs/x/`)
+ * @returns {Set<string>} les adresses atteintes, absolues, terminées par `/`
+ */
+export function menuTargets(navHtml, fromUrl) {
+  const out = new Set();
+  for (const m of navHtml.matchAll(/<a\s[^>]*href="([^"#]*)[^"]*"/g)) {
+    const href = m[1];
+    if (href === "" || /^[a-z][a-z0-9+.-]*:/i.test(href)) continue;
+    const abs = path.posix.resolve(fromUrl, href);
+    out.add(abs.endsWith("/") ? abs : `${abs}/`);
+  }
+  return out;
 }

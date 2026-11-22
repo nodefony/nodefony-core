@@ -21,7 +21,12 @@ quand ça coince. Chacune a sa réponse dans le framework, écrite contre la nor
 | **Tenir la charge**             | Contre-pression en sortie, débit borné en entrée, cadence de diffusion qui s'adapte à chaque client                                                                                                                       |
 | **Des types de bout en bout**   | Un **contrat** écrit une fois type le contrôleur, la socket et les hooks React, Vue, Svelte et Angular. Les routes qu'il annonce sont vérifiées au démarrage                                                              |
 | **Voir et tester**              | Une sonde, la console d'administration, les onglets Socket et SSE de la barre de débogage, un traceur de trames ; une identité d'essai pour tester un canal protégé                                                       |
-| **gRPC**                        | Des services gRPC servis par le même pipeline HTTP/2, déclarés depuis un module ; la réflexion et la santé standard sont à venir                                                                                          |
+<!-- @if core,npm -->
+| **gRPC**                        | Des [services gRPC](https://nodefony.net/docs/modules/framework/grpc/) servis par le même pipeline HTTP (gRPC natif en HTTP/2), déclarés depuis un module ; la réflexion et la santé standard sont à venir                                                                                          |
+<!-- @end -->
+<!-- @if app -->
+| **gRPC**                        | Des services gRPC servis par le même pipeline HTTP, déclarés depuis un module ; la réflexion et la santé standard sont à venir                                                                                            |
+<!-- @end -->
 
 Chaque besoin a son exemple complet et testé : jeu (déplacements, recherche de partie), salon privé
 sur invitation, sonde industrielle, tableau de bord partagé, notification privée, tâche d'agent.

@@ -50,3 +50,25 @@ function commentaireSeul(ligne) {
     l.startsWith("<!--") && l.endsWith("-->") && !l.slice(4, -3).includes("-->")
   );
 }
+
+/**
+ * Retire le titre `# …` de tête d'une page : le chrome l'affiche déjà en `<h1>`.
+ * Il est cherché AVANT la première section (`## `), et non seulement en
+ * première ligne : un fil d'Ariane le précède souvent, et la page sortait alors
+ * avec deux `<h1>` (vécu sur quatre pages).
+ *
+ * @param md - le corps markdown, sans frontmatter
+ * @returns le corps sans son titre de tête
+ */
+export function stripLeadingTitle(md) {
+  const m = /^#[ \t]+.*\r?\n?/m.exec(md);
+  if (m === null) return md;
+  const before = md.slice(0, m.index);
+  // Un titre trouvé après une section, ou dans un bloc de code, n'est pas celui de la page.
+  if (
+    /^##[ \t]/m.test(before) ||
+    (before.match(/^```/gm) ?? []).length % 2 === 1
+  )
+    return md;
+  return before + md.slice(m.index + m[0].length);
+}

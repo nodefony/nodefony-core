@@ -1,5 +1,11 @@
 # @nodefony/orm-core
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/orm-core** — One repository contract for Nodefony, several engines: interfaces, registry and base classes for multi-ORM support. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/orm-core/).
+
+<!-- nf-en:end -->
+
 Fondation **multi-ORM** de Nodefony. Définit les contrats abstraits qui permettent de charger
 plusieurs ORM dans le même processus — par exemple Drizzle pour SQL et Mongoose pour MongoDB —
 derrière une API portable, avec une trappe vers le driver natif pour les cas que l'abstraction ne

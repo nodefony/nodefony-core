@@ -51,12 +51,22 @@ import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
 import { anchorHeadings } from "./lib/html-text.mjs";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 import { siteNav } from "./lib/site-nav.mjs";
+import { brandTitle, seoHead, siteImage, webPage } from "./lib/seo-head.mjs";
+import { clipSummary } from "./lib/page-summary.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d;
 };
 const OUT = path.resolve(ROOT, arg("out", "tmp/sites/perf"));
+// Adresse publique du site : base des adresses canoniques. Les pages vivent sous
+// `/performance/` — le préfixe que `siteNav` pose déjà, et que `build-site.mjs`
+// donne à `--out`.
+const SITE_URL = arg("site-url", "https://nodefony.net").replace(/\/+$/, "");
+/** Site `/next/` : aucune page indexable (`build-site.mjs` pose l'option). */
+const NOINDEX = process.argv.includes("--noindex");
+const canonicalOf = (pathUnderPerf) =>
+  `${SITE_URL}/performance/${pathUnderPerf}`;
 const DATA_DIR = path.resolve(ROOT, arg("data", "docs/performance/data"));
 const GENERATOR = path.join(
   ROOT,
@@ -116,6 +126,10 @@ for (const version of versions) {
         // Rendue DANS le site : la page pose le menu des sites voisins.
         "--site-path",
         `/performance/${version}/`,
+        // …et y pose son référencement (canonique sur la page de la VERSION).
+        "--site-url",
+        SITE_URL,
+        ...(NOINDEX ? ["--noindex"] : []),
       ],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
@@ -245,7 +259,22 @@ for (const page of PROSE) {
       nav: siteNav(`/performance/${page.slug}/`),
       style: STYLE_CODE + STYLE_GRAPHES,
       title: page.titre,
+      documentTitle: brandTitle(page.titre),
       subtitle: page.sous,
+      head: seoHead({
+        image: siteImage(SITE_URL),
+        noindex: NOINDEX,
+        title: page.titre,
+        description: clipSummary(page.sous),
+        url: canonicalOf(`${page.slug}/`),
+        jsonLd: webPage({
+          type: "WebPage",
+          title: page.titre,
+          description: clipSummary(page.sous),
+          url: canonicalOf(`${page.slug}/`),
+          siteUrl: SITE_URL,
+        }),
+      }),
       sections: [rendreMarkdown(src)],
       footer: `<a href="../">← Performance</a> · <a href="../../docs/">Documentation</a> — source <code>docs/performance/${page.source}</code>`,
     }),
@@ -415,17 +444,36 @@ grave, ce serait de le taire.</p><ul>${skipped
     ),
   );
 
+const INDEX_TITLE = "Performance de Nodefony";
+const INDEX_DESCRIPTION =
+  "Débit, latence, tenue dans la durée et dimensionnement de Nodefony, mesurés à la main sur une machine nommée et versionnés à chaque release.";
 writeFileSync(
   path.join(OUT, "index.html"),
   doc({
     nav: siteNav("/performance/"),
-    title: "Performance de Nodefony",
+    title: INDEX_TITLE,
     subtitle:
       "Les chiffres sont mesurés à la main, sur une machine nommée, puis versionnés dans le dépôt — cette page ne fait que les rendre.",
     // La marque ramène à l'accueil du site, comme partout ailleurs : cette page
     // est publiée à côté de la documentation, pas toute seule.
     brand: { ...NODEFONY_BRAND, href: "../" },
-    head: `<link rel="icon" href="../favicon.svg" type="image/svg+xml">`,
+    documentTitle: brandTitle(INDEX_TITLE),
+    head:
+      `<link rel="icon" href="../favicon.svg" type="image/svg+xml">\n` +
+      seoHead({
+        image: siteImage(SITE_URL),
+        noindex: NOINDEX,
+        title: INDEX_TITLE,
+        description: INDEX_DESCRIPTION,
+        url: canonicalOf(""),
+        jsonLd: webPage({
+          type: "CollectionPage",
+          title: INDEX_TITLE,
+          description: INDEX_DESCRIPTION,
+          url: canonicalOf(""),
+          siteUrl: SITE_URL,
+        }),
+      }),
 
     sections,
     style:

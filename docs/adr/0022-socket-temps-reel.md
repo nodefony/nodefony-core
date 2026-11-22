@@ -1,10 +1,12 @@
 ---
 adr: 22
 title: Socket temps réel — un canal, une enveloppe, un contrat pour les deux bouts
+description: "Le protocole de la socket temps réel : des canaux, une enveloppe JSON-RPC 2.0, un codec JSON ou CBOR binaire négocié par connexion, un contrat typé."
 lang: fr
 navTitle: Socket temps réel
 date: 2026-10-28
 status: accepted
+publish: true
 deciders: [Christophe CAMENSULI]
 tags:
   [
@@ -22,21 +24,47 @@ tags:
 
 # ADR-0022 — Socket temps réel : un canal, une enveloppe, un contrat pour les deux bouts
 
+> **Summary.** Nodefony's real-time socket serves chats, dashboards, games, sensors and agents
+> through one JSON-RPC 2.0 peer shared by browser and server, and its protocol had to be settled
+> before the 10.0 wire format froze. This ADR fixes what could not change later: the unit is the
+> _channel_ (a named stream with a shared producer), there is a single JSON-RPC 2.0 envelope, and
+> codecs are only its serialization, negotiated once per connection — JSON text
+> (`nodefony.jsonrpc.v1`) by default, binary CBOR (RFC 8949, `nodefony.jsonrpc.cbor.v1`) as an
+> opt-in, announced in the welcome frame. Whatever the codec, an application receives what JSON
+> would deliver, with `Uint8Array` bytes kept intact, so a JSON client and a CBOR client on the
+> same channel see the same data. One type-only contract, declared once, types both ends, and
+> private channels, backpressure and resume are specified so that later additions stay
+> non-breaking.
+
+Le **comment** — grammaire des trames, négociation du codec, reconnexion — se lit dans le guide
+[Protocole de la socket](../../src/packages/@nodefony/realtime/docs/protocole.md) et, pour le
+binaire, dans [Codec CBOR](../../src/nodefony/docs/cbor.md) ; cet ADR porte le **pourquoi**.
+
 ## Statut
 
-Accepté (2026-10-29). Les §1 à §5 ont été validés par l'auteur décision par décision ; les §6 à
-§10, tous « rupture si différé : NON », sont acceptés par délégation de l'auteur, après une table
-d'experts qui a jugé les trois ADR sans les contester (catalogue `scenarios/temps-reel.md`). Ce
-qui viendrait les contredire s'ajoute en 10.x, sans rupture. Amendé le 2026-10-30 par la table
-du gel : le même moule type socket, SSE et webhook (§4), et la décision 1 du §6 est tranchée sur
-la forme d'`allow` et son délai. Il recentre #627 sur la **socket**. Le socle
-commun aux livraisons est [ADR-0021](0021-temps-reel-evenement-et-livraisons.md), dont les
-décisions S1 à S9 font foi ici ; les webhooks sont [ADR-0023](0023-webhooks-evenements-et-abonnements.md).
-Les huit décisions de gel de #630 sont **déjà prises** (commit `1df6614c1`) : reprises, jamais
-rediscutées. Les tickets #618, #622, #623, #626, #628, #629 et #619 appliquent ce document. Le
-média (capture, codec audio) relève de l'ADR demandé par #624 : rien ici ne le recouvre.
-Précisé le 2026-11-11 par [ADR-0026](0026-service-grpc-declare-par-un-module.md) (D12) : le codec
-protobuf de la socket n'arrive pas avec l'Epic gRPC (§2, lignes datées).
+**Accepté** le 2026-10-29. Les §1 à §5 ont été validés décision par décision ; les §6 à §10, tous
+« rupture si différé : NON », sont acceptés en bloc, après une revue d'architecture qui a jugé les
+trois ADR du temps réel sans les contester (catalogue `scenarios/temps-reel.md`). Ce qui viendrait
+les contredire s'ajoute en 10.x, sans rupture.
+<!-- porté par #702 -->
+
+Les mentions « ouvert », « reste », « à prouver » décrivent l'état à la date de la décision ; le code
+livré en 10.0 les a soldées (voir les guides).
+
+- **Amendé le 2026-10-30** par la revue du gel : le même moule type socket, SSE et webhook (§4), et
+  la décision 1 du §6 est tranchée sur la forme d'`allow` et son délai.
+- **Précisé le 2026-11-09** (§6, décision 1 quater) : une politique de lecture et une politique
+  d'écriture par nom de canal.
+- **Précisé le 2026-11-11** par [ADR-0026](0026-service-grpc-declare-par-un-module.md) (D12) : le
+  codec protobuf de la socket n'arrive pas avec le chantier gRPC (§2, lignes datées).
+- **Précisé** par [ADR-0025](0025-presence-repartie-d-un-canal.md) (P1) : la présence d'un canal,
+  d'abord laissée à l'application (§6), est portée par le framework.
+
+Ce document porte sur la **socket**. Le socle commun aux livraisons est
+[ADR-0021](0021-temps-reel-evenement-et-livraisons.md), dont les décisions S1 à S9 font foi ici ;
+les webhooks sont [ADR-0023](0023-webhooks-evenements-et-abonnements.md). Les huit décisions de gel
+du protocole sont **déjà prises** (commit `1df6614c1`) : reprises, jamais rediscutées. Le média
+(capture, codec audio) relève d'un ADR à part : rien ici ne le recouvre.
 
 ## Contexte
 
@@ -46,10 +74,10 @@ La socket de Nodefony est un pair JSON-RPC 2.0 **partagé** entre navigateur et 
 dans le cœur (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket`). Elle sert une
 discussion, un tableau de bord, un jeu, un éditeur partagé, des capteurs, des notifications, un
 flux de média, et des agents — sans être taillée pour aucun. Chaque décision ci-dessous porte
-trois usages hétérogènes, dont un sans agent ni IA et un sans média (règle de #621).
+trois usages hétérogènes, dont un sans agent ni IA et un sans média (règle des trois usages, ADR-0021).
 
-Cinq évolutions touchent son protocole dans le même jalon : binaire routé (#618), admission par
-identité (#622), abonnés identifiables (#623), transcription (#626), voix (#619). Après 10.0, un
+Cinq évolutions touchent son protocole dans le même jalon : binaire routé, admission par
+identité, abonnés identifiables, transcription, voix. Après 10.0, un
 changement de ce qu'une application reçoit est une rupture même à types identiques
 ([politique de compatibilité](../guides/compatibilite.md)). Ce document décide ce qui fermerait
 une porte s'il était décidé plus tard, et laisse additif tout le reste.
@@ -65,28 +93,29 @@ codec branché sur le pair, aucune notification `realtime:closed`, aucun curseur
 
 ### 1. Le canal, pas la room
 
-**Décision (validée par l’auteur le 2026-10-28) :** l'unité de la socket est le **canal** : un flux nommé dont le producteur
+**Décision (validée le 2026-10-28) :** l'unité de la socket est le **canal** : un flux nommé dont le producteur
 est **partagé**, démarré au premier abonné et libéré au dernier
 (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.subscribe`).
 Une _room_ — une liste de diffusion tenue par le serveur, qui ne sait rien de ce qui produit —
-s'obtient en ajoutant au canal une admission par identité (#622, un prédicat) et un abonnement
-décidé par le serveur (#623). L'inverse ne se construit pas : une liste de diffusion n'a pas de
+s'obtient en ajoutant au canal une admission par identité (un prédicat) et un abonnement
+décidé par le serveur. L'inverse ne se construit pas : une liste de diffusion n'a pas de
 producteur. L'événement reste `(canal, charge)` nue (S1), sans identifiant du socle (S2), sans
 propriétaire (S7).
 
 - Usages : un tableau de bord (un producteur, N lecteurs), une partie de jeu (producteur partagé
   et membres), un flux de capteur (un producteur, aucun membre).
-- Écarté : la room comme primitive ; un producteur par connexion (un seul usage connu, #621).
-- **Rupture si différé après 10.0 : NON**, parce que #622 et #623 n'ajoutent qu'un membre
-  optionnel et des notifications neuves (décisions 5 et 8 de #630).
+- Écarté : la room comme primitive ; un producteur par connexion (un seul usage connu, quand la règle en demande trois).
+- **Rupture si différé après 10.0 : NON**, parce que l'admission par identité et les abonnés identifiables n'ajoutent qu'un membre
+  optionnel et des notifications neuves (décisions de gel 5 et 8).
 
 ### 2. L'enveloppe JSON-RPC 2.0 et ses codecs
 
-**Décision (validée par l’auteur le 2026-10-29, en deux temps : le principe, puis le calendrier des codecs) :** une seule enveloppe, JSON-RPC 2.0, et des **codecs** qui n'en sont que la
-sérialisation, choisie une fois par connexion. Repris de #630 : sans sous-protocole, le format est
+**Décision (validée le 2026-10-29, en deux temps : le principe, puis le calendrier des codecs) :** une seule enveloppe, JSON-RPC 2.0, et des **codecs** qui n'en sont que la
+sérialisation, choisie une fois par connexion. Repris des décisions de gel : sans sous-protocole, le format est
 celui d'aujourd'hui — JSON-RPC texte, nommé **`v1`** — pour toute la série 10 (décision 1) ; le
 codec effectif se lit dans `realtime:welcome` par un champ optionnel (absent = texte), **jamais**
 dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (décision 2). Ajouté :
+<!-- porté par #630 -->
 
 - **`IFrameCodec`** dans le code partagé : `encode(frame): string | Uint8Array`,
   `decode(data: string | Uint8Array): unknown`, un `protocol`. Par frame il remplace
@@ -100,46 +129,46 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
 - **L'accueil est toujours une trame texte `v1`**, qui porte le codec choisi ; les frames
   suivantes l'emploient. Un serveur sans le branchement du codec n'émet pas ce champ, un client
   qui l'a reste donc en texte : le déploiement progressif tient malgré l'écho de `ws`, qui renvoie le premier
-  sous-protocole offert (constaté dans #627 sur `ws` 8.22, la version qu'installe `@nodefony/http` — le
+  sous-protocole offert (constaté sur `ws` 8.22, la version qu'installe `@nodefony/http` — le
   cœur ne l'a qu'en dépendance de développement).
 - **Protobuf** : une enveloppe `.proto` **fixe** fournie par Nodefony (`id`, `method`, `error`,
   `params: bytes`, `result: bytes`) ; la charge est encodée par le message que le contrat
   déclare pour **cette** méthode ; sans schéma, la charge passe en CBOR dans les `bytes`.
-  Bibliothèque : `@bufbuild/protobuf`, la seule que le framework aurait si l'Epic gRPC #694
+  Bibliothèque : `@bufbuild/protobuf`, la seule que le framework aurait si le chantier gRPC (ADR-0026)
   aboutit. Elle n'est aujourd'hui dans l'arbre que par le module de test et l'outillage de build
   (`npm ls @bufbuild/protobuf`) : aucun paquet publié ne l'installe, l'ajouter serait une
   dépendance neuve pour chaque application.
-- **Calendrier.** Les trois noms sont réservés dès 10.0. **Activation (revue de l'auteur,
+- **Calendrier.** Les trois noms sont réservés dès 10.0. **Activation (revue du
   2026-10-29, une fois le codec CBOR écrit au cœur — remplace « optionnel, chargé par la seule
   application qui l'active », dont le motif était d'éviter une dépendance npm, disparue) :** CBOR
   s'active **par la configuration seule, sans paquet à installer**, et son code ne pèse que là où
   il est activé — rien dans le bundle d'une application qui ne l'active pas
   (`.size-budgets.json`). Côté navigateur : l'option `codec` de `NodefonySocket`, avec
   `CBOR_FRAME_CODEC` importé de `nodefony/cbor` (seul sous-chemin qui le contient). Côté serveur :
-  une clé de la configuration du module temps réel, posée par le lot serveur de #618, qui charge
+  une clé de la configuration du module temps réel, posée par le lot serveur du binaire routé, qui charge
   le codec au démarrage. Le paquet de base (`nodefony`, `nodefony/client`) ne contient que le
   codec JSON. Les codecs vivent dans le pair PARTAGÉ (`JsonRpcPeer`, §4 ligne (i)). Le codec
   **CBOR** est écrit, au cœur (`src/nodefony/src/realtime/codec/`, sous-chemin `nodefony/cbor`,
   hors de `nodefony` et de `nodefony/client`) ; son branchement — `IFrameCodec`, offre du
-  sous-protocole par le client, choix annoncé dans l'accueil — revient à #618,
+  sous-protocole par le client, choix annoncé dans l'accueil — revient au lot du binaire routé,
   **visé pour la publication de 10.0** : le binaire temps réel est la capacité stratégique du
-  framework (décision de l'auteur, 2026-10-30), et #618 ne se reporte pas pour tenir le
-  calendrier. Il passe après #628, qui le type, et les tickets qui fermeraient une porte gardent
+  framework (décision du 2026-10-30), et ce lot ne se reporte pas pour tenir le
+  calendrier. Il passe après le contrat typé (§4), qui le type, et les travaux qui fermeraient une porte gardent
   la priorité d'ordre ; s'il glissait malgré tout, rien ne casse — un serveur sans branchement
-  n'émet pas le champ de codec. **Protobuf** n'arrive qu'avec l'Epic gRPC
-  #694 : un seul usage connu d'ici là (règle de #621), et une dépendance que gRPC rendra de toute
+  n'émet pas le champ de codec. **Protobuf** n'arrive qu'avec le chantier gRPC :
+  un seul usage connu d'ici là (règle des trois usages), et une dépendance que gRPC rendra de toute
   façon nécessaire ; son enveloppe ci-dessus est une intention, pas un engagement.
-  _Précisé le 2026-11-11 par ADR-0026 (D12) : l'Epic gRPC n'amène protobuf qu'en pair FACULTATIF
+  _Précisé le 2026-11-11 par ADR-0026 (D12) : le chantier gRPC n'amène protobuf qu'en pair FACULTATIF
   de `@nodefony/http` et `@nodefony/framework`, jamais au cœur ni dans `nodefony/client`. Le
   codec protobuf de la socket n'en découle donc pas : il attend un usage à lui._
 - **JSON est la référence de tous les codecs** (remplace la règle « refus à l'encodage »,
-  décision de l'auteur du 2026-10-29, après le banc) : quel que soit le codec, on reçoit **ce que
+  décision du 2026-10-29, après le banc) : quel que soit le codec, on reçoit **ce que
   `JSON.stringify` puis `JSON.parse` rendraient** — une `Date` devient sa chaîne ISO, `NaN` devient
   `null`, `Map`/`Set` deviennent `{}`. Seule exception, les octets : un `Uint8Array` reste un
   `Uint8Array` (S8 ; base64 sous convention dans le codec JSON). Ainsi une connexion se rejoue en
   texte sans qu'une ligne métier bouge, et un client CBOR et un client JSON abonnés au même canal
   reçoivent la même chose — le relais entre exemplaires, en JSON (S6), l'imposait déjà.
-  - **Les autres conteneurs d'octets sont REFUSÉS** (décision de l'auteur, #777) : un tableau
+  - **Les autres conteneurs d'octets sont REFUSÉS** : un tableau
     typé autre que `Uint8Array`, une `DataView` ou un `ArrayBuffer` partirait en `{"0":…}` ou en
     `{}` — contenu perdu sans un mot. Le codec CBOR et le codec JSON à octets lèvent à l'émission,
     avec un message qui nomme le geste (`codec/binaryView.ts#unsupportedBinaryMessage`, règle
@@ -151,8 +180,8 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
     correctif.
   - **Le type le montre** : le contrat type la valeur REÇUE par un `Jsonify<T>` (à écrire, absent
     du dépôt) — `debut: Date` à l'émission devient `debut: string` à la réception, visible dans
-    l'éditeur, sans coût d'exécution. Précédents : tRPC (sans transformateur), Hono
-    (`JSONParsed<T>`).
+    l'éditeur, sans coût d'exécution. C'est la forme courante des bibliothèques d'appel
+    typé de bout en bout : le type reçu est celui que JSON rend.
   - **Chaque codec est aligné et le prouve** : un test par codec rend, pour chaque valeur du banc
     (`NaN`, `Infinity`, `undefined` en tableau, `Date`, `Map`, `Set`, `-0`, `bigint`), exactement ce
     que rend JSON — `bigint` compris, que JSON refuse. Protobuf suit sa correspondance JSON
@@ -160,11 +189,10 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   - **Le développement prévient** : une valeur que JSON transforme (`Date`, `NaN`, `Map`…) donne un
     avertissement UNE fois par méthode ou canal — presque toujours un oubli. Rien en production.
   - Écarté : **tout refuser** (un parcours par message, et une rupture pour les applications qui
-    publient une `Date` aujourd'hui) ; **tout transporter** à la superjson (format maison que ni
-    un client d'un autre langage ni le relais ne lisent). Précédent du modèle commun : WAMP, dont
-    le routeur traduit entre clients JSON, CBOR et MessagePack.
-- **Les octets dans le codec JSON — activés, jamais payés par défaut.** **Décision (validée par
-  l'auteur le 2026-10-31, après la mesure du §9) :** la convention déclarée est
+    publient une `Date` aujourd'hui) ; **tout transporter** par un JSON enrichi (format maison que ni
+    un client d'un autre langage ni le relais ne lisent). Précédent du modèle commun : les
+    routeurs de messagerie qui traduisent entre clients JSON, CBOR et MessagePack.
+- **Les octets dans le codec JSON — activés, jamais payés par défaut.** **Décision (validée le 2026-10-31, après la mesure du §9) :** la convention déclarée est
   `{"$bytes":"<base64url sans bourrage>"}` (alphabet RFC 4648 §5, celui de la conversion CBOR → JSON
   de RFC 8949 §6.1), réanimée en `Uint8Array` à la réception ; le marqueur doit être SEUL dans son
   objet, sinon l'objet reste applicatif. Émettre la convention exige de DÉTECTER les octets, donc un
@@ -174,12 +202,12 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   passages de même signe). Le parcours n'est donc armé **que si l'application active un codec
   binaire** côté serveur (l'activation qu'exige déjà le calendrier ci-dessus). Sans activation, le
   codec JSON reste les deux appels natifs — « aucun appel de plus » tient — et des octets imbriqués
-  y arrivent déformés comme avant #618, l'application prévenue une fois. Code :
+  y arrivent déformés comme avant le binaire routé, l'application prévenue une fois. Code :
   `src/nodefony/src/realtime/jsonFrameCodec.ts`, gardé par `src/nodefony/src/tests/jsonFrameCodec.test.ts`.
   - Écarté : **parcours toujours armé** (chaque application paierait ~30 % par trame texte pour un
     service que la plupart n'emploient pas) ; **codec JSON sans convention** (contredit la décision
-    du 2026-10-29 portée par #618 : le client texte rend un `Uint8Array`).
-  - **Un marqueur FORGÉ est refusé à l'émission (validé par l'auteur le 2026-11-01).** Un objet
+    du 2026-10-29 : le client texte rend un `Uint8Array`).
+  - **Un marqueur FORGÉ est refusé à l'émission (validé le 2026-11-01).** Un objet
     applicatif qui a la forme exacte du marqueur (seule clé, valeur chaîne) sans venir d'octets —
     carte texte envoyée par un client CBOR, `params` relayés tels quels par l'application — serait
     relu en octets par un abonné texte, ou ferait jeter la trame entière si sa chaîne n'est pas du
@@ -192,10 +220,10 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
     80 octets, +0,5 % à 11 Ko, et −19 % / −6 % au décodage, qui portait le motif à guillemets.
     Gardé par `src/nodefony/src/tests/jsonFrameCodec.test.ts` et
     `src/packages/@nodefony/realtime/nodefony/tests/integration/realtimeCodec.e2e.test.ts`.
-    - Écarté : **échapper** l'objet à la manière d'EJSON (`{"$escape": …}`) — fidèle, mais un
+    - Écarté : **échapper** l'objet sous une clé dédiée (`{"$escape": …}`) — fidèle, mais un
       second marqueur sur un fil gelé, et incompatible avec le reviver de `JSON.parse`, qui
       travaille des feuilles vers la racine.
-- **Trois précisions de câblage (validées par l'auteur le 2026-11-01) :**
+- **Trois précisions de câblage (validées le 2026-11-01) :**
   - le champ de `realtime:welcome` qui porte le codec retenu s'appelle **`codec`**, et sa valeur
     est exactement `IFrameCodec.protocol` (`src/nodefony/src/realtime/frameCodecNegotiation.ts#adoptFrameCodec`) ;
     absent, la connexion reste en texte ;
@@ -208,7 +236,7 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
     (`NodefonySocket.onBinary`/`sendBinary`, `RealtimeController.onRealtimeBinary`) est refusé
     avec une notice et ne sert que les connexions texte. Des octets passent par les canaux, qui
     ont les portes B1 à B4 (§3).
-- **Le client texte prend la convention sur ANNONCE du serveur (validé par l'auteur le
+- **Le client texte prend la convention sur ANNONCE du serveur (validé le
   2026-11-01).** Un serveur qui a activé un codec binaire émet `$bytes` sur ses connexions
   texte ; il le dit dans `realtime:welcome` par le champ **`bytes`** (valeur
   `IFrameCodec.bytesMarker`, `"$bytes"` ; la valeur nomme la convention, une autre serait
@@ -253,7 +281,7 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   JSON base64, 1 Mo en 1,2 µs contre 1,97 ms. Le banc a aussi révélé que le codec JSON transforme
   (`NaN` → `null`, `Date` → chaîne, `Map`/`Set` → `{}`) quand `cbor-x` garde tout : d'où la
   référence JSON ci-dessus.
-- **Retenu : un codec CBOR propre à Nodefony** (décision de l'auteur, 2026-10-29), dans le code
+- **Retenu : un codec CBOR propre à Nodefony** (décision du 2026-10-29), dans le code
   partagé `src/nodefony/src/realtime/codec/` — isomorphe, sans dépendance, sans `eval`. Aucune
   bibliothèque ne tenait les deux exigences à la fois :
   - `cbor-x` (la plus rapide) ne peut pas s'aligner sur JSON sans parcourir chaque message (aucun
@@ -271,57 +299,59 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   que `cborg`. Exigences du codec livré : conformité RFC 8949 (sérialisation préférée §4.1,
   flottants au plus court, longueurs indéfinies acceptées au décodage, clés en double et UTF-8
   invalide refusés, bornes §10), vecteurs des appendices A et F en tests, chaque garde vue rouge.
-  `cbor-x` et `cborg` ne sont que des références de banc (`micro-cbor-codec.mjs`), jamais des
+  Témoins du banc (`micro-cbor-codec.mjs`) : `cbor-x` et `cborg`, références de mesure, jamais des
+  dépendances.
+  Ces deux bibliothèques ne sont que des références de banc (`micro-cbor-codec.mjs`), jamais des
   dépendances.
 
-- **Rupture si différé après 10.0 : NON**, parce que les décisions 1 et 2 de #630 rendent tout
+- **Rupture si différé après 10.0 : NON**, parce que les décisions de gel 1 et 2 rendent tout
   codec additif. Ce qui serait une rupture, et qui est écrit : le nom `v1` et la lecture du codec
   dans l'accueil — un format renommé ou un codec déduit de l'écho changerait le fil d'un client
   déjà déployé.
 
 ### 3. Le binaire, routé par canal, par les mêmes portes que le texte
 
-**Décision (validée par l’auteur le 2026-10-29) :** une trame binaire routée **n'est pas une seconde grammaire** : c'est une
+**Décision (validée le 2026-10-29) :** une trame binaire routée **n'est pas une seconde grammaire** : c'est une
 notification JSON-RPC dont la charge est, ou contient, un `Uint8Array` (S8), et le codec dit
 comment il la porte — chaîne d'octets native en CBOR (type majeur 2), `bytes` en protobuf, base64
 sous une convention déclarée pour le codec JSON. Elle passe donc par **les mêmes portes** que le
 texte, sans seconde implémentation : verrou de trame
 (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.runAuthorizer`,
 B1), politique de canal (`#RealtimeHub.probeChannel`, `#RealtimeHub.subscribeClient`, B2), audit
-des refus (B3), sonde (`#RealtimeHub.recordInbound`, B4 — membres optionnels, décision 8 de #630,
+des refus (B3), sonde (`#RealtimeHub.recordInbound`, B4 — membres optionnels, décision de gel 8,
 vocabulaire S9). Le crochet brut
 `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#RealtimeController.onRealtimeBinary`
-reste hors du verrou pour toute la série, identité par `RequestContext` (décision 3 de #630) :
+reste hors du verrou pour toute la série, identité par `RequestContext` (décision de gel 3) :
 il sert un protocole binaire écrit par l'application, sans canal.
 
 - Usages : un capteur qui pousse des mesures compactées, un document partagé qui diffuse ses
-  deltas binaires, la voix (#626).
+  deltas binaires, la voix.
 - Écarté : une trame binaire à en-tête maison sous le codec texte — une seconde grammaire, donc
   un second verrou et une seconde sonde, qui divergent en silence.
-- Constaté (relevé de #618) : contre-pression sortante et `maxPayload` couvrent déjà le binaire
+- Constaté au code : contre-pression sortante et `maxPayload` couvrent déjà le binaire
   (`src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts#WsConnectionTransport.sendBinary`,
   `src/packages/@nodefony/http/nodefony/config/config.ts#websocketSchema`) ; B1 à B4 sont
   contournés parce que le binaire va droit au crochet (`#RealtimeController.receiveBinary`). À
-  prouver dans #618 : chaque porte vue rouge en la débranchant ; un `Uint8Array` intact par le
+  prouver avec le binaire routé : chaque porte vue rouge en la débranchant ; un `Uint8Array` intact par le
   pilote Redis, supposé corrompu (S8).
-- **Rupture si différé après 10.0 : NON**, parce que le chemin routé n'existe pas encore (#618) et que
-  le crochet brut est gelé par la décision 3.
+- **Rupture si différé après 10.0 : NON**, parce que le chemin routé n'existe pas encore et que
+  le crochet brut est gelé par la décision de gel 3.
 
 ### 4. L'isomorphisme — le transport l'est, le contrat doit l'être
 
-**Décision (validée par l'auteur le 2026-10-29) :** fermer les cinq trous de #627 §4, dont deux
+**Décision (validée le 2026-10-29) :** fermer les cinq trous d'isomorphisme relevés au cadrage, dont deux
 le sont déjà.
 
-| Trou                                 | État constaté                                                                                                                                                                                                                                                 | Geste                                                                                                   |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| (i) binaire asymétrique              | **fermé** (#630) : `Uint8Array` des deux côtés, vue sans copie                                                                                                                                                                                                | #618 : routage et codecs dans le pair **partagé**, jamais dans `RealtimeController` ni `NodefonySocket` |
-| (ii) `request` promis sans être tenu | **fermé** (#630) : hors d'`IRealtimeSocket` ; `src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts#ServerRealtimeSocket.request` reste, `@deprecated`, retrait en 11.0                                                                | rien                                                                                                    |
-| (iii) réception serveur non typée    | ouvert : `src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeController.ts#RealtimeInboundHandler` prend `params: unknown` ; `RealtimeController<Emit, Actions>` sans `Listen`                                                                      | #628                                                                                                    |
-| (iv) actions non vérifiées           | ouvert : `#RealtimeController.realtimeActions` rend `Record<string, RpcActionHandler>`, `#RealtimeController.realtimeChannels` rend `string[]`, `src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts#RealtimeAction` prend un nom libre | #628, surface **opt-in** (décision 6 de #630)                                                           |
-| (v) inversion Emit/Listen à la main  | ouvert : la convention vit en commentaire (`src/nodefony/src/realtime/RealtimeEventMap.ts#EventsMap`)                                                                                                                                                         | #628                                                                                                    |
+| Trou                                 | État constaté                                                                                                                                                                                                                                                 | Geste                                                                                                            |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| (i) binaire asymétrique              | **fermé** (gel) : `Uint8Array` des deux côtés, vue sans copie                                                                                                                                                                                                 | binaire routé : routage et codecs dans le pair **partagé**, jamais dans `RealtimeController` ni `NodefonySocket` |
+| (ii) `request` promis sans être tenu | **fermé** (gel) : hors d'`IRealtimeSocket` ; `src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts#ServerRealtimeSocket.request` reste, `@deprecated`, retrait à la majeure suivante                                                   | rien                                                                                                             |
+| (iii) réception serveur non typée    | ouvert : `src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeController.ts#RealtimeInboundHandler` prend `params: unknown` ; `RealtimeController<Emit, Actions>` sans `Listen`                                                                      | contrat typé                                                                                                     |
+| (iv) actions non vérifiées           | ouvert : `#RealtimeController.realtimeActions` rend `Record<string, RpcActionHandler>`, `#RealtimeController.realtimeChannels` rend `string[]`, `src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts#RealtimeAction` prend un nom libre | contrat typé, surface **opt-in** (décision de gel 6)                                                             |
+| (v) inversion Emit/Listen à la main  | ouvert : la convention vit en commentaire (`src/nodefony/src/realtime/RealtimeEventMap.ts#EventsMap`)                                                                                                                                                         | contrat typé                                                                                                     |
 
 **Forme du contrat unique.** Contraintes : coût d'exécution nul (génériques effacés, JS bâti
-identique) ; un générique ne s'ajoute qu'**en fin** et **avec défaut** (décision 6 de #630) ;
+identique) ; un générique ne s'ajoute qu'**en fin** et **avec défaut** (décision de gel 6) ;
 `NodefonySocket<Emit, Listen, Actions>`, `ServerRealtimeSocket<Emit, Listen, Actions>` et
 `RealtimeController<Emit, Actions>` gardent leur ordre. Les deux options, vues de l'application.
 
@@ -388,7 +418,7 @@ Deux autres formes d'un générique de contrat sont écartées : un quatrième g
 par un type conditionnel (elle réécrit toutes les signatures publiées, et un contrat passé sans
 marque serait lu comme une carte de trois canaux).
 
-**Décision (validée par l'auteur le 2026-10-29) : le moule du contrat.** Le framework livre un
+**Décision (validée le 2026-10-29) : le moule du contrat.** Le framework livre un
 moule générique, `IRealtimeContract`, et ne déclare aucun contrat métier : chaque application
 écrit le sien (`ChatContract` ci-dessus n'est qu'un exemple d'application), une fois, dans un
 fichier partagé par ses deux côtés. Le moule a quatre clés, toutes facultatives (un tableau de
@@ -423,7 +453,7 @@ interface IRealtimeContract {
   courante des sockets typées), canaux à opérations `send` / `receive` (AsyncAPI). Ce qui
   distingue ce moule : la direction est **calculée** d'une déclaration unique, jamais réécrite.
 
-**Décision (validée par l'auteur le 2026-10-30, table du gel) : le MÊME moule type les trois
+**Décision (validée le 2026-10-30, revue du gel) : le MÊME moule type les trois
 livraisons.** `serverToClient` type aussi le flux SSE d'un canal et l'émission d'un webhook : une
 application écrit un contrat, et ses trois livraisons le lisent. Aucune carte par livraison
 (`sse?`, `webhooks?`) : elle réécrirait ce que S1 d'ADR-0021 pose déjà, un événement
@@ -440,19 +470,20 @@ data }` (ADR-0023 W1, S-rt-22).
   l'oblige à le devenir.
 - **Le type n'est pas une validation.** La garde de canal (politique, `allow`) s'applique aux
   trois livraisons ; un type ne protège rien à l'exécution.
-- Le code suit en 10.x (#714) par génériques à défaut
+- Le code suit en 10.x par génériques à défaut
   (`src/packages/@nodefony/framework/nodefony/src/Controller.ts#Controller.renderSse`,
   `src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts`) : ajouter un générique AVEC
   défaut ne casse rien. Seule la forme se fige ici.
+  <!-- porté par #714 -->
 - Usages : une mesure de capteur typée une fois, lue par la socket du tableau de bord, le flux
   SSE d'un écran et le webhook d'alerte vers le SI ; une commande typée une fois, poussée à
   l'écran et au SI ; une tâche d'agent typée une fois, suivie sur la socket et notifiée en
   webhook A2A.
-- **Rupture si différé : OUI pour la forme du moule** (#628) : une carte par livraison ajoutée
+- **Rupture si différé : OUI pour la forme du moule** : une carte par livraison ajoutée
   après 10.0 changerait le moule que les applications ont écrit. **NON pour le reste** :
   générique en fin, avec défaut.
 
-**Décision (validée par l'auteur le 2026-10-29) : un contrat fait de types, une porte par côté.**
+**Décision (validée le 2026-10-29) : un contrat fait de types, une porte par côté.**
 L'exemple de l'option B ci-dessous sort `chat.Socket` et `chat.Controller` d'un MÊME objet : le
 fichier partagé importerait alors `@nodefony/realtime`, et le navigateur qui l'importe tirerait le
 code serveur dans son paquet (budget de `nodefony/client` dépassé, ou build cassé sur un `node:`)
@@ -477,7 +508,7 @@ const chat = defineRealtimeContract<ChatContract>(); // { Controller, RealtimeAc
   code, signatures sous les yeux. Un nom dit ce qu'on obtient ; « contrat » désigne la déclaration
   de l'application, pas une technique.
 
-**Décision (tranchée par l'agent sur délégation de l'auteur, le 2026-10-29) : ce que j'envoie =
+**Décision (tranchée le 2026-10-29) : ce que j'envoie =
 ce que j'ai déclaré, ce que je reçois = ce que JSON en fait.** `Jsonify<T>` (§2) s'applique aux
 QUATRE points de réception, des deux côtés ; le type déclaré, tel quel, à chaque point d'émission.
 
@@ -503,27 +534,27 @@ m.start.getTime())` compile aujourd'hui et plante au navigateur ; avec la règle
 - Le codec ne change pas le type reçu : déjà acquis par « JSON est la référence de tous les
   codecs » (§2) — un client CBOR et un client JSON reçoivent le même `Jsonify<T>`.
 
-**Décision (validée par l'auteur le 2026-10-29) : l'option B, bâtie sur les génériques de
+**Décision (validée le 2026-10-29) : l'option B, bâtie sur les génériques de
 l'option A, une porte par côté.** Le `chat.Socket` de l'exemple de l'option B n'existe pas : la
 décision « un contrat fait de types » le remplace par la porte du client, et la fabrique du
 serveur ne rend que `Controller` et `RealtimeAction`. `Listen` s'ajoute en
 troisième position de `RealtimeController` avec défaut (nécessaire aux deux options) ; les types
 utilitaires existent déjà en partie (`src/nodefony/src/realtime/RealtimeEventMap.ts#ContractParams`,
-`#TypedRpcActionHandler`) ; la fabrique est la surface opt-in que #630 réserve à la vérification
+`#TypedRpcActionHandler`) ; la fabrique est la surface opt-in que le gel réserve à la vérification
 des actions, et la **seule** voie par laquelle un décorateur connaît les noms du contrat. Un
 contrôleur non paramétré reste permissif sur les deux voies (cas « rétro-compat » de
 `src/packages/@nodefony/realtime/nodefony/tests/unit/realtimeSharedContract.types.test.ts`, à
 garder vert tel quel). Le pair reste rangé sous son contrat effacé sur la connexion et relu par
-`src/nodefony/src/realtime/JsonRpcPeer.ts#JsonRpcPeer.requestAs` (#620) : la fabrique ne le
+`src/nodefony/src/realtime/JsonRpcPeer.ts#JsonRpcPeer.requestAs` : la fabrique ne le
 re-paramètre pas.
 
 - Usages : une discussion (deux sens), un jeu (entrées client typées), un tableau de bord
   (canaux serveur seuls — `clientToServer` peut rester vide).
 - **Rupture si différé après 10.0 : NON**, parce que tout est générique en fin avec défaut, ou
   fabrique opt-in. (ii) était la rupture, et elle est faite.
-- **Reste au code (#628)** : soldé par la décision suivante.
+- **Reste au code** : soldé par la décision suivante.
 
-**Décision (tranchée par l'agent sur délégation de l'auteur, après explication, le 2026-10-31) :
+**Décision (tranchée le 2026-10-31) :
 deux portes à NOMS FIGÉS, sans fabrique.** Elle remplace l'emballage « fabrique » des décisions
 ci-dessus (`defineRealtimeContract<C>()` → `{ Controller, RealtimeAction }`) ; le fond — un
 contrat fait de types, une porte par côté, la direction CALCULÉE et jamais réécrite — ne bouge pas.
@@ -559,7 +590,7 @@ class ChatRt extends ContractRealtimeController<ChatContract> {
   n'a rien à écrire : `ContractRealtimeController<C>` est un constructeur typé qui rend la forme
   STRICTE (`ContractRealtimeControllerStrict`, table abstraite) quand `C` déclare des méthodes,
   et le SOCLE (`ContractRealtimeControllerBase`, table vide héritée) sinon — une sous-classe vide
-  de plus à l'exécution, rien d'autre (#707). Les entrées client (`realtimeInbound()`) restent facultatives
+  de plus à l'exécution, rien d'autre. Les entrées client (`realtimeInbound()`) restent facultatives
   canal par canal : accepter une entrée est une permission, pas une promesse.
 - **La table sert SEULE les méthodes d'un contrat — règle de perf.** Lui ajouter
   `@RealtimeAction` pour porter une politique fabriquait, à chaque connexion, un handler aussitôt
@@ -576,9 +607,8 @@ class ChatRt extends ContractRealtimeController<ChatContract> {
 - **SSE** : `Controller.ts#Controller.renderSse` prend la carte en générique EN FIN avec défaut
   (`renderSse<ContractServerEmit<C>>()`) ; flux multiplexé (`send(data, { event })`) ou un flux
   = un canal (carte d'un canal, `send(data)`). Sans paramètre, le flux reste libre (porte MCP).
-- **Les trois limites du contrat, tranchées par la table ronde de #622** (le chat de référence,
-  messages privés compris ; six sièges, dont le contradicteur ; **décisions tranchées par l'agent
-  sur délégation de l'auteur le 2026-10-31, la page de référence validée par l'auteur le même
+- **Les trois limites du contrat, tranchées par une revue contradictoire** (sur le chat de référence,
+  messages privés compris ; **décisions tranchées le 2026-10-31, la page de référence validée le même
   jour**). Règle de méthode qui en sort : une API se juge à la LIGNE que le développeur écrit pour
   le cas courant, la mécanique vient après.
   - **Diffusion (D2)** : une seule forme, partout — contrôleur, service, tâche, boucle de jeu :
@@ -588,18 +618,18 @@ class ChatRt extends ContractRealtimeController<ChatContract> {
     signature de MÉTHODE que `RealtimeHub` satisfait par bivariance — prouvé au compilateur ; la charge est
     `EventPayload<…> & object`, si bien qu'une charge scalaire, refusée à l'exécution par
     `src/nodefony/src/realtime/payload.ts#isRealtimePayload`, l'est désormais à la compilation.
-    Écarté : un `this.broadcast` propre au contrôleur (deux formes pour un geste). #707.
+    Écarté : un `this.broadcast` propre au contrôleur (deux formes pour un geste).
   - **Fabriques (D7)** : `ContractRealtimePublish<C>` type le `publish` reçu par
     `@RealtimeChannel` ET par la surcharge `createRealtimeChannel` — la fonction reçue reste la
-    forme libre, que le type contractuel admet. #707.
-  - **Nommage de la porte (décision de l'auteur, #707)** : trois mots, trois sens, sans
+    forme libre, que le type contractuel admet.
+  - **Nommage de la porte** : trois mots, trois sens, sans
     recouvrement. `Contract…<C>` = la même chose que sa forme libre, lue à travers le contrat
     ENTIER (`ContractRealtimeController`, `ContractRealtimePublish`, `IContractRealtimeHub`,
     `ContractRealtimeMethodHandlers`, et au cœur `Contract{Server,Client}{Emit,Listen,Actions}`).
     `Typed…<…>` = la version typée d'un type libre par ses types DIRECTS (charge, réponse, carte,
     clé : `TypedRpcActionHandler`, `TypedRealtimeInboundHandler`). `…Of<X>` = LECTURE du X
     porté par un nom ou une classe (`RealtimeContractOf`, `ConfigOf`). Les noms neufs du client
-    (type rendu par `fromContract`, hooks — #709) suivent la même règle.
+    (type rendu par `fromContract`, hooks) suivent la même règle.
   - **Actions (D4)** : le type d'une action du pont vient du SCHÉMA de sa route, seule source —
     celle que le serveur valide (`src/packages/@nodefony/framework/nodefony/src/routeSchema.ts#IRouteSchema`).
     Le contrat la RÉFÉRENCE par une clé additive `serverRoutes` (`"POST /chat/send": { body:
@@ -610,8 +640,8 @@ typeof SendBody; result: … }`, import de type seul) ; un contrôle au démarra
     10.0 stable (pré-versions, semver 2.0 §9). Écarté : faire de `send` une `serverMethods` — elle
     perdrait la re-validation d'identité à chaque appel, `@Idempotent` et la validation, que le
     pont porte (`RealtimeController.ts#RealtimeController.invokeApiRequest`) ; recopier la forme
-    du corps dans le contrat (deux sources). #708.
-    **Décision (validée par l'auteur le 2026-11-02) :** une route à paramètre de chemin se
+    du corps dans le contrat (deux sources).
+    **Décision (validée le 2026-11-02) :** une route à paramètre de chemin se
     déclare par son GABARIT — la clé est le chemin de la route, `"GET /chat/messages/{id}"` — et
     s'appelle en le nommant (`chat.get("/chat/messages/{id}", { params: { id } })`) ; la socket
     le remplit (`src/nodefony/src/runtime/routePath.ts#fillRoutePath`), chaque valeur encodée pour
@@ -624,24 +654,25 @@ typeof SendBody; result: … }`, import de type seul) ; un contrôle au démarra
     Écarté : appeler par l'URL concrète typée par un motif (`"GET /m/${string}"`) — une clé en
     motif échappe à `ContractRouteSchemas`, et le contrôle au démarrage se taisait (constaté à la
     compilation). Corollaire : le pont route le chemin dans la forme que HTTP lui donne
-    (`parseRequestTarget`, `@nodefony/http`), sinon `/x/` divergeait d'une porte à l'autre. #708.
+    (`parseRequestTarget`, `@nodefony/http`), sinon `/x/` divergeait d'une porte à l'autre.
   - **Lecture côté navigateur (D3)** : les hooks React et Vue prennent la socket typée
     (`useNodefonyChannelData(chat, "chat:presence", initial)`) ; nom et charge déduits, plus de
     `<T>` écrit par le lecteur. Studio, premier consommateur, porte son contrat partagé et
-    supprime son miroir `HealthPayload`. #709, #711.
+    supprime son miroir `HealthPayload`.
   - **Canal ou route — la règle enseignée** : le canal porte les FLUX (diffusés, éphémères,
     attribués par l'identité de la connexion, §6) ; la route porte les GESTES qui changent un état
     (identité revérifiée, droits, validation, idempotence, réponse, appelable en HTTP).
-  - Page de référence du chat : réécrite par #700 dans `src/packages/@nodefony/realtime/docs/cookbook-chat.md`.
-- **Webhook** : l'émission applicative n'existe pas encore (ADR-0023 W3, en 10.1, #70). Elle se
-  typera par la même carte `ContractServerEmit<C>` — exigence inscrite sur #70.
+  - Page de référence du chat : `src/packages/@nodefony/realtime/docs/cookbook-chat.md`.
+- **Webhook** : l'émission applicative n'existe pas encore (ADR-0023 W3, en 10.1). Elle se
+  typera par la même carte `ContractServerEmit<C>` — exigence que portera l'émission applicative (ADR-0023 W3).
+  <!-- porté par #70 -->
 - Preuves : `src/packages/@nodefony/realtime/nodefony/tests/unit/realtimeSharedContract.types.test.ts`
   (chaque `@ts-expect-error` vu mordre), un consommateur compilé contre les tarballs, et le JS
   bâti de `RealtimeController` identique avant/après (types effacés).
 
 ### 5. Contre-pression et bornes
 
-**Décision (validée par l'auteur le 2026-10-29) :** **une règle, trois endroits.** Sortante serveur :
+**Décision (validée le 2026-10-29) :** **une règle, trois endroits.** Sortante serveur :
 `src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts#decideSend` reste
 l'unique arbitre — jeter au-delà du seuil, fermer `1013` sur un solde de refus — texte et binaire.
 **C1**, sortante client : la **même** règle sur `WebSocket.bufferedAmount` du navigateur (voir
@@ -650,9 +681,10 @@ journaux (`src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts#S
 — fenêtre par connexion, compteur alloué paresseusement) généralisé au transport, dans
 `@nodefony/http` à côté de `maxPayload` ; au-delà, trame **écartée et comptée**, puis fermeture
 `1008` sur un solde, calqué sur `backpressureCloseAfterDrops`. Les deux naissent **désactivées**
-en 10.x (décision 7 de #630).
+en 10.x (décision de gel 7).
+<!-- porté par #630 -->
 
-**Décision C1 (validée par l'auteur le 2026-10-29) : décider au cœur, agir de chaque côté.**
+**Décision C1 (validée le 2026-10-29) : décider au cœur, agir de chaque côté.**
 `#decideSend` n'est PAS pure : elle tient ses compteurs sur la socket (`_nfDrops`,
 `_nfDropStreak`, par un `ws as unknown as IBackpressureSocket`) et ferme elle-même en `1013`. Or
 un navigateur refuse ce code : `WebSocket.close(code)` n'admet que `1000` et `3000`-`4999`, sinon
@@ -675,7 +707,7 @@ au moment de fermer. Donc :
 //          et se reconnecte si le solde de refus ne redescend pas.
 ```
 
-**Décision C2 (validée par l'auteur le 2026-10-29) : compter les trames avant de les décoder.**
+**Décision C2 (validée le 2026-10-29) : compter les trames avant de les décoder.**
 Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ; chacune passe
 `maxPayload`, qui borne la TAILLE et pas le NOMBRE, et chacune est décodée, routée, autorisée.
 
@@ -685,7 +717,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   une trame jetée ne coûte ni `JSON.parse` ni décodage CBOR.
 - Fenêtre et compteur par connexion, **créés au premier usage** ; borne à `0` (désactivée) =
   un seul test, aucune lecture d'horloge, aucune allocation.
-- Au-delà du seuil : trame **écartée et comptée** (compteur exposé par la sonde, donc par #555) ;
+- Au-delà du seuil : trame **écartée et comptée** (compteur exposé par la sonde) ;
   fermeture `1008` sur un **solde** de refus, jamais au premier dépassement — une reconnexion qui
   rejoue ses abonnements est une rafale légitime.
 - Texte et binaire, même règle.
@@ -706,10 +738,10 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
 
 ### 6. Les canaux privés
 
-**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :**
+**Décision (acceptée le 2026-10-29) :**
 
-- **Décision 1 (validée par l'auteur le 2026-10-29 ; (a) et (d) tranchés le 2026-10-30 par la
-  table du gel ; (b), (c), (e) au code de #622) : admission demandée une fois, réponse
+- **Décision 1 (validée le 2026-10-29 ; (a) et (d) tranchés le 2026-10-30 par la
+  revue du gel ; (b), (c), (e) à l'écriture du code) : admission demandée une fois, réponse
   retenue.** `allow` — flèche `(channel, who: ISubscriberIdentity)` ou classe `@injectable`
   implémentant `IChannelAdmission` (ADR-0021 §S10 bis) ; `who` est l'identité d'admission commune
   aux trois livraisons, une donnée plate et non le jeton (ADR-0021 §S10) —, membre optionnel de
@@ -717,7 +749,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   APRÈS `authenticated` / `roles` / `scopes`.
   - Appelé **une seule fois, au `subscribe`** : un salon privé ou une invitation par courriel
     vivent en base, et l'abonnement est un chemin rare — une requête y est normale.
-  - La réponse est **retenue sur la connexion** (registre sink ↔ connexion de #623, alloué au
+  - La réponse est **retenue sur la connexion** (registre sink ↔ connexion des abonnés identifiables, alloué au
     `subscribe`). Une trame entrante sur un canal à `allow` ne rappelle JAMAIS `allow` : elle
     exige que CETTE connexion y soit admise, en une lecture. Écrire sur un canal à `allow` suppose
     donc de s'y être abonné — sans rupture, `allow` étant neuf. (Constaté : aujourd'hui la branche
@@ -729,22 +761,22 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     le pose déjà : le verrou protège, pas l'annonce.
   - `allow` qui lève = refus `forbidden`, détail hors production. Un **délai dépassé** ou une
     saturation = motif `unavailable`, que le client réessaie (ADR-0021 §S10 bis point 3 ; tranché
-    le 2026-10-30 par la table du gel).
+    le 2026-10-30 par la revue du gel).
   - **Prix assumé** : une réponse retenue ne se périme pas seule — un membre retiré reste abonné
-    jusqu'à son éjection explicite (#623, `realtime:closed { reason: "evicted" }`).
+    jusqu'à son éjection explicite (`realtime:closed { reason: "evicted" }`).
   - Le nom : `allow` (pas `admit`, qui ne se devine pas). Une liste de membres est **une** façon
     d'écrire `allow`, pas une primitive (S7).
-  - **Tranché le 2026-10-30 par la table du gel** : (a) l'accès aux services — PAS de troisième
+  - **Tranché le 2026-10-30 par la revue du gel** : (a) l'accès aux services — PAS de troisième
     argument : `allow` est une flèche `(channel, who)` OU une classe `@injectable` qui implémente
     `IChannelAdmission`, résolue au démarrage du noyau (ADR-0021 §S10 bis point 1) ; (d) le délai
-    — la clé `realtime.allowTimeoutMs`, son défaut fixé au code de #622, et le motif
-    `unavailable` au dépassement. **Reste au code de #622, sans rupture** : (b) le miroir
+    — la clé `realtime.allowTimeoutMs`, son défaut fixé à l'écriture du code, et le motif
+    `unavailable` au dépassement. **Reste à l'écriture du code, sans rupture** : (b) le miroir
     structurel de `IChannelPolicy` dans
     `src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts` — un test compare
     les deux formes ; (c) la garde `isChannelPolicy` des décorateurs accepte une fonction ET une
     classe, distinguées par la métadonnée `@injectable` ; (e) ce que montre une introspection des
     politiques (une fonction ne se sérialise pas ; une classe se montre par son nom).
-- **Décision 1 bis (validée par l'auteur le 2026-10-29) : autoriser une fois à l'entrée, pour
+- **Décision 1 bis (validée le 2026-10-29) : autoriser une fois à l'entrée, pour
   TOUS les canaux.** Une trame entrante sur un canal où CETTE connexion a déjà été acceptée ne
   refait aucun contrôle de politique : une lecture, « admise ? ». La décision 1 en est le cas
   particulier où l'entrée est le `subscribe`.
@@ -785,8 +817,8 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     motif, refus, politique réinscrite).
   - **Critère de validation** : un banc de bout en bout (vrai serveur, vrais clients WebSocket,
     flux de déplacements sur un canal à rôles), verrou par trame contre verdict retenu, en paires
-    alternées. Protocole sur #622.
-- **Décision 1 ter (validée par l'auteur le 2026-10-30) : tout se calcule à l'ouverture, jamais
+    alternées.
+- **Décision 1 ter (validée le 2026-10-30) : tout se calcule à l'ouverture, jamais
   sur la route de la trame.** Généralise la décision 1 bis : le verdict retenu n'est plus une
   optimisation, c'est la règle. Trois moments, et trois seulement :
   1. **À l'ouverture (poignée de main), une fois** — tout ce qui dépend de l'identité : identité
@@ -803,7 +835,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   3. **Sur la trame de données, aucun calcul** — un canal sans politique ne coûte rien, un canal à
      politique coûte une lecture (« cette connexion est-elle admise ? ») : ni boucle sur des
      règles, ni balayage de chaîne, ni copie de tableau, ni parcours de hiérarchie.
-  - **Constaté, contraire à la règle** (à corriger dans #622) : toute trame dont `method` est une
+  - **Constaté, contraire à la règle** (à corriger avec l'admission par identité) : toute trame dont `method` est une
     chaîne — `ping`, `unsubscribe`, une action — entre dans
     `src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts#authorizeChannel`,
     qui boucle sur les règles système et balaye deux fois le nom (`:health`, `:stats`) ; sur un
@@ -813,16 +845,14 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   - **Verrou de procédure — le verrou des trames est la pièce la plus sensible du temps réel.**
     Toute modification de `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#FrameAuthorizer`,
     de `frameAuthorizer.ts#buildFrameAuthorizer`, de `RealtimeHub.ts#RealtimeHub.runAuthorizer`
-    ou du branchement `beforeDispatch` exige, AVANT le commit : (1) la validation explicite de
-    l'auteur sur le diff montré avant de coder ; (2) une campagne red-team sur le verrou (skill
-    `nodefony-security-review`, menace d'abord) ; (3) le micro-banc
-    `.claude/skills/nodefony-load-test/scripts/micro/micro-frame-authorizer.mjs` avant et après,
+    ou du branchement `beforeDispatch` exige, AVANT le commit : (1) une relecture du diff par le mainteneur ; (2) une campagne d'attaque
+    sur le verrou, menace d'abord ; (3) le micro-banc `micro-frame-authorizer.mjs` avant et après,
     médiane de 7 ; (4) le gate mémoire. Jamais d'`await` dans le verrou ; `allow` ne s'y insère
     jamais.
-  - **Gardé par** (#622) : un test prouve qu'une trame `ping` ne consulte ni les règles système ni
+  - **Gardé par** : un test prouve qu'une trame `ping` ne consulte ni les règles système ni
     le résolveur de politiques ; un test prouve qu'une trame sur un canal admis ne lit ni
     `getRoles()` ni la hiérarchie ; la matrice de la décision 1 bis rend les mêmes verdicts.
-- **Décision 1 quater (validée par l'auteur le 2026-11-09, #758) : une politique de LECTURE et
+- **Décision 1 quater (validée le 2026-11-09) : une politique de LECTURE et
   une politique d'ÉCRITURE par nom — chacune s'applique telle qu'elle est déclarée.**
   - **Constaté** : `@RealtimeChannel(nom, p)` et `@RealtimeInbound(nom, q)` écrivaient la même
     case du registre des politiques (une seule métadonnée par nom) ;
@@ -849,18 +879,18 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     écriture ; l'ÉCRITURE vient de la plus spécifique qui déclare une écriture, motifs compris.
     L'écriture s'ajoute à la lecture, elle ne peut que durcir : une écriture de famille (`mix:*`
     réservée) n'est plus perdue sur un nom exact qui ne déclare que sa lecture (attaque A3 de la
-    red-team #758). La lecture, elle, ne descend pas : une commande `task:start` déclarée sous une
+    campagne red-team). La lecture, elle, ne descend pas : une commande `task:start` déclarée sous une
     famille `task:*` à `allow` ne devient pas un canal à membres, et une écriture exacte ne voit
     pas sa lecture s'ouvrir par un motif plus général. Écarté : résoudre chaque sorte séparément
     — vu rouge sur trois cas d'usage documentés, et ouvrant une lecture au moment de la mise à jour.
   - **Canal personnel** : un nom `user:…` garde sa politique intégrée (son canal seulement) tant
     qu'aucune déclaration ne VISE `user:` (nom exact, ou motif dont le littéral commence par
-    `user:`) — un motif attrape-tout (`*`) ne la retire plus (attaque K1, antérieure à #758).
+    `user:`) — un motif attrape-tout (`*`) ne la retire plus (attaque K1, antérieure à cette décision).
   - **Coût** : la vue fusionnée de chaque nom exact est recalculée à chaque inscription (à
     froid) ; une trame sur un nom exact reste UNE lecture de `Map`. Le plancher système balaye les
     conventions `:health`/`:stats` de `:` en `:` (`frameAuthorizer.ts#reservedConventionAt`)
     au lieu de chaque position : verrou seul −42 % sur un canal libre, −32 % sur un canal à rôles
-    (`micro-frame-authorizer.mjs`, médiane de 15, code d'avant #758 en référence).
+    (`micro-frame-authorizer.mjs`, médiane de 15, code d'avant cette décision en référence).
   - **`allow` n'admet plus d'office l'écriture** : la première trame entrante d'un canal à `allow`
     exige l'abonnement puis passe le verrou (lecture et écriture), et son verdict est retenu comme
     celui de tout canal entrant (décision 1 bis). Sans quoi l'admission contournerait l'écriture.
@@ -876,13 +906,13 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   - **Gardé par** : `src/packages/@nodefony/realtime/nodefony/tests/unit/channelPolicySplit.test.ts`
     (vu rouge sur le code d'avant), `…/tests/unit/channelPolicy.attack.test.ts` (39 attaques de la
     red-team), et des mutations basculées une à une (chacune vue rouge).
-- **Abonnés identifiables** (#623) : le registre d'un canal associe chaque sink à sa connexion,
+- **Abonnés identifiables** : le registre d'un canal associe chaque sink à sa connexion,
   alloué au `subscribe` seulement ; le fan-out reste une boucle sans allocation. API serveur :
   ce qui désigne une **connexion** (lister, abonner d'office, éjecter une connexion) est **local
   au pod** ; ce qui désigne un **nom** (fermer un canal, éjecter un utilisateur) traverse les pods
   (décision 4). Il porte aussi la marque
   « admise » de la décision 1 : abonner d'office la **pose**, éjecter et fermer la **retirent**.
-- **Décision 2 (validée par l'auteur le 2026-10-29) : abonnement imposé — `allow` reste la seule
+- **Décision 2 (validée le 2026-10-29) : abonnement imposé — `allow` reste la seule
   source de vérité.** Exemple : la recherche de partie place quatre joueurs dans `room:42`.
   - La politique fixe passe par la **même sonde** que l'accueil
     (`#RealtimeHub.probeChannel`, synchrone) ; sur un canal à `allow`, l'abonnement imposé
@@ -904,18 +934,19 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     peut s'en désabonner : quitter reste son droit.
   - Sans `allow`, rien ne change : la politique fixe décide seule, à l'imposition comme au rejeu.
   - Connexion fermée pendant l'`await allow` : réponse jetée, aucune marque (même règle que le
-    `subscribe`, #622).
-  - **Locale au pod en 10.x** (#623) : on n'impose qu'à une connexion servie par ce pod ; l'ordre ne
+    `subscribe`).
+  - **Locale au pod en 10.x** : on n'impose qu'à une connexion servie par ce pod ; l'ordre ne
     traverse pas le backplane (S6). Un client ancien qui ignore `imposed` reçoit les messages
     mais ne rejoue pas : dégradé, pas cassé — d'où l'ajout sans rupture.
-  - Usages hétérogènes : la recherche de partie d'un jeu, l'appelé d'un appel (#619), le flux
+    <!-- porté par #623 -->
+  - Usages hétérogènes : la recherche de partie d'un jeu, l'appelé d'un appel, le flux
     d'une tâche d'agent auquel le serveur abonne le demandeur, l'attribution d'une conversation
     de support à un conseiller.
-- **Décision 3 (validée par l'auteur le 2026-10-29) : fermeture — éjecter coupe, seul `allow`
+- **Décision 3 (validée le 2026-10-29) : fermeture — éjecter coupe, seul `allow`
   exclut.** `realtime:closed { channel, reason }` (S4), motif **fermé** — `ended` (le canal est
   terminé) ou `evicted` (cette connexion en est retirée) — déclarée à côté de
   `src/nodefony/src/realtime/RealtimeEventMap.ts#IRealtimeDenied`. Le client retire l'abonnement
-  et **ne le rejoue pas** ; `RealtimeDeniedReason` ne bouge pas (décision 5 de #630).
+  et **ne le rejoue pas** ; `RealtimeDeniedReason` ne bouge pas (décision de gel 5).
   - **Ne pas rejouer est une politesse du client, pas une protection** : une page rechargée ou
     un client hostile refait `subscribe`. Sur un canal à `allow`, l'éjecté revient si
     l'application n'a pas retiré l'appartenance là où `allow` la lit ; sur un canal **sans**
@@ -947,7 +978,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
       tranche — conforme à la règle ci-dessus.
   - **Écarté** : une liste noire dans le framework — seconde source de vérité, locale au pod,
     perdue au redémarrage, divergente de `allow` en silence.
-- **Décision 4 (validée par l'auteur le 2026-10-29) : ce qui traverse le backplane — les
+- **Décision 4 (validée le 2026-10-29) : ce qui traverse le backplane — les
   publications, et des ordres qui ne font qu'ENLEVER.**
   - **Publications** : `{ channel, payload, originId }` des seuls canaux déclarés diffusables
     (S6, `#RealtimeHub.markBroadcastChannel`). Un message venu du bus n'atteint que des abonnés
@@ -971,9 +1002,8 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     de forme vérifiée (`src/packages/@nodefony/realtime/nodefony/src/backplane/controlOrder.ts#readControlOrder`,
     même garde à l'émission) ; tout autre contenu, et tout ordre visant un canal de la
     plateforme, est rejeté et compté (`ingressRejectedTotal`) — sauf un TYPE d'ordre inconnu de
-    cette version, compté dans `ingressUnknownDiscardedTotal` (ADR-0025, #761). Son nom vient de la table du cœur
-    (`PLATFORM_BUS_CHANNELS.control`) ; il n'est jamais diffusé aux abonnés locaux. **Livré
-    (#623).**
+    cette version, compté dans `ingressUnknownDiscardedTotal` (ADR-0025). Son nom vient de la table du cœur
+    (`PLATFORM_BUS_CHANNELS.control`) ; il n'est jamais diffusé aux abonnés locaux. **Livré.**
   - **Pourquoi c'est sûr** : un ordre ne fait qu'**enlever** — seul `allow` fait entrer. Il est
     **scellé comme toute publication** : sur un bus partagé, le secret du bus
     (`NF_REALTIME_BACKPLANE_SECRET`) pose un HMAC sur origine, canal et charge
@@ -985,8 +1015,8 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     diffusée (`envelope.ts#SEAL_FIELD`). Un ordre rejoué, lui, **recoupe** : un « fermer
     `room:42` » capté puis republié plus tard couperait une partie rouverte. L'effet reste
     soustractif (jamais d'admission) ; un anti-rejeu par horloge reste écarté (horloges des pods
-    non alignées, comme au sceau). La parade dépend de l'ordre (amendé le 2026-11-02, #623,
-    contradicteur entendu) :
+    non alignées, comme au sceau). La parade dépend de l'ordre (amendé le 2026-11-02,
+    après revue contradictoire) :
     - Une **fin** vise un canal qui porte son identifiant d'instance (`room:42:<partie>`, S4) :
       rejouée, elle ne désigne plus rien de vivant.
     - Une **éjection** vise **`(canal, compte)`**. Rejouée sur un canal DURABLE (`chat:general`),
@@ -998,8 +1028,9 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
       dès 10.0 un champ optionnel `generation` (entier ; absent = toutes les générations). Un
       exemplaire qui ne sait pas s'en servir l'ignore et éjecte toutes les générations — plus
       large, jamais moins. En 10.x, une génération d'appartenance lue par `allow` et augmentée à
-      chaque réadmission l'alimentera (#725) : rejoué, l'ordre viserait une génération morte. Sans
+      chaque réadmission l'alimentera : rejoué, l'ordre viserait une génération morte. Sans
       horloge et sans mémoire des ordres déjà vus.
+      <!-- porté par #725 -->
     - Écartés : un identifiant d'admission frappé par le pod — les admissions sont locales, le
       modérateur ne nommerait que l'onglet qu'il voit et les autres onglets du compte (S-rt-4)
       resteraient servis ; la génération dès 10.0 — elle élargit le contrat d'`allow`, publié
@@ -1027,22 +1058,22 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     une rafale qui sature la file d'envoi, espace réservé injecté refusé. Les drivers
     livrés qui ont des pairs (cluster, Redis) la passent — `loopback`, sans pair, n'a rien
     à y prouver ; un driver tiers s'y prouve. Une définition du contrat, pas une par driver.
-    **Livré (#701)** : `src/packages/@nodefony/realtime/nodefony/testing/backplaneConformance.ts#runBackplaneConformance`,
+    **Livré** : `src/packages/@nodefony/realtime/nodefony/testing/backplaneConformance.ts#runBackplaneConformance`,
     lanceur de tests passé par l'appelant ; le sceau exporté pour les drivers tiers
     (`sealBackplaneEnvelope`, `openBackplaneEnvelope` dans `@nodefony/realtime`). Vue rouge
     sur trois faux drivers (diffusion à un seul pair, rejeu au démarrage, secret ignoré) ;
     elle a trouvé un défaut du driver `cluster` : arrêté, il livrait encore à un handler reposé.
   - **Preuve** : fermeture et éjection par utilisateur à DEUX pods, bus de cluster ET Redis — le
     banc Redis saute sans `NF_REDIS_TEST_URL`, et la CI doit l'exercer (un saut compte vert).
-- **Cas `transcript:<id>` (#626) en multi-pod** : l'audio arrive sur un pod, l'abonné au texte
+- **Cas `transcript:<id>` en multi-pod** : l'audio arrive sur un pod, l'abonné au texte
   peut être ailleurs. Décision : préfixe `transcript:` déclaré diffusable **et** prédicat `allow`
   sur le motif `transcript:*` — la charge traverse, l'admission se rejoue sur chaque pod.
   L'affinité de pod est une option de déploiement, pas une règle. La fermeture traverse les pods
   par l'ordre de contrôle de la décision 4. À
-  prouver dans #623 : un éjecté sur le pod A, abonné sur le pod B, n'est pas servi par B.
+  prouver : un éjecté sur le pod A, abonné sur le pod B, n'est pas servi par B.
 
 - Usages : une notification `user:42` (sans média, sans agent), un salon fermé de jeu ou de
-  collaboration, un appel (#619).
+  collaboration, un appel.
 - Écarté : un propriétaire dans l'événement (S7) ; une appartenance sur le bus (elle étendrait
   l'enveloppe, S6) ; une seconde voie d'application du prédicat dans realtime — sans
   `@nodefony/security`, rien n'est refusé et un avertissement le dit
@@ -1051,7 +1082,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   neuve sont additifs. Écrire maintenant « appartenance locale, ordres par nom diffusés » évite
   qu'une application s'appuie sur une portée cluster qu'on ne tient pas (S5).
 
-**Décision (validée par l'auteur le 2026-10-31, table ronde de #622) : livrer à une identité est
+**Décision (validée le 2026-10-31, revue contradictoire) : livrer à une identité est
 une brique du framework (D1).** Le développeur écrit son chat — contrat, actions, base,
 historique, salons ; le framework garantit qu'un message adressé à une personne
 n'atteint qu'elle, sur tous ses onglets et tous les pods. La présence
@@ -1081,16 +1112,16 @@ depuis ADR-0025 (P1).
 - Les canaux de l'APPLICATION restent opt-in (`@RealtimeBroadcast`) : certains sont propres à un
   pod par nature (forage de Studio). L'oubli devient visible : compteur `localOnlyTotal` quand un
   bus est configuré, préfixes diffusés listés au démarrage (D5).
-- #710 ; il s'appuie sur `RealtimeIdentity.id` (#622).
+- Elle s'appuie sur `RealtimeIdentity.id`, l'identité d'admission.
 
-**Décision (validée par l'auteur le 2026-10-31) : le handler d'entrée reçoit l'identité.**
+**Décision (validée le 2026-10-31) : le handler d'entrée reçoit l'identité.**
 `@RealtimeInbound` et `realtimeInbound()` reçoivent `who` (la même identité d'admission que
 `allow`) en troisième argument, sans allocation par trame. Un flux attribué à haute fréquence —
 frappe en cours, coups d'un joueur, mesures d'une sonde — passe ainsi par le canal, l'auteur pris
 au serveur et non déclaré par le client. Limite écrite : identité figée au handshake, coupée au
-tick de révocation ; un geste qui change un état passe par une route. Porté par #622.
+tick de révocation ; un geste qui change un état passe par une route.
 
-**Précision (validée par l'auteur le 2026-11-14) : la frappe d'un salon PRIVÉ parmi plusieurs passe
+**Précision (validée le 2026-11-14) : la frappe d'un salon PRIVÉ parmi plusieurs passe
 par une route.** Une entrée de canal est appelée par son nom EXACT (`chat:typing`), jamais par la
 famille de salons (`chat:room:*`) : elle reçoit le salon visé en paramètre, et rien ne prouve que
 l'émetteur y est admis — sans contrôle, n'importe quel connecté injecte « Untel écrit » dans un
@@ -1110,26 +1141,27 @@ besoin mesuré ne le justifie aujourd'hui ; un ajout additif reste possible.
 
 ### 7. La reprise côté socket
 
-**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** aujourd'hui, la reconnexion **rejoue** chaque abonnement au `welcome`
+**Décision (acceptée le 2026-10-29) :** aujourd'hui, la reconnexion **rejoue** chaque abonnement au `welcome`
 (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`), sans
-curseur ; la fabrique est rejouée au premier abonné. Demain (10.2, S3, #715) : `subscribe
+curseur ; la fabrique est rejouée au premier abonné. Demain (10.2, S3) : `subscribe
 { channel, since? }`. Le curseur est **par abonné** alors que la fabrique est partagée et
 appelée une fois : il l'atteint par un retour élargi — à côté du `dispose` d'aujourd'hui, un objet
 `{ dispose, resume?(since, reply) }`, où `reply` ne pousse qu'à **cette** connexion. La fabrique
 décide : la suite depuis le curseur, l'état courant, ou rien. Sans curseur, rien ne change.
+<!-- porté par #715 -->
 
 - Constaté par lecture : un serveur 10.0 **ignore** un champ inconnu dans `params` d'un
   `subscribe` — `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#channelParam`
   ne lit que `channel`, `src/nodefony/src/jsonrpc/index.ts#classifyJsonRpcFrame` ne juge pas
   `params`, `src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts#authorizeChannel`
   ne lit que le canal. C'est la condition de S3 ; elle se **prouve** par le contrôle de
-  compatibilité entre versions (section 10, #629).
+  compatibilité entre versions (section 10).
 - À écrire dans `src/packages/@nodefony/realtime/docs/protocole.md`, qui ne le dit pas : la
   reconnexion (rejeu au `welcome`, acquittement, curseur) et la fin de flux (`realtime:closed`).
 - Conséquence de §6 décision 1 : le rejeu rappelle `allow` pour chaque canal qui le déclare — un
   exemplaire qui redémarre provoque N clients × M canaux appels en rafale. Prix normal d'« une
   fois par abonnement », écrit dans le TSDoc d'`allow` avec sa parade (cache court côté
-  application) ; prouvé dans #622.
+  application) ; prouvé par les tests de l'admission.
 - Usages : une discussion reprise au dernier message vu, une courbe au dernier point, des
   notifications manquées.
 - Écarté : « l'instantané puis la suite » comme règle (un choix de protocole, S3) ; un curseur
@@ -1139,13 +1171,13 @@ décide : la suite depuis le curseur, l'état courant, ou rien. Sans curseur, ri
 
 ### 8. La voix, au niveau transport seulement
 
-**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** un flux binaire **à sens unique** va sur un canal binaire de la socket
-(section 3) : la transcription (#626) y suffit, la latence y compte moins. Une conversation **dans
-les deux sens** (#619) choisit entre WebSocket et WebRTC **par la mesure**, selon un critère nommé
+**Décision (acceptée le 2026-10-29) :** un flux binaire **à sens unique** va sur un canal binaire de la socket
+(section 3) : la transcription y suffit, la latence y compte moins. Une conversation **dans
+les deux sens** choisit entre WebSocket et WebRTC **par la mesure**, selon un critère nommé
 une fois ici : latence de bout en bout mesurée, comportement sur réseau mobile, annulation d'écho
 haut-parleur ouvert. Opus par WebCodecs sur la socket et les options Opus de WebRTC sont deux
 couches distinctes. Capture, contraintes micro, codec audio, découpage en trames et détection de
-parole appartiennent à l'ADR média (#624).
+parole appartiennent à l'ADR média.
 
 - Usages d'un flux binaire à sens unique : une dictée, la télémétrie d'un capteur, la
   synchronisation d'un document.
@@ -1154,13 +1186,13 @@ parole appartiennent à l'ADR média (#624).
 
 ### 9. La règle d'admission perf d'une évolution
 
-**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** rien n'entre sur le chemin d'une frame sans trois preuves, dans l'ordre :
+**Décision (acceptée le 2026-10-29) :** rien n'entre sur le chemin d'une frame sans trois preuves, dans l'ordre :
 (1) le **JS bâti** du chemin chaud comparé à la référence `HEAD`, bâtie hors de l'arbre par
 `git archive` — jamais en copiant le `dist` courant ; (2) le banc A/B
 `.claude/skills/nodefony-load-test/scripts/micro/micro-realtime-frame-ab.mjs`, chemins `inbound`,
-`notify`, `binary` (et `publish`, à ajouter avant #623), `--runs 15`, verdict sur **deux passages
+`notify`, `binary` (et `publish`, à ajouter avant les abonnés identifiables), `--runs 15`, verdict sur **deux passages
 de même signe** ; (3) le gate mémoire (`cd src/packages/@nodefony/http && npm run test:memory`,
-ligne `[retention] WS JSON-RPC peer round-trips`, référence 0,29 Ko/itération après #620).
+ligne `[retention] WS JSON-RPC peer round-trips`, référence 0,29 Ko/itération).
 Chiffres dans le commit si l'écart dépasse 5 %. Un générique effacé ne paie rien ; une vue sans
 copie, une allocation à l'abonnement, un codec remplaçant `JSON.parse` se mesurent.
 
@@ -1168,17 +1200,17 @@ copie, une allocation à l'abonnement, un codec remplaçant `JSON.parse` se mesu
 
 ### 10. Les garde-fous — condition d'admission de toute évolution
 
-**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** les cinq contrôles de #627 §10, chacun vu **rouge** une fois.
+**Décision (acceptée le 2026-10-29) :** les cinq contrôles ci-dessous, chacun vu **rouge** une fois.
 
-| #   | Contrôle                                                                                                                                                                                                                                                       | État                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Qui le lance                                                                    |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| 1   | compilation **neutre** du code partagé (`lib: ["ES2022"]`, `types: []`)                                                                                                                                                                                        | **livré** (#630) : `src/nodefony/tsconfig.shared.json`, vu rouge sur `Blob` puis `Buffer`                                                                                                                                                                                                                                                                                                                                                                            | `npm run typecheck` du cœur                                                     |
-| 2   | contrat vérifié **dans les deux sens**                                                                                                                                                                                                                         | **livré** (#628) : `realtimeSharedContract.types.test.ts` — action manquante, forme fausse, entrée mal lue, canal hors `Emit`, inversion, nom de politique hors contrat, SSE — chacune un `@ts-expect-error` vu mordre                                                                                                                                                                                                                                               | `npm run typecheck` du paquet (`tsconfig.tests.json`)                           |
-| 3   | suite de conformité **unique** d'`IRealtimeSocket`, contre les deux implémentations                                                                                                                                                                            | **livré** (#629) : `src/packages/@nodefony/realtime/nodefony/tests/helpers/socketConformance.ts#describeSocketConformance`, jouée contre `NodefonySocket` (câble en boucle) et `ServerRealtimeSocket` ; vue rouge sur chacune                                                                                                                                                                                                                                        | `npm test` du paquet realtime                                                   |
-| 4   | fixtures d'octets **dorées** : accueil, requête, réponse, erreur, notification, trame à octets, par codec — **et l'enveloppe backplane**, trois champs plus sceau (`src/packages/@nodefony/realtime/nodefony/src/backplane/envelope.ts#sealBackplaneEnvelope`) | **livré dans Node** (#629) : `src/nodefony/src/tests/frameGolden.test.ts` (3 codecs) et `src/packages/@nodefony/realtime/nodefony/tests/unit/backplaneEnvelopeGolden.test.ts`, références sous `fixtures/golden/`, vues rouges sur une mutation symétrique ; dans un vrai navigateur : #631. Un octet changé = rupture de fil **déclarée**, fixtures régénérées (`-u`) dans le même commit                                                                           | `npm test` du cœur et du paquet realtime ; navigateur par #631                  |
-| 5   | compatibilité **entre versions** : client de la dernière version publiée ↔ serveur courant, et l'inverse                                                                                                                                                       | **livré** (#629) : `scripts/release/compat.mjs`, banc `src/packages/@nodefony/realtime/nodefony/tests/compat/crossVersion.compat.test.ts` ; référence lue sur npm (`scripts/release/release-core.mjs#referenceDeCompat`) ; vu rouge dans les deux sens. Rupture face à une référence en pré-version : acceptée et annoncée (semver §9) ; face à une stable : bloque (`scripts/release/release-core.mjs#verdictCompat`). Le serveur garde `v1` tant qu'il est annoncé | `npm run release:compat` — job `compat` de `release.yml`, dont `publier` dépend |
+| #   | Contrôle                                                                                                                                                                                                                                                       | État                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Qui le lance                                                                    |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 1   | compilation **neutre** du code partagé (`lib: ["ES2022"]`, `types: []`)                                                                                                                                                                                        | **livré** : `src/nodefony/tsconfig.shared.json`, vu rouge sur `Blob` puis `Buffer`                                                                                                                                                                                                                                                                                                                                                                            | `npm run typecheck` du cœur                                                     |
+| 2   | contrat vérifié **dans les deux sens**                                                                                                                                                                                                                         | **livré** : `realtimeSharedContract.types.test.ts` — action manquante, forme fausse, entrée mal lue, canal hors `Emit`, inversion, nom de politique hors contrat, SSE — chacune un `@ts-expect-error` vu mordre                                                                                                                                                                                                                                               | `npm run typecheck` du paquet (`tsconfig.tests.json`)                           |
+| 3   | suite de conformité **unique** d'`IRealtimeSocket`, contre les deux implémentations                                                                                                                                                                            | **livré** : `src/packages/@nodefony/realtime/nodefony/tests/helpers/socketConformance.ts#describeSocketConformance`, jouée contre `NodefonySocket` (câble en boucle) et `ServerRealtimeSocket` ; vue rouge sur chacune                                                                                                                                                                                                                                        | `npm test` du paquet realtime                                                   |
+| 4   | fixtures d'octets **dorées** : accueil, requête, réponse, erreur, notification, trame à octets, par codec — **et l'enveloppe backplane**, trois champs plus sceau (`src/packages/@nodefony/realtime/nodefony/src/backplane/envelope.ts#sealBackplaneEnvelope`) | **livré dans Node** : `src/nodefony/src/tests/frameGolden.test.ts` (3 codecs) et `src/packages/@nodefony/realtime/nodefony/tests/unit/backplaneEnvelopeGolden.test.ts`, références sous `fixtures/golden/`, vues rouges sur une mutation symétrique ; dans un vrai navigateur : lot distinct. Un octet changé = rupture de fil **déclarée**, fixtures régénérées (`-u`) dans le même commit                                                                   | `npm test` du cœur et du paquet realtime ; navigateur : lot distinct            |
+| 5   | compatibilité **entre versions** : client de la dernière version publiée ↔ serveur courant, et l'inverse                                                                                                                                                       | **livré** : `scripts/release/compat.mjs`, banc `src/packages/@nodefony/realtime/nodefony/tests/compat/crossVersion.compat.test.ts` ; référence lue sur npm (`scripts/release/release-core.mjs#referenceDeCompat`) ; vu rouge dans les deux sens. Rupture face à une référence en pré-version : acceptée et annoncée (semver §9) ; face à une stable : bloque (`scripts/release/release-core.mjs#verdictCompat`). Le serveur garde `v1` tant qu'il est annoncé | `npm run release:compat` — job `compat` de `release.yml`, dont `publier` dépend |
 
-Gardé aussi (#629) : `src/packages/@nodefony/realtime/tsconfig.json` compile le **serveur** sans
+Gardé aussi : `src/packages/@nodefony/realtime/tsconfig.json` compile le **serveur** sans
 le DOM (`lib: ["ESNext"]`, `types: ["node"]`) — un `window` y rougit au `npm run typecheck` du
 paquet ; seul `tsconfig.tests.json` le réintroduit, ses tests important le client navigateur. Une
 rupture de fil suit la politique de l'API : majeure, et une version de sous-protocole de plus.
@@ -1224,22 +1256,23 @@ fin de flux (section 7). Aucun vocabulaire d'A2A n'entre dans la socket.
 
 ## Conséquences
 
-- Engagements de la série 10, au même titre que les décisions de gel de #630 : le nom `v1`, la
+- Engagements de la série 10, au même titre que les décisions de gel : le nom `v1`, la
   lecture du codec dans l'accueil, l'accueil toujours en texte, le crochet brut hors verrou, les
   bornes neuves désactivées, l'appartenance locale au pod, les ordres par nom (fermer, éjecter un
   utilisateur) diffusés par un message ordinaire du backplane, sans méthode neuve sur `IBackplane`.
-- #628 livre la forme figée d'`IRealtimeContract` au cœur (§4 : quatre clés, `Jsonify<T>` aux
+- Le contrat typé livre la forme figée d'`IRealtimeContract` au cœur (§4 : quatre clés, `Jsonify<T>` aux
   quatre points de réception, socket + SSE + webhook), `Listen` en troisième générique de
-  `RealtimeController` avec défaut, les types utilitaires et `defineRealtimeContract` ; #618 BRANCHE le codec CBOR déjà écrit et publié
+  `RealtimeController` avec défaut, les types utilitaires et `defineRealtimeContract` ; le lot du binaire routé BRANCHE le codec CBOR déjà écrit et publié
   (`src/nodefony/src/realtime/codec/`, `nodefony/cbor`) par `IFrameCodec`, les trois noms de
-  sous-protocole et le binaire routé ; #622 et #623 les canaux privés ; #629 les contrôles 2 à 5.
-- **Preuves à apporter** : B1 à B4 vus rouges en débranchant (#618) ; un `Uint8Array` intact par
-  le pilote Redis (#618, S8) ; un champ inconnu dans `subscribe` ignoré par un serveur publié
-  (#629, contrôle 5) ; un éjecté sur un pod non servi par un autre (#623) ; le codec CBOR
-  maison branché sur le pair, octets intacts sans copie au décodage (#618) ; le poids du moteur
+  sous-protocole et le routage par canal ; l'admission par identité et les abonnés identifiables, les canaux
+  privés ; les garde-fous, les contrôles 2 à 5.
+- **Preuves à apporter** : B1 à B4 vus rouges en débranchant ; un `Uint8Array` intact par
+  le pilote Redis (S8) ; un champ inconnu dans `subscribe` ignoré par un serveur publié
+  (contrôle 5) ; un éjecté sur un pod non servi par un autre ; le codec CBOR
+  maison branché sur le pair, octets intacts sans copie au décodage ; le poids du moteur
   protobuf dans `nodefony/client` face à `.size-budgets.json` (avec le codec protobuf de la
-  socket, le jour où il a un usage — §2 ; #694 ne l'amène pas au client, ADR-0026 D12).
-- À l'accord de l'auteur : un tsconfig neutre pour le serveur du paquet realtime (section 10).
+  socket, le jour où il a un usage — §2 ; le chantier gRPC ne l'amène pas au client, ADR-0026 D12).
+- Reste à décider : un tsconfig neutre pour le serveur du paquet realtime (section 10).
 - `docs/protocole.md` écrit la reconnexion et la fin de flux avant qu'un protocole tiers s'y appuie.
 
 ## Références
@@ -1253,5 +1286,4 @@ fin de flux (section 7). Aucun vocabulaire d'A2A n'entre dans la socket.
 - Protobuf, correspondance JSON canonique — <https://protobuf.dev/programming-guides/json/>
 - A2A 1.0.1 — <https://a2a-protocol.org/v1.0.0/specification> (§5.8, §12)
 - [Politique de compatibilité](../guides/compatibilite.md)
-- Tickets : #621 (Epic), #627, #630 (décisions de gel, commit `1df6614c1`), #618, #620, #622,
-  #623, #624, #626, #628, #629, #631, #619, #694
+- Décisions de gel du protocole — commit `1df6614c1`

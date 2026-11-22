@@ -78,7 +78,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   oxlint: "^1.94.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
-  "oxlint-tsgolint": "^7.0.2007",
+  "oxlint-tsgolint": "^7.0.2008",
   prettier: "^3.10.1",
   rolldown: "^1.3.3",
   typescript: "^6.0.3",
@@ -117,7 +117,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   katex: "^0.19.1",
   vue: "^3.5.46",
   "@vitejs/plugin-vue": "^6.0.11",
-  svelte: "^5.58.1",
+  svelte: "^5.59.1",
   "@sveltejs/vite-plugin-svelte": "^7.3.1",
   // Contrôle de l'INTÉRIEUR des composants, enchaîné par le script `typecheck`
   // (`FRONTEND_PARAMS.componentTypecheck`) : `tsgo` ne lit ni un `.vue` ni un

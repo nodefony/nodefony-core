@@ -1,5 +1,11 @@
 # @nodefony/user
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/user** — ORM-independent user contracts for Nodefony: IUser, base users, password encoders and UserService, usable without @nodefony/security. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/user/).
+
+<!-- nf-en:end -->
+
 Socle utilisateur de Nodefony : contrat `IUser`, implémentations de base (`BaseUser`,
 `AnonymousUser`), encodeurs de mot de passe et `UserService` — **indépendant de
 `@nodefony/security`** et **agnostique de l'ORM**.
