@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { stripLeadingTitle } from "./lib/markdown-source.mjs";
 import { readSeoHead, siteDefects } from "./lib/seo-check.mjs";
-import { ogLocale, seoHead } from "./lib/seo-head.mjs";
+import { ogLocale, seoHead, siteImage } from "./lib/seo-head.mjs";
 import {
   pageLanguage,
   sourceFingerprint,
@@ -170,6 +170,7 @@ describe("check-site-seo — réciprocité hreflang", () => {
         lang: url.includes("/en/") ? "en" : "fr",
         alternates,
         jsonLd: { "@type": "WebPage", url },
+        image: siteImage(SITE),
       },
     )}</head></html>`;
   const alt = translationGroups([fr, en()]).get(fr.url);

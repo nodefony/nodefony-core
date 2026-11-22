@@ -47,6 +47,7 @@ import { versionSwitchScript } from "./lib/site-versions.mjs";
 import {
   brandTitle,
   seoHead,
+  siteImage,
   softwareNode,
   websiteNode,
 } from "./lib/seo-head.mjs";
@@ -1368,6 +1369,7 @@ const html = doc({
   // sans elle, il en invente une, et sans l'icône chaque visiteur récolte un 404.
   head:
     seoHead({
+      image: siteImage(SITE_URL),
       title: HOME_TITLE,
       description: HOME_DESCRIPTION,
       url: HOME_URL,

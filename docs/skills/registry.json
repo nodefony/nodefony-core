@@ -175,6 +175,7 @@
         "scripts/site/build-site-plan.mjs",
         "scripts/site/build-site.mjs",
         "scripts/site/readme-html.mjs",
+        "scripts/site/render-og-image.mjs",
         "scripts/test/test-all.ts",
         "scripts/test/testbed-report.ts"
       ],
@@ -2231,6 +2232,19 @@
         "scripts/site/build-site.mjs",
         ".claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs"
       ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/render-og-image.mjs",
+      "test": false,
+      "purpose": "Rend l'IMAGE D'APERÇU du site — celle qu'affiche un lien partagé (Open Graph, cartes) : 1200 × 630, PNG (les aperçus refusent le SVG).",
+      "usage": [
+        "node scripts/site/render-og-image.mjs [--out docs/assets/og-image.png]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [],
       "testedBy": []
     },
     {

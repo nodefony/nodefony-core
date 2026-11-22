@@ -51,7 +51,7 @@ import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
 import { anchorHeadings } from "./lib/html-text.mjs";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 import { siteNav } from "./lib/site-nav.mjs";
-import { seoHead, brandTitle, webPage } from "./lib/seo-head.mjs";
+import { brandTitle, seoHead, siteImage, webPage } from "./lib/seo-head.mjs";
 import { clipSummary } from "./lib/page-summary.mjs";
 
 const arg = (n, d) => {
@@ -262,6 +262,7 @@ for (const page of PROSE) {
       documentTitle: brandTitle(page.titre),
       subtitle: page.sous,
       head: seoHead({
+        image: siteImage(SITE_URL),
         noindex: NOINDEX,
         title: page.titre,
         description: clipSummary(page.sous),
@@ -460,6 +461,7 @@ writeFileSync(
     head:
       `<link rel="icon" href="../favicon.svg" type="image/svg+xml">\n` +
       seoHead({
+        image: siteImage(SITE_URL),
         noindex: NOINDEX,
         title: INDEX_TITLE,
         description: INDEX_DESCRIPTION,

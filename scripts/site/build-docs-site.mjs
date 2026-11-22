@@ -49,6 +49,7 @@ import {
   readFileSync,
   writeFileSync,
   mkdirSync,
+  copyFileSync,
   existsSync,
   statSync,
 } from "node:fs";
@@ -128,6 +129,8 @@ import {
   breadcrumbList,
   brandTitle,
   seoHead,
+  OG_IMAGE,
+  siteImage,
   tabTitle,
   techArticle,
   webPage,
@@ -1487,6 +1490,7 @@ function renderPage(d, published, index, publishedPaths) {
       // une seule brique pour toutes les pages du site (`lib/seo-head.mjs`),
       // jugée par `check-site-seo.mjs`.
       seoHead({
+        image: siteImage(SITE_URL),
         title: d.title,
         description: firstText,
         url: canonical,
@@ -1679,6 +1683,14 @@ try {
 }
 mkdirSync(OUT, { recursive: true });
 
+// L'image d'aperçu des liens partagés (Open Graph) : rendue une fois et
+// commitée (`render-og-image.mjs`), posée à la racine de CHAQUE site rendu —
+// la racine comme `/next/` — puisque chaque page la cite par adresse absolue.
+copyFileSync(
+  path.join(ROOT, "docs", "assets", OG_IMAGE.file),
+  path.join(OUT, OG_IMAGE.file),
+);
+
 // L'icône du site — le logo de la marque, extrait de son data-URI. Sans elle,
 // chaque visiteur récolte un 404 dans sa console, sur chaque page.
 const logo = NODEFONY_BRAND?.logo ?? "";
@@ -1721,6 +1733,7 @@ writeFileSync(
     // complète comme toute page — un lien mort partagé montre quand même un aperçu.
     head:
       seoHead({
+        image: siteImage(SITE_URL),
         title: "Page introuvable",
         description:
           "Cette adresse ne correspond à aucune page de la documentation de Nodefony : retour à l'accueil ou au dépôt.",

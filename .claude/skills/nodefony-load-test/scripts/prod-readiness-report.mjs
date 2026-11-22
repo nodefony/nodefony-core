@@ -1264,6 +1264,7 @@ function seoOf(slug) {
   return {
     documentTitle: seo.brandTitle(title),
     head: seo.seoHead({
+      image: seo.siteImage(SITE_URL),
       noindex: process.argv.includes("--noindex"),
       title,
       description,

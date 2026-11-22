@@ -35,6 +35,29 @@ export function brandTitle(title) {
   return /\bnodefony\b/i.test(title) ? title : `${title} · ${SITE_NAME}`;
 }
 
+/** Image d'aperçu du site — rendue par `render-og-image.mjs`, commitée, posée à la racine de chaque site. */
+export const OG_IMAGE = Object.freeze({
+  file: "og-image.png",
+  width: 1200,
+  height: 630,
+  alt: "Nodefony — Node.js framework: HTTP & WebSocket, TypeScript, CBOR realtime, gRPC, MCP",
+});
+
+/**
+ * L'image d'aperçu d'un site, en adresse absolue.
+ *
+ * @param siteUrl - adresse du site, sans `/` final
+ * @returns `{ url, width, height, alt }` pour {@link seoHead}
+ */
+export function siteImage(siteUrl) {
+  return {
+    url: `${siteUrl}/${OG_IMAGE.file}`,
+    width: OG_IMAGE.width,
+    height: OG_IMAGE.height,
+    alt: OG_IMAGE.alt,
+  };
+}
+
 /** Au-delà, un moteur de recherche tronque le titre — et la marque part la première. */
 export const TAB_TITLE_MAX = 65;
 
@@ -247,6 +270,7 @@ export function ogLocale(lang) {
  *   la page comprise ; `isDefault` désigne la version `x-default`. Vide : page
  *   sans traduction, aucune balise `hreflang`.
  * @param p.jsonLd - un nœud schema.org ou une liste de nœuds
+ * @param p.image - image d'aperçu ({@link siteImage}) — exigée par Open Graph
  * @param p.noindex - page à NE PAS indexer (site `/next/`, page introuvable)
  * @returns les balises, une par ligne
  * @throws Error si une adresse n'est pas absolue, ou si `alternates` omet la page
@@ -261,6 +285,7 @@ export function seoHead({
   alternates = [],
   jsonLd,
   noindex = false,
+  image,
 }) {
   if (!url.startsWith("https://"))
     throw new Error(`adresse canonique non absolue : ${url}`);
@@ -304,7 +329,15 @@ export function seoHead({
     `<meta property="og:description" content="${attr(description)}">`,
     `<meta property="og:url" content="${attr(url)}">`,
     `<meta property="og:locale" content="${attr(locale)}">`,
-    `<meta name="twitter:card" content="summary">`,
+    ...(image
+      ? [
+          `<meta property="og:image" content="${attr(image.url)}">`,
+          `<meta property="og:image:width" content="${image.width}">`,
+          `<meta property="og:image:height" content="${image.height}">`,
+          `<meta property="og:image:alt" content="${attr(image.alt)}">`,
+        ]
+      : []),
+    `<meta name="twitter:card" content="${image ? "summary_large_image" : "summary"}">`,
     `<meta name="twitter:title" content="${attr(title)}">`,
     `<meta name="twitter:description" content="${attr(description)}">`,
     ...languages,

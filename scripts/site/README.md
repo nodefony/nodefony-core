@@ -134,6 +134,14 @@ readme-html.mjs — Nodefony, matrice de présentation (10 minutes).
 - **Appelé par** : `site/build-site.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs`
 - **Utilise** : `lib/repo-root.mjs` · `site/lib/admonitions.mjs` · `site/lib/html-text.mjs` · `site/lib/seo-head.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs` · `release/release-core.mjs`
 
+## [`render-og-image.mjs`](render-og-image.mjs)
+
+Rend l'IMAGE D'APERÇU du site — celle qu'affiche un lien partagé (Open Graph, cartes) : 1200 × 630, PNG (les aperçus refusent le SVG).
+
+- **Usage** : `node scripts/site/render-og-image.mjs [--out docs/assets/og-image.png]`
+- **Appelé par** : aucun automate
+- **Utilise** : `lib/repo-root.mjs`
+
 ## [`schemas-organigramme.test.mjs`](schemas-organigramme.test.mjs)
 
 Le tracé des organigrammes du site — jugé sur le CORPUS réel.

@@ -49,6 +49,7 @@ const UNIQUE_META = [
   "og:description",
   "og:url",
   "og:site_name",
+  "og:image",
   "twitter:card",
 ];
 
@@ -131,6 +132,7 @@ export const REQUIRED_PREVIEW = [
   "og:description",
   "og:url",
   "og:site_name",
+  "og:image",
   "twitter:card",
 ];
 

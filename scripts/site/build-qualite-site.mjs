@@ -49,7 +49,7 @@ import {
 } from "../../.claude/skills/nodefony-html-report/lib/echarts.mjs";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 import { siteNav } from "./lib/site-nav.mjs";
-import { seoHead, brandTitle, webPage } from "./lib/seo-head.mjs";
+import { brandTitle, seoHead, siteImage, webPage } from "./lib/seo-head.mjs";
 import { clipSummary } from "./lib/page-summary.mjs";
 
 function arg(nom, defaut) {
@@ -450,6 +450,7 @@ function rendre(d) {
     documentTitle: brandTitle(titre),
     subtitle: sousTitre,
     head: seoHead({
+      image: siteImage(SITE_URL),
       noindex: NOINDEX,
       title: titre,
       description,
@@ -519,6 +520,7 @@ writeFileSync(
     subtitle:
       "Un verdict par version publiée, avec son décor et ce qu'il n'a pas éprouvé.",
     head: seoHead({
+      image: siteImage(SITE_URL),
       noindex: NOINDEX,
       title: "Campagnes de test — Nodefony",
       description:
