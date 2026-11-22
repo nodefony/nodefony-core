@@ -12,12 +12,86 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
+  branchesToPrune,
   commitsDuTicket,
   composer,
   fichiersDeTest,
   motifTicket,
   searchRefs,
 } from "./ticket-close.mjs";
+
+describe("branchesToPrune — la branche locale d'un ticket fermé", () => {
+  const fusionnees = [{ head: "fix/847-prune", oid: "aaa" }];
+
+  it("PR fusionnée, pointe = commit fusionné, pas la branche courante → supprimée", () => {
+    expect(
+      branchesToPrune(
+        847,
+        [{ name: "fix/847-prune", tip: "aaa" }],
+        fusionnees,
+        "dev",
+      ),
+    ).toEqual({ prune: ["fix/847-prune"], keep: [] });
+  });
+
+  it("un commit de PLUS que la PR fusionnée → gardée, avec le motif", () => {
+    const r = branchesToPrune(
+      847,
+      [{ name: "fix/847-prune", tip: "bbb" }],
+      fusionnees,
+      "dev",
+    );
+    expect(r.prune).toEqual([]);
+    expect(r.keep[0]?.why).toMatch(/commit absent/u);
+  });
+
+  it("pointe EN RETARD sur la PR (ancêtre du commit fusionné) → supprimée : rien à perdre", () => {
+    const ancestor = (tip, oid) => tip === "old" && oid === "aaa";
+    expect(
+      branchesToPrune(
+        847,
+        [{ name: "fix/847-prune", tip: "old" }],
+        fusionnees,
+        "dev",
+        ancestor,
+      ),
+    ).toEqual({ prune: ["fix/847-prune"], keep: [] });
+  });
+
+  it("aucune PR fusionnée → gardée", () => {
+    const r = branchesToPrune(
+      847,
+      [{ name: "fix/847-prune", tip: "aaa" }],
+      [],
+      "dev",
+    );
+    expect(r.prune).toEqual([]);
+    expect(r.keep[0]?.why).toMatch(/aucune PR/u);
+  });
+
+  it("branche courante → gardée, avec le geste", () => {
+    const r = branchesToPrune(
+      847,
+      [{ name: "fix/847-prune", tip: "aaa" }],
+      fusionnees,
+      "fix/847-prune",
+    );
+    expect(r.prune).toEqual([]);
+    expect(r.keep[0]?.why).toMatch(/courante/u);
+  });
+
+  it("les branches des AUTRES tickets, et une wip, ne sont jamais touchées", () => {
+    const locales = [
+      { name: "fix/848-autre", tip: "aaa" },
+      { name: "wip/847-essai", tip: "aaa" },
+      { name: "release/10.0.x", tip: "aaa" },
+    ];
+    expect(branchesToPrune(847, locales, fusionnees, "dev")).toEqual({
+      prune: [],
+      keep: [],
+    });
+  });
+});
 
 describe("les fichiers de test d'un diff", () => {
   it("retient les suites, quelle que soit leur forme", () => {
