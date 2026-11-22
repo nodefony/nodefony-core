@@ -1230,8 +1230,51 @@ const soustitres = {
 
 const dossierOut = path.dirname(OUT);
 let ecrites = 0;
+// Rendue DANS le site (`--site-url` avec `--site-path`), chaque page porte son
+// référencement — titre et description PROPRES à la version, canonique, aperçu,
+// données structurées — par la brique du site (`scripts/site/lib/seo-head.mjs`),
+// jamais recopié ici. Hors site (rapport local), rien ne change.
+const SITE_URL = arg("site-url", "").replace(/\/+$/, "");
+const seo =
+  SITE_URL && SITE_PATH
+    ? {
+        ...(await import(
+          new URL("../../../../scripts/site/lib/seo-head.mjs", import.meta.url)
+            .href
+        )),
+        ...(await import(
+          new URL(
+            "../../../../scripts/site/lib/page-summary.mjs",
+            import.meta.url,
+          ).href
+        )),
+      }
+    : null;
+/** Le `<head>` de référencement d'une page de la version, ou rien hors site. */
+function seoOf(slug) {
+  if (seo === null) return {};
+  const version = dataset?.version ?? "";
+  const title = version
+    ? `${titres[slug]} — Nodefony ${version}`
+    : titres[slug];
+  const description = seo.clipSummary(
+    version ? `Nodefony ${version} — ${soustitres[slug]}` : soustitres[slug],
+  );
+  const url = `${SITE_URL}${SITE_PATH}${slug ? `${slug}/` : ""}`;
+  return {
+    documentTitle: seo.brandTitle(title),
+    head: seo.seoHead({
+      title,
+      description,
+      url,
+      jsonLd: seo.webPage({ title, description, url, siteUrl: SITE_URL }),
+    }),
+  };
+}
+
 for (const page of PAGES) {
   const html = doc({
+    ...seoOf(page.slug),
     nav: siteNav
       ? siteNav(`${SITE_PATH}${page.slug ? `${page.slug}/` : ""}`)
       : "",

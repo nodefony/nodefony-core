@@ -1692,6 +1692,19 @@
       "testedBy": []
     },
     {
+      "path": "scripts/site/adr-publication.test.mjs",
+      "test": true,
+      "purpose": "",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/site/api-reference.test.mjs",
       "test": true,
       "purpose": "",
@@ -1835,7 +1848,9 @@
       "options": [],
       "env": [],
       "output": "",
-      "calledBy": [],
+      "calledBy": [
+        "scripts/site/build-site.mjs"
+      ],
       "testedBy": []
     },
     {
@@ -1866,6 +1881,23 @@
         "scripts/site/readme-html.mjs"
       ],
       "testedBy": []
+    },
+    {
+      "path": "scripts/site/lib/adr-publication.mjs",
+      "test": false,
+      "purpose": "Ce qu'un ADR doit porter pour être PUBLIÉ sur le site.",
+      "usage": [
+        "import { adrPublicationDefects } from \"./lib/adr-publication.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-docs-site.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/adr-publication.test.mjs"
+      ]
     },
     {
       "path": "scripts/site/lib/api-reference.mjs",
@@ -2003,7 +2035,10 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "scripts/site/build-docs-site.mjs"
+        "scripts/site/build-docs-site.mjs",
+        "scripts/site/build-perf-site.mjs",
+        "scripts/site/build-qualite-site.mjs",
+        ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"
       ],
       "testedBy": [
         "scripts/site/llms-plan.test.mjs"
@@ -2023,7 +2058,29 @@
         "scripts/site/check-site-seo.mjs"
       ],
       "testedBy": [
-        "scripts/site/seo-check.test.mjs"
+        "scripts/site/seo-check.test.mjs",
+        "scripts/site/translations.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/seo-head.mjs",
+      "test": false,
+      "purpose": "L'en-tête de référencement d'UNE page publiée : description, adresse canonique, aperçu de partage (Open Graph + carte), données structurées schema.org — tout ce que `check-site-seo.mjs` exige, émis au même endroit pour toutes les pages du site (documentation, accueil, mesures, qualité).",
+      "usage": [
+        "import { seoHead, brandTitle, techArticle } from \"./lib/seo-head.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-docs-site.mjs",
+        "scripts/site/build-perf-site.mjs",
+        "scripts/site/build-qualite-site.mjs",
+        "scripts/site/readme-html.mjs",
+        ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/translations.test.mjs"
       ]
     },
     {
@@ -2065,6 +2122,23 @@
       ],
       "testedBy": [
         "scripts/site/site-versions.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/translations.mjs",
+      "test": false,
+      "purpose": "Les pages TRADUITES du site : qui traduit quoi, et la traduction est-elle à jour de sa source ?",
+      "usage": [
+        "import { translationGroups, staleTranslations, sourceFingerprint } from \"./lib/translations.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-docs-site.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/translations.test.mjs"
       ]
     },
     {
@@ -2210,6 +2284,19 @@
       "path": "scripts/site/site-versions.test.mjs",
       "test": true,
       "purpose": "Éprouve l'agencement des versions du site et le dossier de sortie neuf.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/translations.test.mjs",
+      "test": true,
+      "purpose": "",
       "usage": [],
       "options": [],
       "env": [],
@@ -8658,6 +8745,10 @@
               },
               {
                 "flag": "--site-path",
+                "help": ""
+              },
+              {
+                "flag": "--site-url",
                 "help": ""
               },
               {

@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-18
+updated: 2026-11-22
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -145,7 +145,7 @@ script, donc toujours à jour après régénération.
 | `scripts/perf-figures.mjs` | Les FIGURES du dossier de performance, calculées depuis le jeu publié (`docs/performance/data/<version>.json`) — jamais saisies à la main. | — | — |
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony pendant que Vite tourne / compile. | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |
 | `scripts/poc-hmr-perf.mjs` | POC HMR perf — mesure le délai end-to-end entre : 1. `fs.utimes()` (touch) sur un fichier source surveillé par Vite 2. réception du 1er message HMR ("update" ou "full-reload") côté client WS | `--file` `--gap-ms` `--iterations` `--vite-url` | — |
-| `scripts/prod-readiness-report.mjs` | prod-readiness-report.mjs — « Nodefony peut-il partir en production ? » | `--at` `--campaign` `--data` `--http-path` `--json` `--minutes` `--only` `--out` `--seconds` `--site-path` `--soak` `--window` | — |
+| `scripts/prod-readiness-report.mjs` | prod-readiness-report.mjs — « Nodefony peut-il partir en production ? » | `--at` `--campaign` `--data` `--http-path` `--json` `--minutes` `--only` `--out` `--seconds` `--site-path` `--site-url` `--soak` `--window` | — |
 | `scripts/profile-analyze.mjs` | Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé par fonction et par origine (paquet, module node:, natif), FENÊTRÉ sur les 20 dernières secondes actives — le profil couvre aussi le démarrage — et rapporté en µs par requête servie. | `--callers` `--cpu-prof` | — |
 | `scripts/profile-compare.mjs` | Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à poste, en µs par requête. C'est la question qu'un profil isolé ne pose jamais : « combien de trop, et OÙ, par rapport à ce qui est possible ? ». | `--json` | — |
 | `scripts/profile-compare.sh` | « Comparé à QUOI ? » — profile Nodefony ET le camp témoin équitable dans le MÊME décor, puis rend l'écart poste par poste en µs par requête. | — | `NF_PROFILE_DIR` |

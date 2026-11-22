@@ -54,10 +54,14 @@ export function readSeoHead(html) {
   const meta = new Map();
   let canonical = null;
   let robots = null;
+  /** hreflang → adresse, x-default compris */
+  const hreflang = new Map();
   for (const tag of head.match(/<(?:meta|link)\s[^>]*>/gi) ?? []) {
     const a = tagAttributes(tag);
     if (tag.toLowerCase().startsWith("<link")) {
       if (a.get("rel") === "canonical") canonical = decode(a.get("href") ?? "");
+      else if (a.get("rel") === "alternate" && a.has("hreflang"))
+        hreflang.set(a.get("hreflang"), decode(a.get("href") ?? ""));
       continue;
     }
     const key = a.get("property") ?? a.get("name");
@@ -76,6 +80,7 @@ export function readSeoHead(html) {
     robots,
     meta,
     jsonLd,
+    hreflang,
   };
 }
 
@@ -150,8 +155,10 @@ export function siteDefects(pages) {
     if (list === undefined) groups.set(group, [p]);
     else list.push(p);
   };
+  const heads = [];
   for (const { path, html } of pages) {
     const head = readSeoHead(html);
+    heads.push({ path, head });
     for (const defect of pageDefects(head)) out.push({ path, defect });
     const group = head.canonical || path;
     push(byTitle, head.title, group, path);
@@ -170,5 +177,50 @@ export function siteDefects(pages) {
   };
   shared("titre", byTitle);
   shared("description", byDescription);
+  for (const d of hreflangDefects(heads)) out.push(d);
   return out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
+/** Une liste `hreflang` lisible et comparable : `lang=url` triés. */
+const langSet = (map) =>
+  [...map]
+    .map(([l, u]) => `${l}=${u}`)
+    .sort()
+    .join(" ");
+
+/**
+ * Les versions linguistiques d'une page doivent être RÉCIPROQUES : chaque
+ * version se liste elle-même et liste exactement les mêmes versions que les
+ * autres, et chaque adresse annoncée existe sur le site. Un moteur ignore une
+ * paire non réciproque — sans le dire.
+ *
+ * @param heads - `{ path, head }` par page rendue
+ * @returns `{ path, defect }` par défaut
+ */
+export function hreflangDefects(heads) {
+  const out = [];
+  const byUrl = new Map();
+  for (const h of heads) if (h.head.canonical) byUrl.set(h.head.canonical, h);
+  for (const { path, head } of heads) {
+    if (head.hreflang.size === 0) continue;
+    const own = [...head.hreflang].filter(([l]) => l !== "x-default");
+    if (!own.some(([, u]) => u === head.canonical))
+      out.push({
+        path,
+        defect: "hreflang : la page ne se liste pas elle-même",
+      });
+    for (const [lang, url] of head.hreflang) {
+      const target = byUrl.get(url);
+      if (target === undefined) {
+        out.push({ path, defect: `hreflang ${lang} : ${url} absente du site` });
+        continue;
+      }
+      if (langSet(target.head.hreflang) !== langSet(head.hreflang))
+        out.push({
+          path,
+          defect: `hreflang ${lang} : ${target.path} ne déclare pas les mêmes versions (non réciproque)`,
+        });
+    }
+  }
+  return out;
 }

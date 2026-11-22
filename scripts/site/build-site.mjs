@@ -95,7 +95,14 @@ node(
 // La RACINE est la page de présentation, tirée du README : c'est ce que voit
 // quelqu'un qui découvre le projet. La documentation vit sous `/docs/`, les
 // mesures sous `/performance/` — trois objets, trois publics.
-run("readme-html.mjs", path.join(OUT, "index.html"), "--channel", CHANNEL);
+run(
+  "readme-html.mjs",
+  path.join(OUT, "index.html"),
+  "--channel",
+  CHANNEL,
+  "--site-url",
+  SITE_URL,
+);
 run(
   "build-docs-site.mjs",
   "--out",
@@ -109,14 +116,31 @@ run(
 );
 // Les mesures gardent leur place, sous `/performance/`. Une URL publiée ne se
 // change plus sans casser les liens de ceux qui l'ont citée.
-run("build-perf-site.mjs", "--out", path.join(OUT, "performance"));
+run(
+  "build-perf-site.mjs",
+  "--out",
+  path.join(OUT, "performance"),
+  "--site-url",
+  SITE_URL,
+);
 // Le verdict d'une CAMPAGNE DE TEST par version, sous `/qualite/`. Même contrat
 // que la performance : le script ne teste rien, il rend des données commitées.
-run("build-qualite-site.mjs", "--out", path.join(OUT, "qualite"));
+run(
+  "build-qualite-site.mjs",
+  "--out",
+  path.join(OUT, "qualite"),
+  "--site-url",
+  SITE_URL,
+);
 // Le PLAN du site, écrit sur ce qui vient d'être rendu — jamais sur les
 // sources, donc APRÈS les trois rendus. Il décrit ce qu'une application
 // installe : sur `next`, il mentirait.
 if (CHANNEL === "published") run("build-site-plan.mjs", "--out", OUT);
+// Le RÉFÉRENCEMENT de chaque page rendue — titre, description, canonique,
+// aperçu de partage, données structurées, versions linguistiques réciproques,
+// aucun doublon (`check-site-seo.mjs`). Sur CE site, pas sur le site assemblé :
+// les versions archivées sont remises telles qu'elles ont été publiées.
+run("check-site-seo.mjs", OUT);
 
 console.log(
   `\n✓ site ${CHANNEL} rendu dans ${path.relative(ROOT, OUT) || "."}`,

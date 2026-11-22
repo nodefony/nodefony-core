@@ -402,6 +402,27 @@ const origin = (pkg) =>
   `Cette page n'existe dans aucun dépôt — pour la corriger, on corrige le TSDoc du code.`;
 
 /**
+ * Le résumé d'une page de symboles : CE qu'elle couvre (sous-chemin, part) et
+ * ses premiers symboles par leur nom. Un gabarit commun (« N symboles publics
+ * de nodefony ») donnait la même description à des dizaines de pages — un
+ * moteur n'en retient qu'une, et l'on cherche une API par le nom d'un symbole.
+ *
+ * @param spec - la page (`title`, `pkg`, `sections`)
+ * @param count - nombre de symboles de la page
+ * @returns une ou deux phrases
+ */
+export function apiPageDescription(spec, count) {
+  const subject = spec.title.replace(/^Référence d'API — /, "");
+  const names = spec.sections.flatMap((s) => s.symbols.map((x) => x.name));
+  const shown = names.slice(0, 4);
+  const more = names.length > shown.length ? "…" : "";
+  return (
+    `${subject} (${spec.pkg.name} ${spec.pkg.version}) : ${plural(count, "symbole public", "symboles publics")}, signatures et TSDoc` +
+    (shown.length ? ` — ${shown.join(", ")}${more}.` : ".")
+  );
+}
+
+/**
  * Une page de symboles : en-tête, fil d'Ariane, puis chaque sous-chemin et ses familles.
  *
  * @param spec - `{ relPath, title, navTitle, crumbs, pkg, sections: [{ specifier, symbols }] }`.
@@ -426,7 +447,7 @@ function renderPage(spec) {
         navTitle: spec.navTitle,
         lang: "fr",
         status: "stable",
-        description: `${plural(count, "symbole public", "symboles publics")} de ${spec.pkg.name} ${spec.pkg.version}, avec leurs signatures et leur TSDoc.`,
+        description: apiPageDescription(spec, count),
       }) +
       `# ${spec.title}\n\n${spec.crumbs}\n\n${origin(spec.pkg)}\n\n${body}\n` +
       `---\n\n[← Toutes les références d'API](${spec.back})\n`,

@@ -113,8 +113,11 @@ import { prepareOutDir } from "./lib/out-dir.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
 import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs";
 import { extractApiModel, renderApiPages } from "./lib/api-reference.mjs";
+import { adrPublicationDefects } from "./lib/adr-publication.mjs";
 import { moduleDocsDirs } from "./lib/module-docs.mjs";
+import { staleTranslations, translationGroups } from "./lib/translations.mjs";
 import { pageSummary } from "./lib/page-summary.mjs";
+import { brandTitle, seoHead, techArticle, webPage } from "./lib/seo-head.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -1403,17 +1406,44 @@ function renderPage(d, published, index, publishedPaths) {
     d.title,
   );
 
+  const canonical = `${SITE_URL}${d.url}`;
+  const updated = metaString(d.meta, "updated");
+  const lang = metaString(d.meta, "lang") || "fr";
   const page = doc({
     title: d.title,
+    lang,
+    // L'onglet — et le lien bleu d'un résultat de recherche — porte la marque ;
+    // le h1 reste le titre éditorial de la page.
+    documentTitle: brandTitle(d.title),
     // La marque en tête ramène à l'accueil du site — le premier geste d'un
     // lecteur perdu, avant même de chercher un menu.
     brand: { ...NODEFONY_BRAND, href: rel(d.url, "/"), version: BADGE },
     head:
-      `<meta name="description" content="${esc(firstText)}">\n` +
+      // Description, canonique, aperçu de partage et données structurées :
+      // une seule brique pour toutes les pages du site (`lib/seo-head.mjs`),
+      // jugée par `check-site-seo.mjs`.
+      seoHead({
+        title: d.title,
+        description: firstText,
+        url: canonical,
+        lang,
+        alternates: d.alternates ?? [],
+        jsonLd: techArticle({
+          title: d.title,
+          description: firstText,
+          url: canonical,
+          siteUrl: SITE_URL,
+          lang,
+          dateModified:
+            updated && /^\d{4}-\d{2}-\d{2}$/.test(updated)
+              ? updated
+              : undefined,
+        }),
+      }) +
+      "\n" +
       (FAVICON
         ? `<link rel="icon" href="${rel(d.url, "/")}${FAVICON.slice(1)}">\n`
         : "") +
-      `<link rel="canonical" href="${SITE_URL}${esc(d.url)}">\n` +
       // `/next/` décrit ce qui n'est pas installable : un moteur de recherche
       // qui l'indexerait enverrait le lecteur sur une API qu'il n'a pas.
       (IS_NEXT ? `<meta name="robots" content="noindex">\n` : "") +
@@ -1475,6 +1505,45 @@ if (ONLY) {
     if (d !== one) d.verdict = { ok: false, why: "hors aperçu" };
 }
 const published = docs.filter((d) => d.verdict.ok);
+
+// Un ADR ne part qu'une fois marqué (`publish: true`) — et marqué, il doit dire
+// son statut et renvoyer au guide du même sujet (`lib/adr-publication.mjs`).
+const adrDefects = published
+  .filter((d) => d.source.kind === "root" && !d.generated)
+  .flatMap((d) =>
+    adrPublicationDefects({
+      relPath: d.relPath,
+      meta: d.meta,
+      body: sourceOf(d).replace(/^---\n[\s\S]*?\n---\n/, ""),
+    }).map((defect) => `${d.repoRel} — ${defect}`),
+  );
+if (adrDefects.length > 0) {
+  for (const line of adrDefects) console.error(`✗ ADR publié : ${line}`);
+  process.exit(1);
+}
+
+// Les pages TRADUITES (`translationOf` au frontmatter, `lib/translations.mjs`) :
+// chaque version déclare toutes les autres aux moteurs (`hreflang`), et une
+// traduction en retard sur sa source refuse le build.
+{
+  const authored = published
+    .filter((d) => !d.generated)
+    .map((d) => ({
+      repoRel: d.repoRel,
+      url: `${SITE_URL}${d.url}`,
+      meta: d.meta,
+      d,
+    }));
+  const stale = staleTranslations(authored, (repoRel) =>
+    readFileSync(path.join(ROOT, repoRel), "utf8"),
+  );
+  if (stale.length > 0) {
+    for (const line of stale) console.error(`✗ traduction périmée : ${line}`);
+    process.exit(1);
+  }
+  const groups = translationGroups(authored);
+  for (const a of authored) a.d.alternates = groups.get(a.url) ?? [];
+}
 
 // `--list` : rendre les chemins PUBLIÉS, un par ligne, et s'arrêter là.
 //
@@ -1572,8 +1641,25 @@ writeFileSync(
   path.join(OUT, "404.html"),
   doc({
     title: "Page introuvable",
+    documentTitle: brandTitle("Page introuvable"),
     subtitle: "Cette adresse ne correspond à aucune page de la documentation.",
-    head: FAVICON ? `<link rel="icon" href="${SITE_URL}${FAVICON}">` : "",
+    // Servie à la place de n'importe quelle URL fautive : jamais indexée, mais
+    // complète comme toute page — un lien mort partagé montre quand même un aperçu.
+    head:
+      seoHead({
+        title: "Page introuvable",
+        description:
+          "Cette adresse ne correspond à aucune page de la documentation de Nodefony : retour à l'accueil ou au dépôt.",
+        url: `${SITE_URL}/404.html`,
+        jsonLd: webPage({
+          title: "Page introuvable",
+          description: "Adresse sans page dans la documentation de Nodefony.",
+          url: `${SITE_URL}/404.html`,
+          siteUrl: SITE_URL,
+        }),
+      }) +
+      `\n<meta name="robots" content="noindex">` +
+      (FAVICON ? `\n<link rel="icon" href="${SITE_URL}${FAVICON}">` : ""),
     sections: [
       // Servie à la place d'une URL quelconque, cette page ne connaît pas sa
       // profondeur : ses liens sont les seuls du site à devoir rester absolus.
