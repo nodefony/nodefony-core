@@ -198,6 +198,71 @@ export function carriedReleases(releases) {
   return releases.filter((r) => r.inHead && !r.inBase).map((r) => r.name);
 }
 
+/** États d'un run GitHub Actions qui n'a pas fini — il tient ou attend un exécuteur. */
+const UNFINISHED = new Set([
+  "queued",
+  "in_progress",
+  "waiting",
+  "pending",
+  "requested",
+]);
+
+/**
+ * Le refus de pousser pendant une publication — PURE : les runs sont constatés.
+ *
+ * La fusion arrière se lance « juste après une publication », et la tentation
+ * est de la lancer juste après le TAG. Elle pousse alors une branche et ouvre une
+ * PR : cinq workflows prennent les exécuteurs, et les jobs du run de publication
+ * attendent en file (vécu à la 10.0.2, #858). Un agent ne peut pas annuler un
+ * run : la seule parade est de ne pas pousser tant que la publication tourne.
+ *
+ * @param {Array<{ databaseId: number, status: string, headBranch: string, url?: string }> | null} runs -
+ *   les derniers runs de `release.yml`, ou `null` si GitHub n'a pas répondu
+ * @returns {string | null} le motif du refus, ou `null` si rien ne tourne
+ */
+export function releaseInFlightRefusal(runs) {
+  if (runs === null)
+    return "runs de publication non lus (gh run list --workflow release.yml) — impossible de dire si une publication tourne ; relancer quand GitHub répond";
+  const live = runs.filter((r) => UNFINISHED.has(r.status));
+  if (live.length === 0) return null;
+  const list = live
+    .map(
+      (r) =>
+        `  · ${r.headBranch} — run ${r.databaseId} (${r.status})${r.url ? ` ${r.url}` : ""}`,
+    )
+    .join("\n");
+  return (
+    `une publication tourne encore — la fusion arrière attend sa FIN :\n${list}\n` +
+    "  Pousser maintenant démarrerait des workflows qui prennent ses exécuteurs.\n" +
+    "  → attendre la fin du run (gh run watch <id>), puis relancer."
+  );
+}
+
+/** Les derniers runs de `release.yml`, ou `null` si `gh` échoue. */
+function releaseRuns() {
+  const r = spawnSync(
+    "gh",
+    [
+      "run",
+      "list",
+      "--workflow",
+      "release.yml",
+      "--limit",
+      "10",
+      "--json",
+      "databaseId,status,headBranch,url",
+    ],
+    { cwd: ROOT, encoding: "utf8" },
+  );
+  if (r.status !== 0) return null;
+  try {
+    const parsed = JSON.parse(r.stdout);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -302,6 +367,11 @@ function main() {
     throw new Error(
       `la branche courante a ${upstream.stdout.trim()} commit(s) non poussé(s) — git push d'abord`,
     );
+
+  // Jamais de poussée pendant une publication : ses jobs attendraient en file.
+  const inFlight = releaseInFlightRefusal(releaseRuns());
+  if (inFlight && !dryRun) throw new Error(inFlight);
+  if (inFlight) console.log(`⚠️ ${inFlight}\n  (le geste réel le REFUSERA)`);
 
   sh("git", ["fetch", "origin", "--prune", "--quiet"]);
   const maintenance = pickMaintenance(remoteMaintenance(), asked);

@@ -10,6 +10,7 @@ import {
   carriedReleases,
   localCleanupPlan,
   pickMaintenance,
+  releaseInFlightRefusal,
   syncBranchName,
   syncPlan,
   syncPr,
@@ -170,5 +171,34 @@ describe("localCleanupPlan — la copie locale d'une branche fusionnée (#796)",
     expect(localCleanupPlan({ ...facts, localTip: null })).toMatchObject({
       deleteLocal: false,
     });
+  });
+});
+
+describe("releaseInFlightRefusal — jamais de poussée pendant une publication (#858)", () => {
+  it("refuse tant qu'un run de publication est en file ou en cours, et le nomme", () => {
+    const motif = releaseInFlightRefusal([
+      { databaseId: 2, status: "queued", headBranch: "v10.0.3" },
+      { databaseId: 1, status: "completed", headBranch: "v10.0.2" },
+    ]);
+    expect(motif).toContain("v10.0.3 — run 2 (queued)");
+    expect(motif).not.toContain("v10.0.2");
+    expect(
+      releaseInFlightRefusal([
+        { databaseId: 3, status: "in_progress", headBranch: "v10.0.3" },
+      ]),
+    ).toContain("attend sa FIN");
+  });
+
+  it("laisse passer quand tous les runs sont finis", () => {
+    expect(
+      releaseInFlightRefusal([
+        { databaseId: 1, status: "completed", headBranch: "v10.0.2" },
+      ]),
+    ).toBeNull();
+    expect(releaseInFlightRefusal([])).toBeNull();
+  });
+
+  it("refuse aussi quand GitHub n'a pas répondu : ne pas savoir n'est pas « rien ne tourne »", () => {
+    expect(releaseInFlightRefusal(null)).toContain("non lus");
   });
 });
