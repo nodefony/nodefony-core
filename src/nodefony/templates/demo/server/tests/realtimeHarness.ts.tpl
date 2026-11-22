@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
-import { createServer, type Server } from "node:net";
+import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -101,33 +101,42 @@ if (externalTarget) {
   );
 }
 
-/** Un port TCP libre, demandé au système. */
-function freePort(): Promise<number> {
+/**
+ * Un serveur à l'écoute sur un port LIBRE, attribué par le système (port 0).
+ *
+ * Un port se tient ouvert tant qu'on en a besoin : tiré puis refermé, il peut
+ * être repris par n'importe quel processus avant qu'on s'en serve, et deux
+ * tirages successifs peuvent rendre le même numéro.
+ *
+ * @param onConnection - ce que reçoit une connexion (rien par défaut)
+ */
+function listenFree(onConnection?: (socket: Socket) => void): Promise<Server> {
   return new Promise((resolve, reject) => {
-    const probe = createServer();
-    probe.once("error", reject);
-    probe.listen(0, "127.0.0.1", () => {
-      const address = probe.address();
-      probe.close(() => {
-        if (address !== null && typeof address === "object") {
-          resolve(address.port);
-        } else reject(new Error("aucun port libre rendu par le système"));
-      });
-    });
+    const holder = createServer(onConnection);
+    holder.once("error", reject);
+    holder.listen(0, "127.0.0.1", () => resolve(holder));
   });
+}
+
+/** Le port d'un serveur à l'écoute. */
+function portOf(holder: Server): number {
+  const address = holder.address();
+  if (address !== null && typeof address === "object") return address.port;
+  throw new Error("aucun port rendu par le système");
+}
+
+/** Referme un serveur, et attend qu'il l'ait fait. */
+function closeServer(holder: Server): Promise<void> {
+  return new Promise((resolve) => holder.close(() => resolve()));
 }
 
 /**
  * Occupe un port comme le ferait un autre serveur du poste : la connexion est
  * acceptée puis aussitôt coupée — un client égaré échoue vite, jamais en
- * attendant son délai.
+ * attendant son délai. Le port s'obtient EN l'occupant : jamais tiré d'abord.
  */
-function squat(port: number): Promise<Server> {
-  return new Promise((resolve, reject) => {
-    const squatter = createServer((socket) => socket.destroy());
-    squatter.once("error", reject);
-    squatter.listen(port, "127.0.0.1", () => resolve(squatter));
-  });
+function squat(): Promise<Server> {
+  return listenFree((socket) => socket.destroy());
 }
 
 /** Le port HTTPS que l'exemplaire publie, ou `null` s'il n'en publie aucun. */
@@ -165,8 +174,17 @@ export async function startDemoServer(
         "est pas servie — décrire la suite par `demoDescribe`, qui la saute.",
     );
   }
-  const [port, httpsPort] = [await freePort(), await freePort()];
-  const squatter = options.httpsPortTaken ? await squat(httpsPort) : null;
+  // Les deux ports sont tenus ouverts ENSEMBLE jusqu'au dernier tirage :
+  // jamais deux fois le même numéro. Un port repris entre sa fermeture et le
+  // démarrage fait glisser l'exemplaire au suivant — `startSpareApp` et
+  // `publishedHttpsPort` suivent alors celui qu'il SERT.
+  const squatter = options.httpsPortTaken ? await squat() : null;
+  const httpsHolder = squatter ?? (await listenFree());
+  const httpProbe = await listenFree();
+  const port = portOf(httpProbe);
+  const httpsPort = portOf(httpsHolder);
+  await closeServer(httpProbe);
+  if (httpsHolder !== squatter) await closeServer(httpsHolder);
   const release = () =>
     new Promise<void>((resolve) => {
       if (squatter === null) resolve();
