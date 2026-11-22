@@ -40,6 +40,28 @@ const decode = (s) =>
     .replace(/&amp;/g, "&")
     .trim();
 
+/** Les balises qui n'ont de sens qu'UNE fois : la lecture d'une 2e est arbitraire. */
+const UNIQUE_META = [
+  "description",
+  "robots",
+  "og:type",
+  "og:title",
+  "og:description",
+  "og:url",
+  "og:site_name",
+  "twitter:card",
+];
+
+/** Un code de langue simple (BCP 47 réduit) : `fr`, `en`, `pt-BR`. */
+export const LANG_CODE = /^[a-z]{2,3}(-[A-Z]{2})?$/;
+
+/** Bornes d'une description lisible dans une liste de résultats. */
+export const DESCRIPTION_MIN = 50;
+export const DESCRIPTION_MAX = 160;
+
+/** La page se retire-t-elle de l'index ? */
+export const isNoindex = (head) => /\bnoindex\b/i.test(head.robots ?? "");
+
 /**
  * Ce que l'en-tête d'une page déclare pour le référencement.
  *
@@ -52,20 +74,26 @@ export function readSeoHead(html) {
   const head = headEnd === -1 ? html : html.slice(0, headEnd);
   const title = /<title>([\s\S]*?)<\/title>/i.exec(head);
   const meta = new Map();
+  /** clé → nombre de déclarations : la 2e est un faux vert que la Map masque */
+  const counts = new Map();
   let canonical = null;
+  let canonicalCount = 0;
   let robots = null;
   /** hreflang → adresse, x-default compris */
   const hreflang = new Map();
   for (const tag of head.match(/<(?:meta|link)\s[^>]*>/gi) ?? []) {
     const a = tagAttributes(tag);
     if (tag.toLowerCase().startsWith("<link")) {
-      if (a.get("rel") === "canonical") canonical = decode(a.get("href") ?? "");
-      else if (a.get("rel") === "alternate" && a.has("hreflang"))
+      if (a.get("rel") === "canonical") {
+        canonicalCount++;
+        canonical = decode(a.get("href") ?? "");
+      } else if (a.get("rel") === "alternate" && a.has("hreflang"))
         hreflang.set(a.get("hreflang"), decode(a.get("href") ?? ""));
       continue;
     }
     const key = a.get("property") ?? a.get("name");
     if (key === undefined) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
     if (key === "robots") robots = a.get("content") ?? null;
     else if (!meta.has(key)) meta.set(key, decode(a.get("content") ?? ""));
   }
@@ -73,7 +101,19 @@ export function readSeoHead(html) {
   const re =
     /<script\s[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   for (let m = re.exec(head); m !== null; m = re.exec(head)) jsonLd.push(m[1]);
+  const titleCount = (head.match(/<title[\s>]/gi) ?? []).length;
+  /** Balises uniques par nature, déclarées plus d'une fois. */
+  const duplicates = [];
+  if (titleCount > 1) duplicates.push("title");
+  if (canonicalCount > 1) duplicates.push("canonical");
+  for (const key of UNIQUE_META)
+    if ((counts.get(key) ?? 0) > 1) duplicates.push(key);
+  const htmlTag = /<html(\s[^>]*)?>/i.exec(html);
+  const lang =
+    htmlTag === null ? null : (tagAttributes(htmlTag[0]).get("lang") ?? null);
   return {
+    lang,
+    duplicates,
     title: title === null ? "" : decode(title[1]),
     description: meta.get("description") ?? "",
     canonical: canonical ?? "",
@@ -103,7 +143,20 @@ export const REQUIRED_PREVIEW = [
 export function pageDefects(head) {
   const out = [];
   if (head.title === "") out.push("sans <title>");
+  for (const key of head.duplicates) out.push(`balise en double : ${key}`);
+  if (head.lang === null || head.lang === "") out.push("sans <html lang>");
+  else if (!LANG_CODE.test(head.lang))
+    out.push(
+      `<html lang="${head.lang}"> n'est pas un code de langue (fr, en, pt-BR)`,
+    );
   if (head.description === "") out.push("sans meta description");
+  else if (
+    head.description.length < DESCRIPTION_MIN ||
+    head.description.length > DESCRIPTION_MAX
+  )
+    out.push(
+      `meta description de ${head.description.length} caractères (attendu ${DESCRIPTION_MIN} à ${DESCRIPTION_MAX})`,
+    );
   if (head.canonical === "") out.push("sans adresse canonique");
   else if (!head.canonical.startsWith("https://"))
     out.push(`adresse canonique non absolue : ${head.canonical}`);
@@ -124,9 +177,17 @@ export function pageDefects(head) {
     const nodes = Array.isArray(data?.["@graph"]) ? data["@graph"] : [data];
     if (data?.["@context"] !== "https://schema.org")
       out.push("ld+json sans @context https://schema.org");
-    for (const n of nodes)
+    for (const n of nodes) {
       if (typeof n?.["@type"] !== "string" || n["@type"] === "")
         out.push("ld+json : un nœud sans @type");
+      const main = n?.mainEntityOfPage;
+      for (const [k, v] of [
+        ["url", n?.url],
+        ["mainEntityOfPage", typeof main === "string" ? main : main?.["@id"]],
+      ])
+        if (typeof v === "string" && head.canonical && v !== head.canonical)
+          out.push(`ld+json ${k} (${v}) ≠ canonique (${head.canonical})`);
+    }
   }
   return out;
 }
@@ -140,9 +201,11 @@ export function pageDefects(head) {
  * et c'est exactement ce que la canonique dit au moteur.
  *
  * @param pages - `{ path, html }` pour chaque page rendue
+ * @param options - `siteUrl` : racine publique du site (active le contrôle de
+ *   la canonique) ; `noindex` : exige `noindex` sur CHAQUE page (préversion)
  * @returns `{ path, defect }` par défaut, trié par chemin
  */
-export function siteDefects(pages) {
+export function siteDefects(pages, { siteUrl = null, noindex = false } = {}) {
   const out = [];
   /** valeur → (canonique ou chemin → chemins) */
   const byTitle = new Map();
@@ -164,6 +227,12 @@ export function siteDefects(pages) {
     push(byTitle, head.title, group, path);
     push(byDescription, head.description, group, path);
   }
+  if (siteUrl !== null)
+    for (const d of canonicalDefects(heads, siteUrl)) out.push(d);
+  if (noindex)
+    for (const { path, head } of heads)
+      if (!isNoindex(head))
+        out.push({ path, defect: "préversion : meta robots noindex absente" });
   const shared = (label, map) => {
     for (const [value, groups] of map) {
       if (groups.size < 2) continue;
@@ -179,6 +248,53 @@ export function siteDefects(pages) {
   shared("description", byDescription);
   for (const d of hreflangDefects(heads)) out.push(d);
   return out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
+/**
+ * L'adresse publique d'une page rendue : le dossier finit par `/`, un fichier
+ * garde son nom.
+ *
+ * @param siteUrl - racine du site, sans barre finale
+ * @param pagePath - chemin de la page dans le dossier rendu, séparateur `/`
+ * @returns l'URL absolue attendue pour la canonique
+ */
+export function expectedCanonical(siteUrl, pagePath) {
+  const root = siteUrl.replace(/\/+$/, "");
+  const rel = pagePath.replace(/(^|\/)index\.html$/, "$1");
+  return `${root}/${rel}`;
+}
+
+/**
+ * La canonique d'une page est CRÉDIBLE : sa propre adresse, ou celle d'une
+ * AUTRE page du site qui est elle-même auto-canonique (copie `latest/`).
+ * Une canonique commune à toutes les pages masquerait tous les doublons ; une
+ * canonique vers une page absente fait disparaître la page de l'index.
+ *
+ * @param heads - `{ path, head }` par page rendue
+ * @param siteUrl - racine publique du site
+ * @returns `{ path, defect }` par défaut
+ */
+export function canonicalDefects(heads, siteUrl) {
+  const out = [];
+  const byExpected = new Map();
+  for (const h of heads) byExpected.set(expectedCanonical(siteUrl, h.path), h);
+  for (const { path, head } of heads) {
+    if (head.canonical === "") continue;
+    const own = expectedCanonical(siteUrl, path);
+    if (head.canonical === own) continue;
+    const target = byExpected.get(head.canonical);
+    if (target === undefined)
+      out.push({
+        path,
+        defect: `canonique (${head.canonical}) vers une page absente du site (attendu ${own})`,
+      });
+    else if (target.head.canonical !== head.canonical)
+      out.push({
+        path,
+        defect: `canonique (${head.canonical}) vers ${target.path}, qui n'est pas auto-canonique`,
+      });
+  }
+  return out;
 }
 
 /** Une liste `hreflang` lisible et comparable : `lang=url` triés. */
@@ -210,11 +326,21 @@ export function hreflangDefects(heads) {
         defect: "hreflang : la page ne se liste pas elle-même",
       });
     for (const [lang, url] of head.hreflang) {
+      if (lang !== "x-default" && !LANG_CODE.test(lang))
+        out.push({
+          path,
+          defect: `hreflang « ${lang} » n'est pas un code de langue (fr, en, pt-BR)`,
+        });
       const target = byUrl.get(url);
       if (target === undefined) {
         out.push({ path, defect: `hreflang ${lang} : ${url} absente du site` });
         continue;
       }
+      if (isNoindex(target.head))
+        out.push({
+          path,
+          defect: `hreflang ${lang} : ${target.path} est noindex`,
+        });
       if (langSet(target.head.hreflang) !== langSet(head.hreflang))
         out.push({
           path,

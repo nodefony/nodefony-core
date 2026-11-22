@@ -97,22 +97,46 @@ export function webPage({
 }
 
 /**
+ * Région par défaut de chaque langue, au format Open Graph. Une TABLE, jamais
+ * une déduction : `ja` ne se dit pas `ja_JA` mais `ja_JP`, `zh` pas `zh_ZH`.
+ * Une langue absente se refuse — on l'ajoute ici le jour où on la publie.
+ */
+export const OG_LOCALES = Object.freeze({
+  fr: "fr_FR",
+  en: "en_US",
+  es: "es_ES",
+  de: "de_DE",
+  it: "it_IT",
+  pt: "pt_BR",
+  nl: "nl_NL",
+  ja: "ja_JP",
+  zh: "zh_CN",
+  ko: "ko_KR",
+  ru: "ru_RU",
+  uk: "uk_UA",
+  sv: "sv_SE",
+  pl: "pl_PL",
+});
+
+/**
  * Langue d'une page (`fr`, `en`, `fr-CA`) au format Open Graph (`fr_FR`).
  *
- * @param lang - code de langue BCP 47 de la page
- * @returns la locale Open Graph ; une région explicite est gardée
+ * @param lang - code de langue BCP 47 ; une région explicite est gardée, un
+ *   sous-tag d'écriture (`zh-Hans`) est ignoré
+ * @returns la locale Open Graph
+ * @throws Error si la langue n'a pas de région connue dans {@link OG_LOCALES}
  */
 export function ogLocale(lang) {
-  const [base, region] = String(lang).split(/[-_]/);
-  const regions = {
-    fr: "FR",
-    en: "US",
-    es: "ES",
-    de: "DE",
-    it: "IT",
-    pt: "BR",
-  };
-  return `${base.toLowerCase()}_${(region ?? regions[base.toLowerCase()] ?? base).toUpperCase()}`;
+  const parts = String(lang).split(/[-_]/);
+  const base = parts[0].toLowerCase();
+  const region = parts.slice(1).find((p) => /^[A-Za-z]{2}$/.test(p));
+  if (region !== undefined) return `${base}_${region.toUpperCase()}`;
+  const known = OG_LOCALES[base];
+  if (known === undefined)
+    throw new Error(
+      `langue « ${lang} » sans locale Open Graph connue (OG_LOCALES)`,
+    );
+  return known;
 }
 
 /**
@@ -134,6 +158,7 @@ export function ogLocale(lang) {
  *   la page comprise ; `isDefault` désigne la version `x-default`. Vide : page
  *   sans traduction, aucune balise `hreflang`.
  * @param p.jsonLd - un nœud schema.org ou une liste de nœuds
+ * @param p.noindex - page à NE PAS indexer (site `/next/`, page introuvable)
  * @returns les balises, une par ligne
  * @throws Error si une adresse n'est pas absolue, ou si `alternates` omet la page
  */
@@ -146,6 +171,7 @@ export function seoHead({
   locale = ogLocale(lang),
   alternates = [],
   jsonLd,
+  noindex = false,
 }) {
   if (!url.startsWith("https://"))
     throw new Error(`adresse canonique non absolue : ${url}`);
@@ -181,6 +207,7 @@ export function seoHead({
   const json = JSON.stringify(graph).replace(/</g, "\\u003c");
   return [
     `<meta name="description" content="${attr(description)}">`,
+    ...(noindex ? [`<meta name="robots" content="noindex">`] : []),
     `<link rel="canonical" href="${attr(url)}">`,
     `<meta property="og:type" content="${attr(type)}">`,
     `<meta property="og:site_name" content="${SITE_NAME}">`,

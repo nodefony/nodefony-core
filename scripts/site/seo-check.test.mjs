@@ -1,12 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { pageDefects, readSeoHead, siteDefects } from "./lib/seo-check.mjs";
+import {
+  hreflangDefects,
+  pageDefects,
+  readSeoHead,
+  siteDefects,
+} from "./lib/seo-check.mjs";
+
+/** Une description de longueur valide, distincte selon `x`. */
+const desc = (x) =>
+  `Description ${x} de la page, assez longue pour un moteur de recherche.`;
 
 /** Une page complète ; `drop` retire une ligne d'en-tête par son motif. */
 function page({
   title = "T",
-  description = "D",
+  description = desc("D"),
   url = "https://x.test/a/",
   drop = [],
+  lang = "fr",
+  extraHead = "",
 } = {}) {
   const lines = [
     `<title>${title}</title>`,
@@ -20,7 +31,7 @@ function page({
     `<meta name="twitter:card" content="summary">`,
     `<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"${title}"}</script>`,
   ].filter((l) => !drop.some((d) => l.includes(d)));
-  return `<!doctype html><html><head>${lines.join("\n")}</head><body><title>svg</title></body></html>`;
+  return `<!doctype html><html lang="${lang}"><head>${lines.join("\n")}${extraHead}</head><body><title>svg</title></body></html>`;
 }
 
 describe("readSeoHead / pageDefects — une page", () => {
@@ -106,7 +117,7 @@ describe("siteDefects — un site", () => {
           path: "a/index.html",
           html: page({
             title: "A",
-            description: "Da",
+            description: desc("a"),
             url: "https://x.test/a/",
           }),
         },
@@ -114,11 +125,161 @@ describe("siteDefects — un site", () => {
           path: "b/index.html",
           html: page({
             title: "B",
-            description: "Db",
+            description: desc("b"),
             url: "https://x.test/b/",
           }),
         },
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("balises en double (faux verts)", () => {
+  it.each([
+    ["description", '<meta name="description" content="Autre">'],
+    ["canonical", '<link rel="canonical" href="https://x.test/z/">'],
+    ["og:url", '<meta property="og:url" content="https://x.test/z/">'],
+    ["og:title", '<meta property="og:title" content="Autre">'],
+  ])("refuse deux %s", (key, tag) => {
+    expect(pageDefects(readSeoHead(page({ extraHead: tag })))).toContain(
+      `balise en double : ${key}`,
+    );
+  });
+});
+
+describe("langue, description, JSON-LD", () => {
+  it("exige <html lang> au format simple", () => {
+    expect(pageDefects(readSeoHead(page({ lang: "" })))).toContain(
+      "sans <html lang>",
+    );
+    expect(pageDefects(readSeoHead(page({ lang: "french" }))).join()).toMatch(
+      /n'est pas un code de langue/,
+    );
+    expect(pageDefects(readSeoHead(page({ lang: "pt-BR" })))).toEqual([]);
+  });
+
+  it("borne la description à 50-160 caractères", () => {
+    for (const d of ["Courte", "x".repeat(161)])
+      expect(pageDefects(readSeoHead(page({ description: d }))).join()).toMatch(
+        /meta description de \d+ caractères/,
+      );
+  });
+
+  it("le url / mainEntityOfPage du JSON-LD égale la canonique", () => {
+    const ld = (extra) => page().replace('"headline"', `${extra},"headline"`);
+    expect(
+      pageDefects(readSeoHead(ld('"url":"https://x.test/ailleurs/"'))).join(),
+    ).toMatch(/ld\+json url .* ≠ canonique/);
+    expect(
+      pageDefects(
+        readSeoHead(ld('"mainEntityOfPage":"https://x.test/ailleurs/"')),
+      ).join(),
+    ).toMatch(/mainEntityOfPage/);
+    expect(pageDefects(readSeoHead(ld('"url":"https://x.test/a/"')))).toEqual(
+      [],
+    );
+  });
+});
+
+describe("canonique crédible (siteUrl)", () => {
+  const site = "https://x.test";
+  const at = (path, url, extra = {}) => ({
+    path,
+    html: page({ title: path, description: desc(path), url, ...extra }),
+  });
+
+  it("une page qui se désigne elle-même passe, 404.html compris", () => {
+    expect(
+      siteDefects(
+        [
+          at("a/index.html", "https://x.test/a/"),
+          at("404.html", "https://x.test/404.html"),
+        ],
+        { siteUrl: site },
+      ),
+    ).toEqual([]);
+  });
+
+  it("toutes les pages sur la même canonique ne masquent plus les doublons", () => {
+    const d = siteDefects(
+      [
+        at("a/index.html", "https://x.test/"),
+        at("b/index.html", "https://x.test/"),
+      ],
+      { siteUrl: site },
+    );
+    expect(d.map((x) => x.defect).join("\n")).toMatch(
+      /vers une page absente|auto-canonique/,
+    );
+    expect(d.length).toBeGreaterThan(0);
+  });
+
+  it("une copie latest/ vers une page auto-canonique passe", () => {
+    expect(
+      siteDefects(
+        [
+          at("p/1.0.0/index.html", "https://x.test/p/1.0.0/"),
+          at("p/latest/index.html", "https://x.test/p/1.0.0/"),
+        ],
+        { siteUrl: site },
+      ),
+    ).toEqual([]);
+  });
+
+  it("une canonique vers une page absente est un défaut", () => {
+    const d = siteDefects([at("a/index.html", "https://x.test/zzz/")], {
+      siteUrl: site,
+    });
+    expect(d[0].defect).toMatch(/absente du site/);
+  });
+});
+
+describe("--noindex", () => {
+  it("exige noindex sur chaque page quand l'option est posée", () => {
+    const ok = page({ extraHead: '<meta name="robots" content="noindex">' });
+    expect(
+      siteDefects([{ path: "a/index.html", html: ok }], { noindex: true }),
+    ).toEqual([]);
+    const d = siteDefects([{ path: "a/index.html", html: page() }], {
+      noindex: true,
+    });
+    expect(d[0].defect).toMatch(/noindex absente/);
+    expect(siteDefects([{ path: "a/index.html", html: page() }])).toEqual([]);
+  });
+});
+
+describe("hreflang — codes et cibles", () => {
+  const mk = (path, canonical, langs, robots) => ({
+    path,
+    head: {
+      canonical,
+      robots: robots ?? null,
+      hreflang: new Map(langs),
+    },
+  });
+  it("refuse french et en_UK, accepte x-default", () => {
+    const set = [
+      ["french", "https://x.test/a/"],
+      ["en_UK", "https://x.test/b/"],
+      ["x-default", "https://x.test/a/"],
+    ];
+    const d = hreflangDefects([
+      mk("a/index.html", "https://x.test/a/", set),
+      mk("b/index.html", "https://x.test/b/", set),
+    ]).map((x) => x.defect);
+    expect(d.filter((x) => x.includes("n'est pas un code"))).toHaveLength(4);
+    expect(d.join()).not.toContain("x-default »");
+  });
+
+  it("refuse une cible noindex", () => {
+    const set = [
+      ["fr", "https://x.test/a/"],
+      ["en", "https://x.test/b/"],
+    ];
+    const d = hreflangDefects([
+      mk("a/index.html", "https://x.test/a/", set),
+      mk("b/index.html", "https://x.test/b/", set, "noindex"),
+    ]).map((x) => x.defect);
+    expect(d.join()).toMatch(/est noindex/);
   });
 });

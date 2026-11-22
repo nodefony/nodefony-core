@@ -60,6 +60,8 @@ function arg(nom, defaut) {
 // `/qualite/` — le préfixe que `siteNav` pose déjà, et que `build-site.mjs` donne
 // à `--out`.
 const SITE_URL = arg("site-url", "https://nodefony.net").replace(/\/+$/, "");
+/** Site `/next/` : aucune page indexable (`build-site.mjs` pose l'option). */
+const NOINDEX = process.argv.includes("--noindex");
 const canonicalOf = (cheminSousQualite) =>
   `${SITE_URL}/qualite/${cheminSousQualite}`;
 const OUT = path.resolve(ROOT, arg("out", "tmp/sites/quality"));
@@ -448,6 +450,7 @@ function rendre(d) {
     documentTitle: brandTitle(titre),
     subtitle: sousTitre,
     head: seoHead({
+      noindex: NOINDEX,
       title: titre,
       description,
       url,
@@ -516,6 +519,7 @@ writeFileSync(
     subtitle:
       "Un verdict par version publiée, avec son décor et ce qu'il n'a pas éprouvé.",
     head: seoHead({
+      noindex: NOINDEX,
       title: "Campagnes de test — Nodefony",
       description:
         "Une campagne de test complète par version de Nodefony : verdict, rouges instruits, décor de la machine et ce que la campagne n'a pas éprouvé.",

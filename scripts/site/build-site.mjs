@@ -122,6 +122,7 @@ run(
   path.join(OUT, "performance"),
   "--site-url",
   SITE_URL,
+  ...(CHANNEL === "next" ? ["--noindex"] : []),
 );
 // Le verdict d'une CAMPAGNE DE TEST par version, sous `/qualite/`. Même contrat
 // que la performance : le script ne teste rien, il rend des données commitées.
@@ -131,6 +132,7 @@ run(
   path.join(OUT, "qualite"),
   "--site-url",
   SITE_URL,
+  ...(CHANNEL === "next" ? ["--noindex"] : []),
 );
 // Le PLAN du site, écrit sur ce qui vient d'être rendu — jamais sur les
 // sources, donc APRÈS les trois rendus. Il décrit ce qu'une application
@@ -140,7 +142,14 @@ if (CHANNEL === "published") run("build-site-plan.mjs", "--out", OUT);
 // aperçu de partage, données structurées, versions linguistiques réciproques,
 // aucun doublon (`check-site-seo.mjs`). Sur CE site, pas sur le site assemblé :
 // les versions archivées sont remises telles qu'elles ont été publiées.
-run("check-site-seo.mjs", OUT);
+run(
+  "check-site-seo.mjs",
+  OUT,
+  "--site-url",
+  SITE_URL,
+  // `/next/` ne doit avoir AUCUNE page indexable.
+  ...(CHANNEL === "next" ? ["--noindex"] : []),
+);
 
 console.log(
   `\n✓ site ${CHANNEL} rendu dans ${path.relative(ROOT, OUT) || "."}`,

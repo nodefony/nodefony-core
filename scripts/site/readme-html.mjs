@@ -1351,8 +1351,9 @@ const HOME_TITLE = "Nodefony — le framework Node.js fullstack";
 // Ce qu'un moteur affiche de l'accueil : 160 caractères au plus, sinon il coupe lui-même.
 const HOME_DESCRIPTION =
   "Nodefony, framework Node.js fullstack en TypeScript : HTTP et WebSocket partagent le même contexte de contrôleur, avec injection de dépendances et sécurité.";
-// L'archive `/next/` a sa propre adresse (et reste `noindex`).
-const HOME_URL = `${SITE_URL}/${CHANNEL === "next" ? "next/" : ""}`;
+// `--site-url` porte déjà `/next` sur ce canal (`build-site.mjs`) : le recoller
+// publiait `…/next/next/` pour canonique.
+const HOME_URL = `${SITE_URL}/`;
 const html = doc({
   title: HOME_TITLE,
   documentTitle: brandTitle(HOME_TITLE),
@@ -1366,6 +1367,7 @@ const html = doc({
       description: HOME_DESCRIPTION,
       url: HOME_URL,
       type: "website",
+      noindex: CHANNEL === "next",
       jsonLd: [
         { "@type": "WebSite", name: "Nodefony", url: `${SITE_URL}/` },
         {
@@ -1381,7 +1383,6 @@ const html = doc({
       ],
     }) +
     `\n<link rel="icon" href="./favicon.svg" type="image/svg+xml">\n` +
-    (CHANNEL === "next" ? `<meta name="robots" content="noindex">\n` : "") +
     versionSwitchScript("./"),
   // 🔴 NI une colonne étroite, NI toute la largeur — les deux sont faux ici.
   //

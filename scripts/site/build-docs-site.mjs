@@ -108,14 +108,21 @@ import {
 import { schema } from "../../.claude/skills/nodefony-html-report/lib/schemas.mjs";
 import { NODEFONY_BRAND } from "../../.claude/skills/nodefony-html-report/lib/brand.mjs";
 import { anchorHeadings } from "./lib/html-text.mjs";
-import { sansCommentaires } from "./lib/markdown-source.mjs";
+import { sansCommentaires, stripLeadingTitle } from "./lib/markdown-source.mjs";
 import { prepareOutDir } from "./lib/out-dir.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
 import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs";
 import { extractApiModel, renderApiPages } from "./lib/api-reference.mjs";
 import { adrPublicationDefects } from "./lib/adr-publication.mjs";
 import { moduleDocsDirs } from "./lib/module-docs.mjs";
-import { staleTranslations, translationGroups } from "./lib/translations.mjs";
+import {
+  SOURCE_LANGUAGE,
+  pageLanguage,
+  sourceOfTranslation,
+  staleTranslations,
+  translationGroups,
+  translationPath,
+} from "./lib/translations.mjs";
 import { pageSummary } from "./lib/page-summary.mjs";
 import { brandTitle, seoHead, techArticle, webPage } from "./lib/seo-head.mjs";
 
@@ -460,6 +467,16 @@ async function collect() {
     d.repoRel = repoRelOf(d);
     d.verdict = decide(d);
     d.url = urlOf(d);
+  }
+  // Une TRADUCTION est publiée à l'adresse de sa source, préfixée par sa langue
+  // (`lib/translations.mjs#translationPath`) — jamais à celle de son fichier :
+  // une adresse publiée ne se change plus.
+  const byRepo = new Map(docs.map((d) => [d.repoRel, d]));
+  for (const d of docs) {
+    const src = sourceOfTranslation(d);
+    const source = src === null ? undefined : byRepo.get(src);
+    if (source !== undefined)
+      d.url = translationPath(source.url, pageLanguage(d.meta));
   }
   return docs;
 }
@@ -1340,6 +1357,7 @@ function writeSearchIndex(published) {
       path: d.url.startsWith(`${MOUNT}/`)
         ? d.url.slice(MOUNT.length + 1)
         : d.url,
+      lang: pageLanguage(d.meta),
       title: d.title,
       navTitle: d.navTitle ?? d.title,
       sectionLabel: sectionLabelOf(d),
@@ -1364,7 +1382,7 @@ function renderPage(d, published, index, publishedPaths) {
   const raw = sourceOf(d);
   const bodyRaw = raw.replace(/^---\n[\s\S]*?\n---\n/, "");
   // Le titre vient du chrome : on retire le `# …` de tête pour ne pas le doubler.
-  const body = bodyRaw.replace(/^\s*#\s+.*\r?\n/, "");
+  const body = stripLeadingTitle(bodyRaw);
 
   const fromDir = path.posix.dirname(d.repoRel);
   // 1. ce qui n'aura pas d'URL de site part vers GitHub, tant que c'est un chemin
@@ -1408,7 +1426,7 @@ function renderPage(d, published, index, publishedPaths) {
 
   const canonical = `${SITE_URL}${d.url}`;
   const updated = metaString(d.meta, "updated");
-  const lang = metaString(d.meta, "lang") || "fr";
+  const lang = pageLanguage(d.meta);
   const page = doc({
     title: d.title,
     lang,
@@ -1428,6 +1446,7 @@ function renderPage(d, published, index, publishedPaths) {
         url: canonical,
         lang,
         alternates: d.alternates ?? [],
+        noindex: IS_NEXT,
         jsonLd: techArticle({
           title: d.title,
           description: firstText,
@@ -1444,9 +1463,6 @@ function renderPage(d, published, index, publishedPaths) {
       (FAVICON
         ? `<link rel="icon" href="${rel(d.url, "/")}${FAVICON.slice(1)}">\n`
         : "") +
-      // `/next/` décrit ce qui n'est pas installable : un moteur de recherche
-      // qui l'indexerait enverrait le lecteur sur une API qu'il n'a pas.
-      (IS_NEXT ? `<meta name="robots" content="noindex">\n` : "") +
       versionSwitchScript(rel(d.url, "/")) +
       "\n" +
       // Le markdown de la page, servi à côté d'elle : un agent l'obtient sans
@@ -1456,7 +1472,7 @@ function renderPage(d, published, index, publishedPaths) {
       `<link rel="alternate" type="text/markdown" href="index.md">`,
     subtitle: badges ? `<span class="badges">${badges}</span>` : "",
     sections: [nextBanner(rel(d.url, "/")), html],
-    nav: buildNav(published, d),
+    nav: buildNav(sourcePages, d),
     aside: buildToc(toc),
     style: SITE_CSS,
     footer:
@@ -1505,13 +1521,21 @@ if (ONLY) {
     if (d !== one) d.verdict = { ok: false, why: "hors aperçu" };
 }
 const published = docs.filter((d) => d.verdict.ok);
+// Les pages dans la langue du corpus : elles font le menu et l'index de
+// recherche. Une traduction est publiée (adresse, hreflang) sans apparaître
+// dans le menu français — le menu par langue viendra avec la première langue.
+const sourcePages = published.filter(
+  (d) => pageLanguage(d.meta) === SOURCE_LANGUAGE,
+);
 
 // Un ADR ne part qu'une fois marqué (`publish: true`) — et marqué, il doit dire
 // son statut et renvoyer au guide du même sujet (`lib/adr-publication.mjs`).
+const publishedRepo = new Set(published.map((d) => d.repoRel));
 const adrDefects = published
   .filter((d) => d.source.kind === "root" && !d.generated)
   .flatMap((d) =>
     adrPublicationDefects({
+      isPublished: (repoRel) => publishedRepo.has(repoRel),
       relPath: d.relPath,
       meta: d.meta,
       body: sourceOf(d).replace(/^---\n[\s\S]*?\n---\n/, ""),
@@ -1541,7 +1565,7 @@ if (adrDefects.length > 0) {
     for (const line of stale) console.error(`✗ traduction périmée : ${line}`);
     process.exit(1);
   }
-  const groups = translationGroups(authored);
+  const groups = translationGroups(authored, { siteUrl: SITE_URL });
   for (const a of authored) a.d.alternates = groups.get(a.url) ?? [];
 }
 
@@ -1624,7 +1648,7 @@ if (m) {
   );
 }
 
-const searchBytes = writeSearchIndex(published);
+const searchBytes = writeSearchIndex(sourcePages);
 
 let bytes = 0;
 let diagrams = 0;
@@ -1651,15 +1675,14 @@ writeFileSync(
         description:
           "Cette adresse ne correspond à aucune page de la documentation de Nodefony : retour à l'accueil ou au dépôt.",
         url: `${SITE_URL}/404.html`,
+        noindex: true,
         jsonLd: webPage({
           title: "Page introuvable",
           description: "Adresse sans page dans la documentation de Nodefony.",
           url: `${SITE_URL}/404.html`,
           siteUrl: SITE_URL,
         }),
-      }) +
-      `\n<meta name="robots" content="noindex">` +
-      (FAVICON ? `\n<link rel="icon" href="${SITE_URL}${FAVICON}">` : ""),
+      }) + (FAVICON ? `\n<link rel="icon" href="${SITE_URL}${FAVICON}">` : ""),
     sections: [
       // Servie à la place d'une URL quelconque, cette page ne connaît pas sa
       // profondeur : ses liens sont les seuls du site à devoir rester absolus.

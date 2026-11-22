@@ -1843,7 +1843,7 @@
       "test": false,
       "purpose": "Refuse un site RENDU dont une page n'a pas son référencement propre : titre, description, adresse canonique, aperçu de partage, données structurées — et aucun titre ni description partagé par deux pages.",
       "usage": [
-        "node scripts/site/check-site-seo.mjs <dossier-rendu> [--json]"
+        "node scripts/site/check-site-seo.mjs <dossier-rendu> [--site-url <url>] [--noindex] [--json]"
       ],
       "options": [],
       "env": [],
@@ -1984,7 +1984,8 @@
         "scripts/site/build-docs-site.mjs"
       ],
       "testedBy": [
-        "scripts/site/markdown-source.test.mjs"
+        "scripts/site/markdown-source.test.mjs",
+        "scripts/site/translations.test.mjs"
       ]
     },
     {
@@ -2055,7 +2056,9 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "scripts/site/check-site-seo.mjs"
+        "scripts/site/build-site-plan.mjs",
+        "scripts/site/check-site-seo.mjs",
+        "scripts/site/lib/sitemap.mjs"
       ],
       "testedBy": [
         "scripts/site/seo-check.test.mjs",
@@ -2122,6 +2125,23 @@
       ],
       "testedBy": [
         "scripts/site/site-versions.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/sitemap.mjs",
+      "test": false,
+      "purpose": "Le plan pour les moteurs au format sitemap 0.9 — fonctions PURES, éprouvées sans rendre le site (`site-plan.test.mjs`).",
+      "usage": [
+        "import { sitemapXml, sitemapEntries, modifiedDate } from \"./lib/sitemap.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-site-plan.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/site-plan.test.mjs"
       ]
     },
     {
@@ -2296,7 +2316,7 @@
     {
       "path": "scripts/site/translations.test.mjs",
       "test": true,
-      "purpose": "",
+      "purpose": "L'adresse d'une traduction suit la convention : `/<langue>` + celle de la source.",
       "usage": [],
       "options": [],
       "env": [],
@@ -8729,6 +8749,10 @@
               },
               {
                 "flag": "--minutes",
+                "help": ""
+              },
+              {
+                "flag": "--noindex",
                 "help": ""
               },
               {

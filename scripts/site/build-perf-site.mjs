@@ -63,6 +63,8 @@ const OUT = path.resolve(ROOT, arg("out", "tmp/sites/perf"));
 // `/performance/` — le préfixe que `siteNav` pose déjà, et que `build-site.mjs`
 // donne à `--out`.
 const SITE_URL = arg("site-url", "https://nodefony.net").replace(/\/+$/, "");
+/** Site `/next/` : aucune page indexable (`build-site.mjs` pose l'option). */
+const NOINDEX = process.argv.includes("--noindex");
 const canonicalOf = (pathUnderPerf) =>
   `${SITE_URL}/performance/${pathUnderPerf}`;
 const DATA_DIR = path.resolve(ROOT, arg("data", "docs/performance/data"));
@@ -127,6 +129,7 @@ for (const version of versions) {
         // …et y pose son référencement (canonique sur la page de la VERSION).
         "--site-url",
         SITE_URL,
+        ...(NOINDEX ? ["--noindex"] : []),
       ],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
@@ -259,6 +262,7 @@ for (const page of PROSE) {
       documentTitle: brandTitle(page.titre),
       subtitle: page.sous,
       head: seoHead({
+        noindex: NOINDEX,
         title: page.titre,
         description: clipSummary(page.sous),
         url: canonicalOf(`${page.slug}/`),
@@ -456,6 +460,7 @@ writeFileSync(
     head:
       `<link rel="icon" href="../favicon.svg" type="image/svg+xml">\n` +
       seoHead({
+        noindex: NOINDEX,
         title: INDEX_TITLE,
         description: INDEX_DESCRIPTION,
         url: canonicalOf(""),

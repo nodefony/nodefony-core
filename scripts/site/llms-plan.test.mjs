@@ -174,6 +174,61 @@ describe("résumé d'une page", () => {
     );
   });
 
+  it("ne coupe pas sur une abréviation : il faut une majuscule après le point", () => {
+    const text =
+      "Un jeton d'accès se présente en en-tête, comme le décrit la norme (cf. RFC 6750, p. ex. sur un appel serveur) puis ensuite une suite de mots qui déborde.";
+    const coupe = clipSummary(text);
+    expect(coupe).not.toMatch(/p\.…?$/);
+    expect(coupe).not.toMatch(/\(cf\.…?$/);
+    // Une vraie fin de phrase (point, espace, majuscule accentuée) coupe bien.
+    const vrai =
+      "Un résumé assez long pour tenir la moitié de la place disponible dans la description, e.g. un exemple, et fini. Écoutez la suite qui déborde largement de la borne.";
+    expect(clipSummary(vrai)).toMatch(/et fini\.$/);
+    expect(
+      clipSummary(`${"x ".repeat(50)}cf. Suite de mots ${"y ".repeat(30)}`),
+    ).not.toMatch(/cf\.$/);
+  });
+
+  it("ne laisse aucune parenthèse, crochet ou guillemet ouvert sans fermeture", () => {
+    const text = `${"Le jeton circule en en-tête ".repeat(4)}(voir la section sur les jetons d'accès et leur durée de vie dans le serveur) fin.`;
+    const coupe = clipSummary(text);
+    expect(coupe.length).toBeLessThanOrEqual(SUMMARY_MAX);
+    expect(coupe).not.toContain("(");
+    expect(coupe).toMatch(/en-tête…$/);
+    const guillemet = clipSummary(
+      `${"mot ".repeat(36)}« une citation qui ne se ferme jamais avant la borne de coupe`,
+    );
+    expect(guillemet).not.toContain("«");
+  });
+
+  it("coupe par points de code, jamais au milieu d'un emoji", () => {
+    const text = `${"a".repeat(158)}${"😀".repeat(5)}`;
+    const coupe = clipSummary(text);
+    expect(coupe).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+    expect(coupe).not.toMatch(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/);
+    expect(Array.from(coupe).length).toBeLessThanOrEqual(SUMMARY_MAX);
+    const dense = clipSummary("😀".repeat(200));
+    expect(Array.from(dense).length).toBeLessThanOrEqual(SUMMARY_MAX);
+    expect(dense).toMatch(/😀…$/);
+  });
+
+  it("un texte sans espace plus long que la borne se coupe proprement", () => {
+    const coupe = clipSummary("x".repeat(300));
+    expect(Array.from(coupe)).toHaveLength(SUMMARY_MAX);
+    expect(coupe).toBe(`${"x".repeat(SUMMARY_MAX - 1)}…`);
+  });
+
+  it("écarte un paragraphe qui annonce une liste, et normalise une description déclarée", () => {
+    const body =
+      "Trois pas, toujours les mêmes, pour installer le module :\n\n- un\n- deux\n\nLe module s'installe en une commande et se configure dans un fichier.\n";
+    expect(pageSummary(body, undefined, "t")).toBe(
+      "Le module s'installe en une commande et se configure dans un fichier.",
+    );
+    expect(pageSummary(body, "Première ligne\ndeuxième ligne\n", "t")).toBe(
+      "Première ligne deuxième ligne",
+    );
+  });
+
   it("garde les soulignés d'un identifiant, retire ceux d'une emphase", () => {
     const body =
       "Changer `NF_DATABASE_URL` de postgres à mongodb ne doit _rien_ changer à ce que voit l'application.\n";

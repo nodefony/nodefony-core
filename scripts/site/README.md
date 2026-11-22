@@ -67,7 +67,7 @@ Publie le PLAN du site : `llms.txt`, `sitemap.xml` et `robots.txt`.
 - **Usage** : `npm run site:plan`
 - **Usage** : `node scripts/site/build-site-plan.mjs [--out tmp/sites/docs] [--base <url>]`
 - **Appelé par** : `npm run site:plan` · `site/build-site.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/app-template-deps.mjs` · `site/lib/llms-plan.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/app-template-deps.mjs` · `site/lib/llms-plan.mjs` · `site/lib/seo-check.mjs` · `site/lib/sitemap.mjs`
 
 ## [`build-site.mjs`](build-site.mjs)
 
@@ -91,7 +91,7 @@ Refuse un site dont un lien interne ne mène nulle part.
 
 Refuse un site RENDU dont une page n'a pas son référencement propre : titre, description, adresse canonique, aperçu de partage, données structurées — et aucun titre ni description partagé par deux pages.
 
-- **Usage** : `node scripts/site/check-site-seo.mjs <dossier-rendu> [--json]`
+- **Usage** : `node scripts/site/check-site-seo.mjs <dossier-rendu> [--site-url <url>] [--noindex] [--json]`
 - **Appelé par** : `site/build-site.mjs`
 - **Utilise** : `site/lib/seo-check.mjs`
 
@@ -165,7 +165,7 @@ Le menu des sites voisins (performance, qualité) : des liens RELATIFS justes de
 Éprouve le lecteur de dépendances du gabarit d'application.
 
 - **Lancé par** : `npm run test:site-plan` · `node.js.yml` · `npm run test:tooling`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/app-template-deps.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/app-template-deps.mjs` · `site/lib/sitemap.mjs`
 
 ## [`site-versions.test.mjs`](site-versions.test.mjs)
 
@@ -176,5 +176,7 @@ Le menu des sites voisins (performance, qualité) : des liens RELATIFS justes de
 
 ## [`translations.test.mjs`](translations.test.mjs)
 
+L'adresse d'une traduction suit la convention : `/<langue>` + celle de la source.
+
 - **Lancé par** : `npm run test:tooling`
-- **Utilise** : `site/lib/seo-check.mjs` · `site/lib/seo-head.mjs` · `site/lib/translations.mjs`
+- **Utilise** : `site/lib/markdown-source.mjs` · `site/lib/seo-check.mjs` · `site/lib/seo-head.mjs` · `site/lib/translations.mjs`

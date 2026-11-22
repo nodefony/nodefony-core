@@ -69,7 +69,7 @@ Préparation de la SOURCE Markdown d'une page avant son rendu par le site.
 
 - **Usage** : `import { sansCommentaires } from "./lib/markdown-source.mjs"`
 - **Appelé par** : `site/build-docs-site.mjs`
-- **Testé par** : `site/markdown-source.test.mjs`
+- **Testé par** : `site/markdown-source.test.mjs` · `site/translations.test.mjs`
 
 ## [`module-docs.mjs`](module-docs.mjs)
 
@@ -100,7 +100,7 @@ Le résumé d'une page publiée : l'extrait qu'un moteur de recherche montrera (
 Le référencement d'un site RENDU, page par page : ce qu'un moteur de recherche, l'aperçu d'un lien partagé et un agent lisent dans l'en-tête.
 
 - **Usage** : `import { readSeoHead, siteDefects } from "./lib/seo-check.mjs"`
-- **Appelé par** : `site/check-site-seo.mjs`
+- **Appelé par** : `site/build-site-plan.mjs` · `site/check-site-seo.mjs` · `site/lib/sitemap.mjs`
 - **Testé par** : `site/seo-check.test.mjs` · `site/translations.test.mjs`
 
 ## [`seo-head.mjs`](seo-head.mjs)
@@ -126,6 +126,15 @@ Versions du site publié — qui vit où, et comment passer de l'une à l'autre.
 - **Usage** : `import { planVersions, manifestFor } from "./lib/site-versions.mjs"`
 - **Appelé par** : `pages.yml` · `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-site.mjs` · `site/check-site-links.mjs` · `site/readme-html.mjs`
 - **Testé par** : `site/site-versions.test.mjs`
+
+## [`sitemap.mjs`](sitemap.mjs)
+
+Le plan pour les moteurs au format sitemap 0.9 — fonctions PURES, éprouvées sans rendre le site (`site-plan.test.mjs`).
+
+- **Usage** : `import { sitemapXml, sitemapEntries, modifiedDate } from "./lib/sitemap.mjs"`
+- **Appelé par** : `site/build-site-plan.mjs`
+- **Testé par** : `site/site-plan.test.mjs`
+- **Utilise** : `site/lib/seo-check.mjs`
 
 ## [`translations.mjs`](translations.mjs)
 

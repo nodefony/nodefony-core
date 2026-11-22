@@ -21,7 +21,7 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | [`test/vitest/`](test/vitest/README.md) | Socles partagés par TOUTES les configs vitest du dépôt — garde des dossiers temporaires, gates d'infrastructure, décorateurs oxc, cache de transformation — et la config des suites lancées depuis la racine. Importés par les configs, jamais lancés à la main. | 5 |
 | [`generate/`](generate/README.md) | Génération d'artefacts : graphe symbolique, page de manuel, catalogue d'environnement, logo. | 14 |
 | [`site/`](site/README.md) | Rendu du site de documentation publié et de ses pages annexes. | 23 |
-| [`site/lib/`](site/lib/README.md) | Helpers propres au rendu du site de documentation. | 15 |
+| [`site/lib/`](site/lib/README.md) | Helpers propres au rendu du site de documentation. | 16 |
 | [`repo/`](repo/README.md) | Hygiène de l'arbre de travail : verrous, rangement de tmp/, commit sans verrou orphelin. | 10 |
 | [`ci/`](ci/README.md) | Ce que la forge lance ou éprouve sur elle-même. | 7 |
 | [`release/`](release/README.md) | Chaîne de publication du produit. | 36 |

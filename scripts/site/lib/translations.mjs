@@ -8,6 +8,11 @@
  *     translationOf: ../cbor.md        # chemin relatif vers la page SOURCE
  *     sourceHash: 3f9a1c0b7d2e         # empreinte de la source traduite
  *
+ * L'ADRESSE d'une traduction ne dépend pas de l'emplacement de son fichier : c'est
+ * celle de sa source, préfixée par la langue (`/docs/modules/core/cbor/` →
+ * `/en/docs/modules/core/cbor/`, {@link translationPath}). Une adresse publiée ne
+ * se change plus : la convention est figée avant la première traduction.
+ *
  * La source ne déclare rien : c'est la traduction qui se rattache, donc ajouter
  * une langue ne touche à aucune page existante. Chaque groupe (source +
  * traductions) se déclare aux moteurs en `hreflang`, réciproquement ; et une
@@ -21,6 +26,42 @@ import path from "node:path";
 
 /** Langue que les moteurs servent à qui n'a aucune des langues proposées. */
 export const DEFAULT_LANGUAGE = "en";
+
+/** Langue dans laquelle le corpus est ÉCRIT — celle d'une page sans `lang`. */
+export const SOURCE_LANGUAGE = "fr";
+
+/** Code de langue accepté : BCP 47 simple, langue et région facultative (`fr`, `en`, `fr-CA`). */
+const LANG_TAG = /^[a-z]{2,3}(-[A-Z]{2})?$/;
+
+/**
+ * La langue d'une page, lue à son frontmatter.
+ *
+ * @param meta - frontmatter de la page
+ * @returns le code de langue, {@link SOURCE_LANGUAGE} par défaut
+ * @throws Error si le code n'est pas un BCP 47 simple (`french`, `en_UK`)
+ */
+export function pageLanguage(meta) {
+  const lang =
+    typeof meta?.lang === "string" && meta.lang !== ""
+      ? meta.lang
+      : SOURCE_LANGUAGE;
+  if (!LANG_TAG.test(lang))
+    throw new Error(
+      `langue « ${lang} » : attendu un code BCP 47 simple (fr, en, fr-CA)`,
+    );
+  return lang;
+}
+
+/**
+ * L'adresse d'une traduction : celle de sa source, préfixée par la langue.
+ *
+ * @param sourcePath - chemin publié de la source, depuis la racine du site (`/docs/…/`)
+ * @param lang - langue de la traduction
+ * @returns `/<lang>/docs/…/`
+ */
+export function translationPath(sourcePath, lang) {
+  return `/${lang}${sourcePath.startsWith("/") ? "" : "/"}${sourcePath}`;
+}
 
 /**
  * Empreinte du CORPS d'une page source — frontmatter exclu (une date de mise à
@@ -58,10 +99,11 @@ export function sourceOfTranslation({ repoRel, meta }) {
  * @param pages - pages publiées `{ repoRel, url, meta }` (`url` absolue)
  * @returns adresse absolue d'une page → liste complète de ses versions
  *   `[{ lang, url, isDefault }]` ; une page sans traduction n'y figure pas
- * @throws Error si une traduction vise une source non publiée, ou si deux
- *   versions d'un groupe portent la même langue
+ * @throws Error si une traduction vise une source non publiée ou une autre
+ *   traduction, si deux versions d'un groupe portent la même langue, ou si
+ *   l'adresse d'une traduction ne suit pas {@link translationPath}
  */
-export function translationGroups(pages) {
+export function translationGroups(pages, { siteUrl } = {}) {
   const byRepo = new Map(pages.map((p) => [p.repoRel, p]));
   const groups = new Map();
   for (const p of pages) {
@@ -72,13 +114,26 @@ export function translationGroups(pages) {
       throw new Error(
         `${p.repoRel} : translationOf vise ${src}, absente du site`,
       );
+    // Une traduction se rattache à la SOURCE, jamais à une autre traduction :
+    // une chaîne fr ← en ← de écraserait les groupes, non réciproques.
+    if (sourceOfTranslation(source) !== null)
+      throw new Error(
+        `${p.repoRel} : translationOf vise ${src}, elle-même une traduction — viser sa source`,
+      );
+    if (siteUrl !== undefined) {
+      const expected = `${siteUrl}${translationPath(source.url.slice(siteUrl.length), pageLanguage(p.meta))}`;
+      if (p.url !== expected)
+        throw new Error(
+          `${p.repoRel} : publiée à ${p.url}, attendu ${expected}`,
+        );
+    }
     const members = groups.get(source.repoRel) ?? [source];
     members.push(p);
     groups.set(source.repoRel, members);
   }
   const out = new Map();
   for (const members of groups.values()) {
-    const langs = members.map((m) => String(m.meta?.lang ?? "fr"));
+    const langs = members.map((m) => pageLanguage(m.meta));
     const dup = langs.find((l, i) => langs.indexOf(l) !== i);
     if (dup !== undefined)
       throw new Error(`${members[0].repoRel} : deux versions en « ${dup} »`);

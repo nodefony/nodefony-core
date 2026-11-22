@@ -8,7 +8,14 @@
  * `/next/`) — pas sur le site assemblé, dont les versions archivées sont
  * remises telles qu'elles ont été publiées.
  *
- * @usage node scripts/site/check-site-seo.mjs <dossier-rendu> [--json]
+ * Options :
+ *   --site-url <url>  racine publique du site (défaut https://nodefony.net ;
+ *                     `https://nodefony.net/next` pour la préversion) — chaque
+ *                     canonique doit en dériver
+ *   --noindex         exige `<meta name="robots" content="noindex">` sur CHAQUE page
+ *   --json            sortie machine
+ *
+ * @usage node scripts/site/check-site-seo.mjs <dossier-rendu> [--site-url <url>] [--noindex] [--json]
  */
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -17,11 +24,18 @@ import { siteDefects } from "./lib/seo-check.mjs";
 const args = process.argv.slice(2);
 if (args.includes("--help") || args.length === 0) {
   console.log(
-    "usage : node scripts/site/check-site-seo.mjs <dossier-rendu> [--json]",
+    "usage : node scripts/site/check-site-seo.mjs <dossier-rendu> [--site-url <url>] [--noindex] [--json]",
   );
   process.exit(args.length === 0 ? 2 : 0);
 }
 const ROOT = path.resolve(args[0]);
+const siteUrlAt = args.indexOf("--site-url");
+const SITE_URL =
+  siteUrlAt === -1 ? "https://nodefony.net" : (args[siteUrlAt + 1] ?? "");
+if (!/^https?:\/\//.test(SITE_URL)) {
+  console.error("--site-url attend une URL absolue");
+  process.exit(2);
+}
 
 /** Toutes les pages HTML du dossier, en chemins de site (`/` en séparateur). */
 function htmlPages(dir) {
@@ -41,7 +55,10 @@ function htmlPages(dir) {
 }
 
 const pages = htmlPages(ROOT);
-const defects = siteDefects(pages);
+const defects = siteDefects(pages, {
+  siteUrl: SITE_URL,
+  noindex: args.includes("--noindex"),
+});
 if (args.includes("--json")) {
   console.log(JSON.stringify({ pages: pages.length, defects }, null, 2));
 } else if (defects.length === 0) {
