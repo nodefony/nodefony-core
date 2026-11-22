@@ -155,4 +155,10 @@ export interface IDocSearchResult {
   /** Pages retenues AVANT bornage — un total de 40 avec 20 rendus se dit. */
   matched: number;
   hits: IDocSearchHit[];
+  /**
+   * La requête CORRIGÉE, quand la recherche exacte ne rendait rien et qu'une
+   * faute de frappe a été rattrapée (`grcp` → `grpc`). Absente sinon : les
+   * résultats sont alors ceux de la requête telle que tapée.
+   */
+  correctedQuery?: string;
 }
