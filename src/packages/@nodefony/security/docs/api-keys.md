@@ -293,8 +293,11 @@ locataire » verrait tout. Il sera accepté le jour où il sera appliqué. Ensui
    l'émission des jetons — voir [autorisation](./authorization.md).
 4. **Résolution de l'expiration** — `expiresInDays` explicite, sinon le défaut de config, `null` =
    sans expiration ; une valeur non positive lève un 400 (`#resolveExpiry()`, `apiKeys.ts#ApiKeyService.#resolveExpiry`).
-5. **Plafond anti-abus** — on ne compte que les clés **actives** (ni révoquées ni expirées) via
-   `#isActive()` (`apiKeys.ts#ApiKeyService.#isActive`) ; au-delà de `maxPerSubject` → 409 (`apiKeys.ts#ApiKeyService.#maxPerSubject`).
+5. **Plafond anti-abus** — on ne compte que les clés **utilisables** par le compte, via `#isUsable()`
+   (`apiKeys.ts#ApiKeyService.#isUsable`) : ni révoquées ni expirées, émises APRÈS le seuil de révocation en masse du
+   porteur, et liées au compte qui porte aujourd'hui l'identifiant. Une clé tuée par la cascade de révocation d'un
+   compte garde `revokedAt` nul : sans ces deux conditions, elle bloquait la création. Au-delà de `maxPerSubject` →
+   409 (`apiKeys.ts#ApiKeyService.#maxPerSubject`).
 6. **Génération** — 32 octets aléatoires, `publicPrefix` et `secretHash` dérivés
    (`generateApiKey()`, `apiKeyFormat.ts#generateApiKey`).
 7. **Écriture** — le `record` de `kind:"pat"` posé au store par `store.put()` (`apiKeys.ts#ApiKeyService.createForSubject`).
@@ -626,8 +629,9 @@ Le coût par requête authentifiée par clé est **maîtrisé par construction**
   (`listPagePat()`, `apiKeys.ts#ApiKeyService.listPagePat`), fenêtre plafonnée à 200 (`SecurityAdminApi.ts#IApiKeyAdmin`).
 
 Le point de vigilance restant : `createForSubject()` compte les clés actives via `findBySubject()`
-(`ITokenStore.ts#ITokenStore.findBySubject`), qui charge **toutes** les clés du porteur. C'est borné par `maxPerSubject`
-(100 par défaut) et c'est un chemin froid (émission), pas le chemin chaud.
+(`ITokenStore.ts#ITokenStore.findBySubject`), qui charge **toutes** les clés du porteur, révoquées comprises : ce
+n'est pas borné par `maxPerSubject`, qui ne compte que les clés utilisables. C'est un chemin froid (émission, liste
+du porteur), pas le chemin chaud.
 
 ## 📡 Observabilité — Studio
 
