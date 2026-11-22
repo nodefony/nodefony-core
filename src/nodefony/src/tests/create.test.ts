@@ -814,6 +814,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(prov, "NF_ADMIN_PASSWORD");
       assert.include(prov, "ROLE_NODEFONY_ADMIN");
+      // La règle du semis vient du PAQUET (`seedAccount`) : une copie locale
+      // ne recevrait jamais un correctif — vécu (#817), une variable de mot de
+      // passe ignorée sans un mot sur un compte existant.
+      assert.match(
+        prov,
+        /import \{[^}]*\bseedAccount\b[^}]*\} from "@nodefony\/user"/,
+      );
+      assert.include(prov, "seedAccount(");
+      assert.notInclude(
+        prov,
+        "createUser(",
+        "le gabarit sème encore lui-même : la règle de @nodefony/user ne l'atteint pas",
+      );
       const config = manifesteComplet(dest);
       assert.include(config, "roleHierarchy");
       assert.include(config, "NF_CSRF_SECRET");

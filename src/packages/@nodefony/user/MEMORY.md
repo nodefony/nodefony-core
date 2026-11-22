@@ -69,6 +69,15 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
   copies du paquet dans un arbre npm feraient perdre la seule information utile.
   ⚠️ Un échec de hook n'est fatal qu'en PRODUCTION (`Kernel.ts#Kernel.captureBootServers`) — en développement il était
   déjà fail-soft, avec un message technique que rien ne reliait à un compte.
+- **`seedAccount(users, request, log)` — LA règle du semis** (`seedAccount.ts`), appelée par le
+  gabarit `create app` ET l'app du dépôt (`nodefony/security/provisionUsers.ts`) : jamais de copie
+  locale — le gabarit est copié chez l'utilisateur, un correctif n'y arriverait jamais. Compte
+  existant = JAMAIS réécrit (sinon le mot de passe changé par l'utilisateur est écrasé à chaque
+  boot) ; variable posée alors ignorée → `NOTICE` (`describeIgnoredSeedPassword` : variable, compte,
+  geste `security:user:password`, jamais la valeur). Rend `SeedOutcome`
+  (`created`/`exists`/`no-password`/`failed`) : le message de `no-password` (prod sans
+  `NF_ADMIN_PASSWORD`) appartient à l'appelant. Refus → `describeSeedFailure` en `ERROR`, jamais levé.
+  `log` injecté (`SeedLog`) : ce paquet ne connaît pas le syslog du noyau.
 
 - `assertUserContract(present, origin, expected?)` : refuse une entité qui ne porte pas les colonnes
   du contrat, en nommant colonne + `readers` + remède (`orm:generate`). `expected` par défaut =

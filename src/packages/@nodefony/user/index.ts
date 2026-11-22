@@ -112,6 +112,16 @@ export type { IPasswordPolicyOptions } from "./nodefony/src/password/passwordPol
 export { truncatedPasswordHash } from "./nodefony/src/password/passwordHash";
 export { describeSeedFailure } from "./nodefony/src/password/seedFailure";
 export type { ISeedFailureContext } from "./nodefony/src/password/seedFailure";
+export {
+  describeIgnoredSeedPassword,
+  seedAccount,
+} from "./nodefony/src/password/seedAccount";
+export type {
+  ISeedAccountRequest,
+  SeedLog,
+  SeedLogSeverity,
+  SeedOutcome,
+} from "./nodefony/src/password/seedAccount";
 
 // ─── Erreurs (P6 S0, J2) ─────────────────────────────────────────────────────
 export { UserNotFoundError } from "./nodefony/errors/UserNotFoundError";

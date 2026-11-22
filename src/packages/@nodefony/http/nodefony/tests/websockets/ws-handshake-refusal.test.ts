@@ -15,7 +15,7 @@
 import { describe, expect, it } from "vitest";
 import https from "node:https";
 import tls from "node:tls";
-import { drainTo } from "../helpers/scopeDrain.js";
+import { watchScopes, type IScopeWitness } from "../helpers/scopeDrain.js";
 import {
   handshake as handshakeAt,
   type HandshakeOutcome,
@@ -80,9 +80,15 @@ async function loginCookie(identifier: string): Promise<string> {
   return (first as string).split(";")[0] as string;
 }
 
-async function liveScopes(): Promise<number> {
-  const res = await request("/nodefony/test/als-test/scopes", "GET");
-  return (JSON.parse(res.body) as { requestScopes: number }).requestScopes;
+/**
+ * Témoin PAR MARQUE des scopes de ce banc. Le compte global additionnait les
+ * requêtes en vol des suites jouées en parallèle contre le même serveur (#794).
+ */
+function witness(): Promise<IScopeWitness> {
+  return watchScopes(async (path) => {
+    const body: unknown = JSON.parse((await request(path, "GET")).body);
+    return body;
+  });
 }
 
 /** Handshake vers une route du serveur de test (cf `helpers/wsHandshake`). */
@@ -231,13 +237,16 @@ describe("#596 — un refus se décide AVANT le 101 (requires server)", () => {
   });
 
   it("vingt refus ne laissent aucun scope de requête ouvert", async () => {
-    const before = await liveScopes();
-    for (let i = 0; i < 20; i++) expectRefused(await handshake(HUB), 401);
-    expect(await drainTo(liveScopes, before, 1)).toBeLessThan(1);
+    const w = await witness();
+    for (let i = 0; i < 20; i++)
+      expectRefused(await handshake(HUB, w.headers), 401);
+    const reste = await w.drain();
+    expect(reste.seen, "prémisse : le témoin a vu chaque refus").toBe(20);
+    expect(reste.open).toBe(0);
   });
 
   it("un client qui part pendant la décision ne fait ni tomber le serveur ni fuir un scope", async () => {
-    const before = await liveScopes();
+    const w = await witness();
     const raw = (reset: boolean) =>
       new Promise<void>((resolve) => {
         const socket = tls.connect({ ...BASE, servername: "localhost" }, () => {
@@ -245,7 +254,8 @@ describe("#596 — un refus se décide AVANT le 101 (requires server)", () => {
             `GET ${HUB} HTTP/1.1\r\nHost: 127.0.0.1:5152\r\n` +
               "Upgrade: websocket\r\nConnection: Upgrade\r\n" +
               "Sec-WebSocket-Version: 13\r\n" +
-              "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n",
+              "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+              `x-scope-witness: ${w.mark}\r\n\r\n`,
             () => {
               if (reset) socket.destroy(new Error("coupure"));
               else socket.end();
@@ -260,6 +270,14 @@ describe("#596 — un refus se décide AVANT le 101 (requires server)", () => {
     expect(
       (await request("/nodefony/test/als-test/scopes", "GET")).status,
     ).toBe(200);
-    expect(await drainTo(liveScopes, before, 1)).toBeLessThan(1);
+    const reste = await w.drain();
+    // Un client coupé (RST) peut partir avant que le serveur ait lu sa
+    // requête : seul un minimum est exigé — les fermetures douces (FIN)
+    // atteignent la décision, elles.
+    expect(
+      reste.seen,
+      "prémisse : le témoin a vu des handshakes",
+    ).toBeGreaterThan(0);
+    expect(reste.open).toBe(0);
   });
 });

@@ -1,6 +1,13 @@
-import { Controller, route, Get, controller } from "@nodefony/framework";
+import { Controller, route, Get, Query, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
+import type { HttpKernel } from "@nodefony/http";
 import { RequestContext } from "nodefony";
+import {
+  parseWitnessMark,
+  readScopes,
+  unwatchScopes,
+  watchScopes,
+} from "./scopeWitness.js";
 
 /**
  * Shared observation state for the ALS propagation integration tests
@@ -79,11 +86,6 @@ function setFirewallIdentity(id: string): void {
   RequestContext.set("token", { user: id });
 }
 
-type ContextEmitter = {
-  on(event: string, fn: (context: object) => void): unknown;
-  removeListener(event: string, fn: (context: object) => void): unknown;
-};
-
 /**
  * Traceur des contextes HTTP : chaque contexte créé est inscrit dans un
  * `FinalizationRegistry`, qui le décompte quand le ramasse-miettes l'a
@@ -143,7 +145,7 @@ async function gcSettled(gc: () => void): Promise<boolean> {
   return contextTracker.sentinels !== seen;
 }
 
-function armContextTracker(kernel: ContextEmitter | undefined): boolean {
+function armContextTracker(kernel: HttpKernel | null | undefined): boolean {
   if (!kernel) return false;
   if (!contextTracker.armed) {
     kernel.on("onCreateContext", contextTracker.onCreate);
@@ -152,7 +154,7 @@ function armContextTracker(kernel: ContextEmitter | undefined): boolean {
   return true;
 }
 
-function disarmContextTracker(kernel: ContextEmitter | undefined): void {
+function disarmContextTracker(kernel: HttpKernel | null | undefined): void {
   if (kernel && contextTracker.armed) {
     kernel.removeListener("onCreateContext", contextTracker.onCreate);
   }
@@ -179,6 +181,11 @@ class AlsController extends Controller {
     const context = this.context;
     if (!context) throw new Error("AlsController : aucun contexte de requête");
     return context;
+  }
+
+  /** Le noyau HTTP du serveur, `null` hors application démarrée. */
+  #httpKernel(): HttpKernel | null {
+    return this.kernel?.get<HttpKernel>("HttpKernel") ?? null;
   }
 
   async initialize(): Promise<this> {
@@ -296,19 +303,53 @@ class AlsController extends Controller {
   // Lifecycle diagnostic — number of live "request" scopes still held by the
   // DI container. Ground truth for scope leaks (immune to GC/Rollup heap noise).
   // A clean server idles near 1 (the scope of this very request).
+  // ⚠️ Compte GLOBAL : toutes les requêtes en vol, celles des suites d'autres
+  // paquets comprises (elles tournent en parallèle). Un banc qui prouve que
+  // SES requêtes rendent leur scope prend le témoin par marque, `/scopes/watch`.
   @Get("/scopes")
   scopeCount() {
     // API d'introspection dédiée (Container.scopeCount) — la structure interne
     // (Map depuis le durcissement Container) n'est plus fouillée à la main.
-    const httpKernel = this.kernel?.get("HttpKernel") as
-      { container?: { scopeCount?: (name: string) => number } } | undefined;
-    const count = httpKernel?.container?.scopeCount?.("request");
+    const count = this.#httpKernel()?.container?.scopeCount("request");
     return this.renderJson({
       requestScopes: count ?? -1,
       // Clés PROPRES du scope de CETTE requête : ce que le pipeline y écrit à
       // chaque requête (le contrôleur…). Sonde des écritures par requête.
       requestScopeKeys: this.context?.container?.keys() ?? null,
     });
+  }
+
+  /**
+   * Arme le témoin pour la marque `mark` : les requêtes qui portent l'en-tête
+   * `x-scope-witness: <mark>` y inscrivent leur scope (`scopeWitness.ts`).
+   */
+  @Get("/scopes/watch")
+  scopesWatch(@Query("mark") requested?: string) {
+    const mark = parseWitnessMark(requested);
+    const kernel = this.#httpKernel();
+    if (mark === null || kernel === null) {
+      return this.renderJson({ error: "mark requis" }, 400);
+    }
+    watchScopes(kernel, mark);
+    return this.renderJson({ mark });
+  }
+
+  /** `{ seen, open }` de la marque : scopes inscrits, et encore ouverts. */
+  @Get("/scopes/witness")
+  scopesWitness(@Query("mark") requested?: string) {
+    const mark = parseWitnessMark(requested);
+    const reading = mark === null ? null : readScopes(mark);
+    if (reading === null) {
+      return this.renderJson({ error: "marque non surveillée" }, 404);
+    }
+    return this.renderJson(reading);
+  }
+
+  @Get("/scopes/unwatch")
+  scopesUnwatch(@Query("mark") requested?: string) {
+    const mark = parseWitnessMark(requested);
+    if (mark !== null) unwatchScopes(mark);
+    return this.renderJson({ mark });
   }
 
   // Compteur EXACT des contextes HTTP encore vivants — ce que ni le heap ni le
@@ -319,14 +360,12 @@ class AlsController extends Controller {
   // doivent pas le porter.
   @Get("/contexts/arm")
   contextsArm() {
-    const kernel = this.kernel?.get("HttpKernel") as ContextEmitter | undefined;
-    return this.renderJson({ armed: armContextTracker(kernel) });
+    return this.renderJson({ armed: armContextTracker(this.#httpKernel()) });
   }
 
   @Get("/contexts/disarm")
   contextsDisarm() {
-    const kernel = this.kernel?.get("HttpKernel") as ContextEmitter | undefined;
-    disarmContextTracker(kernel);
+    disarmContextTracker(this.#httpKernel());
     return this.renderJson({ armed: false });
   }
 

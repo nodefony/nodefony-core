@@ -670,6 +670,33 @@ class App extends Module {}`,
     assert.strictEqual(r.scanned, 1);
   });
 
+  it("cible atteignable par DEUX chemins → même compte, mêmes manquements qu'une seule fois", () => {
+    // Un service orphelin à la racine, un autre dans un module imbriqué. Le
+    // décor donné une fois sert d'étalon ; le même décor, chaque cible répétée
+    // sous une autre graphie, doit rendre exactement la même chose.
+    const dir = make({
+      "index.ts": `class App extends Module {}`,
+      "nodefony/services/RootService.ts": SERVICE.replaceAll(
+        "DiscountService",
+        "RootService",
+      ),
+      "src/modules/shop/index.ts": `class Shop extends Module {}`,
+      "src/modules/shop/nodefony/services/DiscountService.ts": SERVICE,
+    });
+    const shop = path.join(dir, "src", "modules", "shop");
+    const once = checkWiring({ roots: [dir, shop], cwd: dir });
+    const twice = checkWiring({
+      roots: [dir, shop, dir + path.sep, path.join(shop, "."), shop],
+      cwd: dir,
+    });
+    assert.strictEqual(once.scanned, 2, JSON.stringify(once.findings));
+    assert.strictEqual(twice.scanned, once.scanned);
+    assert.deepStrictEqual(
+      twice.findings.map((f) => f.file).sort(),
+      once.findings.map((f) => f.file).sort(),
+    );
+  });
+
   it("enregistré à la MAIN → rien à signaler", () => {
     // La règle est « quelqu'un te déclare », pas « tu passes par le décorateur ».
     // Les modules du framework posent une partie de leurs services en impératif ;

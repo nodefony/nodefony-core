@@ -17,9 +17,16 @@
 import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
+import { watchScopes, type IScopeWitness } from "../helpers/scopeDrain.js";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
+
+/** Options d'un client WS, avec l'en-tête du témoin des scopes s'il y en a un. */
+const wsWith = (headers: Record<string, string> = {}) => ({
+  ...wsOpts,
+  headers,
+});
 
 type Json = Record<string, unknown>;
 
@@ -53,9 +60,12 @@ function get(path: string): Promise<Json> {
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Open /ws/after, exchange one message, close cleanly. */
-function cycleWsAfter(): Promise<void> {
+function cycleWsAfter(headers?: Record<string, string>): Promise<void> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`${WSS}/nodefony/test/als-test/ws/after`, wsOpts);
+    const ws = new WebSocket(
+      `${WSS}/nodefony/test/als-test/ws/after`,
+      wsWith(headers),
+    );
     ws.once("message", () => {
       ws.send("x");
       setTimeout(() => ws.close(), 5);
@@ -66,9 +76,9 @@ function cycleWsAfter(): Promise<void> {
 }
 
 /** Open a WS that errors before connect() (404 / 1002), then close. */
-function badWs(path: string): Promise<void> {
+function badWs(path: string, headers?: Record<string, string>): Promise<void> {
   return new Promise((resolve) => {
-    const ws = new WebSocket(`${WSS}${path}`, wsOpts);
+    const ws = new WebSocket(`${WSS}${path}`, wsWith(headers));
     let done = false;
     const fin = () => {
       if (!done) {
@@ -94,17 +104,27 @@ function badWs(path: string): Promise<void> {
 }
 
 /** Open a session-bearing WS (/ws does startSession) and close at handshake. */
-function openCloseSessionWs(): Promise<void> {
+function openCloseSessionWs(headers?: Record<string, string>): Promise<void> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`${WSS}/nodefony/test/ws`, wsOpts);
+    const ws = new WebSocket(`${WSS}/nodefony/test/ws`, wsWith(headers));
     ws.once("open", () => ws.close());
     ws.once("close", () => resolve());
     ws.once("error", reject);
   });
 }
 
-const liveScopes = async () =>
-  (await get("/nodefony/test/als-test/scopes")).requestScopes as number;
+/**
+ * Témoin PAR MARQUE des scopes de ce banc. Le compte global additionnait les
+ * requêtes en vol des suites jouées en parallèle contre le même serveur (#794).
+ */
+const witness = (): Promise<IScopeWitness> => watchScopes(get);
+
+/**
+ * Handshakes du cas BUG-003 qui ouvrent un scope : le refus de protocole
+ * (1002) en ouvre un ; le chemin SANS route WS est refusé en 404 par le
+ * répartiteur d'upgrade AVANT tout scope, il n'en ouvre aucun.
+ */
+const SEEN_BAD = 15;
 
 describe("Context lifecycle — ALS tear-down (BUG-001/002)", function () {
   beforeEach(async () => {
@@ -132,35 +152,39 @@ describe("Context lifecycle — ALS tear-down (BUG-001/002)", function () {
   });
 
   it("BUG-003 — WS errors before connect() (404 + 1002) leak no request scope", async () => {
-    // Delta around our own loop — robust to ambient scopes left by other suites.
-    // Without the fix this grew by 30 (1 leaked scope per error).
-    const before = await liveScopes();
-    for (let i = 0; i < 15; i++) await badWs("/nodefony/test/als-test/nope");
-    for (let i = 0; i < 15; i++) await badWs("/nodefony/test/ws/echo/proto");
-    await wait(150);
-    expect(
-      (await liveScopes()) - before,
-      "error path must release every scope",
-    ).to.be.below(3);
+    // Without the fix 1 scope leaked per error.
+    const w = await witness();
+    for (let i = 0; i < 15; i++)
+      await badWs("/nodefony/test/als-test/nope", w.headers);
+    for (let i = 0; i < 15; i++)
+      await badWs("/nodefony/test/ws/echo/proto", w.headers);
+    const reste = await w.drain();
+    expect(reste.seen, "prémisse : le témoin a vu les handshakes").to.equal(
+      SEEN_BAD,
+    );
+    expect(reste.open, "error path must release every scope").to.equal(0);
   });
 
   it("valid session-less WS connections leave no residual scope", async () => {
-    const before = await liveScopes();
-    for (let i = 0; i < 10; i++) await cycleWsAfter();
-    await wait(120);
-    expect((await liveScopes()) - before).to.be.below(3);
+    const w = await witness();
+    for (let i = 0; i < 10; i++) await cycleWsAfter(w.headers);
+    const reste = await w.drain();
+    expect(reste.seen, "prémisse : le témoin a vu chaque connexion").to.equal(
+      10,
+    );
+    expect(reste.open).to.equal(0);
   });
 
   it("BUG-004 — session-bearing WS closed at handshake (no message) leaks no scope", async () => {
     // /ws calls startSession() in initialize. Closing before any message used
     // to strand the scope on a never-fired once("onSaveSession").
-    const before = await liveScopes();
-    for (let i = 0; i < 20; i++) await openCloseSessionWs();
-    await wait(200);
-    expect(
-      (await liveScopes()) - before,
-      "session WS teardown must release scope",
-    ).to.be.below(3);
+    const w = await witness();
+    for (let i = 0; i < 20; i++) await openCloseSessionWs(w.headers);
+    const reste = await w.drain();
+    expect(reste.seen, "prémisse : le témoin a vu chaque connexion").to.equal(
+      20,
+    );
+    expect(reste.open, "session WS teardown must release scope").to.equal(0);
   });
 });
 

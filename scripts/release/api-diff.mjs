@@ -40,6 +40,7 @@ import {
   classifyDeclaration,
   diffNames,
   exportEntries,
+  missingEntryFiles,
   listRuntimeExports,
   packageStability,
   readTypeSurface,
@@ -177,6 +178,15 @@ export function measureApiDiff({
       readJson(path.join(localDir, "package.json")),
       localDir,
     );
+    const missing = missingEntryFiles(after, fs.existsSync);
+    if (missing.length) {
+      throw new Error(
+        `${workspace.name} : dist local absent — ${missing
+          .map((m) => path.relative(root, m).replaceAll("\\", "/"))
+          .join(", ")}.\n` +
+          "  Mesurer un dist absent annoncerait TOUT retiré. → npm run build, puis relancer.",
+      );
+    }
     const entry = {
       stability: packageStability(referencePkg),
       subpaths: diffNames(Object.keys(before), Object.keys(after)),

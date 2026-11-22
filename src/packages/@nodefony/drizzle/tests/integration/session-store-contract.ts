@@ -275,6 +275,23 @@ export function runDrizzleSessionStoreContract(
       assert.equal(await repo().exists({ session_id: "idle-old" }), false);
     });
 
+    it("close() n'écrit RIEN : une session expirée survit à la fermeture du stockage", async () => {
+      // La purge est l'affaire de l'ordonnanceur du service, arrêté juste avant
+      // `close()`. Une purge lancée ICI, sans être attendue, courait contre la
+      // déconnexion de l'ORM qui suit : coupée en vol, elle sortait en rejet non
+      // géré à chaque arrêt (MongoClientClosedError, #841).
+      await purge();
+      const year = Date.now() - 365 * 24 * 3600 * 1000;
+      await seed("expiree-a-la-fermeture", year, year);
+      assert.equal(storage.close(), true);
+      // Laisser le temps à une écriture lancée sans être attendue d'aboutir.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      assert.ok(
+        await repo().exists({ session_id: "expiree-a-la-fermeture" }),
+        "close() a purgé les sessions : une écriture en course avec la déconnexion",
+      );
+    });
+
     it("borne ABSOLUE : une session ACTIVE mais trop VIEILLE meurt (re-auth NIST)", async () => {
       // L'invariant de sécurité : `createdAt` n'est JAMAIS prolongé. Une session
       // rafraîchie en continu (updatedAt = maintenant) doit quand même mourir
