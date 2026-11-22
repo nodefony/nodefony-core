@@ -154,9 +154,13 @@ describe("seoHead — multilingue et échappement", () => {
     expect(h).toContain('content="Un &quot;titre&quot; &lt;/script&gt;');
     expect(h).toContain('content="a &amp; b &lt; c"');
     expect(h.match(/<\/script>/g)).toHaveLength(1); // la seule fermeture : celle du bloc
-    expect(
-      JSON.parse(/<script[^>]*>([\s\S]*?)<\/script\s*>/i.exec(h)[1]).name,
-    ).toBe("</script><b>");
+    // Découpé par position, sans motif de balise : le bloc est celui que seoHead
+    // écrit, et un motif de balise ne serait jamais complet.
+    const open = '<script type="application/ld+json">';
+    const from = h.indexOf(open) + open.length;
+    expect(JSON.parse(h.slice(from, h.indexOf("</script>", from))).name).toBe(
+      "</script><b>",
+    );
   });
 });
 
