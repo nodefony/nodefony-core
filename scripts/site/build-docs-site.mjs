@@ -115,6 +115,7 @@ import { versionSwitchScript } from "./lib/site-versions.mjs";
 import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs";
 import { extractApiModel, renderApiPages } from "./lib/api-reference.mjs";
 import { adrPublicationDefects } from "./lib/adr-publication.mjs";
+import { menuTargets } from "./lib/site-nav.mjs";
 import { moduleDocsDirs } from "./lib/module-docs.mjs";
 import {
   SOURCE_LANGUAGE,
@@ -126,6 +127,7 @@ import {
 } from "./lib/translations.mjs";
 import { pageSummary } from "./lib/page-summary.mjs";
 import {
+  authorName,
   breadcrumbList,
   brandTitle,
   seoHead,
@@ -265,6 +267,20 @@ const PUBLIC_DIRS = ROOT_GROUPS.map(({ group, label }) => ({
  * Le portail d'administration a son propre onglet API, lu dans le graphe symbolique.
  */
 const API_SECTION = { label: "Référence d'API", icon: "🔎" };
+/**
+ * Les ADR publiés un par un (`publish: true`) : une section à eux, sinon ils ne
+ * se trouvent que par lien — le dossier `adr/` n'est pas un groupe du module.
+ */
+const ADR_SECTION = {
+  dir: "adr",
+  label: "Décisions d'architecture",
+  icon: "🧭",
+};
+/**
+ * Une entrée de menu de la référence d'API : l'index, ou le sommaire d'un paquet.
+ * Les parts d'un paquet découpé n'y sont pas — leur sommaire les rejoint.
+ */
+const API_MENU_ENTRY = /^api\/([^/]+\.md|[^/]+\/index\.md)$/;
 
 /** Pages de la racine de `docs/` publiées — même source que le portail. */
 const PUBLIC_ROOT_PAGES = new Set(ROOT_PAGES.map((p) => `${p}.md`));
@@ -897,6 +913,19 @@ function buildNav(pages, current) {
       current.relPath.startsWith(`${sec.dir}/`);
     parts.push(group(sec.label, sec.icon, items, open));
   }
+  // Les ADR, dans l'ordre de leur numéro : c'est celui où les décisions se lisent.
+  const isAdr = (p) =>
+    p.source.kind === "root" && p.relPath.startsWith(`${ADR_SECTION.dir}/`);
+  parts.push(
+    group(
+      ADR_SECTION.label,
+      ADR_SECTION.icon,
+      pages.filter(isAdr).sort((a, b) => (a.relPath < b.relPath ? -1 : 1)),
+      isAdr(current),
+      "",
+      true,
+    ),
+  );
   // La référence d'API : l'index et une entrée par paquet. Les parts d'un paquet
   // découpé se rejoignent par son sommaire — cent entrées n'enseigneraient rien.
   // Ordre ÉCRIT ici : le sommaire d'un paquet découpé est un `index.md`, que la
@@ -908,10 +937,7 @@ function buildNav(pages, current) {
         ? "1"
         : `2${p.navTitle}`;
   const api = pages
-    .filter(
-      (p) =>
-        p.generated && /^api\/([^/]+\.md|[^/]+\/index\.md)$/.test(p.relPath),
-    )
+    .filter((p) => p.generated && API_MENU_ENTRY.test(p.relPath))
     .sort((a, b) => (apiRank(a) < apiRank(b) ? -1 : 1));
   parts.push(
     group(
@@ -1335,7 +1361,9 @@ ${STYLE_CODE}`;
 function sectionLabelOf(d) {
   if (d.generated) return API_SECTION.label;
   if (d.source.kind === "module") return d.moduleLabel ?? d.moduleKey ?? "";
-  const dir = PUBLIC_DIRS.find((s) => d.relPath.startsWith(`${s.dir}/`));
+  const dir = [...PUBLIC_DIRS, ADR_SECTION].find((s) =>
+    d.relPath.startsWith(`${s.dir}/`),
+  );
   return dir ? dir.label : "Pour commencer";
 }
 
@@ -1391,13 +1419,14 @@ function writeSearchIndex(published) {
 /** Auteur du projet, lu au manifeste du cœur — le nom seul, jamais l'adresse. */
 const AUTHOR = (() => {
   try {
-    const a = JSON.parse(
-      readFileSync(path.join(ROOT, "src", "nodefony", "package.json"), "utf8"),
-    ).author;
-    const name = typeof a === "string" ? a : a?.name;
-    return typeof name === "string"
-      ? name.replace(/\s*<[^>]*>\s*/, "").trim()
-      : undefined;
+    return authorName(
+      JSON.parse(
+        readFileSync(
+          path.join(ROOT, "src", "nodefony", "package.json"),
+          "utf8",
+        ),
+      ).author,
+    );
   } catch {
     return undefined;
   }
@@ -1581,6 +1610,24 @@ const published = docs.filter((d) => d.verdict.ok);
 const sourcePages = published.filter(
   (d) => pageLanguage(d.meta) === SOURCE_LANGUAGE,
 );
+
+// Aucune page publiée hors du menu : sans entrée, elle ne se trouve que par lien
+// (vécu : les ADR publiés). Le menu est lu RENDU, depuis l'accueil — ce que le
+// lecteur voit. Seules les parts d'un paquet d'API découpé en sont dispensées :
+// leur sommaire, lui au menu, les rejoint.
+{
+  const home = sourcePages.find((p) => p.url === `${MOUNT}/`) ?? sourcePages[0];
+  const inMenu = menuTargets(buildNav(sourcePages, home), home.url);
+  const offMenu = sourcePages.filter(
+    (p) =>
+      !inMenu.has(p.url) && !(p.generated && !API_MENU_ENTRY.test(p.relPath)),
+  );
+  if (offMenu.length > 0) {
+    for (const p of offMenu)
+      console.error(`✗ page publiée absente du menu : ${p.repoRel} (${p.url})`);
+    process.exit(1);
+  }
+}
 
 // Un ADR ne part qu'une fois marqué (`publish: true`) — et marqué, il doit dire
 // son statut et renvoyer au guide du même sujet (`lib/adr-publication.mjs`).

@@ -1,7 +1,7 @@
 // Le menu des sites voisins (performance, qualité) : des liens RELATIFS justes
 // depuis chaque profondeur, et la bonne entrée allumée.
 import { describe, expect, it } from "vitest";
-import { relativeUrl, siteNav } from "./lib/site-nav.mjs";
+import { menuTargets, relativeUrl, siteNav } from "./lib/site-nav.mjs";
 
 describe("site-nav — liens relatifs", () => {
   it("remonte autant de dossiers que la page en a, puis descend vers la cible", () => {
@@ -37,5 +37,20 @@ describe("site-nav — le menu", () => {
     expect(html).toContain('href="../../../docs/"');
     expect(html).toContain('href="../../../qualite/"');
     expect(html).toContain('class="nav-up" href="../../../"');
+  });
+});
+
+describe("site-nav — adresses atteintes par un menu rendu", () => {
+  it("résout chaque lien relatif en absolu, sans ancre ni lien externe", () => {
+    const nav =
+      `<a class="nav-home" href="./">Doc</a>` +
+      `<li><a href="adr/0022-socket/" aria-current="page">ADR</a></li>` +
+      `<li><a title="x" href="../performance/#top">Perf</a></li>` +
+      `<li><a href="https://github.com/nodefony/nodefony-core">Dépôt</a></li>`;
+    expect([...menuTargets(nav, "/docs/")].sort()).toEqual([
+      "/docs/",
+      "/docs/adr/0022-socket/",
+      "/performance/",
+    ]);
   });
 });

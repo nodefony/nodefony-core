@@ -115,8 +115,8 @@ L'en-tête de référencement d'UNE page publiée : description, adresse canoniq
 
 Le menu commun des sites VOISINS de la documentation — performance et qualité — rendu par chacun de leurs générateurs.
 
-- **Usage** : `import { siteNav, relativeUrl } from "./lib/site-nav.mjs"`
-- **Appelé par** : `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `.claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs`
+- **Usage** : `import { siteNav, relativeUrl, menuTargets } from "./lib/site-nav.mjs"`
+- **Appelé par** : `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `.claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs`
 - **Testé par** : `site/site-nav.test.mjs`
 
 ## [`site-versions.mjs`](site-versions.mjs)

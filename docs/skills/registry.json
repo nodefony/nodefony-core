@@ -2092,12 +2092,13 @@
       "test": false,
       "purpose": "Le menu commun des sites VOISINS de la documentation — performance et qualité — rendu par chacun de leurs générateurs.",
       "usage": [
-        "import { siteNav, relativeUrl } from \"./lib/site-nav.mjs\""
+        "import { siteNav, relativeUrl, menuTargets } from \"./lib/site-nav.mjs\""
       ],
       "options": [],
       "env": [],
       "output": "",
       "calledBy": [
+        "scripts/site/build-docs-site.mjs",
         "scripts/site/build-perf-site.mjs",
         "scripts/site/build-qualite-site.mjs",
         ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"

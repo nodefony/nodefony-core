@@ -155,7 +155,7 @@ describe("seoHead — multilingue et échappement", () => {
     expect(h).toContain('content="a &amp; b &lt; c"');
     expect(h.match(/<\/script>/g)).toHaveLength(1); // la seule fermeture : celle du bloc
     expect(
-      JSON.parse(/<script[^>]*>([\s\S]*?)<\/script>/.exec(h)[1]).name,
+      JSON.parse(/<script[^>]*>([\s\S]*?)<\/script\s*>/i.exec(h)[1]).name,
     ).toBe("</script><b>");
   });
 });
@@ -259,6 +259,17 @@ describe("titre d'onglet et données structurées", () => {
     expect(a.author).toEqual({ "@type": "Person", name: "Auteur" });
     expect(websiteNode(SITE)["@id"]).toBe(`${SITE}/#website`);
     expect(softwareNode({ siteUrl: SITE })["@id"]).toBe(`${SITE}/#software`);
+    // Le nom seul : ni le courriel ni le site de la forme courte npm.
+    expect(
+      softwareNode({ siteUrl: SITE, author: "Ada L <ada@x.io> (https://x.io)" })
+        .author,
+    ).toEqual({ "@type": "Person", name: "Ada L" });
+    expect(
+      softwareNode({ siteUrl: SITE, author: { name: " Ada " } }).author.name,
+    ).toBe("Ada");
+    expect(
+      softwareNode({ siteUrl: SITE, author: "<ada@x.io>" }).author,
+    ).toBeUndefined();
     expect(breadcrumbList([{ name: "Seul", url: SITE }])).toBeNull();
     const b = breadcrumbList([
       { name: "Nodefony", url: `${SITE}/` },

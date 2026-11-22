@@ -103,15 +103,37 @@ export function websiteNode(siteUrl) {
 }
 
 /**
+ * Le NOM de l'auteur lu au champ `author` d'un manifeste npm — jamais son adresse.
+ *
+ * La forme courte de npm est `Nom <courriel> (site)` : on coupe au premier `<` ou
+ * `(`, sans expression régulière de nettoyage de balise (une telle expression ne
+ * nettoie jamais tout, et l'analyse de code la signale à juste titre).
+ *
+ * @param author - le champ `author` tel que le manifeste le porte
+ * @returns le nom seul, ou `undefined` s'il n'y en a pas
+ */
+export function authorName(author) {
+  const raw =
+    typeof author === "string"
+      ? author.split(/[<(]/, 1)[0]
+      : typeof author?.name === "string"
+        ? author.name
+        : "";
+  const name = raw.trim();
+  return name === "" ? undefined : name;
+}
+
+/**
  * Le nœud schema.org du LOGICIEL décrit par le site, identifié par un `@id` stable.
  *
  * @param p.siteUrl - adresse du site, sans `/` final
  * @param p.description - ce qu'il est, une phrase
  * @param p.version - version publiée, ou rien
- * @param p.author - nom de l'auteur, ou rien
+ * @param p.author - le champ `author` du manifeste (chaîne npm ou objet), ou rien
  * @returns un nœud `SoftwareSourceCode`
  */
 export function softwareNode({ siteUrl, description, version, author }) {
+  const name = authorName(author);
   return {
     "@type": "SoftwareSourceCode",
     "@id": `${siteUrl}/#software`,
@@ -122,7 +144,7 @@ export function softwareNode({ siteUrl, description, version, author }) {
     runtimePlatform: "Node.js",
     license: "https://www.apache.org/licenses/LICENSE-2.0",
     ...(version ? { version } : {}),
-    ...(author ? { author: { "@type": "Person", name: author } } : {}),
+    ...(name ? { author: { "@type": "Person", name } } : {}),
   };
 }
 

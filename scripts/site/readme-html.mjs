@@ -1381,11 +1381,7 @@ const html = doc({
           siteUrl: SITE_URL,
           description: HOME_DESCRIPTION,
           version: pkgCore.version,
-          // Le nom seul, jamais l'adresse que le manifeste porte aussi.
-          author:
-            typeof pkgCore.author === "string"
-              ? pkgCore.author.replace(/\s*<[^>]*>\s*/, "").trim()
-              : pkgCore.author?.name,
+          author: pkgCore.author,
         }),
       ],
     }) +
