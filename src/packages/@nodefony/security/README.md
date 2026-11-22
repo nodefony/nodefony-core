@@ -1,5 +1,11 @@
 # @nodefony/security
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/security** — Zone-based application firewall for Nodefony: OAuth2/OIDC, WebAuthn, TOTP 2FA, API tokens, role-based authorization, CSRF, webhooks, audit log. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/security/).
+
+<!-- nf-en:end -->
+
 Couche de sécurité de Nodefony.
 
 Firewall par zones, authentication (pattern `IAuthenticator`), autorisation (rôles + voters),

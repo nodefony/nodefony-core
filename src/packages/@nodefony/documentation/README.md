@@ -1,5 +1,11 @@
 # @nodefony/documentation
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/documentation** — Documentation data plane for Nodefony: indexes module docs, resolves dynamic variables, serves them read-only to the admin console. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/documentation/).
+
+<!-- nf-en:end -->
+
 **Data plane de documentation transverse de Nodefony** — un module _headless_ (back pur) qui indexe
 toute la documentation du projet, résout des variables dynamiques côté serveur, et l'expose en JSON
 sous `/nodefony/documentation/api/*`.

@@ -49,8 +49,8 @@ import {
   readFileSync,
   writeFileSync,
   mkdirSync,
+  copyFileSync,
   existsSync,
-  readdirSync,
   statSync,
 } from "node:fs";
 import path from "node:path";
@@ -109,12 +109,34 @@ import {
 import { schema } from "../../.claude/skills/nodefony-html-report/lib/schemas.mjs";
 import { NODEFONY_BRAND } from "../../.claude/skills/nodefony-html-report/lib/brand.mjs";
 import { anchorHeadings } from "./lib/html-text.mjs";
-import { sansCommentaires } from "./lib/markdown-source.mjs";
+import { sansCommentaires, stripLeadingTitle } from "./lib/markdown-source.mjs";
 import { prepareOutDir } from "./lib/out-dir.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
 import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs";
 import { extractApiModel, renderApiPages } from "./lib/api-reference.mjs";
+import { adrPublicationDefects } from "./lib/adr-publication.mjs";
+import { menuTargets } from "./lib/site-nav.mjs";
+import { moduleDocsDirs } from "./lib/module-docs.mjs";
+import {
+  SOURCE_LANGUAGE,
+  pageLanguage,
+  sourceOfTranslation,
+  staleTranslations,
+  translationGroups,
+  translationPath,
+} from "./lib/translations.mjs";
 import { pageSummary } from "./lib/page-summary.mjs";
+import {
+  authorName,
+  breadcrumbList,
+  brandTitle,
+  seoHead,
+  OG_IMAGE,
+  siteImage,
+  tabTitle,
+  techArticle,
+  webPage,
+} from "./lib/seo-head.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -245,6 +267,20 @@ const PUBLIC_DIRS = ROOT_GROUPS.map(({ group, label }) => ({
  * Le portail d'administration a son propre onglet API, lu dans le graphe symbolique.
  */
 const API_SECTION = { label: "Référence d'API", icon: "🔎" };
+/**
+ * Les ADR publiés un par un (`publish: true`) : une section à eux, sinon ils ne
+ * se trouvent que par lien — le dossier `adr/` n'est pas un groupe du module.
+ */
+const ADR_SECTION = {
+  dir: "adr",
+  label: "Décisions d'architecture",
+  icon: "🧭",
+};
+/**
+ * Une entrée de menu de la référence d'API : l'index, ou le sommaire d'un paquet.
+ * Les parts d'un paquet découpé n'y sont pas — leur sommaire les rejoint.
+ */
+const API_MENU_ENTRY = /^api\/([^/]+\.md|[^/]+\/index\.md)$/;
 
 /** Pages de la racine de `docs/` publiées — même source que le portail. */
 const PUBLIC_ROOT_PAGES = new Set(ROOT_PAGES.map((p) => `${p}.md`));
@@ -358,29 +394,8 @@ function decide(d) {
    2. COLLECTE — le module fait le scan, on ne le refait pas
    ════════════════════════════════════════════════════════════════════════════ */
 
-/** Modules du dépôt qui portent un dossier `docs/`, avec leur clé courte. */
-function moduleDirs() {
-  const out = [
-    {
-      key: "core",
-      npm: "nodefony",
-      dir: path.join(ROOT, "src/nodefony/docs"),
-      label: "nodefony (cœur)",
-    },
-  ];
-  const base = path.join(ROOT, "src/packages/@nodefony");
-  for (const name of readdirSync(base).sort()) {
-    const dir = path.join(base, name, "docs");
-    if (existsSync(dir))
-      out.push({
-        key: name,
-        npm: `@nodefony/${name}`,
-        dir,
-        label: `@nodefony/${name}`,
-      });
-  }
-  return out;
-}
+/** Modules du dépôt qui portent un dossier `docs/` — règle partagée avec les README. */
+const moduleDirs = () => moduleDocsDirs(ROOT);
 
 /**
  * Traduit une URL de site (`/adr/`) en chemin RELATIF depuis la page courante
@@ -478,6 +493,16 @@ async function collect() {
     d.repoRel = repoRelOf(d);
     d.verdict = decide(d);
     d.url = urlOf(d);
+  }
+  // Une TRADUCTION est publiée à l'adresse de sa source, préfixée par sa langue
+  // (`lib/translations.mjs#translationPath`) — jamais à celle de son fichier :
+  // une adresse publiée ne se change plus.
+  const byRepo = new Map(docs.map((d) => [d.repoRel, d]));
+  for (const d of docs) {
+    const src = sourceOfTranslation(d);
+    const source = src === null ? undefined : byRepo.get(src);
+    if (source !== undefined)
+      d.url = translationPath(source.url, pageLanguage(d.meta));
   }
   return docs;
 }
@@ -888,6 +913,19 @@ function buildNav(pages, current) {
       current.relPath.startsWith(`${sec.dir}/`);
     parts.push(group(sec.label, sec.icon, items, open));
   }
+  // Les ADR, dans l'ordre de leur numéro : c'est celui où les décisions se lisent.
+  const isAdr = (p) =>
+    p.source.kind === "root" && p.relPath.startsWith(`${ADR_SECTION.dir}/`);
+  parts.push(
+    group(
+      ADR_SECTION.label,
+      ADR_SECTION.icon,
+      pages.filter(isAdr).sort((a, b) => (a.relPath < b.relPath ? -1 : 1)),
+      isAdr(current),
+      "",
+      true,
+    ),
+  );
   // La référence d'API : l'index et une entrée par paquet. Les parts d'un paquet
   // découpé se rejoignent par son sommaire — cent entrées n'enseigneraient rien.
   // Ordre ÉCRIT ici : le sommaire d'un paquet découpé est un `index.md`, que la
@@ -899,10 +937,7 @@ function buildNav(pages, current) {
         ? "1"
         : `2${p.navTitle}`;
   const api = pages
-    .filter(
-      (p) =>
-        p.generated && /^api\/([^/]+\.md|[^/]+\/index\.md)$/.test(p.relPath),
-    )
+    .filter((p) => p.generated && API_MENU_ENTRY.test(p.relPath))
     .sort((a, b) => (apiRank(a) < apiRank(b) ? -1 : 1));
   parts.push(
     group(
@@ -991,8 +1026,10 @@ const NAV_FILTER_JS = `<script>
   var items=[].slice.call(nav.querySelectorAll("li[data-t]"));
   var groups=[].slice.call(nav.querySelectorAll("details"));
   var initial=groups.map(function(g){return g.open;});
-  function apply(){
-    var v=q.value.trim().toLowerCase();
+  // corrige : la requête rattrapée par la recherche plein texte (grcp →
+  // grpc). Le menu se filtre alors dessus plutôt que d'afficher « aucune ».
+  function apply(corrige){
+    var v=(corrige||q.value).trim().toLowerCase();
     if(!v){
       items.forEach(function(li){li.hidden=false;});
       groups.forEach(function(g,i){g.hidden=false;g.open=initial[i];});
@@ -1011,7 +1048,7 @@ const NAV_FILTER_JS = `<script>
   }
   var res=document.getElementById("nav-res");
   var head=res.querySelector(".nav-res-h"), list=res.querySelector(".nav-res-l");
-  var idx=null, parSlug=null, chargement=null, jeton=0;
+  var idx=null, parSlug=null, chargement=null, jeton=0, attente=0;
   var INDEX_URL=res.getAttribute("data-index"), BASE=res.getAttribute("data-base");
 
   function esc(s){var d=document.createElement("span");d.textContent=s;return d.innerHTML;}
@@ -1033,8 +1070,10 @@ const NAV_FILTER_JS = `<script>
       head.textContent="Aucune page ne contient « "+r.query+" ».";
       list.innerHTML=""; return;
     }
-    head.textContent=r.matched+" page"+(r.matched>1?"s":"")+
+    head.textContent=(r.correctedQuery?"Résultats pour « "+r.correctedQuery+" » — aucun pour « "+r.query+" ». ":"")+
+      r.matched+" page"+(r.matched>1?"s":"")+
       " sur "+r.scanned+(r.matched>r.hits.length?" — "+r.hits.length+" affichées":"");
+    if(r.correctedQuery && !empty.hidden) apply(r.correctedQuery);
     list.innerHTML=r.hits.map(function(h){
       var ex=h.excerpts.map(function(e){
         return "<p class='res-x'>"+(e.section?"<span class='res-s'>"+esc(e.section)+"</span> ":"")+
@@ -1082,8 +1121,13 @@ const NAV_FILTER_JS = `<script>
   q.addEventListener("input",function(){
     apply();
     var v=q.value.trim();
+    clearTimeout(attente);
     if(v.length<2){ fermer(); return; }
-    chercher(v);
+    // La recherche plein texte attend une pause dans la frappe (~75 ms par
+    // passe sur le corpus, le double quand une faute est rattrapée) : sans ce
+    // délai, chaque lettre la relançait et le champ ramait. Le filtre du menu,
+    // lui, reste instantané.
+    attente=setTimeout(function(){ chercher(v); },120);
   });
   q.addEventListener("keydown",function(e){
     if(e.key==="Escape"){q.value="";apply();fermer();q.blur();}
@@ -1326,7 +1370,9 @@ ${STYLE_CODE}`;
 function sectionLabelOf(d) {
   if (d.generated) return API_SECTION.label;
   if (d.source.kind === "module") return d.moduleLabel ?? d.moduleKey ?? "";
-  const dir = PUBLIC_DIRS.find((s) => d.relPath.startsWith(`${s.dir}/`));
+  const dir = [...PUBLIC_DIRS, ADR_SECTION].find((s) =>
+    d.relPath.startsWith(`${s.dir}/`),
+  );
   return dir ? dir.label : "Pour commencer";
 }
 
@@ -1358,6 +1404,7 @@ function writeSearchIndex(published) {
       path: d.url.startsWith(`${MOUNT}/`)
         ? d.url.slice(MOUNT.length + 1)
         : d.url,
+      lang: pageLanguage(d.meta),
       title: d.title,
       navTitle: d.navTitle ?? d.title,
       sectionLabel: sectionLabelOf(d),
@@ -1378,11 +1425,51 @@ function writeSearchIndex(published) {
   return Buffer.byteLength(json);
 }
 
+/** Auteur du projet, lu au manifeste du cœur — le nom seul, jamais l'adresse. */
+const AUTHOR = (() => {
+  try {
+    return authorName(
+      JSON.parse(
+        readFileSync(
+          path.join(ROOT, "src", "nodefony", "package.json"),
+          "utf8",
+        ),
+      ).author,
+    );
+  } catch {
+    return undefined;
+  }
+})();
+
+/** Titre de chaque page publiée, par adresse — le fil d'Ariane s'y lit. */
+let TITLE_BY_URL = null;
+
+/**
+ * Le fil d'Ariane d'une page : l'accueil, puis chaque page PUBLIÉE dont
+ * l'adresse est un préfixe de la sienne, puis elle-même. Recopié de la
+ * hiérarchie réelle, jamais inventé — un niveau sans page est sauté.
+ */
+function breadcrumbOf(d) {
+  if (TITLE_BY_URL === null)
+    TITLE_BY_URL = new Map(
+      sourcePages.map((p) => [p.url, p.navTitle ?? p.title]),
+    );
+  const items = [{ name: "Nodefony", url: `${SITE_URL}/` }];
+  const parts = d.url.split("/").filter(Boolean);
+  for (let k = 1; k < parts.length; k++) {
+    const u = `/${parts.slice(0, k).join("/")}/`;
+    const t = TITLE_BY_URL.get(u);
+    if (t !== undefined) items.push({ name: t, url: `${SITE_URL}${u}` });
+  }
+  items.push({ name: d.navTitle ?? d.title, url: `${SITE_URL}${d.url}` });
+  return items;
+}
+
 function renderPage(d, published, index, publishedPaths) {
   const raw = sourceOf(d);
   const bodyRaw = raw.replace(/^---\n[\s\S]*?\n---\n/, "");
   // Le titre vient du chrome : on retire le `# …` de tête pour ne pas le doubler.
-  const body = bodyRaw.replace(/^\s*#\s+.*\r?\n/, "");
+  const body = stripLeadingTitle(bodyRaw);
 
   const fromDir = path.posix.dirname(d.repoRel);
   // 1. ce qui n'aura pas d'URL de site part vers GitHub, tant que c'est un chemin
@@ -1424,20 +1511,50 @@ function renderPage(d, published, index, publishedPaths) {
     d.title,
   );
 
+  const canonical = `${SITE_URL}${d.url}`;
+  const updated = metaString(d.meta, "updated");
+  const lang = pageLanguage(d.meta);
   const page = doc({
     title: d.title,
+    lang,
+    // L'onglet — et le lien bleu d'un résultat de recherche — porte la marque ;
+    // le h1 reste le titre éditorial de la page.
+    documentTitle: tabTitle(d.title),
     // La marque en tête ramène à l'accueil du site — le premier geste d'un
     // lecteur perdu, avant même de chercher un menu.
     brand: { ...NODEFONY_BRAND, href: rel(d.url, "/"), version: BADGE },
     head:
-      `<meta name="description" content="${esc(firstText)}">\n` +
+      // Description, canonique, aperçu de partage et données structurées :
+      // une seule brique pour toutes les pages du site (`lib/seo-head.mjs`),
+      // jugée par `check-site-seo.mjs`.
+      seoHead({
+        image: siteImage(SITE_URL),
+        title: d.title,
+        description: firstText,
+        url: canonical,
+        lang,
+        alternates: d.alternates ?? [],
+        noindex: IS_NEXT,
+        jsonLd: [
+          techArticle({
+            title: d.title,
+            description: firstText,
+            url: canonical,
+            siteUrl: SITE_URL,
+            lang,
+            author: AUTHOR,
+            dateModified:
+              updated && /^\d{4}-\d{2}-\d{2}$/.test(updated)
+                ? updated
+                : undefined,
+          }),
+          breadcrumbList(breadcrumbOf(d)),
+        ].filter(Boolean),
+      }) +
+      "\n" +
       (FAVICON
         ? `<link rel="icon" href="${rel(d.url, "/")}${FAVICON.slice(1)}">\n`
         : "") +
-      `<link rel="canonical" href="${SITE_URL}${esc(d.url)}">\n` +
-      // `/next/` décrit ce qui n'est pas installable : un moteur de recherche
-      // qui l'indexerait enverrait le lecteur sur une API qu'il n'a pas.
-      (IS_NEXT ? `<meta name="robots" content="noindex">\n` : "") +
       versionSwitchScript(rel(d.url, "/")) +
       "\n" +
       // Le markdown de la page, servi à côté d'elle : un agent l'obtient sans
@@ -1447,7 +1564,7 @@ function renderPage(d, published, index, publishedPaths) {
       `<link rel="alternate" type="text/markdown" href="index.md">`,
     subtitle: badges ? `<span class="badges">${badges}</span>` : "",
     sections: [nextBanner(rel(d.url, "/")), html],
-    nav: buildNav(published, d),
+    nav: buildNav(sourcePages, d),
     aside: buildToc(toc),
     style: SITE_CSS,
     footer:
@@ -1496,6 +1613,71 @@ if (ONLY) {
     if (d !== one) d.verdict = { ok: false, why: "hors aperçu" };
 }
 const published = docs.filter((d) => d.verdict.ok);
+// Les pages dans la langue du corpus : elles font le menu et l'index de
+// recherche. Une traduction est publiée (adresse, hreflang) sans apparaître
+// dans le menu français — le menu par langue viendra avec la première langue.
+const sourcePages = published.filter(
+  (d) => pageLanguage(d.meta) === SOURCE_LANGUAGE,
+);
+
+// Aucune page publiée hors du menu : sans entrée, elle ne se trouve que par lien
+// (vécu : les ADR publiés). Le menu est lu RENDU, depuis l'accueil — ce que le
+// lecteur voit. Seules les parts d'un paquet d'API découpé en sont dispensées :
+// leur sommaire, lui au menu, les rejoint.
+{
+  const home = sourcePages.find((p) => p.url === `${MOUNT}/`) ?? sourcePages[0];
+  const inMenu = menuTargets(buildNav(sourcePages, home), home.url);
+  const offMenu = sourcePages.filter(
+    (p) =>
+      !inMenu.has(p.url) && !(p.generated && !API_MENU_ENTRY.test(p.relPath)),
+  );
+  if (offMenu.length > 0) {
+    for (const p of offMenu)
+      console.error(`✗ page publiée absente du menu : ${p.repoRel} (${p.url})`);
+    process.exit(1);
+  }
+}
+
+// Un ADR ne part qu'une fois marqué (`publish: true`) — et marqué, il doit dire
+// son statut et renvoyer au guide du même sujet (`lib/adr-publication.mjs`).
+const publishedRepo = new Set(published.map((d) => d.repoRel));
+const adrDefects = published
+  .filter((d) => d.source.kind === "root" && !d.generated)
+  .flatMap((d) =>
+    adrPublicationDefects({
+      isPublished: (repoRel) => publishedRepo.has(repoRel),
+      relPath: d.relPath,
+      meta: d.meta,
+      body: sourceOf(d).replace(/^---\n[\s\S]*?\n---\n/, ""),
+    }).map((defect) => `${d.repoRel} — ${defect}`),
+  );
+if (adrDefects.length > 0) {
+  for (const line of adrDefects) console.error(`✗ ADR publié : ${line}`);
+  process.exit(1);
+}
+
+// Les pages TRADUITES (`translationOf` au frontmatter, `lib/translations.mjs`) :
+// chaque version déclare toutes les autres aux moteurs (`hreflang`), et une
+// traduction en retard sur sa source refuse le build.
+{
+  const authored = published
+    .filter((d) => !d.generated)
+    .map((d) => ({
+      repoRel: d.repoRel,
+      url: `${SITE_URL}${d.url}`,
+      meta: d.meta,
+      d,
+    }));
+  const stale = staleTranslations(authored, (repoRel) =>
+    readFileSync(path.join(ROOT, repoRel), "utf8"),
+  );
+  if (stale.length > 0) {
+    for (const line of stale) console.error(`✗ traduction périmée : ${line}`);
+    process.exit(1);
+  }
+  const groups = translationGroups(authored, { siteUrl: SITE_URL });
+  for (const a of authored) a.d.alternates = groups.get(a.url) ?? [];
+}
 
 // `--list` : rendre les chemins PUBLIÉS, un par ligne, et s'arrêter là.
 //
@@ -1557,6 +1739,14 @@ try {
 }
 mkdirSync(OUT, { recursive: true });
 
+// L'image d'aperçu des liens partagés (Open Graph) : rendue une fois et
+// commitée (`render-og-image.mjs`), posée à la racine de CHAQUE site rendu —
+// la racine comme `/next/` — puisque chaque page la cite par adresse absolue.
+copyFileSync(
+  path.join(ROOT, "docs", "assets", OG_IMAGE.file),
+  path.join(OUT, OG_IMAGE.file),
+);
+
 // L'icône du site — le logo de la marque, extrait de son data-URI. Sans elle,
 // chaque visiteur récolte un 404 dans sa console, sur chaque page.
 const logo = NODEFONY_BRAND?.logo ?? "";
@@ -1576,7 +1766,7 @@ if (m) {
   );
 }
 
-const searchBytes = writeSearchIndex(published);
+const searchBytes = writeSearchIndex(sourcePages);
 
 let bytes = 0;
 let diagrams = 0;
@@ -1593,8 +1783,25 @@ writeFileSync(
   path.join(OUT, "404.html"),
   doc({
     title: "Page introuvable",
+    documentTitle: brandTitle("Page introuvable"),
     subtitle: "Cette adresse ne correspond à aucune page de la documentation.",
-    head: FAVICON ? `<link rel="icon" href="${SITE_URL}${FAVICON}">` : "",
+    // Servie à la place de n'importe quelle URL fautive : jamais indexée, mais
+    // complète comme toute page — un lien mort partagé montre quand même un aperçu.
+    head:
+      seoHead({
+        image: siteImage(SITE_URL),
+        title: "Page introuvable",
+        description:
+          "Cette adresse ne correspond à aucune page de la documentation de Nodefony : retour à l'accueil ou au dépôt.",
+        url: `${SITE_URL}/404.html`,
+        noindex: true,
+        jsonLd: webPage({
+          title: "Page introuvable",
+          description: "Adresse sans page dans la documentation de Nodefony.",
+          url: `${SITE_URL}/404.html`,
+          siteUrl: SITE_URL,
+        }),
+      }) + (FAVICON ? `\n<link rel="icon" href="${SITE_URL}${FAVICON}">` : ""),
     sections: [
       // Servie à la place d'une URL quelconque, cette page ne connaît pas sa
       // profondeur : ses liens sont les seuls du site à devoir rester absolus.

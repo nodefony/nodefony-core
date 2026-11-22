@@ -121,9 +121,56 @@ describe("searchDocs — le classement", () => {
   });
 });
 
+describe("searchDocs — une faute de frappe ne rend pas la doc muette", () => {
+  const grpc: SearchableDoc = {
+    slug: "framework~grpc",
+    title: "Services gRPC dans le pipeline HTTP",
+    navTitle: "gRPC",
+    sectionLabel: "@nodefony/framework",
+    body: "Un service gRPC se déclare comme une route. gRPC, gRPC-Web et Connect.",
+  };
+  const avecGrpc = [...corpus, grpc];
+
+  it("rattrape une inversion de lettres (grcp → grpc) et le DIT", () => {
+    const r = searchDocs(avecGrpc, "grcp");
+    expect(r.hits.map((h) => h.slug)).toEqual(["framework~grpc"]);
+    expect(r.correctedQuery).toBe("grpc");
+    expect(r.terms).toEqual(["grpc"]);
+  });
+
+  it("rattrape une lettre oubliée ou en trop, terme par terme", () => {
+    expect(searchDocs(avecGrpc, "sesion").correctedQuery).toBe("session");
+    expect(searchDocs(avecGrpc, "session rediss").correctedQuery).toBe(
+      "session redis",
+    );
+  });
+
+  it("ne corrige jamais une requête qui trouve déjà", () => {
+    const r = searchDocs(avecGrpc, "grpc");
+    expect(r.correctedQuery).toBeUndefined();
+    expect(r.hits[0]?.slug).toBe("framework~grpc");
+  });
+
+  it("ne corrige pas un terme de moins de 4 caractères (trop de faux amis)", () => {
+    expect(searchDocs(avecGrpc, "rsd").correctedQuery).toBeUndefined();
+    expect(searchDocs(avecGrpc, "rsd").hits).toHaveLength(0);
+  });
+
+  it("ne corrige pas au-delà d'une faute sur un mot court", () => {
+    expect(searchDocs(avecGrpc, "gxyc").correctedQuery).toBeUndefined();
+  });
+});
+
 describe("searchDocs — parité portail ↔ site public", () => {
   it("s'exécute à l'identique une fois SÉRIALISÉE (ce que fait le site)", () => {
-    for (const q of ["session redis", "redis", "routage", "introuvable"]) {
+    for (const q of [
+      "session redis",
+      "redis",
+      "routage",
+      "introuvable",
+      "sesion",
+      "rediss",
+    ]) {
       expect(serialisee(corpus, q)).toEqual(searchDocs(corpus, q));
     }
   });

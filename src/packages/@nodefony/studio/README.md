@@ -1,5 +1,11 @@
 # @nodefony/studio
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/studio** — Nodefony web admin console: modules, routes, services, effective configuration, logs and live metrics. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/studio/).
+
+<!-- nf-en:end -->
+
 **Studio** — l'admin web de Nodefony (successeur du `monitoring-bundle`). Tableau de bord
 d'introspection et de supervision du framework : modules, services (DI), routes, config, logs,
 santé runtime, cluster, ORM, realtime.

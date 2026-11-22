@@ -139,7 +139,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
 
 ## 🧩 Ce que le module apporte
 
-Quatre propriétés, toutes vérifiables dans le code — c'est ce qui justifie une couche au-dessus de la
+Cinq propriétés, toutes vérifiables dans le code — c'est ce qui justifie une couche au-dessus de la
 WebSocket brute.
 
 **Un contrôleur temps réel est un contrôleur.** `RealtimeController`
@@ -152,6 +152,13 @@ la même socket. Trois formes de trafic coexistent : le serveur diffuse (`@Realt
 `realtimeDecorators.ts#RealtimeChannel`), le client appelle et attend une réponse (`@RealtimeAction`,
 `realtimeDecorators.ts#RealtimeAction`), le client pousse sans attendre (`@RealtimeInbound`,
 `realtimeDecorators.ts#RealtimeInbound`). Rien n'est ouvert qui n'ait été déclaré.
+
+**La socket passe en binaire quand tu le demandes.** Avec `codec: "cbor"`, les frames WebSocket
+voyagent en CBOR (RFC 8949) pour les clients qui l'offrent au handshake : des octets sans base64,
+des messages plus courts, et JSON pour tous les autres. Le codec est décrit dans
+[Codec CBOR sur WebSocket](../../../../nodefony/docs/cbor.md), la négociation dans
+[Protocole](./protocole.md) et le réglage dans
+[Configuration](./configuration.md#codec--la-forme-des-frames-sur-le-fil).
 
 **Le travail est fait une fois par processus, pas une fois par client.** Le `RealtimeHub`
 (`RealtimeHub.ts#RealtimeHub`) tient **un seul producteur par canal** : le premier abonné le démarre, le

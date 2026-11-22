@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-21",
+  "generatedAt": "2026-11-22",
   "count": 44,
   "repoScripts": [
     {
@@ -175,12 +175,14 @@
         "scripts/site/build-site-plan.mjs",
         "scripts/site/build-site.mjs",
         "scripts/site/readme-html.mjs",
+        "scripts/site/render-og-image.mjs",
         "scripts/test/test-all.ts",
         "scripts/test/testbed-report.ts"
       ],
       "testedBy": [
         "scripts/gates/dev-credentials.test.mjs",
         "scripts/gates/vitest-tmp-guard.test.mjs",
+        "scripts/generate/readmes.test.mjs",
         "scripts/lib/redis-session-purge.test.mjs",
         "scripts/release/accueil-gate.test.mjs",
         "scripts/site/perf-figures.test.mjs",
@@ -283,6 +285,7 @@
       "calledBy": [
         ".claude/skills/nodefony-ticket/scripts/pr-finish.mjs",
         "scripts/gates/check-symbol-stability.mjs",
+        "scripts/generate/readmes.mjs",
         "scripts/lib/symbols-publish.mjs",
         "scripts/release/api-diff.mjs",
         "scripts/release/dts-deps.mjs",
@@ -1672,6 +1675,34 @@
         "npm run readme:build",
         "node.js.yml"
       ],
+      "testedBy": [
+        "scripts/generate/readmes.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/generate/readmes.test.mjs",
+      "test": true,
+      "purpose": "",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/adr-publication.test.mjs",
+      "test": true,
+      "purpose": "",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
       "testedBy": []
     },
     {
@@ -1809,6 +1840,21 @@
       ]
     },
     {
+      "path": "scripts/site/check-site-seo.mjs",
+      "test": false,
+      "purpose": "Refuse un site RENDU dont une page n'a pas son référencement propre : titre, description, adresse canonique, aperçu de partage, données structurées — et aucun titre ni description partagé par deux pages.",
+      "usage": [
+        "node scripts/site/check-site-seo.mjs <dossier-rendu> [--site-url <url>] [--noindex] [--json]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-site.mjs"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/site/html-text.test.mjs",
       "test": true,
       "purpose": "",
@@ -1836,6 +1882,23 @@
         "scripts/site/readme-html.mjs"
       ],
       "testedBy": []
+    },
+    {
+      "path": "scripts/site/lib/adr-publication.mjs",
+      "test": false,
+      "purpose": "Ce qu'un ADR doit porter pour être PUBLIÉ sur le site.",
+      "usage": [
+        "import { adrPublicationDefects } from \"./lib/adr-publication.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-docs-site.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/adr-publication.test.mjs"
+      ]
     },
     {
       "path": "scripts/site/lib/api-reference.mjs",
@@ -1922,7 +1985,26 @@
         "scripts/site/build-docs-site.mjs"
       ],
       "testedBy": [
-        "scripts/site/markdown-source.test.mjs"
+        "scripts/site/markdown-source.test.mjs",
+        "scripts/site/translations.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/module-docs.mjs",
+      "test": false,
+      "purpose": "Les modules du dépôt qui portent un dossier `docs/`, et la clé courte qui fait leur adresse sur le site (`/docs/modules/<clé>/`).",
+      "usage": [
+        "import { moduleDocsDirs, moduleDocsUrl } from \"./lib/module-docs.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/generate/readmes.mjs",
+        "scripts/site/build-docs-site.mjs"
+      ],
+      "testedBy": [
+        "scripts/generate/readmes.test.mjs"
       ]
     },
     {
@@ -1955,10 +2037,54 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "scripts/site/build-docs-site.mjs"
+        "scripts/site/build-docs-site.mjs",
+        "scripts/site/build-perf-site.mjs",
+        "scripts/site/build-qualite-site.mjs",
+        ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"
       ],
       "testedBy": [
         "scripts/site/llms-plan.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/seo-check.mjs",
+      "test": false,
+      "purpose": "Le référencement d'un site RENDU, page par page : ce qu'un moteur de recherche, l'aperçu d'un lien partagé et un agent lisent dans l'en-tête.",
+      "usage": [
+        "import { readSeoHead, siteDefects } from \"./lib/seo-check.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-site-plan.mjs",
+        "scripts/site/check-site-seo.mjs",
+        "scripts/site/lib/sitemap.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/seo-check.test.mjs",
+        "scripts/site/translations.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/seo-head.mjs",
+      "test": false,
+      "purpose": "L'en-tête de référencement d'UNE page publiée : description, adresse canonique, aperçu de partage (Open Graph + carte), données structurées schema.org — tout ce que `check-site-seo.mjs` exige, émis au même endroit pour toutes les pages du site (documentation, accueil, mesures, qualité).",
+      "usage": [
+        "import { seoHead, brandTitle, techArticle } from \"./lib/seo-head.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-docs-site.mjs",
+        "scripts/site/build-perf-site.mjs",
+        "scripts/site/build-qualite-site.mjs",
+        "scripts/site/readme-html.mjs",
+        ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/translations.test.mjs"
       ]
     },
     {
@@ -1966,12 +2092,13 @@
       "test": false,
       "purpose": "Le menu commun des sites VOISINS de la documentation — performance et qualité — rendu par chacun de leurs générateurs.",
       "usage": [
-        "import { siteNav, relativeUrl } from \"./lib/site-nav.mjs\""
+        "import { siteNav, relativeUrl, menuTargets } from \"./lib/site-nav.mjs\""
       ],
       "options": [],
       "env": [],
       "output": "",
       "calledBy": [
+        "scripts/site/build-docs-site.mjs",
         "scripts/site/build-perf-site.mjs",
         "scripts/site/build-qualite-site.mjs",
         ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"
@@ -2000,6 +2127,40 @@
       ],
       "testedBy": [
         "scripts/site/site-versions.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/sitemap.mjs",
+      "test": false,
+      "purpose": "Le plan pour les moteurs au format sitemap 0.9 — fonctions PURES, éprouvées sans rendre le site (`site-plan.test.mjs`).",
+      "usage": [
+        "import { sitemapXml, sitemapEntries, modifiedDate } from \"./lib/sitemap.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-site-plan.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/site-plan.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/translations.mjs",
+      "test": false,
+      "purpose": "Les pages TRADUITES du site : qui traduit quoi, et la traduction est-elle à jour de sa source ?",
+      "usage": [
+        "import { translationGroups, staleTranslations, sourceFingerprint } from \"./lib/translations.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-docs-site.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/translations.test.mjs"
       ]
     },
     {
@@ -2075,6 +2236,19 @@
       "testedBy": []
     },
     {
+      "path": "scripts/site/render-og-image.mjs",
+      "test": false,
+      "purpose": "Rend l'IMAGE D'APERÇU du site — celle qu'affiche un lien partagé (Open Graph, cartes) : 1200 × 630, PNG (les aperçus refusent le SVG).",
+      "usage": [
+        "node scripts/site/render-og-image.mjs [--out docs/assets/og-image.png]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [],
+      "testedBy": []
+    },
+    {
       "path": "scripts/site/schemas-organigramme.test.mjs",
       "test": true,
       "purpose": "Le tracé des organigrammes du site — jugé sur le CORPUS réel.",
@@ -2091,6 +2265,19 @@
       "path": "scripts/site/schemas-sequence.test.mjs",
       "test": true,
       "purpose": "Les diagrammes de séquence du site tiennent leurs libellés — sur le CORPUS réel.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/seo-check.test.mjs",
+      "test": true,
+      "purpose": "",
       "usage": [],
       "options": [],
       "env": [],
@@ -2132,6 +2319,19 @@
       "path": "scripts/site/site-versions.test.mjs",
       "test": true,
       "purpose": "Éprouve l'agencement des versions du site et le dossier de sortie neuf.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/translations.test.mjs",
+      "test": true,
+      "purpose": "L'adresse d'une traduction suit la convention : `/<langue>` + celle de la source.",
       "usage": [],
       "options": [],
       "env": [],
@@ -8567,6 +8767,10 @@
                 "help": ""
               },
               {
+                "flag": "--noindex",
+                "help": ""
+              },
+              {
                 "flag": "--only",
                 "help": ""
               },
@@ -8580,6 +8784,10 @@
               },
               {
                 "flag": "--site-path",
+                "help": ""
+              },
+              {
+                "flag": "--site-url",
                 "help": ""
               },
               {
@@ -11859,7 +12067,7 @@
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée (CVSS 3.1 calculé, IEEE 1044), parents et sous-tickets, champs et dates du tableau, quand prendre un ticket, et la pull request qui le porte (colonne de droite, lien, méthode de fusion). À charger AVANT d'ouvrir une issue ou une PR. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"quelle gravité pour ce bug ?\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"explique le ticket\", \"pour les nuls\", \"la PR est à moitié remplie\", \"quand merger la PR sur dev ?\".",
       "cost": {
         "bodyLines": 487,
-        "approxTokens": 10063
+        "approxTokens": 10706
       },
       "requires": [
         "redis",
@@ -12134,7 +12342,7 @@
             "path": "scripts/ticket-close.mjs",
             "purpose": "Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique.",
             "usage": [
-              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done"
+              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done | <numéro> --prune"
             ],
             "options": [
               {
@@ -12152,6 +12360,10 @@
               {
                 "flag": "--done",
                 "help": "pose « Done » au tableau sur un ticket DÉJÀ fermé"
+              },
+              {
+                "flag": "--prune",
+                "help": "supprime la branche locale d'un ticket dont la PR est fusionnée (la fermeture le fait d'elle-même)"
               }
             ],
             "env": [],

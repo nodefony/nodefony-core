@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/redis",
-  "version": "10.0.1",
-  "description": "Connecteur Redis de Nodefony : dépôts clé-valeur, cache, sessions partagées et transport de diffusion entre instances",
+  "version": "10.0.2",
+  "description": "Redis connector for Nodefony: key-value repositories, cache, shared sessions and cross-instance broadcast transport",
   "nodefony": {
     "storeKind": "cache",
     "stores": [
@@ -52,19 +52,19 @@
     "tslib": "2.9.1"
   },
   "devDependencies": {
-    "@nodefony/framework": "^10.0.1",
-    "@nodefony/http": "^10.0.1",
-    "@nodefony/security": "^10.0.1",
+    "@nodefony/framework": "^10.0.2",
+    "@nodefony/http": "^10.0.2",
+    "@nodefony/security": "^10.0.2",
     "@types/node": "26.6.6",
     "@vitest/coverage-v8": "5.1.1",
-    "nodefony": "^10.0.1",
+    "nodefony": "^10.0.2",
     "vitest": "5.1.1"
   },
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.1",
-    "@nodefony/http": "^10.0.1",
-    "@nodefony/security": "^10.0.1",
-    "nodefony": "^10.0.1",
+    "@nodefony/framework": "^10.0.2",
+    "@nodefony/http": "^10.0.2",
+    "@nodefony/security": "^10.0.2",
+    "nodefony": "^10.0.2",
     "zod": "^4.6.7"
   },
   "repository": {

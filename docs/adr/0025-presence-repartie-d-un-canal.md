@@ -1,30 +1,50 @@
 ---
 adr: 25
 title: Présence répartie d'un canal temps réel — portée par le canal lui-même
+description: "La présence d'un canal entre plusieurs instances, portée par le canal : changements numérotés par lots, battement léger, coût au repos selon les instances."
 lang: fr
 navTitle: Présence d'un canal
 date: 2026-11-10
 status: accepted
+publish: true
 deciders: [Christophe CAMENSULI]
 tags: [realtime, presence, cluster, design, compatibility]
 ---
 
 # ADR-0025 — Présence répartie d'un canal temps réel : portée par le canal lui-même
 
+> **Summary.** "Who is in this room?" used to be answered per process only: once an application
+> ran as several instances, each one saw nothing but its own connections, and every application
+> had to rebuild heartbeats, crash detection and multi-tab counting by hand. This ADR makes
+> presence a framework feature, enabled per channel with `presence: true` and carried by the
+> channel itself — being admitted to a channel is what grants its presence, with no second channel
+> to open and no global identity registry. Between instances it travels as batched, sequence-numbered
+> changes plus a heartbeat of a few dozen bytes, so the idle cost follows the number of instances,
+> never the number of channels or members. For a user it means one policy key on the server and one
+> hook in the browser (`useNodefonyPresence`) that yields a list consistent within one heartbeat
+> interval, exact departures by default and an optional grace period.
+
+Le « comment » est dans les guides — [cookbook du chat, étape 3 « présence et frappe en cours »](../../src/packages/@nodefony/realtime/docs/cookbook-chat.md)
+et [client, « Qui est là — la présence d'un canal »](../../src/nodefony/docs/client.md) ; cet ADR
+porte le « pourquoi ».
+
 ## Statut
 
-Accepté (2026-11-10). Instruit par le ticket #760 (Epic #621) : P1 tranché par l'auteur, P2 à P4 par délégation de
-l'auteur après une table d'experts ; chaque décision porte sa ligne datée. Jugé contre le catalogue
+**Accepté** (2026-11-10), en vigueur : aucun autre ADR ne le remplace. Il rouvre la décision D1
+d'[ADR-0022](0022-socket-temps-reel.md) (la présence passe de l'application au framework, voir P1)
+et s'appuie sur les garanties de livraison et les compteurs
+d'[ADR-0021](0021-temps-reel-evenement-et-livraisons.md). Chaque décision porte sa ligne datée : P1
+a été arrêtée d'abord, P2 à P5 après une revue contradictoire (§ « Comment P2 à P5 ont été
+tranchés »). Jugé contre le catalogue
 [`scenarios/temps-reel.md`](scenarios/temps-reel.md), scénarios S-rt-84 à S-rt-110. L'architecture
-temps réel est gelée (#702) : la surface neuve ne se code qu'une fois cet ADR accepté, puis entre
+temps réel est gelée : la surface neuve ne se code qu'une fois cet ADR accepté, puis entre
 dans la fixture `frozenSurface`.
 
-**Décision (validée par l'auteur le 2026-11-10) :** l'ADR est accepté en entier, P2 à P4 compris, sur la
-synthèse de la table. Le code reste conditionné à la revue finale côte à côte d'ADR-0021, 0022 et
-0025 (étape 0 de #760).
+**Décision (2026-11-10) :** l'ADR est accepté en entier, P2 à P5 compris, sur la synthèse de la
+revue contradictoire. Le code reste conditionné à la revue finale côte à côte d'ADR-0021, 0022 et 0025.
 
-**Revue finale (validée par l'auteur le 2026-11-10) :** la revue côte à côte (un siège, étape 0 de
-#760) a rendu dix-sept constats, chacun vérifié au code ; ce texte les intègre EN PLACE. Ce qui a
+**Revue finale (2026-11-10) :** la revue côte à côte des trois ADR a rendu dix-sept constats,
+chacun vérifié au code ; ce texte les intègre EN PLACE. Ce qui a
 changé : la preuve de vie passe hors quota sur son propre canal ; le bus perdu se constate par
 l'écho de sa propre preuve de vie ; numéros `seq` / `prev` / `last` au lieu d'une version unique ;
 incarnation entière bornée ; forme du lot entre pods prête pour l'état ; demande d'état qui nomme
@@ -32,11 +52,12 @@ ses canaux ; aucun verbe client neuf (`subscribe` suffit) ; `unnamed` au lieu d'
 compteurs nommés ; règle d'application pure, partagée par le navigateur et le pod ; budgets
 séparés en invariants testés et mesures de banc.
 
-**Confrontation aux normes (tranchée par délégation de l'auteur le 2026-11-10) :** cet ADR avait été
-écrit sans consulter les normes de présence. Trois lecteurs indépendants l'ont confronté à XMPP
+**Confrontation aux normes (2026-11-10) :** cet ADR avait été
+écrit sans consulter les normes de présence. Trois relectures indépendantes l'ont confronté à XMPP
 (RFC 6121, XEP-0045), à SIP / PIDF (RFC 2778, 3856, 3863, 4479, 5262, 5263, 6665) et à l'état de
-l'art réparti (SWIM, Lifeguard, `memberlist`, Phoenix Tracker et Presence, Cassandra, Matrix,
-Ably) ; chaque citation décisive a été recontrôlée dans le texte source. **Aucune décision de fond
+l'art réparti (SWIM, Lifeguard, la spécification Matrix, et les implémentations existantes de
+suivi de présence et d'appartenance à un cluster) ; chaque citation décisive a été recontrôlée
+dans le texte source. **Aucune décision de fond
 n'est contredite.** Les trous qu'elles ont révélés sont comblés EN PLACE : la liste ne consomme pas de version ; la
 borne serveur de renvoi de la liste est retirée ; la réponse d'état porte `last`, s'applique d'un
 bloc, et une demande ciblée reçoit toujours une réponse ; la preuve de vie annonce son
@@ -64,15 +85,15 @@ Bien faire demande trois mécanismes que chaque application réécrirait :
 3. une personne a plusieurs onglets, parfois sur deux pods — la présence se compte par identité,
    les anonymes se comptent sans être nommés.
 
-Notre propre cookbook l'a réécrite fausse (`src/packages/@nodefony/realtime/docs/cookbook-chat.md`,
-§ « Étape 3 » : un `Set` par processus publié toutes les 5 s, que chaque pod écrase chez l'autre
-derrière un bus).
+Le cookbook du module l'avait lui-même réécrite fausse avant cette décision
+(`src/packages/@nodefony/realtime/docs/cookbook-chat.md`, § « Étape 3 » : un `Set` par processus
+publié toutes les 5 s, que chaque pod écrasait chez l'autre derrière un bus).
 
 ## Décisions
 
 ### P1 — Le framework porte la présence, sur le canal lui-même
 
-**Décision (validée par l'auteur le 2026-11-10) :** la présence est une brique du framework,
+**Décision (2026-11-10) :** la présence est une brique du framework,
 activée canal par canal. Elle voyage sur le canal qu'elle décrit : être admis dans `room:42`
 donne sa présence, aucun second canal (`room:42:presence`) n'est à ouvrir.
 
@@ -92,19 +113,17 @@ donne sa présence, aucun second canal (`room:42:presence`) n'est à ouvrir.
 - **Rouvre ADR-0022, décision D1** (« le développeur écrit son chat — … présence ») : la présence
   passe au framework ; contrat, actions, base, historique et salons restent à l'application.
 
-### Comment P2 à P4 ont été tranchés
+### Comment P2 à P5 ont été tranchés
 
-L'auteur a délégué ces décisions (« il faut que tu tranches, Nodefony doit être la référence du
-temps réel, la perf est très importante ») et demandé une table d'experts : contradicteur,
-spécialiste perf, attaquant (deux modèles), exploitant, développeur d'application, gardien de la
-compatibilité. Le contradicteur a ajouté S-rt-100 à S-rt-104 et fait réécrire quatre cas ; chaque
+Ces décisions ont été instruites par une revue contradictoire, avec la performance du temps réel
+pour premier critère. Elle a ajouté S-rt-100 à S-rt-104 et fait réécrire quatre cas ; chaque
 constat retenu ci-dessous a été vérifié au code. La règle qui a départagé : **au repos, le coût
 est proportionnel au nombre de pods ; en rafale, au nombre de fenêtres — jamais au nombre de
 canaux, de membres ou d'abonnés.**
 
 ### P2 — Entre pods : un canal de plateforme dédié, des changements groupés, une preuve de vie de quelques octets
 
-**Décision (tranchée par délégation de l'auteur le 2026-11-10) :**
+**Décision (2026-11-10, après revue contradictoire) :**
 
 - **Deux canaux** (`src/nodefony/src/realtime/platformChannels.ts#PLATFORM_BUS_CHANNELS`, préfixe
   `PLATFORM_BUS_PREFIX` exigé) : `PLATFORM_BUS_CHANNELS.presence` = `nodefony:bus:presence` pour
@@ -125,7 +144,7 @@ canaux, de membres ou d'abonnés.**
   dire « jamais jeté », pas « livré à temps » : un bus bloqué relève de l'écho (Oubli, ci-dessous).
 - **Règle de lecture du bus, figée** : un champ inconnu est toléré ; un type de message ou un
   canal de plateforme inconnu est rejeté et compté À PART, dans `ingressUnknownDiscardedTotal`,
-  jamais dans `ingressRejectedTotal` (compteur d'injection, F83). **Livré (#761)** :
+  jamais dans `ingressRejectedTotal` (compteur d'injection). **Livré** :
   `RealtimeHub.ts#RealtimeHub.#discardUnknownFromBus`,
   `src/packages/@nodefony/realtime/nodefony/src/backplane/controlOrder.ts#isUnknownControlOrder`.
 - **Ce qu'un pod envoie** — `originId` n'est JAMAIS recopié dans la charge, il se lit dans
@@ -139,7 +158,7 @@ canaux, de membres ou d'abonnés.**
     quelques dizaines d'octets, indépendante du nombre de canaux — dès qu'il porte un présent OU
     garde une vue distante (sans elle il n'aurait aucun écho à constater). Le premier battement
     part avec une gigue de 0 à 25 % de l'intervalle : des pods démarrés ensemble ne battent pas
-    en phase (Phoenix Tracker fait de même) ;
+    en phase (pratique courante des détecteurs à battement) ;
   - son **état à la demande** d'un pair — le _fetch_ de RFC 2778 §2.1, la _presence probe_ de
     RFC 6121 §4.3. La demande NOMME ses canaux ; quand elle vise un pod connu (trou, incarnation
     neuve, pod inconnu vu par sa preuve de vie), elle NOMME aussi ce pod (`to`). La réponse ne
@@ -172,7 +191,7 @@ canaux, de membres ou d'abonnés.**
     (ADR-0022 §6 décision 4) : l'incarnation ne sert qu'à départager, l'oubli tranche. Un message
     d'une incarnation refusée ne rafraîchit PAS le dernier signe de vie de la vie connue (sinon
     ni l'une ni l'autre ne sortirait jamais). Le mot s'entend au sens d'une VIE de processus —
-    `vsn` du Tracker de Phoenix, `generation` de Cassandra, même construction par l'horloge —, pas
+    une génération tirée de l'horloge, construction courante des systèmes répartis —, pas
     au sens du compteur de réfutation de SWIM ; `generation` est déjà pris par l'ordre de contrôle
     (`src/packages/@nodefony/realtime/nodefony/src/backplane/controlOrder.ts#IEvictUserOrder.generation`) ;
   - **`seq`** croît strictement à chaque message par (`originId`, incarnation), preuve de vie
@@ -209,8 +228,8 @@ canaux, de membres ou d'abonnés.**
   socket seulement, pas les flux SSE (ADR-0021 S10 ter).
 - **Oubli** : mesuré sur l'horloge MONOTONE LOCALE du récepteur — jamais l'horloge murale, qu'un
   saut NTP déplace, jamais un horodatage émis ; le délai est une DURÉE. Délai d'oubli =
-  3 intervalles ANNONCÉS par le pair (nombre réglable, refusé au démarrage sous 2 — Phoenix
-  Tracker exige le même plancher) ; intervalle local par défaut 5 s. Mesuré sur l'intervalle
+  3 intervalles ANNONCÉS par le pair (nombre réglable, refusé au démarrage sous 2 — le
+  plancher usuel des détecteurs à battement) ; intervalle local par défaut 5 s. Mesuré sur l'intervalle
   annoncé et non sur la configuration du récepteur, un déploiement progressif qui change
   l'intervalle ne fait pas oublier en boucle un pod vivant. Tout message valide de l'incarnation
   courante vaut signe de vie, pas seulement la preuve de vie. Une preuve de vie dont l'intervalle
@@ -253,7 +272,7 @@ canaux, de membres ou d'abonnés.**
 
 ### P2 bis — Vers le navigateur : liste partagée, changements regroupés, version
 
-**Décision (tranchée par délégation de l'auteur le 2026-11-10) :**
+**Décision (2026-11-10, après revue contradictoire) :**
 
 - Une notification du protocole **`realtime:presence`** sur le canal décrit, comme
   `realtime:subscribed` et `realtime:closed`
@@ -269,7 +288,7 @@ canaux, de membres ou d'abonnés.**
   XEP-0045 §4.2). Cette trame de nombres seuls est complète comme une liste : elle porte la
   version courante et réinitialise la référence. **Retour à la liste avec hystérésis** : passé en
   nombres seuls, le canal ne renomme qu'à `seuil − ⌊seuil / 10⌋` (900 pour 1 000), et la liste
-  repart alors une fois, à tous. Mesuré (`micro-presence.mjs`, S-rt-87) : sans cette bande, un
+  repart alors une fois, à tous. Mesuré au micro-banc (S-rt-87) : sans cette bande, un
   salon qui oscille entre 999 et 1 000 envoyait la liste complète une fenêtre sur deux —
   41 789 o/s par client contre 1 788 o/s, ×23. La bande est proportionnelle au coût qu'elle
   évite (une liste d'au plus `seuil` noms) : nulle sous 10. Un nouvel abonné reçoit la trame du
@@ -318,14 +337,15 @@ canaux, de membres ou d'abonnés.**
   cliente perd sa référence de version ; tout `changes` y rend `gap` sans nouvelle demande,
   jusqu'à la prochaine `members`. Sinon, reconnecté sur un autre pod (dont la `version` est
   autre), un changement pourrait tomber par hasard sur le numéro attendu de l'ancienne vue et
-  s'appliquer à tort — Phoenix Presence porte le même état (`inPendingSyncState`).
+  s'appliquer à tort — un état « en attente de synchronisation » que les clients de présence
+  existants portent aussi.
 - **Pod perdu** = UNE trame `changes` par client, avec toutes les identités qui disparaissent —
   jamais un départ par membre, et aucune topologie de pods exposée au navigateur.
 - Le client range la vue dans une `Map` (aucune clé héritée, `__proto__` sans effet).
 
 ### P3 — Activation et API : une clé de la politique du canal
 
-**Décision (tranchée par délégation de l'auteur le 2026-11-10) :**
+**Décision (2026-11-10, après revue contradictoire) :**
 
 ```ts
 @RealtimeChannel("room:*", { allow: RoomAdmission, presence: true })
@@ -378,14 +398,14 @@ canaux, de membres ou d'abonnés.**
 
 ### P4 — L'état d'un présent : la forme en 10.0, l'écriture ensuite
 
-**Décision (tranchée par délégation de l'auteur le 2026-11-10) :**
+**Décision (2026-11-10, après revue contradictoire) :**
 
 - 10.0 livre la **forme** — identité → `{ tabs }` (nombre d'onglets), les états à venir dans
   `states` (référence d'onglet opaque → état), champ FACULTATIF — et aucun moyen de poser un
   état. C'est la forme du lot entre pods, recopiée à l'identique. Un tableau d'états sans
   identifiant, d'abord retenu, ne permettait pas de suivre un onglet d'une trame à l'autre :
-  chaque précédent identifie l'entrée (`id` de chaque _tuple_, RFC 3863 §4.1.2 ; `phx_ref` de
-  Phoenix Presence ; `connectionId` d'Ably). La référence ne voyage qu'avec un état ; sans état,
+  chaque précédent identifie l'entrée (`id` de chaque _tuple_, RFC 3863 §4.1.2 ; une référence
+  par connexion dans les implémentations étudiées). La référence ne voyage qu'avec un état ; sans état,
   le nombre suffit. Le micro, la caméra ou l'absence s'ajoutent sans toucher à la trame ni au
   hook (S-rt-97).
 - **Un état DURE ; « en train d'écrire » n'en est pas un** : il passe par un message éphémère du
@@ -400,7 +420,7 @@ canaux, de membres ou d'abonnés.**
 
 ### P5 — Les départs : exacts par défaut, grâce sur option
 
-**Décision (tranchée par délégation de l'auteur le 2026-11-10) :**
+**Décision (2026-11-10, après revue contradictoire) :**
 
 - Une connexion qui se ferme part tout de suite (front montant de la fenêtre de 250 ms).
 - **Arrêt propre d'un pod** (`SIGTERM`, déploiement) : il émet son dernier lot, puis une preuve
@@ -434,10 +454,10 @@ canaux, de membres ou d'abonnés.**
   le cas même que la grâce existe pour couvrir (vu au banc multi-pods réel, invisible au bus
   mémoire où un test garde toujours un abonné).
 - **Défaut `0`** : un salon de jeu ou un poste de supervision veut un compte EXACT ; un chat
-  règle sa grâce. Ably tient 15 s par défaut ; Phoenix Tracker garde les présents d'un nœud
-  arrêté « to avoid overwhelming clients with notifications that many users left and immediately
-  rejoined » — c'est le choix inverse, assumé : l'exactitude par défaut, la stabilité sur option,
-  et une seule option pour toutes les causes de départ.
+  règle sa grâce. L'autre réglage existe et se défend : une grâce de plusieurs secondes par
+  défaut, ou les présents d'un nœud arrêté gardés un temps, pour ne pas noyer les clients sous des
+  départs aussitôt suivis de retours. Le choix fait ici est l'inverse, assumé : l'exactitude par
+  défaut, la stabilité sur option, et une seule option pour toutes les causes de départ.
 
 ### Ce qu'on ne promet pas
 
@@ -448,17 +468,19 @@ canaux, de membres ou d'abonnés.**
 - Un message rejoué d'une vie oubliée peut réafficher un fantôme jusqu'au délai d'oubli suivant ;
   rejouée message après message dans l'ordre des `seq`, une capture peut le tenir plus longtemps.
   Parade possible, additive : une demande d'état qui porte un aléa que la réponse recopie. Aucune
-  source lue ne traite le rejeu — XMPP, SIP, SWIM et Phoenix supposent un lien de confiance.
+  source lue ne traite le rejeu — XMPP, SIP, SWIM et les implémentations étudiées supposent un
+  lien de confiance.
 - Le sceau authentifie, il ne chiffre pas : qui lit le bus lit identité → canal. TLS et droits
   d'accès du bus relèvent de l'exploitation (RFC 3856 §9.1 recommande TLS entre éléments).
 - Deux processus vivants sous le même `originId` (nom d'hôte cloné, pid 1 des deux côtés)
   prennent les messages de l'autre pour leur propre écho et ne se voient pas : l'unicité de
-  l'`originId` est une condition de déploiement (`memberlist` détecte ce conflit, pas nous).
+  l'`originId` est une condition de déploiement (une bibliothèque d'appartenance peut détecter
+  ce conflit ; la présence ne le fait pas).
 - Le motif d'un départ (quitté, éjecté, panne, arrêt du service) n'est pas publié ; il pourra
   l'être par un champ facultatif parallèle à `gone` (XEP-0045 : codes 307, 332, 333).
 - Un lot perdu coûte une demande d'état de tous les canaux servis par le récepteur (il ignore
-  quels canaux le lot touchait) ; une reprise par lots manquants (`since`, comme les
-  `max_delta_sizes` de Phoenix Tracker) est un ajout possible.
+  quels canaux le lot touchait) ; une reprise par lots manquants (`since`, sur une
+  fenêtre bornée de lots gardés) est un ajout possible.
 - Les présents d'un pod d'une version sans présence ne sont pas vus tant qu'il tourne : le bus
   n'a pas d'annuaire de pairs, un pod qui n'émet rien n'existe pour personne.
 - Hors quota n'est pas « prioritaire » dans le client Redis : une preuve de vie passe derrière ce
@@ -508,24 +530,24 @@ processus enfant ; un minuteur `unref` se comporte à l'identique sur les trois 
 ## Normes et antériorités
 
 Notre protocole n'est interopérable ni avec XMPP ni avec SIP : un écart de FORMAT n'est pas une
-faute. Ce qui compte, ce sont les problèmes que ces normes ont appris à résoudre. Textes figés hors
-ligne dans le corpus unique : `.claude/skills/nodefony-framework-dev/references/rfc/ietf/rfc<N>.txt`
-(RFC) et `…/rfc/specs/` (`xep-0045-multi-user-chat.xml`, `matrix-presence.md`).
+faute. Ce qui compte, ce sont les problèmes que ces normes ont appris à résoudre. Les paragraphes
+cités renvoient aux textes publiés des RFC (IETF), de XEP-0045 (XSF) et de la spécification
+Matrix.
 
-| Source                                                                       | Ce que la présence reprend                                                                                                                                                                                                                                                                                                                | Où elle s'écarte, et pourquoi                                                                                                                                                                                          |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **XEP-0045** (XMPP, salons) — le cas le plus proche : la présence d'un SALON | Être dans le salon donne la présence (§5.1.1) ; liste complète à l'entrée (§7.2.2) ; une seconde demande d'entrée = resynchronisation complète (§17.3) ; plusieurs sessions d'une identité (§7.2.8) ; ce qui fait autorité vient du service (§17.3) ; salon semi-anonyme (§4.2) → seuil 0 ; codes de départ 307 / 332 / 333 → motif futur | Une trame `members` atomique au lieu de N présences et d'une auto-présence finale ; pas de pseudo libre (§14.6, usurpation) ; aucune option « identités visibles aux seuls modérateurs » en 10.0                       |
-| **RFC 6121** (XMPP, présence)                                                | Le serveur fabrique le départ d'un présent mort (§4.5.2) ; la _presence probe_ (§4.3) = demande d'état ; réponse déterministe (§4.3.2) ; la présence porte la disponibilité, le reste passe ailleurs (§4.4.1)                                                                                                                             | Battement systématique au lieu d'un sondage facultatif (§4.3.1, MAY) : notre bus ne garantit rien ; vocabulaire `show` fermé non repris                                                                                |
-| **RFC 2778 / 4479** (modèle)                                                 | Observateur et présent, _fetch_ (RFC 2778 §2.1) ; personne → services / appareils (RFC 4479 §3) = identité → onglets                                                                                                                                                                                                                      | Observateur non listé : côté serveur seulement                                                                                                                                                                         |
-| **RFC 3863 / 5262 / 5263** (PIDF, présence partielle)                        | Liste complète ou changements dans le même canal (RFC 5262 §1) ; liste quand les changements pèsent plus (§4) ; trois issues d'un numéro (RFC 5263 §4.5) = `applied` / `gap` / `stale` ; identifiant de chaque entrée (RFC 3863 §4.1.2) → référence d'onglet                                                                              | Version par CANAL et non par abonnement (une trame encodée pour tous) : la liste ne consomme donc pas de numéro                                                                                                        |
-| **RFC 6665 / 3856** (notification SIP)                                       | État initial à l'abonnement (§4.2.1.2) ; un changement ignoré mais son numéro retenu (§5.3.2) ; durée annoncée qui fait foi (§3.1.1) → `interval` ; débit maximal des notifications (§5.4.10) → 250 ms ; état neutre avant la première notification (§4.1.2.4) → `ready` ; agrégation par le serveur, jamais par l'abonné (RFC 3856 §6.9) | Pas d'acquittement par notification : `prev` / `last` révèlent la perte que l'acquittement révélait                                                                                                                    |
-| **SWIM / Lifeguard / `memberlist`**                                          | Battement à compteur ; le récepteur lent est la première cause de faux positifs (Lifeguard) → réarmement des délais                                                                                                                                                                                                                       | Tous les pods se battent le cœur (charge quadratique, négligeable à quelques dizaines de pods, à rejuger au-delà de quelques centaines) ; « incarnation » au sens d'une vie, pas du compteur de réfutation             |
-| **Phoenix Tracker / Presence**                                               | Incarnation par l'horloge (`vsn`) ; délai d'oubli ≥ 2 intervalles, refusé au démarrage ; lots ; `presence_state` / `presence_diff` = `members` / `changes` ; plusieurs entrées par clé ; état « en attente de synchro » ; gigue du premier battement                                                                                      | Pas de CRDT (chaque pod est seul auteur de ses présents : une chaîne `seq` suffit) ; vue des seuls canaux servis (S-rt-100) ; un seul palier d'oubli ; lots à 50 ms au lieu de 1,5 s ; départs annoncés à l'arrêt (P5) |
-| **Cassandra** (`generation`) · **Matrix** (présence) · **Ably** (presence)   | Génération tirée de l'horloge ; durées relatives, jamais d'heure absolue entre serveurs ; grâce au départ (15 s), liste poussée à l'attachement, compte seul pour les grands ensembles                                                                                                                                                    | Grâce à 0 par défaut (P5)                                                                                                                                                                                              |
+| Source                                                                       | Ce que la présence reprend                                                                                                                                                                                                                                                                                                                                | Où elle s'écarte, et pourquoi                                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **XEP-0045** (XMPP, salons) — le cas le plus proche : la présence d'un SALON | Être dans le salon donne la présence (§5.1.1) ; liste complète à l'entrée (§7.2.2) ; une seconde demande d'entrée = resynchronisation complète (§17.3) ; plusieurs sessions d'une identité (§7.2.8) ; ce qui fait autorité vient du service (§17.3) ; salon semi-anonyme (§4.2) → seuil 0 ; codes de départ 307 / 332 / 333 → motif futur                 | Une trame `members` atomique au lieu de N présences et d'une auto-présence finale ; pas de pseudo libre (§14.6, usurpation) ; aucune option « identités visibles aux seuls modérateurs » en 10.0                                                                  |
+| **RFC 6121** (XMPP, présence)                                                | Le serveur fabrique le départ d'un présent mort (§4.5.2) ; la _presence probe_ (§4.3) = demande d'état ; réponse déterministe (§4.3.2) ; la présence porte la disponibilité, le reste passe ailleurs (§4.4.1)                                                                                                                                             | Battement systématique au lieu d'un sondage facultatif (§4.3.1, MAY) : notre bus ne garantit rien ; vocabulaire `show` fermé non repris                                                                                                                           |
+| **RFC 2778 / 4479** (modèle)                                                 | Observateur et présent, _fetch_ (RFC 2778 §2.1) ; personne → services / appareils (RFC 4479 §3) = identité → onglets                                                                                                                                                                                                                                      | Observateur non listé : côté serveur seulement                                                                                                                                                                                                                    |
+| **RFC 3863 / 5262 / 5263** (PIDF, présence partielle)                        | Liste complète ou changements dans le même canal (RFC 5262 §1) ; liste quand les changements pèsent plus (§4) ; trois issues d'un numéro (RFC 5263 §4.5) = `applied` / `gap` / `stale` ; identifiant de chaque entrée (RFC 3863 §4.1.2) → référence d'onglet                                                                                              | Version par CANAL et non par abonnement (une trame encodée pour tous) : la liste ne consomme donc pas de numéro                                                                                                                                                   |
+| **RFC 6665 / 3856** (notification SIP)                                       | État initial à l'abonnement (§4.2.1.2) ; un changement ignoré mais son numéro retenu (§5.3.2) ; durée annoncée qui fait foi (§3.1.1) → `interval` ; débit maximal des notifications (§5.4.10) → 250 ms ; état neutre avant la première notification (§4.1.2.4) → `ready` ; agrégation par le serveur, jamais par l'abonné (RFC 3856 §6.9)                 | Pas d'acquittement par notification : `prev` / `last` révèlent la perte que l'acquittement révélait                                                                                                                                                               |
+| **SWIM / Lifeguard** (détection de panne)                                    | Battement à compteur ; le récepteur lent est la première cause de faux positifs (Lifeguard) → réarmement des délais                                                                                                                                                                                                                                       | Tous les pods se battent le cœur (charge quadratique, négligeable à quelques dizaines de pods, à rejuger au-delà de quelques centaines) ; « incarnation » au sens d'une vie, pas du compteur de réfutation                                                        |
+| **État de l'art** des suivis de présence répartis (implémentations étudiées) | Incarnation tirée de l'horloge ; délai d'oubli ≥ 2 intervalles, refusé au démarrage ; lots ; liste complète puis différences = `members` / `changes` ; plusieurs entrées par clé, chacune identifiée ; état « en attente de synchro » ; gigue du premier battement ; grâce au départ, liste poussée à l'abonnement, compte seul pour les grands ensembles | Pas de CRDT (chaque pod est seul auteur de ses présents : une chaîne `seq` suffit) ; vue des seuls canaux servis (S-rt-100) ; un seul palier d'oubli ; lots à 50 ms plutôt qu'à l'échelle de la seconde ; départs annoncés à l'arrêt et grâce à 0 par défaut (P5) |
+| **Spécification Matrix** (présence)                                          | Durées relatives, jamais d'heure absolue entre serveurs                                                                                                                                                                                                                                                                                                   | Aucune fédération : la présence ne sort pas du cluster                                                                                                                                                                                                            |
 
 Vocabulaire : on garde les noms de l'ADR. Équivalences à citer dans la documentation —
 présent = _occupant_ (XEP-0045) ; demande d'état = _fetch_ / _probe_ ; `members` / `changes` =
-_full_ / _partial presence_ (RFC 5262), `presence_state` / `presence_diff` (Phoenix) ; `stale` est
+_full_ / _partial presence_ (RFC 5262) ; `stale` est
 le mot de RFC 3856 §9.4 ; preuve de vie = _heartbeat_.
 
 **Passerelle XMPP ou SIP : possible, et à garder possible.** Le modèle étant celui des normes, une
@@ -561,3 +583,22 @@ rendrait l'une de ces traductions impossible se juge contre ce paragraphe.**
   règle d'entrée qui la protège, et s'activer loin du canal.
 - **Un état posé par le navigateur dès 10.0** : une trame entrante à borner et à figer avant
   d'avoir été attaquée.
+
+## Conséquences
+
+- **La présence quitte l'application pour le framework** (ADR-0022 D1 rouverte, P1) : contrat,
+  actions, base, historique et salons restent à l'application ; preuve de vie, oubli d'un pod
+  muet et comptage par identité ne s'écrivent plus à la main. Le cookbook du chat est réécrit sur
+  la brique.
+- **Une surface figée pour la série 10** : la clé `presence` de la politique d'un canal, la
+  notification `realtime:presence` et ses champs, `hub.presence()`, les hooks du navigateur, les
+  deux canaux de plateforme et les deux compteurs entrent dans la fixture `frozenSurface`. Ce
+  qui suit ne peut venir que par ajout : l'état d'un présent (P4), le motif d'un départ, la
+  reprise par lots manquants, un abonnement serveur aux changements.
+- **Un canal sans présence ne paie rien** : ni structure, ni minuteur, ni octet de bus. Ce coût
+  nul est un invariant testé, pas une intention (§ « Budgets »).
+- **L'exploitation porte trois conditions** : un `originId` unique par processus vivant, le
+  chiffrement et les droits d'accès du bus, et une liste cohérente à un intervalle près — jamais
+  instantanée (§ « Ce qu'on ne promet pas »).
+- **Une passerelle XMPP ou SIP reste possible**, dans un module à part : toute évolution se juge
+  contre le paragraphe qui la décrit (§ « Normes et antériorités »).

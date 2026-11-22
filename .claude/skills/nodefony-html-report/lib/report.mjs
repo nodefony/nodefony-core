@@ -1052,6 +1052,8 @@ export function completeHead(head, subtitle, brand) {
  * Assemble le document HTML complet (autonome).
  *
  * @param title - titre (onglet + en-tête)
+ * @param documentTitle - titre de l’ONGLET seul, quand il diffère de l’en-tête
+ *   (une page publiée y ajoute sa marque : « Codec CBOR · Nodefony »). Défaut : `title`.
  * @param subtitle - une phrase : ce que le lecteur doit RETENIR
  * @param sections - HTML déjà rendu (cf `section()`)
  * @param data - **données sources** du rapport → embarquées en JSON (cf `embedData`).
@@ -1063,6 +1065,7 @@ export function completeHead(head, subtitle, brand) {
  */
 export const doc = ({
   title,
+  documentTitle = title,
   subtitle = "",
   sections = [],
   footer = "",
@@ -1102,7 +1105,7 @@ export const doc = ({
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)}</title>
+<title>${esc(documentTitle)}</title>
 ${completeHead(head, subtitle, brand)}
 <style>${CSS}</style>
 ${style ? `<style>${style}</style>` : ""}
