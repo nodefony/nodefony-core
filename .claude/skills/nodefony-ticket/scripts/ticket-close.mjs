@@ -303,24 +303,33 @@ function main() {
  * Une PR fusionnée en squash laisse sa branche locale : git ne la reconnaît pas
  * comme fusionnée (le commit de `release/*` n'est pas le sien), et rien ne la
  * supprime — 15 branches mortes sur 21 constatées. Une branche ne part que si
- * sa PR est FUSIONNÉE et que sa pointe est EXACTEMENT le commit fusionné : un
- * commit de plus serait du travail que la fusion n'a pas emporté. La branche
+ * sa PR est FUSIONNÉE et que sa pointe est le commit fusionné OU l'un de ses
+ * ancêtres (branche locale en retard sur sa PR : rien à perdre) : un commit
+ * absent de la PR serait du travail que la fusion n'a pas emporté. La branche
  * courante ne part jamais (git le refuserait, et c'est là que l'on travaille).
  *
  * @param {number} numero - le ticket.
  * @param {{ name: string, tip: string }[]} locales - branches locales et leur pointe.
  * @param {{ head: string, oid: string }[]} fusionnees - PR fusionnées : branche et commit fusionné.
  * @param {string | null} courante - la branche courante.
+ * @param {(tip: string, oid: string) => boolean} [isAncestor] - `tip` est-il un
+ *   ancêtre de `oid` ? (injecté : `git merge-base --is-ancestor` en vrai)
  * @returns {{ prune: string[], keep: { name: string, why: string }[] }}
  */
-export function branchesToPrune(numero, locales, fusionnees, courante) {
+export function branchesToPrune(
+  numero,
+  locales,
+  fusionnees,
+  courante,
+  isAncestor = () => false,
+) {
   const prune = [];
   const keep = [];
   for (const { name, tip } of locales) {
     if (ticketOfBranch(name) !== numero) continue;
     const pr = fusionnees.find((m) => m.head === name);
     if (pr === undefined) keep.push({ name, why: "aucune PR fusionnée" });
-    else if (pr.oid !== tip)
+    else if (pr.oid !== tip && !isAncestor(tip, pr.oid))
       keep.push({ name, why: "porte un commit absent de la PR fusionnée" });
     else if (name === courante)
       keep.push({
@@ -373,7 +382,24 @@ function pruneTicketBranches(numero) {
     }
   }
   const courante = sh("git", ["branch", "--show-current"]).trim() || null;
-  const { prune, keep } = branchesToPrune(n, locales, fusionnees, courante);
+  const isAncestor = (tip, oid) => {
+    try {
+      execFileSync("git", ["merge-base", "--is-ancestor", tip, oid], {
+        stdio: "ignore",
+      });
+      return true;
+    } catch {
+      // Non-ancêtre, ou commit fusionné absent du dépôt local : on garde.
+      return false;
+    }
+  };
+  const { prune, keep } = branchesToPrune(
+    n,
+    locales,
+    fusionnees,
+    courante,
+    isAncestor,
+  );
   for (const name of prune) {
     try {
       execFileSync("git", ["branch", "-D", name], { stdio: "ignore" });

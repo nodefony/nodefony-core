@@ -45,6 +45,19 @@ describe("branchesToPrune — la branche locale d'un ticket fermé", () => {
     expect(r.keep[0]?.why).toMatch(/commit absent/u);
   });
 
+  it("pointe EN RETARD sur la PR (ancêtre du commit fusionné) → supprimée : rien à perdre", () => {
+    const ancestor = (tip, oid) => tip === "old" && oid === "aaa";
+    expect(
+      branchesToPrune(
+        847,
+        [{ name: "fix/847-prune", tip: "old" }],
+        fusionnees,
+        "dev",
+        ancestor,
+      ),
+    ).toEqual({ prune: ["fix/847-prune"], keep: [] });
+  });
+
   it("aucune PR fusionnée → gardée", () => {
     const r = branchesToPrune(
       847,

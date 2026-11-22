@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | Version | `1.13.0` |
 | Famille | Autres |
 | Corps | 487 lignes |
-| Coût d'activation | ~10 598 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~10 706 tokens (le corps est chargé à l'invocation) |
 | Description | 949 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 10 page(s) |
