@@ -455,9 +455,13 @@ function groupBy(symbols, keyOf) {
  * dossier, puis fichier par fichier, puis — un fichier trop lourd à lui seul —
  * en tranches consécutives.
  *
- * @returns `[{ key, symbols }]`.
+ * Le LIBELLÉ suit le chemin de dossiers réel (`trail`), jamais la clé : la clé
+ * replie un dossier homonyme du sous-chemin (`client/client` → `client`), et
+ * deux parts distinctes finiraient sous le même titre.
+ *
+ * @returns `[{ key, trail, symbols }]`.
  */
-function splitSymbols(symbols, depth, prefix, fits) {
+function splitSymbols(symbols, depth, prefix, fits, trail = []) {
   const parts = [];
   // Les symboles d'un fichier posé à CE niveau forment le groupe sans nom.
   const atLevel = (s) =>
@@ -466,29 +470,43 @@ function splitSymbols(symbols, depth, prefix, fits) {
     const key = dir
       ? joinKey(prefix, dir)
       : joinKey(prefix, depth === 0 ? "racine" : "");
-    if (fits(items)) parts.push({ key, symbols: items });
+    const here = dir ? [...trail, dir] : trail;
+    if (fits(items)) parts.push({ key, trail: here, symbols: items });
     else if (dir !== "")
-      parts.push(...splitSymbols(items, depth + 1, key, fits));
+      parts.push(...splitSymbols(items, depth + 1, key, fits, here));
     else
       for (const [file, inFile] of groupBy(
         items,
         (s) => s.location.at(-1) ?? "",
       )) {
         const fileKey = joinKey(key, file) || "racine";
+        const fileTrail = file ? [...here, file] : here;
+        const sliceTrail = (n) => [
+          ...fileTrail.slice(0, -1),
+          `${fileTrail.at(-1) ?? "racine"}-${n}`,
+        ];
         if (fits(inFile)) {
-          parts.push({ key: fileKey, symbols: inFile });
+          parts.push({ key: fileKey, trail: fileTrail, symbols: inFile });
           continue;
         }
         let slice = [];
         let n = 1;
         for (const s of inFile) {
           if (slice.length > 0 && !fits([...slice, s])) {
-            parts.push({ key: `${fileKey}-${n++}`, symbols: slice });
+            parts.push({
+              key: `${fileKey}-${n}`,
+              trail: sliceTrail(n++),
+              symbols: slice,
+            });
             slice = [];
           }
           slice.push(s);
         }
-        parts.push({ key: `${fileKey}-${n}`, symbols: slice });
+        parts.push({
+          key: `${fileKey}-${n}`,
+          trail: sliceTrail(n),
+          symbols: slice,
+        });
       }
   }
   return parts;
@@ -519,7 +537,7 @@ function partsOf(pkg, fits) {
         label:
           pieces.length === 1
             ? sub.specifier
-            : `${sub.specifier} — ${piece.key.slice(sk ? sk.length + 1 : 0) || "racine"}`,
+            : `${sub.specifier} — ${piece.trail?.join("/") || "racine"}`,
         sections: [{ ...sub, symbols: piece.symbols }],
       });
   }
