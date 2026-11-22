@@ -145,7 +145,9 @@ npm run dev
 
 <% if (it.complete) { %>> **Le compte d'administration existe déjà** : `admin` / `<%= it.devAdminPassword %>`. Il
 > est semé au PREMIER démarrage, et le journal te le redit alors en clair. Pour
-> en changer, décommente `NF_ADMIN_PASSWORD` dans `.env`.
+> en changer : `npx nodefony security:user:password admin`. `NF_ADMIN_PASSWORD`
+> ne sert qu'à la création du compte — posée après, elle est ignorée, et le
+> démarrage le dit.
 >
 > 🔴 **Ce mot de passe par défaut n'existe qu'en développement.** En production,
 > `NF_ADMIN_PASSWORD` est OBLIGATOIRE : sans elle, aucun compte n'est créé —

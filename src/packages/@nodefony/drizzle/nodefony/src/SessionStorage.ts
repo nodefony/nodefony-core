@@ -171,8 +171,18 @@ class SessionStorage implements ISessionStorage {
     return count;
   }
 
+  /**
+   * Ferme le stockage — sans rien écrire.
+   *
+   * La purge des sessions expirées appartient à l'ordonnanceur du service des
+   * sessions, arrêté juste avant cet appel ; la connexion à la base se ferme
+   * juste après. Une purge lancée ici, sans pouvoir être attendue (le contrat
+   * est synchrone), courait contre cette déconnexion : coupée en vol, elle
+   * sortait en rejet non géré à chaque arrêt.
+   *
+   * @returns toujours `true`.
+   */
   close(): boolean {
-    void this.gc();
     return true;
   }
 

@@ -610,7 +610,12 @@ function isTarget(dir: string): boolean {
  * @returns les manquements et le nombre de fichiers analysés.
  */
 export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
-  const { roots, cwd = process.cwd(), projectRoot } = options;
+  const { cwd = process.cwd(), projectRoot } = options;
+  // Une cible donnée DEUX fois — même dossier, autre graphie (`a/`, `a/./`) —
+  // serait parcourue deux fois : `scanned` gonflerait, et chaque manquement
+  // sortirait en double. L'exclusion des cibles imbriquées, plus bas, ne la
+  // rattrape pas : un dossier n'est pas « dans » lui-même.
+  const roots = [...new Set(options.roots.map((r) => path.resolve(r)))];
   const findings: IWiringFinding[] = [];
   const notices: IWiringNotice[] = [];
   let scanned = 0;

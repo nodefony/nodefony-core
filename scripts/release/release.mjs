@@ -113,6 +113,7 @@ import {
   messageDeDepreciation,
   ordreTopologique,
   paquetsNonEstampilles,
+  verrouNonEstampille,
   pairsTropLarges,
   depreciationsAFaire,
   canauxEnArriere,
@@ -1911,6 +1912,41 @@ if (PHASES.estampiller) {
     if (contenu !== brut) writeFileSync(p.chemin, contenu);
   }
   dire(`✓ estampillage — ${aChanger.length} package.json à ${VERSION}`);
+
+  // ── Le VERROU suit les manifestes ────────────────────────────────────────
+  // Réécrire les `package.json` sans le verrou laisse celui-ci annoncer la
+  // version d'avant pour chaque paquet du dépôt : tout `npm ci` installe
+  // alors autre chose que ce qu'il décrit (vécu sur la 10.0.1, #839).
+  // `--package-lock-only` réécrit le verrou sans toucher à `node_modules`, et
+  // n'y change rien d'autre que les entrées des paquets du dépôt (mesuré).
+  etape = "verrou npm";
+  {
+    const r = npm([
+      "install",
+      "--package-lock-only",
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+    ]);
+    if (r.status !== 0) {
+      echouer(
+        `régénération du verrou refusée (code ${r.status ?? "?"}) :\n${(r.stderr || r.stdout || "").slice(-2000)}`,
+      );
+    }
+    const restes = verrouNonEstampille(
+      JSON.parse(readFileSync(path.join(ROOT, "package-lock.json"), "utf8")),
+      paquets,
+      VERSION,
+    );
+    if (restes.length) {
+      echouer(
+        `le verrou n'annonce pas ${VERSION} pour :\n` +
+          restes.map((reste) => `    • ${reste}`).join("\n") +
+          "\n  → npm install --package-lock-only, relire le diff du verrou, puis relancer.",
+      );
+    }
+    dire(`✓ verrou npm — ${paquets.length} paquet(s) du dépôt à ${VERSION}`);
+  }
 
   // ── Les artefacts GÉNÉRÉS qui embarquent la version ───────────────────────
   // Un `package.json` n'est pas le seul endroit où la version est écrite. La

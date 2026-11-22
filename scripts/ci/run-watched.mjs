@@ -80,16 +80,35 @@ export function parseProcessTable(platform, raw, now) {
     }));
 }
 
-/** Le sous-arbre de `rootPid` dans la table (lui compris). */
+/** Marge d'horloge entre deux dates de naissance lues dans la table (ms). */
+const BIRTH_SLACK_MS = 1000;
+
+/**
+ * Le sous-arbre de `rootPid` dans la table (lui compris).
+ *
+ * Un processus n'y entre que s'il est né APRÈS son parent présumé. Windows
+ * réutilise les numéros de processus, et un processus garde le numéro de son
+ * parent même mort : la commande qui reçoit un numéro déjà porté comme
+ * « parent » par `csrss.exe` ou `wininit.exe` (parent mort au démarrage de la
+ * machine) héritait sinon de tout le système — vécu en CI, l'inventaire
+ * nommait des dizaines de processus innocents et le vrai coupable passait
+ * sous le plafond d'affichage. Un enfant ne naît pas avant son parent.
+ */
 function subtree(rows, rootPid) {
+  const byPid = new Map(rows.map((r) => [r.pid, r]));
   const set = new Set([rootPid]);
   for (let grew = true; grew;) {
     grew = false;
     for (const r of rows) {
-      if (!set.has(r.pid) && set.has(r.ppid)) {
-        set.add(r.pid);
-        grew = true;
-      }
+      if (set.has(r.pid) || !set.has(r.ppid)) continue;
+      const parent = byPid.get(r.ppid);
+      if (
+        parent !== undefined &&
+        r.startedAt < parent.startedAt - BIRTH_SLACK_MS
+      )
+        continue;
+      set.add(r.pid);
+      grew = true;
     }
   }
   return set;

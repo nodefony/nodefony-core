@@ -95,6 +95,20 @@ runBackplaneConformance("mémoire (banc de la suite)", memoryBus().makePeer, {
   floodBytes: FLOOD_BYTES,
 });
 
+/**
+ * Échéance des seuls cas dont l'ÉCHÉANCE EST le verdict : le message attendu
+ * n'arrive jamais sur le bus défectueux (diffusion répartie, ordre ou preuve de
+ * vie jetés par la file). Courte, pour que ces rouges voulus ne coûtent pas
+ * deux secondes chacun.
+ *
+ * Les autres cas gardent l'échéance de la suite : leur attente n'est qu'une
+ * PRÉCONDITION (la présence converge, puis l'assertion juge). Leur imposer
+ * 200 ms les faisait rougir sur un runner chargé pour la mauvaise raison —
+ * « délai dépassé » au lieu de « livre-t-il deux fois » —, et l'attente rend la
+ * main dès la condition remplie : une limite large ne ralentit pas un vert.
+ */
+const VERDICT_TIMEOUT_MS = 200;
+
 /** Joue un cas de la suite hors du lanceur, pour constater qu'il ÉCHOUE. */
 async function runCase(
   makePeer: BackplanePeerFactory,
@@ -106,7 +120,6 @@ async function runCase(
     describe: (_n, body) => body(),
     it: (n, body) => cases.set(n, body),
     quietMs: 20,
-    timeoutMs: 200,
     ...extra,
   });
   const body = cases.get(name);
@@ -120,9 +133,9 @@ describe("suite de conformité — vue ROUGE sur des drivers défectueux", () =>
     memoryBus(flaw).makePeer;
 
   it("un bus qui ne livre qu'à UN pair (groupe de lecteurs partagé) tombe sur la diffusion", async () => {
-    await expect(runCase(flawed("unicast"), C.fanout)).rejects.toThrow(
-      /répartit/,
-    );
+    await expect(
+      runCase(flawed("unicast"), C.fanout, { timeoutMs: VERDICT_TIMEOUT_MS }),
+    ).rejects.toThrow(/répartit/);
   });
 
   it("un bus qui REJOUE l'historique au démarrage tombe sur le rejeu", async () => {
@@ -139,13 +152,19 @@ describe("suite de conformité — vue ROUGE sur des drivers défectueux", () =>
 
   it("un bus dont la file jette les ORDRES avec les publications tombe sur l'ordre sous saturation", async () => {
     await expect(
-      runCase(flawed("lossy"), C.controlUnderLoad, { floodBytes: FLOOD_BYTES }),
+      runCase(flawed("lossy"), C.controlUnderLoad, {
+        floodBytes: FLOOD_BYTES,
+        timeoutMs: VERDICT_TIMEOUT_MS,
+      }),
     ).rejects.toThrow(/n'est pas arrivé/);
   });
 
   it("un bus dont la file jette la PREUVE DE VIE avec les publications tombe sur la preuve de vie sous saturation", async () => {
     await expect(
-      runCase(flawed("lossy"), C.aliveUnderLoad, { floodBytes: FLOOD_BYTES }),
+      runCase(flawed("lossy"), C.aliveUnderLoad, {
+        floodBytes: FLOOD_BYTES,
+        timeoutMs: VERDICT_TIMEOUT_MS,
+      }),
     ).rejects.toThrow(/preuve de vie émise sous saturation/);
   });
 

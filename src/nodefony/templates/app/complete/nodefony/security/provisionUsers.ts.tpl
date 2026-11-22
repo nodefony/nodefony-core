@@ -1,8 +1,8 @@
 import { storeConnectivity, type Module } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
 import {
-  describeSeedFailure,
   InMemoryUserRepository,
+  seedAccount,
   UserService,
 } from "@nodefony/user";
 import type { IPasswordEncoder } from "@nodefony/user";
@@ -53,7 +53,8 @@ export const DEV_ADMIN_PASSWORD = "<%= it.devAdminPassword %>";
  *
  * Mot de passe admin :
  * - DÉVELOPPEMENT : `admin` / `<%= it.devAdminPassword %>` par défaut (local uniquement —
- *   même esprit que Grafana). Surcharge : `NF_ADMIN_PASSWORD` dans `.env`.
+ *   même esprit que Grafana). Surcharge : `NF_ADMIN_PASSWORD` dans `.env`, lue à
+ *   la CRÉATION du compte seulement — ensuite, `npx nodefony security:user:password admin`.
  * - PRODUCTION : `NF_ADMIN_PASSWORD` OBLIGATOIRE (secret-manager) — sans lui,
  *   AUCUN compte n'est créé (jamais de mot de passe par défaut en prod) et un
  *   WARNING explique quoi faire (`nodefony security:user:add`).
@@ -152,27 +153,39 @@ export async function provisionUsers(module: Module): Promise<void> {
  * Crée le compte admin s'il n'existe pas (idempotent). Le hash Argon2id est
  * fait par `UserService.createUser` — jamais de mot de passe en clair stocké.
  *
- * **Un semis raté n'interrompt JAMAIS le démarrage — c'est tranché ici, pas
- * laissé au hasard d'un `try`.** Amorcer un compte est un confort de première
- * minute : une application sans compte démarre parfaitement, et l'exploitant en
- * crée un par `nodefony security:user:add`. Faire mourir toute l'application
- * parce qu'un mot de passe déplaît à la politique ferait payer le service au
- * prix de la commodité. La dégradation, elle, est BRUYANTE : un `ERROR` au boot
- * est compté par le bilan du dernier démarrage (`var/last-boot.json`), donc
- * relisible par `nodefony doctor` longtemps après la fermeture du terminal qui
- * l'a vu passer.
+ * La règle vient du PAQUET (`seedAccount`, `@nodefony/user`), pas de ce
+ * fichier : ce fichier-ci est copié chez toi au moment de la génération, et une
+ * copie ne se corrige plus. Elle tient en trois points :
+ * - un compte existant n'est JAMAIS réécrit — sinon le mot de passe que tu as
+ *   changé serait écrasé à chaque démarrage. `NF_ADMIN_PASSWORD` ne sert donc
+ *   qu'à la CRÉATION ; posée alors que le compte existe, elle est ignorée et un
+ *   `NOTICE` le dit, avec le geste qui change vraiment le mot de passe
+ *   (`npx nodefony security:user:password admin`) ;
+ * - un semis raté n'interrompt JAMAIS le démarrage : amorcer un compte est un
+ *   confort, une application sans compte démarre. Le refus part en `ERROR`,
+ *   compté par le bilan du dernier démarrage (`var/last-boot.json`), donc
+ *   relisible par `nodefony doctor` ;
+ * - en production, aucun mot de passe par défaut.
  *
  * @param users - service utilisateur branché sur son dépôt.
  * @param module - module applicatif (logs + environnement).
  */
 async function seedAdmin(users: UserService, module: Module): Promise<void> {
-  if (await users.findByIdentifier(ADMIN_IDENTIFIER)) {
-    return;
-  }
   const isProd = module.kernel?.environment === "production";
   const fromEnv = env.NF_ADMIN_PASSWORD;
-  const password = fromEnv ?? (isProd ? null : DEV_ADMIN_PASSWORD);
-  if (!password) {
+  const outcome = await seedAccount(
+    users,
+    {
+      identifier: ADMIN_IDENTIFIER,
+      roles: ADMIN_ROLES,
+      envVar: "NF_ADMIN_PASSWORD",
+      envValue: fromEnv,
+      fallbackPassword: isProd ? null : DEV_ADMIN_PASSWORD,
+      admin: true,
+    },
+    (message, severity) => module.log(message, severity, LOG_CTX),
+  );
+  if (outcome === "no-password") {
     module.log(
       `Aucun admin et NF_ADMIN_PASSWORD non défini → aucun compte seedé en ` +
         `production. Définis NF_ADMIN_PASSWORD (secret-manager) ou crée un ` +
@@ -180,45 +193,13 @@ async function seedAdmin(users: UserService, module: Module): Promise<void> {
       "WARNING",
       LOG_CTX,
     );
-    return;
-  }
-  try {
-    await users.createUser({
-      identifier: ADMIN_IDENTIFIER,
-      plainPassword: password,
-      roles: ADMIN_ROLES,
-    });
-  } catch (e) {
-    // Le message vient du PAQUET, pas de ce fichier : ce fichier-ci est copié
-    // chez toi au moment de la génération, et une copie ne se corrige plus. Le
-    // semis est un confort ; l'expliquer est un service, et celui-là se met à
-    // jour avec `@nodefony/user`.
-    //
-    // `describeSeedFailure` réunit les deux moitiés du message : ce que
-    // l'erreur sait (la règle enfreinte) et ce que toi seul sais (quel compte,
-    // d'où vient le mot de passe, quel geste). Recopier cette rédaction ici la
-    // ferait diverger en silence au premier changement — et c'est le message,
-    // pas le code, qui fait la différence entre dix secondes et une demi-heure.
-    //
-    // `fromEnv` décide du remède : envoyer corriger une variable que personne
-    // n'a posée ferait chercher là où il n'y a rien.
+  } else if (outcome === "created") {
     module.log(
-      describeSeedFailure(e, {
-        identifier: ADMIN_IDENTIFIER,
-        envVar: "NF_ADMIN_PASSWORD",
-        fromEnv: fromEnv != null,
-        admin: true,
-      }),
-      "ERROR",
+      isProd
+        ? `Compte admin seedé (mot de passe : NF_ADMIN_PASSWORD).`
+        : `Compte admin seedé — connexion : admin / ${fromEnv ? "(NF_ADMIN_PASSWORD)" : DEV_ADMIN_PASSWORD} (Studio : /nodefony).`,
+      "INFO",
       LOG_CTX,
     );
-    return;
   }
-  module.log(
-    isProd
-      ? `Compte admin seedé (mot de passe : NF_ADMIN_PASSWORD).`
-      : `Compte admin seedé — connexion : admin / ${fromEnv ? "(NF_ADMIN_PASSWORD)" : DEV_ADMIN_PASSWORD} (Studio : /nodefony).`,
-    "INFO",
-    LOG_CTX,
-  );
 }
