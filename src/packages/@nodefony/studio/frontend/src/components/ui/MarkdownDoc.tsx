@@ -47,7 +47,19 @@ import {
 import { valueText } from "./json/jsonFormat";
 import { adoptStylesOnce } from "../../utils/adoptStylesOnce";
 import { adoptStyles } from "nodefony/client";
-import { releaseStyles, splitSvgStyles } from "./mermaidStyles";
+import {
+  fromStyleTemplate,
+  releaseStyles,
+  splitSvgStyles,
+  toStyleTemplate,
+} from "./mermaidStyles";
+
+/**
+ * Patron de la feuille mermaid par thème (`default` / `dark`), rempli au premier
+ * schéma rendu : les suivants adoptent leur feuille AVANT `mermaid.render` et ne
+ * sont rendus qu'une fois.
+ */
+const MERMAID_STYLE_TEMPLATES = new Map<string, string>();
 
 /** Texte plat d'un nœud React (pour calculer l'ancre `id` d'un titre). */
 function nodeText(node: ReactNode): string {
@@ -363,26 +375,43 @@ export function MermaidDiagram({ code }: { code: string }) {
     // Relu hors du rétrécissement : le démontage tombe PENDANT les `await`.
     const isCancelled = (): boolean => cancelled;
     // L'IIFE capture ses propres erreurs (état `error`) : elle ne rejette jamais.
+    const adopt = (css: string): void => {
+      if (sheet !== null) releaseStyles(sheet);
+      sheet = css === "" ? null : adoptStyles(css);
+    };
     void (async () => {
       try {
         const mermaid = (await import("mermaid")).default;
+        const theme = colorScheme === "light" ? "default" : "dark";
         mermaid.initialize({
           startOnLoad: false,
-          theme: colorScheme === "light" ? "default" : "dark",
+          theme,
           securityLevel: "strict",
           fontFamily: "inherit",
         });
-        const { svg } = await mermaid.render(
-          `mermaid-${baseId}-${Date.now()}`,
-          code,
-        );
-        if (!isCancelled() && containerRef.current) {
-          const parts = splitSvgStyles(svg);
-          if (parts.css !== "") sheet = adoptStyles(parts.css);
-          containerRef.current.innerHTML = parts.svg;
-          setSvgHtml(parts.svg);
-          setError(null);
+        const id = `mermaid-${baseId}-${Date.now()}`;
+        // Mermaid MESURE ses libellés pendant le rendu : sa feuille doit être
+        // en place AVANT, sinon le dessin sort écrasé (cf `mermaidStyles.ts`).
+        const template = MERMAID_STYLE_TEMPLATES.get(theme);
+        if (template !== undefined) adopt(fromStyleTemplate(template, id));
+        let parts = splitSvgStyles((await mermaid.render(id, code)).svg);
+        if (template === undefined && parts.css !== "") {
+          // Premier schéma de ce thème : mesuré sans feuille. On la garde en
+          // patron, puis on le rend une seconde fois, feuille en place.
+          MERMAID_STYLE_TEMPLATES.set(theme, toStyleTemplate(parts.css, id));
+          adopt(parts.css);
+          parts = splitSvgStyles((await mermaid.render(id, code)).svg);
         }
+        // La feuille du rendu final : celle du patron n'a pas les `classDef`
+        // propres à ce schéma.
+        adopt(parts.css);
+        if (isCancelled() || !containerRef.current) {
+          adopt("");
+          return;
+        }
+        containerRef.current.innerHTML = parts.svg;
+        setSvgHtml(parts.svg);
+        setError(null);
       } catch (e) {
         if (!isCancelled())
           setError(e instanceof Error ? e.message : String(e));

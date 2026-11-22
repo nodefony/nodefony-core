@@ -8,7 +8,11 @@
  * pour être adoptée par `adoptStyles`.
  */
 import { describe, it, expect } from "vitest";
-import { splitSvgStyles } from "../../../frontend/src/components/ui/mermaidStyles";
+import {
+  fromStyleTemplate,
+  splitSvgStyles,
+  toStyleTemplate,
+} from "../../../frontend/src/components/ui/mermaidStyles";
 
 /** Forme d'un rendu mermaid : feuille préfixée par l'id du schéma, puis le dessin. */
 const RENDU =
@@ -45,5 +49,16 @@ describe("splitSvgStyles", () => {
     const { svg, css } = splitSvgStyles("<svg><g/></svg>");
     expect(svg).toBe("<svg><g/></svg>");
     expect(css).toBe("");
+  });
+});
+
+describe("patron de feuille par thème", () => {
+  it("la feuille d'un schéma se rejoue pour un autre id, et pour lui seul", () => {
+    const { css } = splitSvgStyles(RENDU);
+    const patron = toStyleTemplate(css, "mermaid-r1-1");
+    expect(patron).not.toContain("mermaid-r1-1");
+    const suivant = fromStyleTemplate(patron, "mermaid-r9-42");
+    expect(suivant).toBe(css.replaceAll("mermaid-r1-1", "mermaid-r9-42"));
+    expect(suivant).not.toContain("mermaid-r1-1");
   });
 });

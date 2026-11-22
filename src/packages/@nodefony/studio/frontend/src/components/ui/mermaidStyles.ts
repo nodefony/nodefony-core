@@ -38,6 +38,37 @@ export function splitSvgStyles(svg: string): ISvgStyles {
   return { svg: stripped, css };
 }
 
+/** Jeton qui remplace l'id du schéma dans un patron de feuille. */
+const ID_TOKEN = "__nf_mermaid_id__";
+
+/**
+ * Patron d'une feuille mermaid : l'id du schéma remplacé par un jeton.
+ *
+ * Mermaid MESURE ses libellés dans un rendu interne dont le `<style>` est
+ * bloqué lui aussi : sans feuille à ce moment-là, le dessin sort écrasé (boîtes
+ * étroites, texte minuscule). Pour un thème donné, la feuille ne varie que par
+ * l'id du schéma : le patron permet d'adopter AVANT le rendu celle du schéma
+ * suivant.
+ *
+ * @param css - feuille rendue par mermaid pour le schéma `id`.
+ * @param id - id passé à `mermaid.render`.
+ * @returns la feuille, l'id remplacé par le jeton.
+ */
+export function toStyleTemplate(css: string, id: string): string {
+  return css.replaceAll(id, ID_TOKEN);
+}
+
+/**
+ * Feuille d'un schéma tirée d'un patron (`toStyleTemplate`).
+ *
+ * @param template - patron de la feuille.
+ * @param id - id du schéma à rendre.
+ * @returns la feuille, prête à être adoptée avant `mermaid.render(id, …)`.
+ */
+export function fromStyleTemplate(template: string, id: string): string {
+  return template.replaceAll(ID_TOKEN, id);
+}
+
 /**
  * Retire du document une feuille posée par `adoptStyles`.
  *
