@@ -991,8 +991,10 @@ const NAV_FILTER_JS = `<script>
   var items=[].slice.call(nav.querySelectorAll("li[data-t]"));
   var groups=[].slice.call(nav.querySelectorAll("details"));
   var initial=groups.map(function(g){return g.open;});
-  function apply(){
-    var v=q.value.trim().toLowerCase();
+  // corrige : la requête rattrapée par la recherche plein texte (grcp →
+  // grpc). Le menu se filtre alors dessus plutôt que d'afficher « aucune ».
+  function apply(corrige){
+    var v=(corrige||q.value).trim().toLowerCase();
     if(!v){
       items.forEach(function(li){li.hidden=false;});
       groups.forEach(function(g,i){g.hidden=false;g.open=initial[i];});
@@ -1011,7 +1013,7 @@ const NAV_FILTER_JS = `<script>
   }
   var res=document.getElementById("nav-res");
   var head=res.querySelector(".nav-res-h"), list=res.querySelector(".nav-res-l");
-  var idx=null, parSlug=null, chargement=null, jeton=0;
+  var idx=null, parSlug=null, chargement=null, jeton=0, attente=0;
   var INDEX_URL=res.getAttribute("data-index"), BASE=res.getAttribute("data-base");
 
   function esc(s){var d=document.createElement("span");d.textContent=s;return d.innerHTML;}
@@ -1033,8 +1035,10 @@ const NAV_FILTER_JS = `<script>
       head.textContent="Aucune page ne contient « "+r.query+" ».";
       list.innerHTML=""; return;
     }
-    head.textContent=r.matched+" page"+(r.matched>1?"s":"")+
+    head.textContent=(r.correctedQuery?"Résultats pour « "+r.correctedQuery+" » — aucun pour « "+r.query+" ». ":"")+
+      r.matched+" page"+(r.matched>1?"s":"")+
       " sur "+r.scanned+(r.matched>r.hits.length?" — "+r.hits.length+" affichées":"");
+    if(r.correctedQuery && !empty.hidden) apply(r.correctedQuery);
     list.innerHTML=r.hits.map(function(h){
       var ex=h.excerpts.map(function(e){
         return "<p class='res-x'>"+(e.section?"<span class='res-s'>"+esc(e.section)+"</span> ":"")+
@@ -1082,8 +1086,13 @@ const NAV_FILTER_JS = `<script>
   q.addEventListener("input",function(){
     apply();
     var v=q.value.trim();
+    clearTimeout(attente);
     if(v.length<2){ fermer(); return; }
-    chercher(v);
+    // La recherche plein texte attend une pause dans la frappe (~75 ms par
+    // passe sur le corpus, le double quand une faute est rattrapée) : sans ce
+    // délai, chaque lettre la relançait et le champ ramait. Le filtre du menu,
+    // lui, reste instantané.
+    attente=setTimeout(function(){ chercher(v); },120);
   });
   q.addEventListener("keydown",function(e){
     if(e.key==="Escape"){q.value="";apply();fermer();q.blur();}
