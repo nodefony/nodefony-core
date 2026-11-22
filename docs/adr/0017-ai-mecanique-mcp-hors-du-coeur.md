@@ -5,17 +5,31 @@ lang: fr
 navTitle: MCP dans @nodefony/ai
 date: 2026-10-16
 status: accepted
+publish: true
 deciders: [Christophe CAMENSULI]
 tags: [mcp, ia, agent, modules, securite]
 ---
 
 # ADR-0017 — `@nodefony/ai` : la mécanique MCP hors du cœur, une porte se déclare
 
+> **Summary.** The MCP protocol engine used to live in the framework core, and the only HTTP
+> gate was a development-only one: an application could not open its own MCP endpoint in
+> production without re-implementing the protocol. This decision moves the whole MCP mechanics
+> into a separate package, `@nodefony/ai`, which mounts no route by itself: a gate is _declared_
+> with `defineMcpGate({ … })` and served from a controller action of the application that needs
+> it. For a user, this means an MCP endpoint at the address of your choice, in development or in
+> production, safe by default (an unprotected gate grants no role), and at zero per-request cost
+> as long as no gate is declared.
+
+Cette page porte le **pourquoi** de la décision ; le **comment** — déclarer une porte, la
+protéger, y exposer des outils — vit dans le guide
+[MCP dans `@nodefony/ai`](../../src/packages/@nodefony/ai/docs/mcp.md).
+
 📍 [Documentation](../index.md) › [Décisions d'architecture](README.md) › **ADR-0017**
 
 ## Statut
 
-Accepté (2026-10-16). Clôt #565. Complète l'[ADR-0004](0004-inference-llm-backend-supervise.md) :
+**Accepté** le 2026-10-16 — en vigueur, ni remplacé ni amendé. Complète l'[ADR-0004](0004-inference-llm-backend-supervise.md) :
 l'inférence reste hors du process ; c'est l'OUTILLAGE de l'IA dans l'application qui trouve ici
 sa place. Après la 10.0.0, déplacer un symbole public de `@nodefony/ai`, ou renommer une clé de
 réglage d'une porte, est une rupture.
@@ -33,7 +47,7 @@ collecte des outils) vivait dans le paquet `nodefony`, et l'unique porte HTTP é
 2. **Le cœur portait un protocole que la plupart des applications n'emploient pas**, et un
    protocole qui évolue vite : la révision `2026-07-28` a retiré les sessions et le flux ouvert
    par `GET`. Le cœur publie la version la plus lente du dépôt.
-3. **Les capacités de la phase 12** (accès modèle, index vectoriel, mémoire, agents) n'avaient
+3. **Les capacités d'IA à venir** (accès modèle, index vectoriel, mémoire, agents) n'avaient
    pas de maison : cinq esquisses de paquets privés, chacune à `0.0.0`.
 
 Un premier plan prévoyait un service `McpService` qui MONTAIT la porte depuis `@nodefony/ai`.
@@ -79,9 +93,10 @@ toutes les applications, qu'elles l'aient demandée ou non.
   en place.
 - La doc MCP vit dans le paquet qui l'emploie : `@nodefony/ai/docs/mcp.md`, pointée par
   l'`AGENTS.md` des applications générées.
-- Une application qui veut sa porte l'écrit encore à la main : le générateur
-  `create controller --kind mcp` (#602) et la tâche de banc qui le mesure suivent.
-- Les capacités de la phase 12 naîtront dans `@nodefony/ai` ; les esquisses sont supprimées.
+- À la date de la décision, une application qui voulait sa porte l'écrivait à la main. Le
+  générateur `nodefony create controller <nom> --kind mcp`, annoncé ici comme la suite, l'écrit
+  désormais, test compris (voir le guide).
+- Les capacités d'IA à venir naîtront dans `@nodefony/ai` ; les esquisses sont supprimées.
 
 ## Alternatives écartées
 
