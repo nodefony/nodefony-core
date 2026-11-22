@@ -2,7 +2,7 @@
 
 <!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
 
-> **@nodefony/orm-core** — Repository contract for Nodefony with several engines: interfaces, registry and base classes for multi-ORM support. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/orm-core/).
+> **@nodefony/orm-core** — One repository contract for Nodefony, several engines: interfaces, registry and base classes for multi-ORM support. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/orm-core/).
 
 <!-- nf-en:end -->
 

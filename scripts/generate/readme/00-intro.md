@@ -31,10 +31,11 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > 26+). One controller action serves HTTP and WebSocket with the same session and the same
 > security. Realtime runs JSON-RPC 2.0 over WebSocket, in JSON or in binary
 > [CBOR](https://nodefony.net/docs/modules/core/cbor/) (RFC 8949), negotiated per connection.
-> [gRPC](https://nodefony.net/docs/modules/framework/grpc/), gRPC-Web and Connect services are
-> served by the same HTTP/2 pipeline (experimental in 10.0). Each module can expose tools to AI
-> agents through a [Model Context Protocol (MCP)](https://nodefony.net/docs/modules/ai/mcp/) gate,
-> over HTTP streaming (SSE) or stdio.
+> [gRPC](https://nodefony.net/docs/modules/framework/grpc/), gRPC-Web and Connect services run
+> through the same HTTP pipeline as your routes — native gRPC over HTTP/2 (experimental in 10.0).
+> Each module can expose tools to AI agents through a
+> [Model Context Protocol (MCP)](https://nodefony.net/docs/modules/ai/mcp/) endpoint, over
+> Streamable HTTP or stdio.
 >
 > ```bash
 > npm create nodefony my-app

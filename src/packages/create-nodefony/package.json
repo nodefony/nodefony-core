@@ -1,7 +1,7 @@
 {
   "name": "create-nodefony",
   "version": "10.0.1",
-  "description": "Create a Nodefony application with one command: npm create nodefony <name>. Full scaffold, database of your choice, optional frontend",
+  "description": "Create a Nodefony application with one command: `npm create nodefony my-app`. Full scaffold, database of your choice, optional frontend",
   "type": "module",
   "license": "Apache-2.0",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",

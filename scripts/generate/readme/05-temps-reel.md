@@ -22,10 +22,10 @@ quand ça coince. Chacune a sa réponse dans le framework, écrite contre la nor
 | **Des types de bout en bout**   | Un **contrat** écrit une fois type le contrôleur, la socket et les hooks React, Vue, Svelte et Angular. Les routes qu'il annonce sont vérifiées au démarrage                                                              |
 | **Voir et tester**              | Une sonde, la console d'administration, les onglets Socket et SSE de la barre de débogage, un traceur de trames ; une identité d'essai pour tester un canal protégé                                                       |
 <!-- @if core,npm -->
-| **gRPC**                        | Des [services gRPC](https://nodefony.net/docs/modules/framework/grpc/) servis par le même pipeline HTTP/2, déclarés depuis un module ; la réflexion et la santé standard sont à venir                                                                                          |
+| **gRPC**                        | Des [services gRPC](https://nodefony.net/docs/modules/framework/grpc/) servis par le même pipeline HTTP (gRPC natif en HTTP/2), déclarés depuis un module ; la réflexion et la santé standard sont à venir                                                                                          |
 <!-- @end -->
 <!-- @if app -->
-| **gRPC**                        | Des services gRPC servis par le même pipeline HTTP/2, déclarés depuis un module ; la réflexion et la santé standard sont à venir                                                                                          |
+| **gRPC**                        | Des services gRPC servis par le même pipeline HTTP, déclarés depuis un module ; la réflexion et la santé standard sont à venir                                                                                            |
 <!-- @end -->
 
 Chaque besoin a son exemple complet et testé : jeu (déplacements, recherche de partie), salon privé

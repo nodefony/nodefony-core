@@ -92,8 +92,8 @@ On le choisit pour trois raisons :
 **Un service gRPC est un point d'entrée du module, comme une route ou un contrôleur temps réel.**
 Trois choix en découlent, chacun avec son pourquoi.
 
-1. **Le pipeline, pas un second serveur.** La bibliothèque de référence `@grpc/grpc-js` ouvre son
-   propre serveur : ni pare-feu, ni `@IsGranted`, ni gRPC-Web. Nodefony emploie Connect
+1. **Le pipeline, pas un second serveur.** Une bibliothèque gRPC qui ouvre son propre serveur ne
+   passerait ni par le pare-feu, ni par `@IsGranted`, ni par gRPC-Web. Nodefony emploie Connect
    (`@connectrpc/connect-node`, Apache-2.0, aucune dépendance transitive), la seule bibliothèque
    qui fournit une fonction `(requête, réponse)` branchable dans une route. Chaque méthode devient
    une route littérale du Router, et **une seule autorisation** sert HTTP, WebSocket et gRPC

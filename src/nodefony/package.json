@@ -1,7 +1,7 @@
 {
   "name": "nodefony",
   "version": "10.0.1",
-  "description": "Nodefony core: modules, dependency injection, validated config, structured logging, CLI and the realtime client (CBOR codec, UI hooks)",
+  "description": "Nodefony core: modules, dependency injection, validated config, structured logging, CLI and the realtime client (CBOR codec; React, Vue, Svelte, Angular hooks)",
   "type": "module",
   "nodefony": {
     "contribute": "./dist/node/cli/scaffold/contribute.js"

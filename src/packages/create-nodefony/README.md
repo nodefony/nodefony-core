@@ -2,7 +2,7 @@
 
 <!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
 
-> **create-nodefony** — Create a Nodefony application with one command: npm create nodefony <name>. Full scaffold, database of your choice, optional frontend. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/demarrer/).
+> **create-nodefony** — Create a Nodefony application with one command: `npm create nodefony my-app`. Full scaffold, database of your choice, optional frontend. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/demarrer/).
 
 <!-- nf-en:end -->
 
