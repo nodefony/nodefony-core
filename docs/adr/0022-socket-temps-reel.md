@@ -46,6 +46,7 @@ binaire, dans [Codec CBOR](../../src/nodefony/docs/cbor.md) ; cet ADR porte le *
 « rupture si différé : NON », sont acceptés en bloc, après une revue d'architecture qui a jugé les
 trois ADR du temps réel sans les contester (catalogue `scenarios/temps-reel.md`). Ce qui viendrait
 les contredire s'ajoute en 10.x, sans rupture.
+<!-- porté par #702 -->
 
 Les mentions « ouvert », « reste », « à prouver » décrivent l'état à la date de la décision ; le code
 livré en 10.0 les a soldées (voir les guides).
@@ -114,6 +115,7 @@ sérialisation, choisie une fois par connexion. Repris des décisions de gel : s
 celui d'aujourd'hui — JSON-RPC texte, nommé **`v1`** — pour toute la série 10 (décision 1) ; le
 codec effectif se lit dans `realtime:welcome` par un champ optionnel (absent = texte), **jamais**
 dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (décision 2). Ajouté :
+<!-- porté par #630 -->
 
 - **`IFrameCodec`** dans le code partagé : `encode(frame): string | Uint8Array`,
   `decode(data: string | Uint8Array): unknown`, un `protocol`. Par frame il remplace
@@ -343,7 +345,7 @@ le sont déjà.
 | Trou                                 | État constaté                                                                                                                                                                                                                                                 | Geste                                                                                                            |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | (i) binaire asymétrique              | **fermé** (gel) : `Uint8Array` des deux côtés, vue sans copie                                                                                                                                                                                                 | binaire routé : routage et codecs dans le pair **partagé**, jamais dans `RealtimeController` ni `NodefonySocket` |
-| (ii) `request` promis sans être tenu | **fermé** (gel) : hors d'`IRealtimeSocket` ; `src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts#ServerRealtimeSocket.request` reste, `@deprecated`, retrait en 11.0                                                                 | rien                                                                                                             |
+| (ii) `request` promis sans être tenu | **fermé** (gel) : hors d'`IRealtimeSocket` ; `src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts#ServerRealtimeSocket.request` reste, `@deprecated`, retrait à la majeure suivante                                                   | rien                                                                                                             |
 | (iii) réception serveur non typée    | ouvert : `src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeController.ts#RealtimeInboundHandler` prend `params: unknown` ; `RealtimeController<Emit, Actions>` sans `Listen`                                                                      | contrat typé                                                                                                     |
 | (iv) actions non vérifiées           | ouvert : `#RealtimeController.realtimeActions` rend `Record<string, RpcActionHandler>`, `#RealtimeController.realtimeChannels` rend `string[]`, `src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts#RealtimeAction` prend un nom libre | contrat typé, surface **opt-in** (décision de gel 6)                                                             |
 | (v) inversion Emit/Listen à la main  | ouvert : la convention vit en commentaire (`src/nodefony/src/realtime/RealtimeEventMap.ts#EventsMap`)                                                                                                                                                         | contrat typé                                                                                                     |
@@ -472,6 +474,7 @@ data }` (ADR-0023 W1, S-rt-22).
   (`src/packages/@nodefony/framework/nodefony/src/Controller.ts#Controller.renderSse`,
   `src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts`) : ajouter un générique AVEC
   défaut ne casse rien. Seule la forme se fige ici.
+  <!-- porté par #714 -->
 - Usages : une mesure de capteur typée une fois, lue par la socket du tableau de bord, le flux
   SSE d'un écran et le webhook d'alerte vers le SI ; une commande typée une fois, poussée à
   l'écran et au SI ; une tâche d'agent typée une fois, suivie sur la socket et notifiée en
@@ -662,6 +665,7 @@ typeof SendBody; result: … }`, import de type seul) ; un contrôle au démarra
   - Page de référence du chat : `src/packages/@nodefony/realtime/docs/cookbook-chat.md`.
 - **Webhook** : l'émission applicative n'existe pas encore (ADR-0023 W3, en 10.1). Elle se
   typera par la même carte `ContractServerEmit<C>` — exigence que portera l'émission applicative (ADR-0023 W3).
+  <!-- porté par #70 -->
 - Preuves : `src/packages/@nodefony/realtime/nodefony/tests/unit/realtimeSharedContract.types.test.ts`
   (chaque `@ts-expect-error` vu mordre), un consommateur compilé contre les tarballs, et le JS
   bâti de `RealtimeController` identique avant/après (types effacés).
@@ -678,6 +682,7 @@ journaux (`src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts#S
 `@nodefony/http` à côté de `maxPayload` ; au-delà, trame **écartée et comptée**, puis fermeture
 `1008` sur un solde, calqué sur `backpressureCloseAfterDrops`. Les deux naissent **désactivées**
 en 10.x (décision de gel 7).
+<!-- porté par #630 -->
 
 **Décision C1 (validée le 2026-10-29) : décider au cœur, agir de chaque côté.**
 `#decideSend` n'est PAS pure : elle tient ses compteurs sur la socket (`_nfDrops`,
@@ -933,6 +938,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   - **Locale au pod en 10.x** : on n'impose qu'à une connexion servie par ce pod ; l'ordre ne
     traverse pas le backplane (S6). Un client ancien qui ignore `imposed` reçoit les messages
     mais ne rejoue pas : dégradé, pas cassé — d'où l'ajout sans rupture.
+    <!-- porté par #623 -->
   - Usages hétérogènes : la recherche de partie d'un jeu, l'appelé d'un appel, le flux
     d'une tâche d'agent auquel le serveur abonne le demandeur, l'attribution d'une conversation
     de support à un conseiller.
@@ -1024,6 +1030,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
       large, jamais moins. En 10.x, une génération d'appartenance lue par `allow` et augmentée à
       chaque réadmission l'alimentera : rejoué, l'ordre viserait une génération morte. Sans
       horloge et sans mémoire des ordres déjà vus.
+      <!-- porté par #725 -->
     - Écartés : un identifiant d'admission frappé par le pod — les admissions sont locales, le
       modérateur ne nommerait que l'onglet qu'il voit et les autres onglets du compte (S-rt-4)
       resteraient servis ; la génération dès 10.0 — elle élargit le contrat d'`allow`, publié
@@ -1141,6 +1148,7 @@ curseur ; la fabrique est rejouée au premier abonné. Demain (10.2, S3) : `subs
 appelée une fois : il l'atteint par un retour élargi — à côté du `dispose` d'aujourd'hui, un objet
 `{ dispose, resume?(since, reply) }`, où `reply` ne pousse qu'à **cette** connexion. La fabrique
 décide : la suite depuis le curseur, l'état courant, ou rien. Sans curseur, rien ne change.
+<!-- porté par #715 -->
 
 - Constaté par lecture : un serveur 10.0 **ignore** un champ inconnu dans `params` d'un
   `subscribe` — `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#channelParam`

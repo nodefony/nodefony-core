@@ -162,6 +162,7 @@ rend la reprise **possible** : un abonnement pourra porter un **curseur optionne
 tampon qu'un service tient déjà) et décide quoi renvoyer à cet abonné seul (la suite depuis le
 curseur, l'état courant, ou rien), avant de le brancher sur le flux partagé. Un canal sans source
 ne rejoue rien ; un canal sans rattrapage déclaré ne coûte rien.
+<!-- porté par #715 -->
 
 Le curseur ne va **pas** à la fabrique du canal : elle n'est appelée qu'au premier abonné, puis
 partagée par tous (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#RealtimeController.startChannel`) ;
@@ -189,6 +190,7 @@ c'est une notification `realtime:closed { channel, reason }`, ajoutée en 10.x, 
 `ended` (le canal est terminé pour tous) et `evicted` (cette connexion en est retirée). Un client
 qui la reçoit retire l'abonnement et ne le rejoue pas. En SSE, la fin est la fermeture du flux, et
 le code 204 dit de ne pas se reconnecter.
+<!-- porté par #716 -->
 
 _Précisé le 2026-11-11 par ADR-0026 (D8) : l'arrêt d'un exemplaire n'est pas la fin d'un canal. À
 l'étape de la fermeture `1001` des sockets, un flux SSE ouvert est fermé simplement, sans 204 :
@@ -230,6 +232,7 @@ exigerait une file durable, donc de stocker des événements — ce que S3 écar
 réessai garde le même `webhook-id` que la tentative échouée, ce qui rend le doublon
 dédupliquable. Passer plus tard à une livraison garantie est un ajout ; l'inverse serait une
 rupture.
+<!-- porté par #714 -->
 
 **Socket : jeter avant de fermer.** Par défaut (`backpressurePolicy: "drop"`), une frame qui
 dépasse le seuil d'envoi est jetée et le client reste connecté ; il n'est fermé (`1013`) qu'au-delà
@@ -354,7 +357,7 @@ manière, jamais un `JSON.stringify` qui rendrait un objet (`[1, 2, 255]` devien
 | Socket    | trame binaire, octets intacts                                                                                                                                                                                                                                             |
 | Backplane | octets intacts sous codec binaire : second sujet Redis en CBOR scellé, IPC en clonage structuré (S6) ; sans codec binaire ou driver incapable, **refusés** plutôt que déformés (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.publish`) |
 | Flux SSE  | **refusés** : `TypeError` qui dit d'encoder soi-même en base64 avec le type MIME (`src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#serialize`) — un flux SSE n'est que du texte UTF-8 (WHATWG HTML §9.2)                                               |
-| Webhook   | **sans objet en 10.0** : seuls les événements de sécurité partent, sans octets ; la règle se décide avec l'émission applicative (ADR-0023 W3, 10.1), sous la contrainte « jamais des octets déformés » (S-rt-3) — revue de gel, 2026-10-30                                |
+| Webhook   | **sans objet en 10.0** : seuls les événements de sécurité partent, sans octets ; la règle se décide avec l'émission applicative (ADR-0023 W3), sous la contrainte « jamais des octets déformés » (S-rt-3) — revue de gel, 2026-10-30                                      |
 
 Un `Uint8Array` IMBRIQUÉ dans une charge JSON suit la convention du codec
 ([ADR-0022](0022-socket-temps-reel.md) §3 : chaîne d'octets en CBOR, base64 déclaré en
@@ -403,6 +406,7 @@ Sans unité écrite, la console comparerait sous un même nom des grandeurs diff
 l'ancien nom se déprécie selon la politique de compatibilité, avec retrait à la majeure suivante.
 `failedTotal` n'a que deux usages connus (backplane, webhooks), le SSE serait le troisième (un
 envoi vers un client parti) ; facultatif, il ne coûte rien à qui ne s'en sert pas.
+<!-- porté par #714 -->
 
 **Un refus n'est pas une perte : il se compte à part, un compteur par cause (2026-10-30, revue de gel).** Ni `droppedTotal` (« jeté faute de place ») ni `failedTotal`
 (« refusé par la destination ») : un refus est un verdict de NOTRE garde, et ce qu'il appelle
@@ -436,6 +440,7 @@ ci-dessus. Tous sont déclarés sur la sonde du hub (`src/nodefony/src/realtime/
   `presenceRejectedTotal` et `presenceStaleDiscardedTotal` — tous naissent avec 10.0. Une trame « écartée » (`Discarded`)
   n'est refusée à personne : elle ne se lit pas, et rien n'y répond. Un total générique
   calculé À LA LECTURE (somme des causes) reste un ajout possible en 10.x.
+  <!-- porté par #714 -->
 - **Écarté** : `deniedTotal` ou `rejectedTotal` générique (options A et B de la revue) — il additionne
   des grandeurs d'unités différentes ; un générique plus une ventilation `{ cause: n }` (option D) —
   le générique n'apporte rien que la somme ne donne.
@@ -622,6 +627,7 @@ allow?:
      (canal, `NF_POD_NAME`, durée).
    - **Reporté en 10.x, sans rupture** : un `AbortSignal` en argument facultatif (un paramètre de
      plus dans un rappel ne casse pas une fonction qui en prend moins), un délai par canal.
+     <!-- porté par #714 -->
 
    Le sort d'une panne à l'émission d'un webhook est réglé avec les abonnements par API (W6) :
    une panne n'y sera jamais traitée comme un verdict `false` (S-rt-60).
@@ -653,6 +659,7 @@ abonnement à motif n'a aucun canal à passer, et un droit vu une fois survit à
 verdict retenu par `(abonnement, canal)` ne borne pas le coût de S-rt-59 quand chaque ressource a
 son canal — à mesurer avant de choisir ; le stockage des scopes avec l'abonnement ; un quota par
 abonnement dans la file des livraisons.
+<!-- porté par #714 -->
 
 **Décision (2026-10-30, pour 10.0) :** un émetteur retiré
 de la liste acceptée (`resourceServer.issuers`) est **jugé à l'ouverture**. La liste se fige à la
@@ -696,6 +703,7 @@ seuil passé — jose ne le contrôle que sous `maxTokenAge`.
 - **Opt-in de 10.x, sans rupture tant que le défaut ne change pas** : une durée de vie maximale du
   jeton, une durée de vie maximale de la connexion (avec étalement des échéances), la révocation
   par clé ou par émetteur, et une option client `token: () => Promise<string>`.
+  <!-- porté par #714 -->
 
 #### S10 ter. Le flux SSE d'un canal
 
