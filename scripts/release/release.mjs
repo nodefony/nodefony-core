@@ -953,7 +953,7 @@ if (PROMOUVOIR) {
       branche: git("rev-parse", "--abbrev-ref", "HEAD").trim(),
       maintenance: constaterMaintenance(),
       version: VERSION ?? null,
-      lots: lireLotsOuverts(),
+      lots: lireLotsOuverts,
     });
     if (refus) echouer(refus);
   }
@@ -1346,7 +1346,7 @@ if (!PUBLIER) {
     branche: branche === "(HEAD détaché)" ? null : branche,
     maintenance: constaterMaintenance(),
     version: VERSION ?? null,
-    lots: lireLotsOuverts(),
+    lots: lireLotsOuverts,
   });
   if (maintenance) (ECRIRE ? echouer : alerter)(maintenance);
 }

@@ -3070,6 +3070,47 @@ describe("refusDeMaintenance — un LOT de correctifs ouvert (#796, bloquant 3)"
     expect(refusDeMaintenance({ ...base, lots: null })).toBeNull();
   });
 
+  it("🔴 ne LIT les jalons que si le motif est jugé — rien sur un tag ni sur une maintenance (#856)", () => {
+    let lectures = 0;
+    const lire = () => {
+      lectures += 1;
+      return [{ titre: "10.0.x", ouverts: 5 }];
+    };
+    // Le tag, dans le job de publication : tête détachée, aucun jeton GitHub.
+    expect(
+      refusDeMaintenance({
+        branche: null,
+        maintenance: propre,
+        version: "10.0.3",
+        lots: lire,
+      }),
+    ).toBeNull();
+    // Publier un correctif depuis sa branche de maintenance.
+    expect(
+      refusDeMaintenance({
+        branche: "release/10.0.x",
+        maintenance: propre,
+        version: "10.0.3",
+        lots: lire,
+      }),
+    ).toBeNull();
+    // Sans version, le motif 3 n'est pas jugé non plus.
+    expect(
+      refusDeMaintenance({ branche: "dev", maintenance: propre, lots: lire }),
+    ).toBeNull();
+    expect(lectures).toBe(0);
+    // Depuis dev, vers la mineure : la lecture a lieu, et le refus tombe.
+    expect(
+      refusDeMaintenance({
+        branche: "dev",
+        maintenance: propre,
+        version: "10.1.0",
+        lots: lire,
+      }),
+    ).toContain("le lot 10.0.x a 5 ticket(s) ouvert(s)");
+    expect(lectures).toBe(1);
+  });
+
   it("le remède d'un correctif en attente ne propose plus d'annuler des commits (la garde les compte)", () => {
     const refus = refusDeMaintenance({
       branche: "dev",
