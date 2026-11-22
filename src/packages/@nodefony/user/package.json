@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/user",
   "version": "10.0.1",
-  "description": "Contrats utilisateur de Nodefony, indépendants de l'ORM : interface IUser, utilisateurs de base, encodeurs de mot de passe et UserService — consommable sans @nodefony/security",
+  "description": "ORM-independent user contracts for Nodefony: IUser, base users, password encoders and UserService, usable without @nodefony/security",
   "contributors": [],
   "type": "module",
   "main": "./dist/index.js",

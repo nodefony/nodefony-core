@@ -125,4 +125,10 @@ readmes.mjs — assemble les trois README depuis UNE matrice de sections.
 
 - **Usage** : `node scripts/generate/readmes.mjs [--check]`
 - **Appelé par** : `npm run readme:build` · `node.js.yml`
-- **Utilise** : `lib/repo-root.mjs`
+- **Testé par** : `generate/readmes.test.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `lib/workspaces.mjs` · `site/lib/module-docs.mjs`
+
+## [`readmes.test.mjs`](readmes.test.mjs)
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `lib/repo-root.mjs` · `generate/readmes.mjs` · `site/lib/module-docs.mjs`

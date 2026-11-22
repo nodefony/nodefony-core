@@ -44,6 +44,13 @@ import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs";
 import { join, resolve, dirname } from "node:path";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
+import {
+  brandTitle,
+  seoHead,
+  siteImage,
+  softwareNode,
+  websiteNode,
+} from "./lib/seo-head.mjs";
 import { canalDeVersion } from "../release/release-core.mjs";
 
 const ARGS = process.argv.slice(2);
@@ -56,9 +63,18 @@ if (CHANNEL !== "published" && CHANNEL !== "next") {
 // La valeur de `--channel` n'est pas une sortie — mais SEULEMENT quand l'option
 // est là : sans elle, `channelAt + 1` vaut 0 et écartait le premier argument,
 // donc le fichier demandé, au profit du défaut.
+// Même règle pour la valeur de `--site-url` : une adresse n'est pas un fichier.
+const siteUrlAt = ARGS.indexOf("--site-url");
+/** Adresse publique du site, sans `/` final : base de l'adresse canonique de l'accueil. */
+const SITE_URL = (
+  siteUrlAt === -1 ? "https://nodefony.net" : (ARGS[siteUrlAt + 1] ?? "")
+).replace(/\/+$/, "");
 const OUT =
   ARGS.find(
-    (a, i) => !a.startsWith("--") && (channelAt === -1 || i !== channelAt + 1),
+    (a, i) =>
+      !a.startsWith("--") &&
+      (channelAt === -1 || i !== channelAt + 1) &&
+      (siteUrlAt === -1 || i !== siteUrlAt + 1),
   ) ?? join(ROOT, "tmp", "reports", "readme.html");
 
 /* ── Collecte : le dépôt se décrit lui-même ───────────────────────────────── */
@@ -1337,18 +1353,39 @@ if (matchMedia("(min-width:761px)").matches)
 
 /* ── Assemblage ───────────────────────────────────────────────────────────── */
 
+const HOME_TITLE = "Nodefony — le framework Node.js fullstack";
+// Ce qu'un moteur affiche de l'accueil : 160 caractères au plus, sinon il coupe lui-même.
+const HOME_DESCRIPTION =
+  "Nodefony, framework Node.js fullstack en TypeScript : HTTP et WebSocket partagent le même contexte de contrôleur, avec injection de dépendances et sécurité.";
+// `--site-url` porte déjà `/next` sur ce canal (`build-site.mjs`) : le recoller
+// publiait `…/next/next/` pour canonique.
+const HOME_URL = `${SITE_URL}/`;
 const html = doc({
-  title: "Nodefony — le framework Node.js fullstack",
+  title: HOME_TITLE,
+  documentTitle: brandTitle(HOME_TITLE),
   // L'icône est écrite à la racine du site par le générateur de documentation,
   // qui tourne juste après : à la fin du flux, le fichier est là. La description
   // est ce qu'un moteur de recherche affichera de la page d'accueil du projet —
   // sans elle, il en invente une, et sans l'icône chaque visiteur récolte un 404.
   head:
-    `<meta name="description" content="Nodefony — framework Node.js fullstack en TypeScript : ` +
-    `un serveur HTTP/HTTP2 et un serveur WebSocket qui partagent le même contexte de contrôleur, ` +
-    `une injection de dépendances, un noyau de modules et une couche de sécurité complète.">\n` +
-    `<link rel="icon" href="./favicon.svg" type="image/svg+xml">\n` +
-    (CHANNEL === "next" ? `<meta name="robots" content="noindex">\n` : "") +
+    seoHead({
+      image: siteImage(SITE_URL),
+      title: HOME_TITLE,
+      description: HOME_DESCRIPTION,
+      url: HOME_URL,
+      type: "website",
+      noindex: CHANNEL === "next",
+      jsonLd: [
+        websiteNode(SITE_URL),
+        softwareNode({
+          siteUrl: SITE_URL,
+          description: HOME_DESCRIPTION,
+          version: pkgCore.version,
+          author: pkgCore.author,
+        }),
+      ],
+    }) +
+    `\n<link rel="icon" href="./favicon.svg" type="image/svg+xml">\n` +
     versionSwitchScript("./"),
   // 🔴 NI une colonne étroite, NI toute la largeur — les deux sont faux ici.
   //

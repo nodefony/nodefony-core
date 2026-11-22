@@ -16,6 +16,11 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 
 - [`lib/`](lib/README.md) — Helpers propres au rendu du site de documentation.
 
+## [`adr-publication.test.mjs`](adr-publication.test.mjs)
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `site/lib/adr-publication.mjs`
+
 ## [`api-reference.test.mjs`](api-reference.test.mjs)
 
 - **Lancé par** : `npm run test:tooling`
@@ -37,7 +42,7 @@ Construit le SITE de documentation publié — toute la doc Nodefony en HTML aut
 - **Usage** : `node scripts/site/build-docs-site.mjs [--out tmp/sites/docs] [--mount /docs] [--channel published|next] [--quiet]`
 - **Usage** : `node scripts/site/build-docs-site.mjs --list`
 - **Appelé par** : `node.js.yml` · `.githooks/pre-push` · `site/build-site.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs` · `.claude/skills/nodefony-documentation/scripts/doc-lint.mjs` · `.claude/skills/nodefony-documentation/scripts/render-figures.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `deps/shims/deepmerge/index.js` · `site/lib/admonitions.mjs` · `site/lib/api-reference.mjs` · `site/lib/html-text.mjs` · `site/lib/markdown-source.mjs` · `site/lib/out-dir.mjs` · `site/lib/page-summary.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `deps/shims/deepmerge/index.js` · `site/lib/admonitions.mjs` · `site/lib/adr-publication.mjs` · `site/lib/api-reference.mjs` · `site/lib/html-text.mjs` · `site/lib/markdown-source.mjs` · `site/lib/module-docs.mjs` · `site/lib/out-dir.mjs` · `site/lib/page-summary.mjs` · `site/lib/seo-head.mjs` · `site/lib/site-nav.mjs` · `site/lib/site-versions.mjs` · `site/lib/translations.mjs` · `site/markdown-highlight.mjs`
 
 ## [`build-perf-site.mjs`](build-perf-site.mjs)
 
@@ -45,7 +50,7 @@ Construit le site « Performance » publié — une page par version, plus `late
 
 - **Usage** : `node scripts/site/build-perf-site.mjs [--out tmp/sites/perf] [--data docs/performance/data]`
 - **Appelé par** : `site/build-site.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/lib/site-nav.mjs` · `site/markdown-highlight.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/lib/page-summary.mjs` · `site/lib/seo-head.mjs` · `site/lib/site-nav.mjs` · `site/markdown-highlight.mjs`
 
 ## [`build-qualite-site.mjs`](build-qualite-site.mjs)
 
@@ -53,7 +58,7 @@ Construit le site « Qualité » publié — le verdict d'une CAMPAGNE DE TEST p
 
 - **Usage** : `node scripts/site/build-qualite-site.mjs [--out tmp/sites/quality] [--data docs/qualite/data]`
 - **Appelé par** : `site/build-site.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/site-nav.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/page-summary.mjs` · `site/lib/seo-head.mjs` · `site/lib/site-nav.mjs`
 
 ## [`build-site-plan.mjs`](build-site-plan.mjs)
 
@@ -62,7 +67,7 @@ Publie le PLAN du site : `llms.txt`, `sitemap.xml` et `robots.txt`.
 - **Usage** : `npm run site:plan`
 - **Usage** : `node scripts/site/build-site-plan.mjs [--out tmp/sites/docs] [--base <url>]`
 - **Appelé par** : `npm run site:plan` · `site/build-site.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/app-template-deps.mjs` · `site/lib/llms-plan.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/app-template-deps.mjs` · `site/lib/llms-plan.mjs` · `site/lib/seo-check.mjs` · `site/lib/sitemap.mjs`
 
 ## [`build-site.mjs`](build-site.mjs)
 
@@ -71,7 +76,7 @@ Rend UN site complet — accueil, documentation, mesures, qualité, plan — dan
 - **Usage** : `node scripts/site/build-site.mjs --out dist-site [--channel published|next] [--site-url <url>]`
 - **Appelé par** : `pages.yml` · `release.yml`
 - **Testé par** : `site/site-versions.test.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `generate/generate-symbols.ts` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `site/readme-html.mjs` · `repo/turbo.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `generate/generate-symbols.ts` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/check-site-seo.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `site/readme-html.mjs` · `repo/turbo.mjs`
 
 ## [`check-site-links.mjs`](check-site-links.mjs)
 
@@ -81,6 +86,14 @@ Refuse un site dont un lien interne ne mène nulle part.
 - **Appelé par** : `pages.yml`
 - **Testé par** : `site/site-versions.test.mjs` · `.claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs`
 - **Utilise** : `site/lib/site-versions.mjs`
+
+## [`check-site-seo.mjs`](check-site-seo.mjs)
+
+Refuse un site RENDU dont une page n'a pas son référencement propre : titre, description, adresse canonique, aperçu de partage, données structurées — et aucun titre ni description partagé par deux pages.
+
+- **Usage** : `node scripts/site/check-site-seo.mjs <dossier-rendu> [--site-url <url>] [--noindex] [--json]`
+- **Appelé par** : `site/build-site.mjs`
+- **Utilise** : `site/lib/seo-check.mjs`
 
 ## [`html-text.test.mjs`](html-text.test.mjs)
 
@@ -119,7 +132,15 @@ readme-html.mjs — Nodefony, matrice de présentation (10 minutes).
 
 - **Usage** : `node scripts/site/readme-html.mjs [fichier-de-sortie.html] [--channel published|next]`
 - **Appelé par** : `site/build-site.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/admonitions.mjs` · `site/lib/html-text.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs` · `release/release-core.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/admonitions.mjs` · `site/lib/html-text.mjs` · `site/lib/seo-head.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs` · `release/release-core.mjs`
+
+## [`render-og-image.mjs`](render-og-image.mjs)
+
+Rend l'IMAGE D'APERÇU du site — celle qu'affiche un lien partagé (Open Graph, cartes) : 1200 × 630, PNG (les aperçus refusent le SVG).
+
+- **Usage** : `node scripts/site/render-og-image.mjs [--out docs/assets/og-image.png]`
+- **Appelé par** : aucun automate
+- **Utilise** : `lib/repo-root.mjs`
 
 ## [`schemas-organigramme.test.mjs`](schemas-organigramme.test.mjs)
 
@@ -135,6 +156,11 @@ Les diagrammes de séquence du site tiennent leurs libellés — sur le CORPUS r
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `lib/repo-root.mjs`
 
+## [`seo-check.test.mjs`](seo-check.test.mjs)
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `site/lib/seo-check.mjs`
+
 ## [`site-nav.test.mjs`](site-nav.test.mjs)
 
 Le menu des sites voisins (performance, qualité) : des liens RELATIFS justes depuis chaque profondeur, et la bonne entrée allumée.
@@ -147,7 +173,7 @@ Le menu des sites voisins (performance, qualité) : des liens RELATIFS justes de
 Éprouve le lecteur de dépendances du gabarit d'application.
 
 - **Lancé par** : `npm run test:site-plan` · `node.js.yml` · `npm run test:tooling`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/app-template-deps.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/app-template-deps.mjs` · `site/lib/sitemap.mjs`
 
 ## [`site-versions.test.mjs`](site-versions.test.mjs)
 
@@ -155,3 +181,10 @@ Le menu des sites voisins (performance, qualité) : des liens RELATIFS justes de
 
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `lib/repo-root.mjs` · `site/assemble-site.mjs` · `site/build-site.mjs` · `site/check-site-links.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs`
+
+## [`translations.test.mjs`](translations.test.mjs)
+
+L'adresse d'une traduction suit la convention : `/<langue>` + celle de la source.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `site/lib/markdown-source.mjs` · `site/lib/seo-check.mjs` · `site/lib/seo-head.mjs` · `site/lib/translations.mjs`

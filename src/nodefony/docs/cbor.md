@@ -1,6 +1,7 @@
 ---
-title: "Codec CBOR (nodefony/cbor)"
+title: "Codec CBOR sur WebSocket : frames binaires"
 navTitle: "Codec CBOR"
+description: "Codec CBOR (RFC 8949) sans dépendance, pour Node.js et le navigateur. La socket temps réel le négocie par connexion : les octets passent sans base64."
 lang: fr
 module: "@nodefony/core"
 topic: cbor
@@ -17,13 +18,15 @@ updated: 2026-10-29
 source: "src/nodefony/docs/cbor.md"
 ---
 
-# Codec CBOR (`nodefony/cbor`)
+# Codec CBOR sur WebSocket : frames binaires
 
-> CBOR est un JSON **binaire** : les mêmes objets, tableaux, nombres et textes, en moins
-> d'octets, et des octets bruts (une image, un son) sans les convertir en texte. Nodefony
-> embarque son propre codec, **isomorphe** (navigateur et serveur, même code), sans dépendance,
-> qui rend **exactement ce que JSON rendrait** — seuls les octets font exception. Ancré sur
-> `src/nodefony/src/realtime/codec/`.
+> CBOR (RFC 8949) est un JSON **binaire** : les mêmes objets, tableaux, nombres et textes, en
+> moins d'octets, et des octets bruts (une image, un son) sans les convertir en base64. Nodefony
+> embarque son propre codec (`nodefony/cbor`), **isomorphe** (navigateur et Node.js, même code)
+> et sans dépendance, qui rend **exactement ce que JSON rendrait** — seuls les octets font
+> exception. Sur la socket temps réel, il devient le format des frames WebSocket : le client
+> l'offre au handshake (sous-protocole `nodefony.jsonrpc.cbor.v1`), le serveur l'accorde
+> connexion par connexion, et JSON reste le défaut. Ancré sur `src/nodefony/src/realtime/codec/`.
 
 📍 [Documentation](../../../docs/index.md) › [@nodefony/core](index.md) › **Codec CBOR**
 
@@ -323,5 +326,9 @@ Familles présentes :
 - ⬆️ **Retour au hub** : [@nodefony/core — vue d'ensemble](index.md) · [Toute la documentation](../../../docs/index.md)
 - 🧭 **Pages sœurs** : [Client isomorphe](client.md) — la socket côté navigateur, qui offre CBOR par son option `codec` ·
   [Journalisation](syslog.md)
-- Les décisions et leurs raisons → [ADR-0022 — la socket temps réel](../../../docs/adr/0022-socket-temps-reel.md)
+- Cette page dit le **comment** ; le **pourquoi** est dans [ADR-0022 — la socket temps réel](../../../docs/adr/0022-socket-temps-reel.md)
   · [ADR-0021 — l'événement et ses livraisons](../../../docs/adr/0021-temps-reel-evenement-et-livraisons.md)
+- La socket qui porte ces frames → [@nodefony/realtime](../../packages/@nodefony/realtime/docs/index.md)
+- Voir aussi, les deux autres entrées d'une application : un contrat typé entre services →
+  [gRPC](../../packages/@nodefony/framework/docs/grpc.md) · des outils pour les agents IA →
+  [MCP](../../packages/@nodefony/ai/docs/mcp.md)

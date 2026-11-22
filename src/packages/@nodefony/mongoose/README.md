@@ -1,5 +1,11 @@
 # @nodefony/mongoose
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/mongoose** — MongoDB engine for Nodefony on Mongoose: typed repositories that follow the orm-core contract. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/mongoose/).
+
+<!-- nf-en:end -->
+
 Driver **NoSQL Mongoose** pour Nodefony, branché sur `@nodefony/orm-core`. Adapter documentaire
 hétérogène (même contrat `IRepository`/`ITransaction` que le driver SQL Drizzle), avec stockage de
 session portable et sondes d'introspection pour Studio.

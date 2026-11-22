@@ -27,6 +27,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { minimalAppDependencies } from "./lib/app-template-deps.mjs";
 import { llmsPlan } from "./lib/llms-plan.mjs";
+import { readSeoHead } from "./lib/seo-check.mjs";
+import { modifiedDate, sitemapXml } from "./lib/sitemap.mjs";
 import { REPO_ROOT } from "../lib/repo-root.mjs";
 
 const DEFAULT_BASE = "https://nodefony.net";
@@ -54,7 +56,8 @@ function renderedPages(root) {
   return found
     .map((abs) => {
       const html = fs.readFileSync(abs, "utf8");
-      const head = /<head>([\s\S]*?)<\/head>/i.exec(html)?.[1] ?? "";
+      // 1 règle = 1 implémentation : la lecture de l'en-tête est celle du gate SEO.
+      const head = readSeoHead(html);
       // Chemin d'URL : le dossier de la page, séparateurs d'URL, barre finale.
       const rel = path
         .relative(root, path.dirname(abs))
@@ -64,16 +67,11 @@ function renderedPages(root) {
         urlPath: rel === "" ? "" : `${rel}/`,
         segment: rel.split("/")[0] ?? "",
         depth: rel === "" ? 0 : rel.split("/").length,
-        title: decodeEntities(
-          /<title>([\s\S]*?)<\/title>/i.exec(head)?.[1]?.trim() ?? rel,
-        ),
-        description: decodeEntities(
-          /<meta\s+name="description"\s+content="([^"]*)"/i
-            .exec(head)?.[1]
-            ?.trim() ?? "",
-        ),
-        canonical:
-          /<link\s+rel="canonical"\s+href="([^"]*)"/i.exec(head)?.[1] ?? "",
+        title: head.title === "" ? rel : squash(head.title),
+        description: squash(head.description),
+        canonical: head.canonical,
+        robots: head.robots,
+        lastmod: modifiedDate(head.jsonLd),
         // Le markdown voisin, quand le générateur l'a publié : c'est LUI que le
         // plan donne à lire, pas la page HTML. Un agent qui reçoit du markdown ne
         // dépense rien à en extraire le texte, et ne confond pas le contenu avec
@@ -84,48 +82,8 @@ function renderedPages(root) {
     .sort((a, b) => a.urlPath.localeCompare(b.urlPath, "en"));
 }
 
-/**
- * Décode les entités que le rendu a posées dans un attribut ou un titre.
- *
- * @param text - texte issu du HTML.
- * @returns le même texte, lisible.
- */
-const decodeEntities = (text) =>
-  text
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/\s+/g, " ");
-
-/** Échappe ce qui ne peut pas entrer tel quel dans du XML. */
-const xmlEscape = (text) =>
-  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-/**
- * Le plan pour les moteurs, au format sitemap 0.9.
- *
- * Sans `<lastmod>`, et c'est un choix : le seul horodatage disponible au rendu
- * est celui du build, identique pour toutes les pages — il annoncerait cent
- * modifications à chaque publication, ce qui est faux et se paie en crédit.
- *
- * @param pages - les pages rendues.
- * @param base - racine d'URL du site publié.
- * @returns le contenu du fichier.
- */
-const sitemapXml = (pages, base) =>
-  [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    ...pages.map(
-      (p) =>
-        `  <url><loc>${xmlEscape(p.canonical || `${base}/${p.urlPath}`)}</loc></url>`,
-    ),
-    "</urlset>",
-    "",
-  ].join("\n");
+/** Replie les blancs : `readSeoHead` a déjà décodé les entités. */
+const squash = (text) => text.replace(/\s+/g, " ");
 
 /**
  * Les règles d'exploration.

@@ -1,7 +1,7 @@
 {
   "name": "nodefony",
   "version": "10.0.1",
-  "description": "Noyau du framework Nodefony : modules, injection de dépendances, configuration validée au démarrage, journalisation structurée corrélée, CLI — et le client temps réel partagé avec le navigateur, avec ses hooks React, Vue, Svelte et Angular",
+  "description": "Nodefony core: modules, dependency injection, validated config, structured logging, CLI and the realtime client (CBOR codec; React, Vue, Svelte, Angular hooks)",
   "type": "module",
   "nodefony": {
     "contribute": "./dist/node/cli/scaffold/contribute.js"
@@ -111,7 +111,10 @@
     "react",
     "vue",
     "svelte",
-    "angular"
+    "angular",
+    "cbor",
+    "binary-websocket",
+    "json-rpc"
   ],
   "scripts": {
     "nodefony": "node ./bin/nodefony",

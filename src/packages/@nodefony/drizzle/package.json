@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/drizzle",
   "version": "10.0.1",
-  "description": "Moteur SQL de Nodefony sur Drizzle ORM (SQLite, PostgreSQL, MySQL, MariaDB) : dépôts typés, migrations de schéma et adoption d'une base existante",
+  "description": "SQL engine for Nodefony on Drizzle ORM (SQLite, PostgreSQL, MySQL, MariaDB): typed repositories, schema migrations, adoption of an existing database",
   "nodefony": {
     "storeKind": "durable",
     "stores": [

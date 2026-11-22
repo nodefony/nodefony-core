@@ -1,5 +1,11 @@
 # @nodefony/frontend
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/frontend** — Builds and hot-reloads the frontends of each Nodefony module with built-in Vite: React, Vue, Angular and Svelte. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/frontend/).
+
+<!-- nf-en:end -->
+
 Builder frontend Nodefony — supervise [Vite](https://vite.dev/) dans un process séparé pour transpiler les frontends de tes modules (React 19, Vue 3, Angular, vanilla TS).
 
 > Audience : développeur Nodefony qui ajoute son **premier frontend** à un module existant. Tu connais déjà `Module`, `Service`, `Controller`. Si non, lis d'abord le [CLAUDE.md racine](https://github.com/nodefony/nodefony-core/blob/main/CLAUDE.md).

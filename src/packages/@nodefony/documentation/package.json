@@ -4,7 +4,7 @@
   "nodefony": {
     "configSchema": "./dist/nodefony/config/configSchema.js"
   },
-  "description": "Plan de données de documentation de Nodefony : index des pages co-localisées dans chaque module, résolution des variables dynamiques, exposition en lecture pour la console d'administration",
+  "description": "Documentation data plane for Nodefony: indexes module docs, resolves dynamic variables, serves them read-only to the admin console",
   "contributors": [],
   "main": "./dist/index.js",
   "type": "module",

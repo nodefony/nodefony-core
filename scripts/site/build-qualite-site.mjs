@@ -49,11 +49,21 @@ import {
 } from "../../.claude/skills/nodefony-html-report/lib/echarts.mjs";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 import { siteNav } from "./lib/site-nav.mjs";
+import { brandTitle, seoHead, siteImage, webPage } from "./lib/seo-head.mjs";
+import { clipSummary } from "./lib/page-summary.mjs";
 
 function arg(nom, defaut) {
   const i = process.argv.indexOf(`--${nom}`);
   return i === -1 ? defaut : process.argv[i + 1];
 }
+// Adresse publique du site : base des adresses canoniques. Les pages vivent sous
+// `/qualite/` — le préfixe que `siteNav` pose déjà, et que `build-site.mjs` donne
+// à `--out`.
+const SITE_URL = arg("site-url", "https://nodefony.net").replace(/\/+$/, "");
+/** Site `/next/` : aucune page indexable (`build-site.mjs` pose l'option). */
+const NOINDEX = process.argv.includes("--noindex");
+const canonicalOf = (cheminSousQualite) =>
+  `${SITE_URL}/qualite/${cheminSousQualite}`;
 const OUT = path.resolve(ROOT, arg("out", "tmp/sites/quality"));
 const DATA = path.resolve(ROOT, arg("data", "docs/qualite/data"));
 
@@ -424,13 +434,35 @@ function rendre(d) {
     ),
   );
 
+  const titre = `Campagne de test — Nodefony ${d.version}`;
+  const sousTitre =
+    rougesProduit === 0
+      ? "Aucune régression du produit. Tous les rouges sont instruits et imputés au décor ou à l'instrument."
+      : `${rougesProduit} régression(s) du produit à instruire avant publication.`;
+  // La version est dans le titre ET la description : deux campagnes ne se ressemblent pas.
+  const description = clipSummary(
+    `Verdict de la campagne de test de Nodefony ${d.version}, jouée le ${d.campagne} : ${sousTitre}`,
+  );
+  const url = canonicalOf(`${d.version}/`);
   return doc({
     nav: siteNav(`/qualite/${d.version}/`),
-    title: `Campagne de test — Nodefony ${d.version}`,
-    subtitle:
-      rougesProduit === 0
-        ? "Aucune régression du produit. Tous les rouges sont instruits et imputés au décor ou à l'instrument."
-        : `${rougesProduit} régression(s) du produit à instruire avant publication.`,
+    title: titre,
+    documentTitle: brandTitle(titre),
+    subtitle: sousTitre,
+    head: seoHead({
+      image: siteImage(SITE_URL),
+      noindex: NOINDEX,
+      title: titre,
+      description,
+      url,
+      jsonLd: webPage({
+        type: "WebPage",
+        title: titre,
+        description,
+        url,
+        siteUrl: SITE_URL,
+      }),
+    }),
     sections,
     style: STYLE_GRAPHES,
     data: d,
@@ -484,8 +516,25 @@ writeFileSync(
   doc({
     nav: siteNav("/qualite/"),
     title: "Campagnes de test — Nodefony",
+    documentTitle: brandTitle("Campagnes de test — Nodefony"),
     subtitle:
       "Un verdict par version publiée, avec son décor et ce qu'il n'a pas éprouvé.",
+    head: seoHead({
+      image: siteImage(SITE_URL),
+      noindex: NOINDEX,
+      title: "Campagnes de test — Nodefony",
+      description:
+        "Une campagne de test complète par version de Nodefony : verdict, rouges instruits, décor de la machine et ce que la campagne n'a pas éprouvé.",
+      url: canonicalOf(""),
+      jsonLd: webPage({
+        type: "CollectionPage",
+        title: "Campagnes de test — Nodefony",
+        description:
+          "Une campagne de test complète par version de Nodefony : verdict, rouges instruits, décor de la machine et ce que la campagne n'a pas éprouvé.",
+        url: canonicalOf(""),
+        siteUrl: SITE_URL,
+      }),
+    }),
     sections: [
       section(
         "Versions",

@@ -1,5 +1,11 @@
 # @nodefony/redis
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/redis** — Redis connector for Nodefony: key-value repositories, cache, shared sessions and cross-instance broadcast transport. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/redis/).
+
+<!-- nf-en:end -->
+
 Accès **Redis générique** pour Nodefony. Gère N connexions Redis nommées (lib
 [`redis`](https://github.com/redis/node-redis) v6) à partir d'une configuration validée par
 Zod, et expose le **client Redis brut** par connexion. Le module n'impose aucun usage : cache,

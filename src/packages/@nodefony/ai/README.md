@@ -1,5 +1,11 @@
 # @nodefony/ai
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/ai** — Model Context Protocol (MCP) for Nodefony: MCP server, tool collection from modules and access control for AI agents. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/ai/).
+
+<!-- nf-en:end -->
+
 > La boîte à outils IA de Nodefony : exposer les outils de votre application à n'importe quel
 > agent (serveur MCP), consommer des serveurs MCP, puis bâtir les services d'une couche
 > agentique — accès modèle, index vectoriel, mémoire, orchestration d'agents, gouvernance.

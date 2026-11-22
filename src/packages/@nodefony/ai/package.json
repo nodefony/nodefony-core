@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/ai",
   "version": "10.0.1",
-  "description": "Le protocole MCP de Nodefony : serveur MCP, collecte des outils que déclarent les modules et contrôle d'accès — le socle de la couche agentique",
+  "description": "Model Context Protocol (MCP) for Nodefony: MCP server, tool collection from modules and access control for AI agents",
   "contributors": [],
   "type": "module",
   "main": "./dist/index.js",
@@ -35,7 +35,8 @@
     "agents",
     "llm",
     "typescript",
-    "esm"
+    "esm",
+    "mcp-server"
   ],
   "nodefony": {
     "configSchema": "./dist/nodefony/config/configSchema.js",

@@ -207,6 +207,41 @@ describe("renderApiPages — pages et découpe", () => {
     expect(hub).toContain("(sous-chemin-syslog.md)");
   });
 
+  it("donne un titre DISTINCT à un dossier homonyme du sous-chemin et à sa racine", () => {
+    // Vécu sur `nodefony/client` : le dossier `client/` replié dans la clé
+    // `client`, et les fichiers de tête sous `client-racine`, publiés tous deux
+    // sous « nodefony/client — racine » — deux pages au même titre.
+    const sym = (name, location) => ({
+      name,
+      kind: "function",
+      location,
+      summary:
+        "Une fonction de décor dont la phrase occupe de la place. ".repeat(3),
+      deprecated: null,
+      signatures: [`function ${name}(value: string): void`],
+      members: [],
+    });
+    const many = (loc, n) =>
+      Array.from({ length: n }, (_, i) => sym(`${loc.join("")}${i}`, loc));
+    const model = [
+      {
+        name: "nodefony",
+        version: "9.9.9",
+        subpaths: [
+          {
+            subpath: "./client",
+            specifier: "nodefony/client",
+            symbols: [...many(["client", "file"], 20), ...many(["head"], 20)],
+          },
+        ],
+      },
+    ];
+    const pages = renderApiPages(model, { maxBytes: 8 * 1024 });
+    const titles = pages.map((p) => /^title: (.*)$/m.exec(p.markdown)?.[1]);
+    expect(new Set(titles).size).toBe(titles.length);
+    expect(titles).toContain(`"Référence d'API — nodefony/client — client"`);
+  });
+
   it("tranche un fichier trop lourd à lui seul", () => {
     const pages = renderApiPages(bigModel(), { maxBytes: 3 * 1024 });
     const kernel = pages.filter((p) => p.relPath.startsWith("api/core/kernel"));

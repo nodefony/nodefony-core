@@ -1,5 +1,11 @@
 # @nodefony/drizzle
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/drizzle** — SQL engine for Nodefony on Drizzle ORM (SQLite, PostgreSQL, MySQL, MariaDB): typed repositories, schema migrations, adoption of an existing database. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/drizzle/).
+
+<!-- nf-en:end -->
+
 Adapter [Drizzle ORM](https://orm.drizzle.team/) pour Nodefony, branché sur
 [`@nodefony/orm-core`](https://www.npmjs.com/package/@nodefony/orm-core). driver concret du socle multi-ORM (avec
 `@nodefony/mongoose`), **type-safe-first**.

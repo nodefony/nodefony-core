@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/studio",
   "version": "10.0.1",
-  "description": "Console d'administration web de Nodefony : modules, routes, services, configuration effective, journaux et métriques en temps réel",
+  "description": "Nodefony web admin console: modules, routes, services, effective configuration, logs and live metrics",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "type": "module",
   "main": "dist/index.js",
