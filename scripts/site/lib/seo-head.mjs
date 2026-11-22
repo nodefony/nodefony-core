@@ -35,6 +35,94 @@ export function brandTitle(title) {
   return /\bnodefony\b/i.test(title) ? title : `${title} · ${SITE_NAME}`;
 }
 
+/** Au-delà, un moteur de recherche tronque le titre — et la marque part la première. */
+export const TAB_TITLE_MAX = 65;
+
+/**
+ * Le titre d'ONGLET d'une page, marque comprise, dans {@link TAB_TITLE_MAX}
+ * caractères : le titre complet s'il tient ; sinon sa partie avant le tiret
+ * cadratin (« Flux d'octets — servir la sortie… » → « Flux d'octets ») ; sinon
+ * une coupe au dernier mot entier. Le `<h1>` et `og:title` gardent le titre
+ * entier : seul l'onglet — le lien bleu d'un résultat — est raccourci.
+ *
+ * @param title - le titre de la page
+ * @returns le titre d'onglet
+ */
+export function tabTitle(title) {
+  const fits = (t) => [...brandTitle(t)].length <= TAB_TITLE_MAX;
+  if (fits(title)) return brandTitle(title);
+  const head = title.split(" — ")[0].trim();
+  if (head !== title && [...head].length >= 8 && fits(head))
+    return brandTitle(head);
+  const room = TAB_TITLE_MAX - [` · ${SITE_NAME}`].join("").length - 1;
+  const chars = [...title];
+  const cut = chars.slice(0, room).join("");
+  const word = cut.lastIndexOf(" ");
+  return brandTitle(
+    `${(word > 0 ? cut.slice(0, word) : cut).replace(/[\s,;:—-]+$/, "")}…`,
+  );
+}
+
+/**
+ * Le nœud schema.org du SITE, identifié par un `@id` stable : chaque page s'y
+ * rattache par cet identifiant au lieu de répéter un nœud anonyme.
+ *
+ * @param siteUrl - adresse du site, sans `/` final
+ * @returns un nœud `WebSite`
+ */
+export function websiteNode(siteUrl) {
+  return {
+    "@type": "WebSite",
+    "@id": `${siteUrl}/#website`,
+    name: SITE_NAME,
+    url: `${siteUrl}/`,
+  };
+}
+
+/**
+ * Le nœud schema.org du LOGICIEL décrit par le site, identifié par un `@id` stable.
+ *
+ * @param p.siteUrl - adresse du site, sans `/` final
+ * @param p.description - ce qu'il est, une phrase
+ * @param p.version - version publiée, ou rien
+ * @param p.author - nom de l'auteur, ou rien
+ * @returns un nœud `SoftwareSourceCode`
+ */
+export function softwareNode({ siteUrl, description, version, author }) {
+  return {
+    "@type": "SoftwareSourceCode",
+    "@id": `${siteUrl}/#software`,
+    name: SITE_NAME,
+    ...(description ? { description } : {}),
+    codeRepository: CODE_REPOSITORY,
+    programmingLanguage: "TypeScript",
+    runtimePlatform: "Node.js",
+    license: "https://www.apache.org/licenses/LICENSE-2.0",
+    ...(version ? { version } : {}),
+    ...(author ? { author: { "@type": "Person", name: author } } : {}),
+  };
+}
+
+/**
+ * Le fil d'Ariane d'une page en données structurées — recopié de la hiérarchie
+ * RÉELLE des pages publiées, jamais inventé.
+ *
+ * @param items - `[{ name, url }]` de la racine à la page, la page comprise
+ * @returns un nœud `BreadcrumbList`, ou `null` s'il y a moins de deux niveaux
+ */
+export function breadcrumbList(items) {
+  if (items.length < 2) return null;
+  return {
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((it, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: it.name,
+      item: it.url,
+    })),
+  };
+}
+
 /**
  * Données structurées d'une page de documentation.
  *
@@ -44,6 +132,7 @@ export function brandTitle(title) {
  * @param p.siteUrl - adresse du site, sans `/` final
  * @param p.lang - langue de la page (`fr`)
  * @param p.dateModified - date de dernière modification déclarée, ou rien
+ * @param p.author - nom de l'auteur, ou rien
  * @returns un nœud schema.org `TechArticle`
  */
 export function techArticle({
@@ -53,21 +142,20 @@ export function techArticle({
   siteUrl,
   lang = "fr",
   dateModified,
+  author,
 }) {
   return {
     "@type": "TechArticle",
+    "@id": `${url}#article`,
     headline: title,
     description,
     inLanguage: lang,
     url,
     mainEntityOfPage: url,
     ...(dateModified ? { dateModified } : {}),
-    isPartOf: { "@type": "WebSite", name: SITE_NAME, url: `${siteUrl}/` },
-    about: {
-      "@type": "SoftwareSourceCode",
-      name: SITE_NAME,
-      codeRepository: CODE_REPOSITORY,
-    },
+    ...(author ? { author: { "@type": "Person", name: author } } : {}),
+    isPartOf: { "@id": `${siteUrl}/#website` },
+    about: { "@id": `${siteUrl}/#software` },
   };
 }
 
@@ -88,11 +176,12 @@ export function webPage({
 }) {
   return {
     "@type": type,
+    "@id": `${url}#page`,
     name: title,
     description,
     inLanguage: lang,
     url,
-    isPartOf: { "@type": "WebSite", name: SITE_NAME, url: `${siteUrl}/` },
+    isPartOf: { "@id": `${siteUrl}/#website` },
   };
 }
 

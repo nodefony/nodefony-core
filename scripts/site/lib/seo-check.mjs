@@ -180,6 +180,8 @@ export function pageDefects(head) {
     for (const n of nodes) {
       if (typeof n?.["@type"] !== "string" || n["@type"] === "")
         out.push("ld+json : un nœud sans @type");
+      // Le nœud du SITE porte l'adresse du site, pas celle de la page.
+      if (n?.["@type"] === "WebSite") continue;
       const main = n?.mainEntityOfPage;
       for (const [k, v] of [
         ["url", n?.url],

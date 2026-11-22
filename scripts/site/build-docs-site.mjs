@@ -124,7 +124,14 @@ import {
   translationPath,
 } from "./lib/translations.mjs";
 import { pageSummary } from "./lib/page-summary.mjs";
-import { brandTitle, seoHead, techArticle, webPage } from "./lib/seo-head.mjs";
+import {
+  breadcrumbList,
+  brandTitle,
+  seoHead,
+  tabTitle,
+  techArticle,
+  webPage,
+} from "./lib/seo-head.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -1378,6 +1385,45 @@ function writeSearchIndex(published) {
   return Buffer.byteLength(json);
 }
 
+/** Auteur du projet, lu au manifeste du cœur — le nom seul, jamais l'adresse. */
+const AUTHOR = (() => {
+  try {
+    const a = JSON.parse(
+      readFileSync(path.join(ROOT, "src", "nodefony", "package.json"), "utf8"),
+    ).author;
+    const name = typeof a === "string" ? a : a?.name;
+    return typeof name === "string"
+      ? name.replace(/\s*<[^>]*>\s*/, "").trim()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+})();
+
+/** Titre de chaque page publiée, par adresse — le fil d'Ariane s'y lit. */
+let TITLE_BY_URL = null;
+
+/**
+ * Le fil d'Ariane d'une page : l'accueil, puis chaque page PUBLIÉE dont
+ * l'adresse est un préfixe de la sienne, puis elle-même. Recopié de la
+ * hiérarchie réelle, jamais inventé — un niveau sans page est sauté.
+ */
+function breadcrumbOf(d) {
+  if (TITLE_BY_URL === null)
+    TITLE_BY_URL = new Map(
+      sourcePages.map((p) => [p.url, p.navTitle ?? p.title]),
+    );
+  const items = [{ name: "Nodefony", url: `${SITE_URL}/` }];
+  const parts = d.url.split("/").filter(Boolean);
+  for (let k = 1; k < parts.length; k++) {
+    const u = `/${parts.slice(0, k).join("/")}/`;
+    const t = TITLE_BY_URL.get(u);
+    if (t !== undefined) items.push({ name: t, url: `${SITE_URL}${u}` });
+  }
+  items.push({ name: d.navTitle ?? d.title, url: `${SITE_URL}${d.url}` });
+  return items;
+}
+
 function renderPage(d, published, index, publishedPaths) {
   const raw = sourceOf(d);
   const bodyRaw = raw.replace(/^---\n[\s\S]*?\n---\n/, "");
@@ -1432,7 +1478,7 @@ function renderPage(d, published, index, publishedPaths) {
     lang,
     // L'onglet — et le lien bleu d'un résultat de recherche — porte la marque ;
     // le h1 reste le titre éditorial de la page.
-    documentTitle: brandTitle(d.title),
+    documentTitle: tabTitle(d.title),
     // La marque en tête ramène à l'accueil du site — le premier geste d'un
     // lecteur perdu, avant même de chercher un menu.
     brand: { ...NODEFONY_BRAND, href: rel(d.url, "/"), version: BADGE },
@@ -1447,17 +1493,21 @@ function renderPage(d, published, index, publishedPaths) {
         lang,
         alternates: d.alternates ?? [],
         noindex: IS_NEXT,
-        jsonLd: techArticle({
-          title: d.title,
-          description: firstText,
-          url: canonical,
-          siteUrl: SITE_URL,
-          lang,
-          dateModified:
-            updated && /^\d{4}-\d{2}-\d{2}$/.test(updated)
-              ? updated
-              : undefined,
-        }),
+        jsonLd: [
+          techArticle({
+            title: d.title,
+            description: firstText,
+            url: canonical,
+            siteUrl: SITE_URL,
+            lang,
+            author: AUTHOR,
+            dateModified:
+              updated && /^\d{4}-\d{2}-\d{2}$/.test(updated)
+                ? updated
+                : undefined,
+          }),
+          breadcrumbList(breadcrumbOf(d)),
+        ].filter(Boolean),
       }) +
       "\n" +
       (FAVICON

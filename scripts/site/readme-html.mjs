@@ -44,7 +44,12 @@ import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs";
 import { join, resolve, dirname } from "node:path";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
-import { seoHead, brandTitle, CODE_REPOSITORY } from "./lib/seo-head.mjs";
+import {
+  brandTitle,
+  seoHead,
+  softwareNode,
+  websiteNode,
+} from "./lib/seo-head.mjs";
 import { canalDeVersion } from "../release/release-core.mjs";
 
 const ARGS = process.argv.slice(2);
@@ -1369,17 +1374,17 @@ const html = doc({
       type: "website",
       noindex: CHANNEL === "next",
       jsonLd: [
-        { "@type": "WebSite", name: "Nodefony", url: `${SITE_URL}/` },
-        {
-          "@type": "SoftwareSourceCode",
-          name: "Nodefony",
+        websiteNode(SITE_URL),
+        softwareNode({
+          siteUrl: SITE_URL,
           description: HOME_DESCRIPTION,
-          codeRepository: CODE_REPOSITORY,
-          programmingLanguage: "TypeScript",
-          runtimePlatform: "Node.js",
-          license: "https://www.apache.org/licenses/LICENSE-2.0",
-          ...(pkgCore.version ? { version: pkgCore.version } : {}),
-        },
+          version: pkgCore.version,
+          // Le nom seul, jamais l'adresse que le manifeste porte aussi.
+          author:
+            typeof pkgCore.author === "string"
+              ? pkgCore.author.replace(/\s*<[^>]*>\s*/, "").trim()
+              : pkgCore.author?.name,
+        }),
       ],
     }) +
     `\n<link rel="icon" href="./favicon.svg" type="image/svg+xml">\n` +

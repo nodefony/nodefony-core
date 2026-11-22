@@ -228,3 +228,41 @@ describe("stripLeadingTitle — le titre de tête, même après un fil d'Ariane"
     expect(stripLeadingTitle(code)).toBe(code);
   });
 });
+
+describe("titre d'onglet et données structurées", () => {
+  it("garde le titre entier s'il tient, sinon la partie avant le tiret, sinon une coupe au mot", async () => {
+    const { tabTitle, TAB_TITLE_MAX } = await import("./lib/seo-head.mjs");
+    expect(tabTitle("Codec CBOR")).toBe("Codec CBOR · Nodefony");
+    expect(
+      tabTitle(
+        "Flux d'octets — servir la sortie d'un processus, un relais ou une archive à la volée",
+      ),
+    ).toBe("Flux d'octets · Nodefony");
+    const long = tabTitle("mot ".repeat(40).trim());
+    expect([...long].length).toBeLessThanOrEqual(TAB_TITLE_MAX);
+    expect(long).toMatch(/ mot… · Nodefony$/);
+  });
+
+  it("rattache l'article au site et au logiciel par @id, fil d'Ariane réel", async () => {
+    const { breadcrumbList, softwareNode, techArticle, websiteNode } =
+      await import("./lib/seo-head.mjs");
+    const a = techArticle({
+      title: "T",
+      description: "D",
+      url: `${SITE}/docs/x/`,
+      siteUrl: SITE,
+      author: "Auteur",
+    });
+    expect(a.isPartOf).toEqual({ "@id": `${SITE}/#website` });
+    expect(a.about).toEqual({ "@id": `${SITE}/#software` });
+    expect(a.author).toEqual({ "@type": "Person", name: "Auteur" });
+    expect(websiteNode(SITE)["@id"]).toBe(`${SITE}/#website`);
+    expect(softwareNode({ siteUrl: SITE })["@id"]).toBe(`${SITE}/#software`);
+    expect(breadcrumbList([{ name: "Seul", url: SITE }])).toBeNull();
+    const b = breadcrumbList([
+      { name: "Nodefony", url: `${SITE}/` },
+      { name: "T", url: `${SITE}/docs/x/` },
+    ]);
+    expect(b.itemListElement.map((i) => i.position)).toEqual([1, 2]);
+  });
+});
