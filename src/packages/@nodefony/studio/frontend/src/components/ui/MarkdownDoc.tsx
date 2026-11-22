@@ -46,6 +46,8 @@ import {
 } from "../../realtime/socket/liveGraphs";
 import { valueText } from "./json/jsonFormat";
 import { adoptStylesOnce } from "../../utils/adoptStylesOnce";
+import { adoptStyles } from "nodefony/client";
+import { releaseStyles, splitSvgStyles } from "./mermaidStyles";
 
 /** Texte plat d'un nœud React (pour calculer l'ancre `id` d'un titre). */
 function nodeText(node: ReactNode): string {
@@ -354,6 +356,10 @@ export function MermaidDiagram({ code }: { code: string }) {
   const [svgHtml, setSvgHtml] = useState("");
   useEffect(() => {
     let cancelled = false;
+    // Feuille du schéma, adoptée hors du SVG : la politique CSP bloque le
+    // `<style>` que mermaid y embarque (cf `mermaidStyles.ts`). Retirée au
+    // démontage comme au changement de thème.
+    let sheet: CSSStyleSheet | HTMLStyleElement | null = null;
     // Relu hors du rétrécissement : le démontage tombe PENDANT les `await`.
     const isCancelled = (): boolean => cancelled;
     // L'IIFE capture ses propres erreurs (état `error`) : elle ne rejette jamais.
@@ -371,8 +377,10 @@ export function MermaidDiagram({ code }: { code: string }) {
           code,
         );
         if (!isCancelled() && containerRef.current) {
-          containerRef.current.innerHTML = svg;
-          setSvgHtml(svg);
+          const parts = splitSvgStyles(svg);
+          if (parts.css !== "") sheet = adoptStyles(parts.css);
+          containerRef.current.innerHTML = parts.svg;
+          setSvgHtml(parts.svg);
           setError(null);
         }
       } catch (e) {
@@ -382,6 +390,7 @@ export function MermaidDiagram({ code }: { code: string }) {
     })();
     return () => {
       cancelled = true;
+      if (sheet !== null) releaseStyles(sheet);
     };
   }, [code, colorScheme, baseId]);
   if (error) {
