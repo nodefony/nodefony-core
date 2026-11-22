@@ -18,6 +18,7 @@ import {
   type ISpareStopOptions,
   type SpareStopOutcome,
 } from "./stopChildTree";
+import { servedPort } from "./servedPort";
 import { AUTH_LOGIN_PATH, AUTH_ME_PATH } from "../runtime/authRoutes";
 import { isSqliteUrl, testDatabaseUrl } from "../runtime/e2eDatabase";
 import { appEnvironment } from "../kernel/checks/projectScope";
@@ -510,6 +511,10 @@ export interface ISpareAppOptions {
    * `close`) peut être repris par un autre avant le démarrage, et deux tirages
    * successifs peuvent rendre le MÊME numéro : l'exemplaire mourait alors sur
    * son propre port HTTP au moment d'ouvrir le HTTPS.
+   *
+   * Un port imposé et déjà pris fait glisser l'exemplaire de développement au
+   * suivant : le port RENDU est alors celui qu'il sert, lu dans l'état qu'il
+   * publie — jamais celui qu'on a demandé.
    */
   port: number;
   /** Port HTTPS, quand la configuration en ouvre un — même raison, `0` compris. */
@@ -643,16 +648,15 @@ export async function startSpareApp(
   };
 
   const deadline = Date.now() + timeoutMs;
-  // Port 0 : connu seulement quand l'exemplaire l'a publié — l'état dont le
-  // pid est le SIEN (celui de la suite y figurait avant le démarrage).
+  // Le port qu'il SERT, lu dans l'état qu'il publie — attribué (`0`) ou
+  // glissé parce que le port demandé était pris : voir {@link servedPort}.
   let port = options.port;
   for (;;) {
-    if (port === 0) {
-      const published = readRuntimeState(root, { purgeStale: false });
-      if (published !== null && published.pid === child.pid) {
-        port = published.ports.at(0) ?? 0;
-      }
-    }
+    port = servedPort(
+      port,
+      readRuntimeState(root, { purgeStale: false }),
+      child.pid,
+    );
     if (exitCode !== null) {
       restoreStateFiles(state);
       throw new Error(
