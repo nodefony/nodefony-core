@@ -13,8 +13,8 @@ tags: [realtime, websocket, sse, webhooks, backplane, design, compatibility]
 
 # ADR-0021 — Temps réel : un événement générique, plusieurs livraisons
 
-> **Summary.** Nodefony can deliver a real-time event four ways — WebSocket socket, SSE stream,
-> webhook, gRPC stream — and each one used to have its own vocabulary, with no written ordering or
+> **Summary.** Nodefony can deliver a real-time event four ways — over a WebSocket, an SSE stream,
+> a webhook or a gRPC stream — and each one used to have its own vocabulary, with no written ordering or
 > delivery guarantee. This ADR settles on one generic event, a `(channel, payload)` pair whose
 > payload stays bare and structured, and decides only what would be a breaking change after 10.0:
 > the frozen cross-instance envelope, the guarantees written per delivery, bytes as `Uint8Array`,
@@ -38,8 +38,7 @@ daté à l'endroit qu'il modifie.
   (`scenarios/temps-reel.md`), trois amendements : la charge est structurée (S1), un sceau refusé
   se compte et le rejeu d'un ordre se pare par sa cible (S6), l'unité des compteurs (S9).
 - **2026-10-30** — les règles communes aux trois livraisons : l'identité d'admission (S10). Le
-  même jour, la revue de gel (sept relecteurs aux métiers distincts, deux tours, aucun vote
-  contre) : les refus se comptent par cause (S9), `allow` perd son troisième argument au profit
+  même jour, la revue de gel : les refus se comptent par cause (S9), `allow` perd son troisième argument au profit
   d'une classe injectable, son délai et sa saturation ont un motif `unavailable` (S10 bis), une
   socket dont le jeton porteur expire se ferme en `4006` et une authentification trop lente en
   `1013` (S11). Puis la revue finale avant le gel (24 constats) : au-delà du plafond d'appels
@@ -121,7 +120,7 @@ dans un champ optionnel de l'accueil `realtime:welcome`, jamais dans chaque fram
 
 **Amendement (2026-10-29) : la charge est un objet ou un tableau.**
 JSON-RPC 2.0 (§4.2) exige que `params` soit structuré ; un pair écrit dans un autre langage
-refuse la frame d'un scalaire (S-rt-43). `RealtimeHub.publish` refusera donc, dès 10.0, une
+refuse la frame d'un scalaire (S-rt-43). `RealtimeHub.publish` refuse donc, depuis 10.0, une
 charge qui n'est ni un objet ni un tableau — nombre, chaîne, booléen, `null` —, en le nommant. Un
 scalaire se publie dans un objet (`{ value: 42 }`) ; des octets restent admis (S8). Le contrôle
 est une règle pure au cœur (`isRealtimePayload`), un `typeof` par publication, hors du chemin de
@@ -320,7 +319,7 @@ ce garde-fou, `JSON.stringify` les rendait en objet ordinaire (`{"0":1,"1":2}`),
   éjection vise `(canal, compte)` en 10.0 : rejouée sur un canal durable, elle recoupe — risque
   accepté et borné, parade réservée par un champ `generation` optionnel (ADR-0022 §6 d4, amendé
   le 2026-11-02). Écarté : un numéro d'ordre par émetteur dans
-  l'enveloppe, demandé pendant la revue par le relecteur chargé de l'attaque. Il ne protège pas un exemplaire démarré après
+  l'enveloppe, demandé pendant la revue de sécurité. Il ne protège pas un exemplaire démarré après
   l'émetteur, et un second sceau qui le couvre pourra s'ajouter en 10.x sans rupture : lu s'il est
   présent, exigé par une option une fois tout le parc à jour.
 
@@ -469,7 +468,7 @@ export interface ISubscriberIdentity extends RealtimeIdentity {
 Forme actuelle de `RealtimeIdentity`
 (`src/nodefony/src/realtime/RealtimeEventMap.ts#RealtimeIdentity`) :
 `{ type, authenticated, userIdentifier, roles: string[], scopes: string[] }`. `id` (requis) et le
-`readonly` de `roles` et `scopes` s'ajoutent avant 10.0 : passer un tableau en
+`readonly` de `roles` et `scopes` ont été ajoutés en 10.0 : passer un tableau en
 `readonly` après publication casse le type de qui l'écrit. La forme d'`allow` (flèche OU classe
 `@injectable`) est fixée en S10 bis.
 
@@ -597,7 +596,7 @@ allow?:
    motif, un abonné légitime refusé pendant 30 s de base saturée resterait muet jusqu'à une
    reconnexion fortuite : le client ne réessaie AUCUN motif aujourd'hui (S-rt-65).
    - `realtime.allowTimeoutMs` : le délai (nommage aligné sur `deliveryTimeoutMs`), défaut fixé
-     avant 10.0. Le minuteur n'est armé que si `allow` rend une promesse, et
+     au code (`realtime.allowTimeoutMs`). Le minuteur n'est armé que si `allow` rend une promesse, et
      `clearTimeout` à la résolution ; un verdict arrivé après le délai est **ignoré**, jamais une
      admission.
    - `realtime.maxPendingAllowsPerConnection` : appels d'`allow` en vol par connexion, défaut
@@ -636,7 +635,7 @@ allow?:
 
 - Usages : une sonde industrielle admise par sa flotte (classe, lecture en base), un joueur admis
   par `channel === \`room:${partie}\``(flèche), un agent admis par`who.issuer` et un rôle.
-- **Rupture si différé : OUI** (constat du relecteur chargé de la compatibilité) : déclarer « ses
+- **Rupture si différé : OUI** (constat de la revue de compatibilité) : déclarer « ses
   arguments seuls » après 10.0 rendrait faux un `allow` qui lit le contexte, sans qu'il ait
   changé. Le motif `unavailable` et les clés de délai le sont aussi : un défaut publié ne change
   plus (politique de compatibilité).

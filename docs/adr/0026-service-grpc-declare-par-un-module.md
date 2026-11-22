@@ -46,7 +46,7 @@ La surface naît `@experimental` ([politique de compatibilité](../guides/compat
 ## Contexte
 
 Une preuve de concept a servi un service gRPC dans le pipeline HTTP/2, sans second serveur, par un
-contrôleur écrit à la main (`src/modules/test/nodefony/poc/grpc/GrpcPocController.ts`) : une route
+contrôleur écrit à la main, depuis retiré : une route
 `bodyStream`, le délai par flux désarmé, l'adaptateur `@connectrpc/connect-node` chargé au premier
 appel et appelé sur la requête et la réponse brutes de Node. Une application ne doit pas réécrire
 ce geste : elle DÉCLARE un service, le framework le sert sur ses ports (5152 TLS, 5153 h2c ; 5151
@@ -398,7 +398,7 @@ ne sait pas pourquoi l'appel a échoué.
    `requestId`.
 5. **Refus avant routage — corrigé par D13.** La norme traduit un statut HTTP en code gRPC
    (`grpc-http-grpc-status-mapping.md`) : 429 en `UNAVAILABLE`, 404 en `UNIMPLEMENTED`. On en
-   concluait « rien à coder ». C'est faux pour les clients de la famille grpc-go (`grpcurl`) : ils lisent `INTERNAL` dès que le statut arrive avec un corps, ou sans que la trame
+   concluait « rien à coder ». C'est faux pour les clients de la famille grpc-go (`grpcurl`, tout client en Go) : ils lisent `INTERNAL` dès que le statut arrive avec un corps, ou sans que la trame
    d'en-têtes porte la fin du flux. Une requête gRPC refusée avant l'adaptateur s'écrit donc en forme
    gRPC, avec la correspondance des refus de transport (D13, point 2).
 
@@ -435,7 +435,7 @@ comme Nodefony.
 - Aucune dépendance transitive : un seul pair, `@bufbuild/protobuf`, qui n'en a aucune non plus.
 - Dépôt `connectrpc/connect-es`, créé par Buf (l'outil `buf` et `protobuf-es`, D2).
 - Projet CNCF au niveau Sandbox (`cncf/landscape`, entrée « Connect RPC », relu le 2026-11-11).
-- Elle est retenue parce qu'elle fournit une fonction `(requête, réponse)`, donc branchable dans
+- Elle est retenue parce qu'elle est la seule, parmi les bibliothèques étudiées, à fournir une fonction `(requête, réponse)`, donc branchable dans
   une route. Le besoin exclut toute bibliothèque qui ouvre son propre serveur : l'appel n'y
   passerait ni par le pare-feu ni par `@IsGranted`, et gRPC-Web ne serait pas servi.
   L'interopérabilité se prouve contre les clients de `@grpc/grpc-js`, que le SDK A2A JS emploie
@@ -981,7 +981,7 @@ tourne déjà à la publication.
 
 **Le constat.** Deux sources d'essai :
 
-- le POC du serveur de développement, interrogé en lecture seule (h2c 5153, TLS 5152, HTTP/1.1 5151) ;
+- le service de démonstration du serveur de développement, interrogé en lecture seule (h2c 5153, TLS 5152, HTTP/1.1 5151) ;
 - l'adaptateur nu sur `node:http2`.
 
 Les clients éprouvés sont `@grpc/grpc-js` 1.14.7, `grpcurl` 1.9.4 (bâti sur grpc-go) et les trois
@@ -1030,8 +1030,8 @@ transports de connect-es.
        `PING` avant les autres trames (« SHOULD be given higher priority »), une trame DATA
        encore en file chez le client peut donc arriver après lui ; le `RST_STREAM` reste alors
        conforme (§8.1 : le serveur PEUT couper, le client NE DOIT PAS jeter la réponse).
-     - **Pratique courante** (sources de trois serveurs HTTP/2 lues, dont l'implémentation de
-       référence de gRPC) : couper AUSSITÔT si le client n'a pas fini d'émettre, en s'appuyant
+     - **Pratique courante** (sources lues : grpc-go `http2_server.go#WriteStatus`, Go `net/http2`,
+       nginx `ngx_http_v2.c`) : couper AUSSITÔT si le client n'a pas fini d'émettre, en s'appuyant
        sur §8.1 — sans `PING`. Le `PING` répond à une particularité de Node, et son motif est
        mesuré : Node répond AVANT de lire les trames DATA déjà en route, quand ces serveurs
        lisent la requête d'abord, si bien que la coupe immédiate frappait des clients qui
@@ -1186,7 +1186,7 @@ Les travaux qui bâtissent sur cet adaptateur ne doivent pas exiger de rupture.
 - **Politique de compatibilité** : contrôle de stabilité au grain du symbole, tableau des symboles
   expérimentaux d'un paquet stable, changelog qui distingue un changement expérimental d'une
   rupture (D11).
-- **Preuves exigées** (tests vus rouges une fois) : chaque point de chaque décision a son test,
+- **Preuves exigées** (tests vus rouges une fois) : un test par critère de fin de la décision,
   dont l'interopérabilité en CI contre `@grpc/grpc-js` et `grpcurl` (D13).
 - **Mesures exigées** : surcoût du pipeline par appel unaire contre l'adaptateur nu sur
   `http2.createServer`, serveur en production, médiane de N passes, petite charge comprise ; débit

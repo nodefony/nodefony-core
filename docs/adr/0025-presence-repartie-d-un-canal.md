@@ -34,13 +34,13 @@ porte le « pourquoi ».
 d'[ADR-0022](0022-socket-temps-reel.md) (la présence passe de l'application au framework, voir P1)
 et s'appuie sur les garanties de livraison et les compteurs
 d'[ADR-0021](0021-temps-reel-evenement-et-livraisons.md). Chaque décision porte sa ligne datée : P1
-a été arrêtée d'abord, P2 à P5 après une revue contradictoire (§ « Comment P2 à P4 ont été
+a été arrêtée d'abord, P2 à P5 après une revue contradictoire (§ « Comment P2 à P5 ont été
 tranchés »). Jugé contre le catalogue
 [`scenarios/temps-reel.md`](scenarios/temps-reel.md), scénarios S-rt-84 à S-rt-110. L'architecture
 temps réel est gelée : la surface neuve ne se code qu'une fois cet ADR accepté, puis entre
 dans la fixture `frozenSurface`.
 
-**Décision (2026-11-10) :** l'ADR est accepté en entier, P2 à P4 compris, sur la synthèse de la
+**Décision (2026-11-10) :** l'ADR est accepté en entier, P2 à P5 compris, sur la synthèse de la
 revue contradictoire. Le code reste conditionné à la revue finale côte à côte d'ADR-0021, 0022 et 0025.
 
 **Revue finale (2026-11-10) :** la revue côte à côte des trois ADR a rendu dix-sept constats,
@@ -113,12 +113,10 @@ donne sa présence, aucun second canal (`room:42:presence`) n'est à ouvrir.
 - **Rouvre ADR-0022, décision D1** (« le développeur écrit son chat — … présence ») : la présence
   passe au framework ; contrat, actions, base, historique et salons restent à l'application.
 
-### Comment P2 à P4 ont été tranchés
+### Comment P2 à P5 ont été tranchés
 
-Ces décisions ont été instruites avec une exigence posée d'entrée — la performance du temps réel
-passe avant le confort de l'implémentation — par une revue contradictoire où chaque point de vue
-était tenu séparément : contradicteur, performance, attaquant, exploitation, développeur
-d'application, compatibilité. Le contradicteur a ajouté S-rt-100 à S-rt-104 et fait réécrire quatre cas ; chaque
+Ces décisions ont été instruites par une revue contradictoire, avec la performance du temps réel
+pour premier critère. Elle a ajouté S-rt-100 à S-rt-104 et fait réécrire quatre cas ; chaque
 constat retenu ci-dessous a été vérifié au code. La règle qui a départagé : **au repos, le coût
 est proportionnel au nombre de pods ; en rafale, au nombre de fenêtres — jamais au nombre de
 canaux, de membres ou d'abonnés.**
