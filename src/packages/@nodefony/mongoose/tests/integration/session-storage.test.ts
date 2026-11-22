@@ -192,6 +192,31 @@ describe.skipIf(!URI)(
         assert.equal(rows.length, 1);
         assert.equal(rows[0]!.session_id, "fresh");
       });
+
+      it("close() n'écrit RIEN : une session expirée survit à la fermeture du stockage", async () => {
+        // La purge est l'affaire de l'ordonnanceur du service, arrêté juste
+        // avant `close()` ; la déconnexion suit aussitôt. Une purge lancée ici,
+        // sans être attendue, était coupée en vol : MongoClientClosedError en
+        // rejet non géré à chaque arrêt (#841).
+        const repo = orm.getRepository<SessionRow>("session");
+        const year = Date.now() - 365 * 24 * 3600 * 1000;
+        await repo.create({
+          session_id: "expiree-a-la-fermeture",
+          Attributes: {},
+          flashBag: {},
+          metaBag: {},
+          user: null,
+          createdAt: year,
+          updatedAt: year,
+        });
+        assert.equal(storage.close(), true);
+        // Laisser le temps à une écriture lancée sans être attendue d'aboutir.
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        assert.ok(
+          await repo.exists({ session_id: "expiree-a-la-fermeture" }),
+          "close() a purgé les sessions : une écriture en course avec la déconnexion",
+        );
+      });
     });
 
     // ── Sondes data plane (Studio) : describeConnection + describeEntity ───────
