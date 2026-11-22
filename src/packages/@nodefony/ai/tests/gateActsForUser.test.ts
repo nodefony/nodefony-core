@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   ADMIN_DEFAULT_ROLE,
   ADMIN_SCOPE_READ,
@@ -411,16 +411,30 @@ describe("actsForUser — fail-closed : jamais une exécution en anonyme", () =>
         return mcpText(outcome);
       },
     });
-    const started = Date.now();
-    const r = reply(
-      await gate([tool]).respond(request(call("whoami")), {
-        ...runtime(),
-        verifier: verifierFor(
-          principal({ expiresAt: (Date.now() + 80) / 1000 }),
-        ),
-      }),
-    );
-    expect(r.text).toBe("annulé");
-    expect(Date.now() - started).toBeLessThan(1500);
+    // `Date` FIGÉ, minuteurs réels : la garde lit `Date.now()` avant l'appel
+    // (refus si le jeton est déjà expiré) puis arme un vrai minuteur sur le
+    // reste. Avec l'horloge réelle, un runner lent consommait les 80 ms avant
+    // la vérification, et le test lisait un refus préalable au lieu d'une
+    // annulation en cours d'appel (#866). Figée, la vérification voit toujours
+    // 80 ms restantes ; le minuteur, lui, s'écoule pour de vrai.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const verifier = verifierFor(
+        principal({ expiresAt: (Date.now() + 80) / 1000 }),
+      );
+      // Un runner lent : du temps passe entre l'émission du jeton et l'appel.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const started = performance.now();
+      const r = reply(
+        await gate([tool]).respond(request(call("whoami")), {
+          ...runtime(),
+          verifier,
+        }),
+      );
+      expect(r.text).toBe("annulé");
+      expect(performance.now() - started).toBeLessThan(1500);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
