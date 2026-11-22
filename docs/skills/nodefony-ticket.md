@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-21
+updated: 2026-11-22
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | Version | `1.13.0` |
 | Famille | Autres |
 | Corps | 487 lignes |
-| Coût d'activation | ~10 063 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~10 598 tokens (le corps est chargé à l'invocation) |
 | Description | 949 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 10 page(s) |
@@ -116,7 +116,7 @@ script, donc toujours à jour après régénération.
 | `scripts/release-sync.test.mjs` | Suite de la fusion arrière `release/x.y.x → dev` (D9, #796). | — | — |
 | `scripts/severity.mjs` | Gravité d'un défaut — lue, validée et calculée selon une NORME, jamais estimée à l'impression. | — | — |
 | `scripts/ticket-anchor-migrate.mjs` | ticket-anchor-migrate.mjs — convertit les ancres `fichier:ligne` des tickets OUVERTS en ancres par symbole (`<fichier>.ts#<Symbole>`). | `--apply` | — |
-| `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--since` `--check` `--close` `--done` | — |
+| `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--since` `--check` `--close` `--done` `--prune` | — |
 | `scripts/ticket-close.test.mjs` | Suite du compte rendu de fermeture. | — | — |
 | `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a RÉELLEMENT pris, mesuré sur ses commits. | `--format` `--grep` `--json` `--limit` `--paginate` `--since` `--slurp` `--state` | — |
 | `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--title` `--body-file` `--milestone` `--label` `--jours` `--priorite` `--parent` `--ordre` `--backlog` `--type` `--gravite` `--cvss` | — |
@@ -139,7 +139,7 @@ node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799
 node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs            (PR de la branche courante)
 node .claude/skills/nodefony-ticket/scripts/release-sync.mjs [release/x.y.x] [--dry-run]
 node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs [<numéro>…]
-node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done
+node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done | <numéro> --prune
 node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]
 node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md [options]
 node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs
@@ -243,7 +243,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs --apply [<
 
 
 ```bash
-node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done
+node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done | <numéro> --prune
 ```
 
 | Option | Rôle |
@@ -252,6 +252,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since 
 | `--check` | vérifie qu'un compte rendu tient dans un commentaire GitHub (65 536 caractères) |
 | `--close` | publie le compte rendu complété, ferme le ticket et pose « Done » au tableau |
 | `--done` | pose « Done » au tableau sur un ticket DÉJÀ fermé |
+| `--prune` | supprime la branche locale d'un ticket dont la PR est fusionnée (la fermeture le fait d'elle-même) |
 
 #### `scripts/ticket-effort.mjs`
 

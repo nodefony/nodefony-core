@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-21",
+  "generatedAt": "2026-11-22",
   "count": 44,
   "repoScripts": [
     {
@@ -11859,7 +11859,7 @@
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée (CVSS 3.1 calculé, IEEE 1044), parents et sous-tickets, champs et dates du tableau, quand prendre un ticket, et la pull request qui le porte (colonne de droite, lien, méthode de fusion). À charger AVANT d'ouvrir une issue ou une PR. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"quelle gravité pour ce bug ?\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"explique le ticket\", \"pour les nuls\", \"la PR est à moitié remplie\", \"quand merger la PR sur dev ?\".",
       "cost": {
         "bodyLines": 487,
-        "approxTokens": 10063
+        "approxTokens": 10598
       },
       "requires": [
         "redis",
@@ -12134,7 +12134,7 @@
             "path": "scripts/ticket-close.mjs",
             "purpose": "Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique.",
             "usage": [
-              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done"
+              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done | <numéro> --prune"
             ],
             "options": [
               {
@@ -12152,6 +12152,10 @@
               {
                 "flag": "--done",
                 "help": "pose « Done » au tableau sur un ticket DÉJÀ fermé"
+              },
+              {
+                "flag": "--prune",
+                "help": "supprime la branche locale d'un ticket dont la PR est fusionnée (la fermeture le fait d'elle-même)"
               }
             ],
             "env": [],
