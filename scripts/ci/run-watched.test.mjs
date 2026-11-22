@@ -122,6 +122,47 @@ describe("selectSuspects — descendants vivants, et TOUT process détaché né 
   });
 });
 
+describe("selectSuspects — un numéro de processus RÉUTILISÉ (Windows) n'apporte pas tout le système", () => {
+  // La table réelle de la CI de #842 : la commande a reçu le pid 708, que
+  // csrss.exe et wininit.exe portent encore comme parent (mort au démarrage
+  // de la machine). Ils sont nés des heures AVANT la commande.
+  const since = 3_600_000;
+  const rows = [
+    { pid: 50, ppid: 4, startedAt: since, command: "node run-watched.mjs" },
+    { pid: 708, ppid: 50, startedAt: since + 10, command: "node -e step" },
+    {
+      pid: 730,
+      ppid: 708,
+      startedAt: since + 20,
+      command: "node -e setTimeout",
+    },
+    { pid: 720, ppid: 708, startedAt: 1000, command: "csrss.exe" },
+    { pid: 844, ppid: 708, startedAt: 1200, command: "wininit.exe" },
+    { pid: 936, ppid: 844, startedAt: 1500, command: "services.exe" },
+  ];
+
+  it("ne garde que l'arbre de la commande : les processus nés avant leur parent présumé en sont écartés", () => {
+    expect(selectSuspects(rows, 708, 50, since).map((s) => s.pid)).toEqual([
+      708, 730,
+    ]);
+  });
+
+  it("un enfant né dans la marge d'horloge de son parent reste dans l'arbre", () => {
+    const close = [
+      ...rows,
+      {
+        pid: 731,
+        ppid: 708,
+        startedAt: since + 10 - 500,
+        command: "node -e tôt",
+      },
+    ];
+    expect(selectSuspects(close, 708, 50, since).map((s) => s.pid)).toContain(
+      731,
+    );
+  });
+});
+
 describe("runWatched — le mécanisme réel", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "run-watched-"));
   const fixture = path.join(dir, "leaves-orphan.mjs");
