@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/framework",
-  "version": "10.0.1",
+  "version": "10.0.2",
   "description": "Nodefony programming model: router, controllers, decorators, views and gRPC services (gRPC, gRPC-Web, Connect); HTTP and WebSocket in one context",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "main": "./dist/index.js",
@@ -59,11 +59,11 @@
     "tslib": "2.9.1"
   },
   "devDependencies": {
-    "@nodefony/http": "^10.0.1",
+    "@nodefony/http": "^10.0.2",
     "@types/chai": "5.2.3",
     "@types/node": "26.6.6",
     "@vitest/coverage-v8": "5.1.1",
-    "nodefony": "^10.0.1",
+    "nodefony": "^10.0.2",
     "tsx": "4.23.15",
     "vitest": "5.1.1",
     "ws": "8.23.0"
@@ -74,8 +74,8 @@
   "peerDependencies": {
     "@bufbuild/protobuf": "^2.7.0",
     "@connectrpc/connect": "^2.3.0",
-    "@nodefony/http": "^10.0.1",
-    "nodefony": "^10.0.1",
+    "@nodefony/http": "^10.0.2",
+    "nodefony": "^10.0.2",
     "zod": "^4.6.7"
   },
   "peerDependenciesMeta": {

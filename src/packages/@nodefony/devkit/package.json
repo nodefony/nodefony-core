@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/devkit",
-  "version": "10.0.1",
+  "version": "10.0.2",
   "type": "module",
   "description": "Development tooling for Nodefony apps: project card, development MCP server and agent skills shipped with the package",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
@@ -27,20 +27,20 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "peerDependencies": {
-    "@nodefony/ai": "^10.0.1",
-    "@nodefony/framework": "^10.0.1",
-    "@nodefony/http": "^10.0.1",
+    "@nodefony/ai": "^10.0.2",
+    "@nodefony/framework": "^10.0.2",
+    "@nodefony/http": "^10.0.2",
     "lighthouse": "^13.6.0",
-    "nodefony": "^10.0.1",
+    "nodefony": "^10.0.2",
     "playwright": "^1.50.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
-    "@nodefony/ai": "^10.0.1",
-    "@nodefony/framework": "^10.0.1",
-    "@nodefony/http": "^10.0.1",
-    "nodefony": "^10.0.1"
+    "@nodefony/ai": "^10.0.2",
+    "@nodefony/framework": "^10.0.2",
+    "@nodefony/http": "^10.0.2",
+    "nodefony": "^10.0.2"
   },
   "dependencies": {
     "axe-core": "4.14.1",

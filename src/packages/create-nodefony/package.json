@@ -1,6 +1,6 @@
 {
   "name": "create-nodefony",
-  "version": "10.0.1",
+  "version": "10.0.2",
   "description": "Create a Nodefony application with one command: `npm create nodefony my-app`. Full scaffold, database of your choice, optional frontend",
   "type": "module",
   "license": "Apache-2.0",
@@ -28,7 +28,7 @@
     "svelte"
   ],
   "dependencies": {
-    "nodefony": "10.0.1"
+    "nodefony": "10.0.2"
   },
   "repository": {
     "type": "git",

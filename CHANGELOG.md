@@ -8,6 +8,39 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.2 - 2026-11-22
+
+### Changed
+
+- **docs:** Ouvrir le README publié de chaque paquet par un résumé en anglais, et décrire chaque paquet en anglais sur npm (#850) (f69edb06d)
+- **cli:** Générer les applications avec Svelte `^5.59.1` (#855) (dfa6870e3)
+- **cli:** Dépendre de `@inquirer/prompts` 8.8.1 et de `figlet` 1.13.0 (#855) (dfa6870e3)
+- **mongoose:** Dépendre de `mongoose` 9.12.3 (#855) (dfa6870e3)
+- **studio:** Dépendre de Mantine 9.8.2 et de `mobx-react-lite` ^5.1.4 (#855) (dfa6870e3)
+
+### Added
+
+- **security:** Accepter l'hôte de la requête, en dernier argument facultatif, dans les quatre méthodes de cérémonie de `WebAuthnService` (c5c47ad79)
+
+### Fixed
+
+- **security:** Dériver le domaine des passkeys de l'hôte validé de la requête, et non d'une valeur figée (c5c47ad79)
+- **security:** Signaler au démarrage que `NF_ADMIN_PASSWORD` ou `NF_USER_PASSWORD` est ignoré parce que le compte existe déjà (#835) (39b75b521)
+- **security:** Prévenir au démarrage qu'un port de développement glissé fausse les jetons et les portes MCP (#830) (21ce590b2)
+- **user:** Ne plus refuser à tort un mot de passe sain : la règle « mot de passe courant » compare l'empreinte entière, plus ses seuls 4 premiers octets (#810) (a4e4292bb)
+- **sessions:** Ne plus purger les sessions à la fermeture du stockage Drizzle ou Mongoose, qui rejetait `MongoClientClosedError` à chaque arrêt sur MongoDB (#842) (05755427d)
+- **documentation:** Tolérer une faute de frappe dans la recherche de la documentation (`grcp` trouve gRPC), et annoncer le terme corrigé (#853) (345a7f7ca)
+- **frontend:** Isoler le cache de pré-compilation de Vite par racine de front : deux fronts d'un même paquet ne se le disputent plus sous Windows (#854) (28b59e8c9)
+- **frontend:** Replier Vite sur un autre port quand Windows refuse le port demandé (`EACCES`) (5c2e672b4)
+- **orm:** Ne proposer de restaurer une migration que si git constate que la restauration s'applique (#196) (5c2e672b4)
+- **cli:** Ne plus compter deux fois, dans `doctor`, les fichiers d'un module local imbriqué dans le projet (#836) (717a5a7fe)
+- **cli:** Nommer le module non construit quand le contrôle du `.env.example` ne peut pas le lire (11a6ff0c6)
+- **create:** Avertir, avec la bonne commande, quand `npx` génère l'application avec une version périmée de Nodefony (4850f1861)
+- **demo:** Viser le port que l'application sert réellement, et non celui de sa configuration, pour MCP et gRPC (#812) (cfa9b4fda)
+- **testing:** Rendre, dans `startSpareApp`, le port que l'application jetable sert réellement (#843) (9108444b3)
+
+<!-- Surface publique mesurée depuis 10.0.1 (npm) : 0 rupture, 0 changement expérimental ; 2 déclarations relues — `WebAuthnService` (argument facultatif `host?` ajouté, sous Added) et `NODEFONY_CLIENT` (chemins d'import écrits sans extension dans le dist brut, type identique). Détail : npm run release:api-diff -- --from 10.0.1 --details -->
+
 ## 10.0.1 - 2026-11-20
 
 ### Changed

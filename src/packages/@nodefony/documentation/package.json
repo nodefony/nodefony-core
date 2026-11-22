@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/documentation",
-  "version": "10.0.1",
+  "version": "10.0.2",
   "nodefony": {
     "configSchema": "./dist/nodefony/config/configSchema.js"
   },
@@ -39,17 +39,17 @@
     "esm"
   ],
   "devDependencies": {
-    "@nodefony/framework": "^10.0.1",
-    "@nodefony/http": "^10.0.1",
+    "@nodefony/framework": "^10.0.2",
+    "@nodefony/http": "^10.0.2",
     "@types/node": "26.6.6",
     "@vitest/coverage-v8": "5.1.1",
-    "nodefony": "^10.0.1",
+    "nodefony": "^10.0.2",
     "vitest": "5.1.1"
   },
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.1",
-    "@nodefony/http": "^10.0.1",
-    "nodefony": "^10.0.1",
+    "@nodefony/framework": "^10.0.2",
+    "@nodefony/http": "^10.0.2",
+    "nodefony": "^10.0.2",
     "zod": "^4.6.7"
   },
   "repository": {

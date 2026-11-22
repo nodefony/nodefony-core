@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/mongoose",
-  "version": "10.0.1",
+  "version": "10.0.2",
   "description": "MongoDB engine for Nodefony on Mongoose: typed repositories that follow the orm-core contract",
   "nodefony": {
     "storeKind": "durable",
@@ -57,23 +57,23 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@nodefony/framework": "^10.0.1",
-    "@nodefony/http": "^10.0.1",
-    "@nodefony/orm-core": "^10.0.1",
-    "@nodefony/security": "^10.0.1",
-    "@nodefony/user": "^10.0.1",
+    "@nodefony/framework": "^10.0.2",
+    "@nodefony/http": "^10.0.2",
+    "@nodefony/orm-core": "^10.0.2",
+    "@nodefony/security": "^10.0.2",
+    "@nodefony/user": "^10.0.2",
     "@types/node": "26.6.6",
     "mongodb-memory-server": "11.4.0",
-    "nodefony": "^10.0.1",
+    "nodefony": "^10.0.2",
     "vitest": "5.1.1"
   },
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.1",
-    "@nodefony/http": "^10.0.1",
-    "@nodefony/orm-core": "^10.0.1",
-    "@nodefony/security": "^10.0.1",
-    "@nodefony/user": "^10.0.1",
-    "nodefony": "^10.0.1"
+    "@nodefony/framework": "^10.0.2",
+    "@nodefony/http": "^10.0.2",
+    "@nodefony/orm-core": "^10.0.2",
+    "@nodefony/security": "^10.0.2",
+    "@nodefony/user": "^10.0.2",
+    "nodefony": "^10.0.2"
   },
   "repository": {
     "type": "git",
