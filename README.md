@@ -21,6 +21,26 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 
 ---
 
+> **Nodefony** is a fullstack Node.js framework written in strict TypeScript (ESM, Node 24.16+ or
+> 26+). One controller action serves HTTP and WebSocket with the same session and the same
+> security. Realtime runs JSON-RPC 2.0 over WebSocket, in JSON or in binary
+> [CBOR](https://nodefony.net/docs/modules/core/cbor/) (RFC 8949), negotiated per connection.
+> [gRPC](https://nodefony.net/docs/modules/framework/grpc/), gRPC-Web and Connect services are
+> served by the same HTTP/2 pipeline (experimental in 10.0). Each module can expose tools to AI
+> agents through a [Model Context Protocol (MCP)](https://nodefony.net/docs/modules/ai/mcp/) gate,
+> over HTTP streaming (SSE) or stdio.
+>
+> ```bash
+> npm create nodefony my-app
+> ```
+>
+> [Website](https://nodefony.net/) · [Get started](https://nodefony.net/docs/demarrer/) ·
+> [CBOR](https://nodefony.net/docs/modules/core/cbor/) ·
+> [gRPC](https://nodefony.net/docs/modules/framework/grpc/) ·
+> [MCP](https://nodefony.net/docs/modules/ai/mcp/)
+
+---
+
 > [!IMPORTANT]
 > **Nodefony 10 est sorti** — réécrit en TypeScript, publié sous le canal `latest` :
 >
@@ -268,7 +288,7 @@ quand ça coince. Chacune a sa réponse dans le framework, écrite contre la nor
 | **Tenir la charge**             | Contre-pression en sortie, débit borné en entrée, cadence de diffusion qui s'adapte à chaque client                                                                                                                       |
 | **Des types de bout en bout**   | Un **contrat** écrit une fois type le contrôleur, la socket et les hooks React, Vue, Svelte et Angular. Les routes qu'il annonce sont vérifiées au démarrage                                                              |
 | **Voir et tester**              | Une sonde, la console d'administration, les onglets Socket et SSE de la barre de débogage, un traceur de trames ; une identité d'essai pour tester un canal protégé                                                       |
-| **gRPC**                        | Des services gRPC servis par le même pipeline HTTP/2, déclarés depuis un module ; la réflexion et la santé standard sont à venir                                                                                          |
+| **gRPC**                        | Des [services gRPC](https://nodefony.net/docs/modules/framework/grpc/) servis par le même pipeline HTTP/2, déclarés depuis un module ; la réflexion et la santé standard sont à venir                                     |
 
 Chaque besoin a son exemple complet et testé : jeu (déplacements, recherche de partie), salon privé
 sur invitation, sonde industrielle, tableau de bord partagé, notification privée, tâche d'agent.

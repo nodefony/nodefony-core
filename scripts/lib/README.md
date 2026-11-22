@@ -79,7 +79,7 @@ Racine du dépôt — seule implémentation pour les scripts de `scripts/`.
 
 - **Usage** : `import { REPO_ROOT } from "../lib/repo-root.mjs"`
 - **Appelé par** : `.claude/skills/nodefony-documentation/scripts/mermaid-check.mjs` · `.claude/skills/nodefony-load-test/scripts/boot-bench.mjs` · `.claude/skills/nodefony-load-test/scripts/boot-profile.mjs` · `.claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs` · `.claude/skills/nodefony-load-test/scripts/server-boot-bench.mjs` · `src/modules/test/conformance/http2.mjs` · `deps/check-deps-latest.mjs` · `gates/check-licenses.mjs` · `gates/check-package-deps.mjs` · `gates/size-check.mjs` · `generate/brand-assets.mjs` · `generate/env-reference.ts` · `generate/env-snapshot.ts` · `generate/generate-man.mjs` · `generate/generate-symbols.ts` · `generate/readmes.mjs` · `repo/long-run-lock.mjs` · `repo/tmp-layout.mjs` · `scaffold/check-scaffold-boot.mjs` · `scaffold/check-scaffold-format.mjs` · `scaffold/check-scaffold-frontends.mjs` · `scaffold/format-templates.mjs` · `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/build-site.mjs` · `site/readme-html.mjs` · `test/test-all.ts` · `test/testbed-report.ts`
-- **Testé par** : `gates/dev-credentials.test.mjs` · `gates/vitest-tmp-guard.test.mjs` · `lib/redis-session-purge.test.mjs` · `release/accueil-gate.test.mjs` · `site/perf-figures.test.mjs` · `site/schemas-organigramme.test.mjs` · `site/schemas-sequence.test.mjs` · `site/site-plan.test.mjs` · `site/site-versions.test.mjs`
+- **Testé par** : `gates/dev-credentials.test.mjs` · `gates/vitest-tmp-guard.test.mjs` · `generate/readmes.test.mjs` · `lib/redis-session-purge.test.mjs` · `release/accueil-gate.test.mjs` · `site/perf-figures.test.mjs` · `site/schemas-organigramme.test.mjs` · `site/schemas-sequence.test.mjs` · `site/site-plan.test.mjs` · `site/site-versions.test.mjs`
 
 ## [`symbols-publish.mjs`](symbols-publish.mjs)
 
@@ -125,7 +125,7 @@ Les workspaces du dépôt, résolus par npm — seule implémentation pour scrip
 
 - **Usage** : `import { publishableWorkspaces, listWorkspaces } from "../lib/workspaces.mjs"`
 - **Usage** : `import { releasableWorkspaces, readWorkspaceManifests } from "../lib/workspaces.mjs"`
-- **Appelé par** : `.claude/skills/nodefony-ticket/scripts/pr-finish.mjs` · `gates/check-symbol-stability.mjs` · `lib/symbols-publish.mjs` · `release/api-diff.mjs` · `release/dts-deps.mjs` · `release/pack-all.mjs` · `release/peers.mjs` · `release/readme-gate.mjs` · `release/release.mjs` · `release/types-rigor.mjs` · `site/lib/api-reference.mjs` · `test/coverage-all.ts`
+- **Appelé par** : `.claude/skills/nodefony-ticket/scripts/pr-finish.mjs` · `gates/check-symbol-stability.mjs` · `generate/readmes.mjs` · `lib/symbols-publish.mjs` · `release/api-diff.mjs` · `release/dts-deps.mjs` · `release/pack-all.mjs` · `release/peers.mjs` · `release/readme-gate.mjs` · `release/release.mjs` · `release/types-rigor.mjs` · `site/lib/api-reference.mjs` · `test/coverage-all.ts`
 - **Testé par** : `lib/workspaces.test.mjs` · `release/release-core.test.mjs`
 
 ## [`workspaces.test.mjs`](workspaces.test.mjs)

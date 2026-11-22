@@ -37,7 +37,7 @@ Construit le SITE de documentation publié — toute la doc Nodefony en HTML aut
 - **Usage** : `node scripts/site/build-docs-site.mjs [--out tmp/sites/docs] [--mount /docs] [--channel published|next] [--quiet]`
 - **Usage** : `node scripts/site/build-docs-site.mjs --list`
 - **Appelé par** : `node.js.yml` · `.githooks/pre-push` · `site/build-site.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs` · `.claude/skills/nodefony-documentation/scripts/doc-lint.mjs` · `.claude/skills/nodefony-documentation/scripts/render-figures.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `deps/shims/deepmerge/index.js` · `site/lib/admonitions.mjs` · `site/lib/api-reference.mjs` · `site/lib/html-text.mjs` · `site/lib/markdown-source.mjs` · `site/lib/out-dir.mjs` · `site/lib/page-summary.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `deps/shims/deepmerge/index.js` · `site/lib/admonitions.mjs` · `site/lib/api-reference.mjs` · `site/lib/html-text.mjs` · `site/lib/markdown-source.mjs` · `site/lib/module-docs.mjs` · `site/lib/out-dir.mjs` · `site/lib/page-summary.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs`
 
 ## [`build-perf-site.mjs`](build-perf-site.mjs)
 

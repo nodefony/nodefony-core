@@ -1,5 +1,11 @@
 # @nodefony/framework
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/framework** — Nodefony programming model: router, controllers, decorators, views and gRPC services (gRPC, gRPC-Web, Connect); HTTP and WebSocket in one context. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/framework/).
+
+<!-- nf-en:end -->
+
 Couche **Router / Controller / décorateurs** de Nodefony. S'appuie sur `@nodefony/http`
 (serveurs + contextes) et expose le modèle de programmation applicatif : un controller
 sert **HTTP et WebSocket dans le même contexte**, nativement.

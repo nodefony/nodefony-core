@@ -21,6 +21,33 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 ---
 <!-- @end -->
 
+<!-- @if npm -->
+> **This package, `nodefony`, is the core of Nodefony:** modules, dependency injection, validated
+> configuration, structured logging, the command line and the realtime client with its CBOR codec.
+>
+<!-- @end -->
+<!-- @if core,npm -->
+> **Nodefony** is a fullstack Node.js framework written in strict TypeScript (ESM, Node 24.16+ or
+> 26+). One controller action serves HTTP and WebSocket with the same session and the same
+> security. Realtime runs JSON-RPC 2.0 over WebSocket, in JSON or in binary
+> [CBOR](https://nodefony.net/docs/modules/core/cbor/) (RFC 8949), negotiated per connection.
+> [gRPC](https://nodefony.net/docs/modules/framework/grpc/), gRPC-Web and Connect services are
+> served by the same HTTP/2 pipeline (experimental in 10.0). Each module can expose tools to AI
+> agents through a [Model Context Protocol (MCP)](https://nodefony.net/docs/modules/ai/mcp/) gate,
+> over HTTP streaming (SSE) or stdio.
+>
+> ```bash
+> npm create nodefony my-app
+> ```
+>
+> [Website](https://nodefony.net/) · [Get started](https://nodefony.net/docs/demarrer/) ·
+> [CBOR](https://nodefony.net/docs/modules/core/cbor/) ·
+> [gRPC](https://nodefony.net/docs/modules/framework/grpc/) ·
+> [MCP](https://nodefony.net/docs/modules/ai/mcp/)
+
+---
+<!-- @end -->
+
 <!-- @if core -->
 > [!IMPORTANT]
 > **Nodefony 10 est sorti** — réécrit en TypeScript, publié sous le canal `latest` :

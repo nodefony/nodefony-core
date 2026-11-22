@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/frontend",
   "version": "10.0.1",
-  "description": "Construction et rechargement à chaud des frontends de chaque module Nodefony — Vite intégré, multi-framework (React, Vue, Angular, Svelte)",
+  "description": "Builds and hot-reloads the frontends of each Nodefony module with built-in Vite: React, Vue, Angular and Svelte",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "type": "module",
   "main": "./dist/index.js",

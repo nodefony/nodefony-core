@@ -181,6 +181,7 @@
       "testedBy": [
         "scripts/gates/dev-credentials.test.mjs",
         "scripts/gates/vitest-tmp-guard.test.mjs",
+        "scripts/generate/readmes.test.mjs",
         "scripts/lib/redis-session-purge.test.mjs",
         "scripts/release/accueil-gate.test.mjs",
         "scripts/site/perf-figures.test.mjs",
@@ -283,6 +284,7 @@
       "calledBy": [
         ".claude/skills/nodefony-ticket/scripts/pr-finish.mjs",
         "scripts/gates/check-symbol-stability.mjs",
+        "scripts/generate/readmes.mjs",
         "scripts/lib/symbols-publish.mjs",
         "scripts/release/api-diff.mjs",
         "scripts/release/dts-deps.mjs",
@@ -1672,6 +1674,21 @@
         "npm run readme:build",
         "node.js.yml"
       ],
+      "testedBy": [
+        "scripts/generate/readmes.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/generate/readmes.test.mjs",
+      "test": true,
+      "purpose": "",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
       "testedBy": []
     },
     {
@@ -1936,6 +1953,24 @@
       ],
       "testedBy": [
         "scripts/site/markdown-source.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/module-docs.mjs",
+      "test": false,
+      "purpose": "Les modules du dépôt qui portent un dossier `docs/`, et la clé courte qui fait leur adresse sur le site (`/docs/modules/<clé>/`).",
+      "usage": [
+        "import { moduleDocsDirs, moduleDocsUrl } from \"./lib/module-docs.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/generate/readmes.mjs",
+        "scripts/site/build-docs-site.mjs"
+      ],
+      "testedBy": [
+        "scripts/generate/readmes.test.mjs"
       ]
     },
     {

@@ -63,6 +63,14 @@ Préparation de la SOURCE Markdown d'une page avant son rendu par le site.
 - **Appelé par** : `site/build-docs-site.mjs`
 - **Testé par** : `site/markdown-source.test.mjs`
 
+## [`module-docs.mjs`](module-docs.mjs)
+
+Les modules du dépôt qui portent un dossier `docs/`, et la clé courte qui fait leur adresse sur le site (`/docs/modules/<clé>/`).
+
+- **Usage** : `import { moduleDocsDirs, moduleDocsUrl } from "./lib/module-docs.mjs"`
+- **Appelé par** : `generate/readmes.mjs` · `site/build-docs-site.mjs`
+- **Testé par** : `generate/readmes.test.mjs`
+
 ## [`out-dir.mjs`](out-dir.mjs)
 
 Dossier de sortie d'un générateur du site : neuf à chaque rendu, ou refusé.

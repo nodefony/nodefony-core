@@ -25,6 +25,12 @@
  *
  * Le rendu de la vitrine lit le paquet `nodefony` BÂTI (`npm run build`).
  *
+ * Les README des AUTRES paquets publiés sont écrits à la main, sauf un encart :
+ * npm n'affiche qu'UN README par paquet, alors un court bloc en ANGLAIS (ce que
+ * fait le paquet, puis un renvoi vers Nodefony) s'insère sous leur titre, entre
+ * deux marqueurs, à partir de la `description` du `package.json` — une seule
+ * source. Le reste du fichier n'est pas touché ; `--check` refuse un encart périmé.
+ *
  *   node scripts/generate/readmes.mjs           # régénère les trois pages
  *   node scripts/generate/readmes.mjs --check   # refuse une page périmée ou retouchée
  *
@@ -36,6 +42,8 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import * as prettier from "prettier";
 import { REPO_ROOT } from "../lib/repo-root.mjs";
+import { listWorkspaces } from "../lib/workspaces.mjs";
+import { moduleDocsUrl } from "../site/lib/module-docs.mjs";
 
 const SECTIONS = path.join(REPO_ROOT, "scripts", "generate", "readme");
 const GITHUB = "https://github.com/nodefony/nodefony-core";
@@ -166,6 +174,48 @@ export function absolutize(line) {
         ? `](${GITHUB}/${url.endsWith("/") ? "tree" : "blob"}/main/${url})`
         : all,
     );
+}
+
+const EN_BEGIN =
+  "<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->";
+const EN_END = "<!-- nf-en:end -->";
+const EN_BLOCK = /\n?<!-- nf-en:begin[^\n]*-->[\s\S]*?<!-- nf-en:end -->\n*/;
+
+/**
+ * L'encart anglais d'un README de paquet : ce que fait le paquet, puis Nodefony.
+ *
+ * @param name - nom npm du paquet.
+ * @param description - `description` de son `package.json` (anglais, une phrase).
+ * @param docs - adresse de sa documentation ({@link moduleDocsUrl}), ou `null`.
+ * @returns l'encart, marqueurs compris.
+ */
+export function packageEnglishBlock(name, description, docs = null) {
+  const sentence = /[.!?]$/.test(description) ? description : `${description}.`;
+  return [
+    EN_BEGIN,
+    `> **${name}** — ${sentence} Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](${docs ?? (name === "create-nodefony" ? "https://nodefony.net/docs/demarrer/" : "https://nodefony.net/docs/")}).`,
+    EN_END,
+  ].join("\n");
+}
+
+/**
+ * Pose (ou remplace) l'encart anglais sous le titre d'un README.
+ *
+ * @param readme - contenu du README du paquet.
+ * @param block - encart rendu par {@link packageEnglishBlock}.
+ * @returns le README, encart posé juste sous son premier titre `# `.
+ * @throws Error si le README n'a pas de titre de premier niveau.
+ */
+export function withEnglishBlock(readme, block) {
+  const clean = readme.replace(EN_BLOCK, "\n");
+  const lines = clean.split("\n");
+  const title = lines.findIndex((l) => l.startsWith("# "));
+  if (title < 0) throw new Error("README sans titre « # » — encart impossible");
+  const rest = lines
+    .slice(title + 1)
+    .join("\n")
+    .replace(/^\n+/, "");
+  return `${lines.slice(0, title + 1).join("\n")}\n\n${block}\n\n${rest}`;
 }
 
 /** Lit une section, ou lève en la nommant. */
@@ -355,7 +405,12 @@ export async function buildPage(target, vitrine) {
  * @returns `true` si la page sur disque est (désormais) à jour.
  */
 function settle(target, content, check) {
-  const abs = path.join(REPO_ROOT, TARGETS[target].file);
+  return settleFile(TARGETS[target].file, content, check);
+}
+
+/** Comme {@link settle}, pour un fichier désigné par son chemin relatif au dépôt. */
+function settleFile(file, content, check) {
+  const abs = path.join(REPO_ROOT, file);
   let current;
   try {
     current = readFileSync(abs, "utf8");
@@ -364,11 +419,11 @@ function settle(target, content, check) {
   }
   if (current === content) return true;
   if (check) {
-    console.error(`✗ ${TARGETS[target].file} — périmé ou retouché à la main`);
+    console.error(`✗ ${file} — périmé ou retouché à la main`);
     return false;
   }
   writeFileSync(abs, content);
-  console.log(`✓ ${TARGETS[target].file} — régénéré`);
+  console.log(`✓ ${file} — régénéré`);
   return true;
 }
 
@@ -388,6 +443,28 @@ async function main() {
   for (const target of SITE) {
     ok = settle(target, await buildPage(target, vitrine), check) && ok;
   }
+  // Les autres paquets publiés : leur README reste manuscrit, seul l'encart est généré.
+  for (const w of listWorkspaces(REPO_ROOT)) {
+    if (w.private || w.name === "nodefony") continue;
+    const file = path.join(w.location, "README.md");
+    const abs = path.join(REPO_ROOT, file);
+    const description = JSON.parse(
+      readFileSync(path.join(REPO_ROOT, w.location, "package.json"), "utf8"),
+    ).description;
+    const options = (await prettier.resolveConfig(abs)) ?? {};
+    const page = await prettier.format(
+      withEnglishBlock(
+        readFileSync(abs, "utf8"),
+        packageEnglishBlock(
+          w.name,
+          description,
+          moduleDocsUrl(REPO_ROOT, w.name, "https://nodefony.net"),
+        ),
+      ),
+      { ...options, filepath: abs },
+    );
+    ok = settleFile(file, page, check) && ok;
+  }
   if (!ok) {
     console.error(
       "\nUne page générée diffère de sa source. Éditer scripts/generate/readme/, puis « npm run readme:build ».",
@@ -395,7 +472,9 @@ async function main() {
     process.exit(1);
   }
   if (check)
-    console.log("✓ README à jour — dépôt, page npm, gabarit d'application");
+    console.log(
+      "✓ README à jour — dépôt, page npm, gabarit d'application, encarts des paquets",
+    );
 }
 
 if (

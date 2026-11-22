@@ -2,7 +2,7 @@
   "name": "@nodefony/devkit",
   "version": "10.0.1",
   "type": "module",
-  "description": "Outillage de développement d'une application Nodefony : carte de visite du projet, serveur MCP de développement et skills d'agent livrés avec le paquet",
+  "description": "Development tooling for Nodefony apps: project card, development MCP server and agent skills shipped with the package",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "main": "./dist/index.js",
   "types": "./dist/types/index.d.ts",
@@ -76,7 +76,8 @@
     "typescript",
     "esm",
     "mcp",
-    "skills"
+    "skills",
+    "mcp-server"
   ],
   "engines": {
     "node": "^24.16.0 || >=26.0.0"

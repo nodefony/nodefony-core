@@ -50,7 +50,6 @@ import {
   writeFileSync,
   mkdirSync,
   existsSync,
-  readdirSync,
   statSync,
 } from "node:fs";
 import path from "node:path";
@@ -114,6 +113,7 @@ import { prepareOutDir } from "./lib/out-dir.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
 import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs";
 import { extractApiModel, renderApiPages } from "./lib/api-reference.mjs";
+import { moduleDocsDirs } from "./lib/module-docs.mjs";
 import { pageSummary } from "./lib/page-summary.mjs";
 
 const arg = (n, d) => {
@@ -358,29 +358,8 @@ function decide(d) {
    2. COLLECTE — le module fait le scan, on ne le refait pas
    ════════════════════════════════════════════════════════════════════════════ */
 
-/** Modules du dépôt qui portent un dossier `docs/`, avec leur clé courte. */
-function moduleDirs() {
-  const out = [
-    {
-      key: "core",
-      npm: "nodefony",
-      dir: path.join(ROOT, "src/nodefony/docs"),
-      label: "nodefony (cœur)",
-    },
-  ];
-  const base = path.join(ROOT, "src/packages/@nodefony");
-  for (const name of readdirSync(base).sort()) {
-    const dir = path.join(base, name, "docs");
-    if (existsSync(dir))
-      out.push({
-        key: name,
-        npm: `@nodefony/${name}`,
-        dir,
-        label: `@nodefony/${name}`,
-      });
-  }
-  return out;
-}
+/** Modules du dépôt qui portent un dossier `docs/` — règle partagée avec les README. */
+const moduleDirs = () => moduleDocsDirs(ROOT);
 
 /**
  * Traduit une URL de site (`/adr/`) en chemin RELATIF depuis la page courante

@@ -1,5 +1,11 @@
 # @nodefony/http
 
+<!-- nf-en:begin — GÉNÉRÉ par scripts/generate/readmes.mjs depuis la description du package.json — ne pas éditer ici. -->
+
+> **@nodefony/http** — Native HTTP, HTTPS, HTTP/2 and WebSocket servers for Nodefony: SSE, sessions, request contexts, TLS certificates and gRPC transport. Part of [Nodefony](https://nodefony.net/), the fullstack Node.js framework with HTTP and WebSocket in one context, binary CBOR realtime, gRPC and MCP for AI agents. [Documentation](https://nodefony.net/docs/modules/http/).
+
+<!-- nf-en:end -->
+
 Module **central** de Nodefony : tous les serveurs (HTTP / HTTPS / HTTP2 / WS / WSS) et leurs
 **contextes**. C'est le différenciateur du framework — HTTP et WebSocket partagent le même
 pipeline de contexte/controller.
