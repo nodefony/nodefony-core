@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-21",
+  "generatedAt": "2026-11-22",
   "count": 44,
   "repoScripts": [
     {
@@ -1809,6 +1809,19 @@
       ]
     },
     {
+      "path": "scripts/site/check-site-seo.mjs",
+      "test": false,
+      "purpose": "Refuse un site RENDU dont une page n'a pas son référencement propre : titre, description, adresse canonique, aperçu de partage, données structurées — et aucun titre ni description partagé par deux pages.",
+      "usage": [
+        "node scripts/site/check-site-seo.mjs <dossier-rendu> [--json]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [],
+      "testedBy": []
+    },
+    {
       "path": "scripts/site/html-text.test.mjs",
       "test": true,
       "purpose": "",
@@ -1962,6 +1975,23 @@
       ]
     },
     {
+      "path": "scripts/site/lib/seo-check.mjs",
+      "test": false,
+      "purpose": "Le référencement d'un site RENDU, page par page : ce qu'un moteur de recherche, l'aperçu d'un lien partagé et un agent lisent dans l'en-tête.",
+      "usage": [
+        "import { readSeoHead, siteDefects } from \"./lib/seo-check.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/check-site-seo.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/seo-check.test.mjs"
+      ]
+    },
+    {
       "path": "scripts/site/lib/site-nav.mjs",
       "test": false,
       "purpose": "Le menu commun des sites VOISINS de la documentation — performance et qualité — rendu par chacun de leurs générateurs.",
@@ -2091,6 +2121,19 @@
       "path": "scripts/site/schemas-sequence.test.mjs",
       "test": true,
       "purpose": "Les diagrammes de séquence du site tiennent leurs libellés — sur le CORPUS réel.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/seo-check.test.mjs",
+      "test": true,
+      "purpose": "",
       "usage": [],
       "options": [],
       "env": [],

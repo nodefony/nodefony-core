@@ -79,6 +79,14 @@ Le résumé d'une page publiée : l'extrait qu'un moteur de recherche montrera (
 - **Appelé par** : `site/build-docs-site.mjs`
 - **Testé par** : `site/llms-plan.test.mjs`
 
+## [`seo-check.mjs`](seo-check.mjs)
+
+Le référencement d'un site RENDU, page par page : ce qu'un moteur de recherche, l'aperçu d'un lien partagé et un agent lisent dans l'en-tête.
+
+- **Usage** : `import { readSeoHead, siteDefects } from "./lib/seo-check.mjs"`
+- **Appelé par** : `site/check-site-seo.mjs`
+- **Testé par** : `site/seo-check.test.mjs`
+
 ## [`site-nav.mjs`](site-nav.mjs)
 
 Le menu commun des sites VOISINS de la documentation — performance et qualité — rendu par chacun de leurs générateurs.

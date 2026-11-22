@@ -82,6 +82,14 @@ Refuse un site dont un lien interne ne mène nulle part.
 - **Testé par** : `site/site-versions.test.mjs` · `.claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs`
 - **Utilise** : `site/lib/site-versions.mjs`
 
+## [`check-site-seo.mjs`](check-site-seo.mjs)
+
+Refuse un site RENDU dont une page n'a pas son référencement propre : titre, description, adresse canonique, aperçu de partage, données structurées — et aucun titre ni description partagé par deux pages.
+
+- **Usage** : `node scripts/site/check-site-seo.mjs <dossier-rendu> [--json]`
+- **Appelé par** : aucun automate
+- **Utilise** : `site/lib/seo-check.mjs`
+
 ## [`html-text.test.mjs`](html-text.test.mjs)
 
 - **Lancé par** : `npm run test:tooling`
@@ -134,6 +142,11 @@ Les diagrammes de séquence du site tiennent leurs libellés — sur le CORPUS r
 
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `lib/repo-root.mjs`
+
+## [`seo-check.test.mjs`](seo-check.test.mjs)
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `site/lib/seo-check.mjs`
 
 ## [`site-nav.test.mjs`](site-nav.test.mjs)
 
