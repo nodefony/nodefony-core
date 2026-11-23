@@ -37,9 +37,9 @@ flowchart TD
   BR["Navigateur"] -->|1 · GET /shop| NF["Nodefony · 5152<br/>route → contrôleur → HTML"]
   NF -->|2 · HTML + balises script relatives| BR
   BR -->|3 · /_vite/… modules, styles, HMR| NF
-  NF -->|relais sur la boucle locale| VITE["Vite · 127.0.0.1:5173<br/>processus séparé"]
+  NF -->|relais sur la boucle locale| VITE["Vite · 127.0.0.1:5173<br/>dans son hôte"]
   BR -->|4 · fetch /shop/api| NF
-  NF -.->|spawn au démarrage<br/>arrêt au terminate| VITE
+  NF -.->|lance et arrête<br/>l'hôte| VITE
 ```
 
 Lis le schéma comme une visite : la **page** vient de Nodefony (1-2) ; les **modules JavaScript**,
@@ -61,7 +61,8 @@ Vite disparaît : les assets sont pré-construits et servis en fichiers statique
 | Bundle              | Le résultat compilé d'une entrée : un fichier JS (plus ses morceaux) que le navigateur charge.           |
 | Preset              | La recette d'un framework UI (React, Vue, Angular) : quel greffon Vite, quelles extensions.              |
 | Famille d'isolation | Groupe d'entrées qui partagent **un** processus Vite. Angular a la sienne.                               |
-| Superviseur         | L'objet qui lance, surveille, relance et arrête le processus Vite.                                       |
+| Superviseur         | L'objet qui lance, surveille, relance et arrête l'hôte de Vite.                                          |
+| Hôte                | Le processus Node qui fait tourner Vite par son API et rapporte son état au superviseur.                 |
 | Manifeste           | `manifest.json` produit par le build : la carte « fichier source → fichier compilé empreinté ».          |
 | Empreinte           | Le hachage dans le nom d'un fichier compilé (`main-a1b2c3.js`) — permet un cache navigateur permanent.   |
 | `publicPath`        | Le préfixe d'URL sous lequel les assets d'un bundle sont servis (`/_assets/shop/`).                      |
@@ -87,10 +88,12 @@ qui remplace Vite une fois en production.
 
 ### La vision Nodefony — ce que ce module fait différemment
 
-**Vite est un processus système, pas une bibliothèque.** Le superviseur lance le binaire Vite avec
-`child_process.spawn` (`ViteProcessSupervisor.attemptSpawn()`, `ViteProcessSupervisor.ts#ViteProcessSupervisor.attemptSpawn`). La
-conséquence est concrète : compiler dix mille modules ne coûte **rien** à la latence de tes requêtes,
-et un plantage de Vite ne tue pas ton serveur — le superviseur le relance tout seul.
+**Vite tourne dans un processus à part, piloté par son API.** Chaque famille a son **hôte** : un
+petit processus Node qui démarre Vite par `createServer`, puis rapporte au superviseur qu'il est prêt
+et sur quel port (`createViteHostService()`, `viteHost.ts#createViteHostService`). La conséquence est
+concrète : compiler dix mille modules ne coûte **rien** à la latence de tes requêtes, et un plantage
+de Vite ne tue pas ton serveur — l'hôte meurt seul, et le superviseur le relance. Rien n'est deviné en
+lisant ce que Vite écrit : une version de Vite qui reformule ses messages ne casse rien.
 
 **C'est Nodefony qui sert le HTML.** Beaucoup de piles séparent un serveur front (qui rend la page) et
 un serveur d'API (qui rend le JSON). Ici, la page d'entrée reste une route de ton contrôleur :
@@ -137,7 +140,7 @@ chaque étape suppose la précédente.
 2. [Architecture interne](#-architecture-interne) — ce qui se passe entre le démarrage du
    kernel et le premier `<script>`.
 3. [Résilience](#résilience--ce-qui-se-passe-quand-vite-tombe) — relance automatique, ports occupés,
-   sonde de vie.
+   preuve de vie.
 
 ## 🗂️ Ce que le module apporte
 
@@ -356,8 +359,8 @@ JSON Schema pour l'écran de configuration de Studio.
 | `devHost`                | `string`           | `"127.0.0.1"` | Adresse d'écoute de Vite. Laisser la boucle locale : Nodefony le relaie.          |
 | `devPort`                | `number`           | `5173`        | Port de base, interne. Occupé ⇒ le superviseur essaie les suivants.               |
 | `autoStartInDevelopment` | `boolean`          | `true`        | Démarrer Vite au boot en `development`. Ignoré ailleurs.                          |
-| `startupTimeoutMs`       | `number`           | `30000`       | Attente du `Local: …` de Vite avant de déclarer l'échec.                          |
-| `pipeViteLogs`           | `boolean`          | `true`        | Reverser la sortie de Vite dans le journal Nodefony.                              |
+| `startupTimeoutMs`       | `number`           | `30000`       | Délai pour que Vite soit prêt, replis de port compris, avant l'échec.             |
+| `pipeViteLogs`           | `boolean`          | `true`        | Reverser le journal de Vite dans celui de Nodefony.                               |
 | `viteEnv`                | `Record<string,…>` | `{}`          | Variables passées au processus Vite ; les clés `VITE_*` atteignent le navigateur. |
 
 > [!NOTE]
@@ -381,13 +384,18 @@ s'appliquent même si tu omets la section entière.
 | Option                        | Défaut  | Effet                                                      |
 | ----------------------------- | ------- | ---------------------------------------------------------- |
 | `autoRestart`                 | `true`  | Relancer Vite après un plantage inattendu.                 |
-| `maxRestarts`                 | `5`     | Au-delà, le superviseur passe en `errored` et abandonne.   |
+| `maxRestarts`                 | `5`     | Plantages en rafale tolérés ; au-delà, `errored`.          |
 | `restartBackoffBaseMs`        | `500`   | Base du délai exponentiel entre deux relances.             |
 | `restartBackoffMaxMs`         | `8000`  | Plafond de ce délai.                                       |
-| `healthCheckIntervalMs`       | `30000` | Période de la sonde de vie. `0` la désactive.              |
-| `healthCheckFailureThreshold` | `3`     | Échecs consécutifs avant de tuer Vite pour le relancer.    |
-| `healthCheckTimeoutMs`        | `5000`  | Délai d'une sonde individuelle.                            |
+| `healthCheckIntervalMs`       | `30000` | Période de la preuve de vie. `0` la désactive.             |
+| `healthCheckFailureThreshold` | `3`     | Preuves manquées d'affilée avant de relancer Vite.         |
+| `healthCheckTimeoutMs`        | `5000`  | Une réponse plus tardive compte comme manquée.             |
 | `portRetryAttempts`           | `3`     | Ports essayés en plus du port de base quand il est occupé. |
+
+La **preuve de vie** est un message que le superviseur envoie à l'hôte, qui doit y répondre : une
+boucle d'événements gelée — celle de Vite, qui tourne dans l'hôte — ne répond plus. Le compte des
+relances revient à zéro dès qu'une preuve de vie arrive à l'heure : seuls les plantages **en
+rafale** épuisent `maxRestarts`, jamais cinq plantages espacés sur une journée.
 
 > [!TIP]
 > **En intégration continue, mets `autoRestart: false`.** Un Vite qui plante puis se relance en
@@ -497,18 +505,18 @@ sequenceDiagram
   participant K as Kernel
   participant M as Module à interface
   participant S as FrontendService
-  participant V as Processus Vite
+  participant V as Hôte Vite
   M->>S: onKernelBoot — registerEntry(module, déclaration)
   Note over S: résout root/entryFile/outDir/publicPath<br/>et empile l'entrée
   K->>S: onServersReady (les serveurs écoutent DÉJÀ)
   S->>S: regroupe les entrées par famille + plan de ports
-  S->>V: écrit vite.config.generated.mjs, puis spawn
-  V-->>S: « Local: http://host:port » ⇒ état ready
+  S->>V: écrit vite.config.generated.mjs s'il a changé, lance l'hôte
+  V-->>S: « prêt » + port réel, par le canal ⇒ état ready
   S->>S: monte /_vite/<famille>/ sur le proxy inverse
   S->>S: déclare ses besoins CSP au pare-feu (sans origine)
-  Note over S,V: sonde de vie périodique · relance sur plantage
+  Note over S,V: preuve de vie périodique · relance sur plantage
   K->>S: onTerminate
-  S->>V: SIGINT, puis SIGKILL au bout de 3 s
+  S->>V: « arrête-toi » par le canal, arbre tué au-delà de 3 s
 ```
 
 **Pourquoi `onServersReady` et pas `onReady`.** Vite démarre une fois les serveurs Nodefony en
@@ -521,7 +529,8 @@ Nodefony sert déjà.
 | Pièce                   | Rôle                                                               | Ancre                                                                              |
 | ----------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | `FrontendService`       | l'orchestrateur : entrées, familles, cycle de vie, rendu           | `FrontendService.ts#FrontendService`                                               |
-| `ViteProcessSupervisor` | lance, surveille, relance et arrête **un** processus Vite          | `ViteProcessSupervisor.ts#ViteProcessSupervisor`                                   |
+| `ViteProcessSupervisor` | démarre, observe et arrête **un** hôte Vite, par le teneur du cœur | `ViteProcessSupervisor.ts#ViteProcessSupervisor`                                   |
+| `viteHost`              | le processus qui pilote Vite par son API et rapporte son état      | `createViteHostService()` (`viteHost.ts#createViteHostService`)                    |
 | `ViteConfigGenerator`   | écrit la configuration Vite (fonction pure, testée seule)          | `ViteConfigGenerator.toMjs()` (`ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`) |
 | `ViteBuilder`           | construit l'objet de configuration Vite pour le build en processus | `ViteBuilder.buildViteConfig()` (`ViteBuilder.ts#ViteBuilder.buildViteConfig`)     |
 | `TemplateHelper`        | produit les balises (dev) ou lit le manifeste (prod)               | `TemplateHelper.ts#TemplateHelper`                                                 |
@@ -530,18 +539,19 @@ Nodefony sert déjà.
 
 ### Une configuration Vite écrite, pas passée
 
-Le superviseur **écrit un fichier** `vite.config.generated.mjs` à la racine front, puis lance Vite
-dessus. Ce détour a une raison : Vite ne lit pas sa configuration sur l'entrée standard, et les
+Le superviseur **écrit un fichier** `vite.config.generated.mjs` à la racine front, puis l'hôte le
+donne à Vite (`configFile`). Ce détour a une raison : Vite ne lit pas sa configuration sur l'entrée standard, et les
 greffons sont des objets JavaScript — non sérialisables en JSON. Le fichier généré est donc autonome :
 il importe lui-même les greffons dont les presets détectés ont besoin.
 
-**Ne l'édite jamais** : il est réécrit à chaque démarrage. Ce qu'il contient de notable :
+**Ne l'édite jamais** : il est régénéré à chaque démarrage — et réécrit seulement si son contenu a
+changé, parce que Vite redémarre à toute écriture de sa configuration. Ce qu'il contient de notable :
 
 - une **entrée par bundle** (`input`), d'où le multi-modules dans une seule instance ;
 - la `base` sur le **chemin réservé de la famille** (`/_vite/<famille>/`, `devBasePath()`,
   `isolationGroups.ts#devBasePath`) — chaque URL que Vite écrit dans un module retombe ainsi sous le préfixe
   que Nodefony relaie, sur l'origine de la page ;
-- `strictPort` : c'est le superviseur qui choisit le port, et le relais vise ce port. Un Vite qui
+- `strictPort` : c'est l'hôte qui choisit le port, et le relais vise ce port. Un Vite qui
   glisserait de lui-même servirait ailleurs que là où le relais l'attend ;
 - **ni `allowedHosts` ni `cors`** : le relais réécrit `Host` en `127.0.0.1:<port>`, que Vite accepte
   d'office, et aucune requête n'est inter-origines — les deux barrières de Vite restent à leur
@@ -594,35 +604,34 @@ démarrage n'échoue que si **aucune** famille n'a pu démarrer (`FrontendServic
 ### Résilience — ce qui se passe quand Vite tombe
 
 Le superviseur est écrit pour survivre à un poste de développement réel, où les ports sont occupés et
-les processus meurent.
+les processus meurent. Le cycle — lancer, attendre « prêt », relancer, prouver la vie, arrêter — n'est
+pas écrit dans ce module : il appartient au **teneur** du cœur (`HeldHost`, `HeldHost.ts#HeldHost`),
+le même qui portera demain d'autres services de longue durée.
 
-| Situation                  | Réponse                                                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Port occupé au lancement   | essai sur le port suivant, jusqu'à `portRetryAttempts` (`ViteProcessSupervisor.ts#ViteProcessSupervisor.constructor`)                 |
-| Vite plante                | relance avec délai exponentiel plafonné (`scheduleRestart()`, `ViteProcessSupervisor.ts#ViteProcessSupervisor.scheduleRestart`)       |
-| Vite ne répond plus (gelé) | sonde périodique ; après N échecs, Vite est tué pour être relancé (`ViteProcessSupervisor.ts#ViteProcessSupervisor.startHealthCheck`) |
-| Deux `start()` concurrents | la promesse en cours est partagée — jamais deux processus                                                                             |
-| Ctrl+C au terminal         | le signal marque un arrêt **voulu** : pas de relance (`markShutdown`, `ViteProcessSupervisor.ts#ViteProcessSupervisor.markShutdown`)  |
-| Arrêt du kernel            | `SIGINT`, puis `SIGKILL` après 3 s — aucun zombie ne bloque le port (`ViteProcessSupervisor.ts#ViteProcessSupervisor.doStop`)         |
+| Situation                  | Réponse                                                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Port occupé au lancement   | l'hôte constate le port et prend le suivant, jusqu'à `portRetryAttempts` (`probePort()`, `viteHost.ts#probePort`)               |
+| Vite plante                | l'hôte meurt seul ; relance avec délai exponentiel plafonné                                                                     |
+| Vite ne répond plus (gelé) | la preuve de vie reste sans réponse ; après N manques, l'hôte est tué pour être relancé                                         |
+| Deux `start()` concurrents | la promesse en cours est partagée — jamais deux processus                                                                       |
+| Ctrl+C au terminal         | l'hôte ignore le signal : c'est le serveur qui l'arrête, et l'arrêt n'est jamais lu comme un plantage                           |
+| Arrêt du kernel            | « arrête-toi » par le canal, l'arbre tué au-delà de 3 s, puis la mort attendue (`HeldHost.stop()`, `HeldHost.ts#HeldHost.stop`) |
+| Serveur tué net            | l'hôte perd son canal et s'arrête : aucun Vite orphelin ne garde le port                                                        |
 
-Deux subtilités valent d'être connues, parce qu'elles expliquent des comportements sinon
-incompréhensibles :
+Trois choix expliquent des comportements qu'on pourrait croire accidentels :
 
-- **Vite intercepte `SIGINT` et sort proprement**, avec un code indiscernable d'un plantage. Sans le
-  marquage du signal reçu par le processus serveur, un simple Ctrl+C ferait apparaître un
-  « redémarrage échoué » en erreur, sur un arrêt parfaitement normal.
-- **La détection d'un port occupé est écrite à un seul endroit** (`isPortInUseMessage()`,
-  `ViteProcessSupervisor.ts#isPortInUseMessage`), et elle reconnaît un conflit **FATAL**, pas la simple présence de
-  « in use ». Vite écrit trois textes qui contiennent ces mots, et un seul signifie qu'il a échoué :
-  « Port X is **already** in use » (il meurt — le seul cas où reprendre sur un autre port a un sens),
-  « Port X is in use, **trying another one…** » (il se décale lui-même) et « Port X is in use **on a
-  wildcard address**, but H:X is available… » (il a pris le port demandé et se contente d'avertir).
-  Les confondre faisait reprendre sur un autre port un démarrage qui n'avait aucun conflit, en
-  repayant l'attente de démarrage à chaque essai.
-
-Les écouteurs attachés au processus enfant sont suivis puis retirés à chaque mort
-(`cleanupChildListeners()`, `ViteProcessSupervisor.ts#ViteProcessSupervisor.cleanupChildListeners`) : sans cela, les relances successives les
-accumuleraient jusqu'à l'avertissement de fuite.
+- **L'hôte rapporte, rien ne se devine.** Lire l'état de Vite dans ce qu'il écrit — une ligne
+  `Local: …` pour « prêt », trois formulations de « in use » à démêler pour un port pris — ferait
+  dépendre le serveur de libellés qu'une version de Vite peut reformuler sans prévenir. L'hôte appelle
+  l'API de Vite et rapporte « prêt » avec le port de la socket (`createViteHostService()`,
+  `viteHost.ts#createViteHostService`).
+- **Le port se constate avant de démarrer Vite.** Avec `strictPort`, Vite signale un port pris par
+  un simple message, sans code d'erreur. L'hôte essaie donc lui-même de se lier au port, et reconnaît
+  aussi `EACCES` : c'est la forme que prend, sous Windows, un port réservé par le système.
+- **Vite n'écrit pas sur ton écran.** L'hôte lui impose `clearScreen: false` et
+  `server.forwardConsole: false` (`viteHostInlineConfig()`, `viteHost.ts#viteHostInlineConfig`) :
+  le premier effacerait le terminal, le second déverserait la console du navigateur dans ton journal
+  — son défaut change quand Vite croit tourner sous un agent IA.
 
 ## 🧰 API publique
 
@@ -877,7 +886,7 @@ développement n'autorise l'accès disque qu'aux racines explicitement listées.
 
 **Le coût par requête est nul, par construction.** Compiler se passe dans un autre processus : ni la
 boucle d'événements, ni la mémoire de ton serveur ne voient passer une transformation de module.
-C'est la raison d'être du choix `child_process` — mesurée au moment du choix, et la raison pour
+C'est la raison d'être de l'hôte, un processus à part — mesurée au moment du choix, et la raison pour
 laquelle les fils d'exécution (`worker_threads`) ont été essayés puis écartés : la sérialisation des
 journaux annulait le bénéfice.
 
@@ -885,11 +894,14 @@ Sur le chemin chaud du rendu, trois précautions :
 
 - le **manifeste** est lu une fois par dossier de sortie, jamais par requête ;
 - l'**`index.html`** est mis en cache en production (relu en développement, où la fraîcheur prime) ;
-- les **écouteurs** du processus enfant sont suivis et retirés à chaque mort
-  (`trackListener()`, `ViteProcessSupervisor.ts#ViteProcessSupervisor.trackListener`) — sans quoi les relances les accumuleraient.
+- l'**état** du superviseur est un instantané figé, remplacé à chaque changement : le relais
+  `/_vite/` le lit à chaque requête sans rien allouer (`ViteProcessSupervisor.status()`,
+  `ViteProcessSupervisor.ts#ViteProcessSupervisor.status`).
 
-La sonde de vie coûte une requête HTTP toutes les trente secondes par famille. Elle est désactivable
-(`healthCheckIntervalMs: 0`) si ce budget te gêne, au prix de la détection d'un Vite gelé.
+La preuve de vie coûte un message par le canal de l'hôte toutes les trente secondes par famille —
+aucune requête réseau. Elle est désactivable (`healthCheckIntervalMs: 0`), au prix de la détection
+d'un Vite gelé. Et l'hôte ne charge que le protocole dont il a besoin (`nodefony/held`) : il démarre
+sans payer le chargement du framework entier.
 
 ## 📡 Observabilité — Studio et CLI
 
@@ -925,6 +937,7 @@ apparaisse avant le « prêt ».
 | Page blanche + « Invalid hook call » | deux copies de React dans la page (deux `node_modules`) | comportement couvert par `resolve.dedupe` ; purger le pré-empaquetage de Vite |
 | Deux modules affichent la **même** interface | racines identiques et URL relatives | comportement couvert : l'entrée est servie par chemin absolu `/@fs/…` |
 | Vite écoute sur un autre port que `devPort` | port occupé ⇒ reprise sur le suivant | lire le port **réel** dans `frontend:status`, jamais la configuration |
+| `ports A à B tous occupés` au démarrage d'une famille | tout son bloc de ports est pris | libérer un port, ou déplacer `devPort` |
 | `no frontend entries declared` au démarrage | aucun module n'a appelé `registerEntry` | normal si tu n'as pas d'interface ; sinon voir les deux lignes ci-dessus |
 | `max restarts reached` | Vite plante en boucle | lire les lignes `[vite]` du journal — l'erreur est dans ton code front |
 | Le navigateur alerte sur le certificat | certificat de développement auto-signé, sans autorité installée sur l'appareil | l'accepter **une** fois — page, modules et socket partagent ce certificat ; ou installer l'autorité racine de développement |
@@ -939,7 +952,7 @@ apparaisse avant le « prêt ».
 | Un import hors du dossier front est refusé par Vite (403) | le serveur de développement n'ouvre que le dossier de l'application, la racine de chaque entrée et la barre de débogage (`ViteConfigGenerator.toMjs()`, `ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`) | placer la ressource sous l'une de ces racines |
 | F5 sur une page profonde de l'application rend 404 | aucune route serveur ne rend la page pour ce chemin | une route de repli — voir [Une route profonde, et la touche F5](#une-route-profonde-et-la-touche-f5) |
 | Un module à interface est invisible de `listEntries()` | il est en mode `static` — il n'appelle jamais `registerEntry` | attendu ; regarder la molette `ui` et le mode journalisé au démarrage |
-| Modifications du front sans effet | `vite.config.generated.mjs` édité à la main | ne jamais l'éditer : il est réécrit à chaque démarrage |
+| Modifications du front sans effet | `vite.config.generated.mjs` édité à la main | ne jamais l'éditer : il est régénéré à chaque démarrage |
 | Angular recharge la page entière au lieu du composant | son greffon ne fait pas de remplacement à chaud | attendu — c'est le comportement du greffon Angular |
 
 ## 🧪 Tests et couverture
@@ -947,14 +960,14 @@ apparaisse avant le « prêt ».
 Les compteurs exacts sont régénérés depuis vitest et vivent dans la carte de l'aperçu — jamais figés
 dans ce texte.
 
-| Type                      | Où                                                | Ce qui est prouvé                                                       |
-| ------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------- |
-| Unitaire — génération     | `tests/unit/ViteConfigGenerator.test.ts`          | la configuration écrite : proxy, base absolue, HTTPS, greffons, entrées |
-| Unitaire — build          | `tests/unit/ViteBuilder.test.ts`                  | la base de production dérivée de `publicPath` et `assetBaseUrl`         |
-| Unitaire — isolation      | `tests/unit/isolationGroups.test.ts`              | familles, ordre déterministe, blocs de ports disjoints                  |
-| Unitaire — ports          | `tests/unit/vitePortInUse.test.ts`                | la détection d'un port occupé, dans **toutes** les formulations de Vite |
-| Intégration — superviseur | `tests/integration/ViteProcessSupervisor.test.ts` | vrai `spawn` : démarrage, arrêt, idempotence, relance après plantage    |
-| Intégration — build       | `tests/integration/frontend-build.test.ts`        | vrai `vite.build`, manifeste lu, document rendu                         |
+| Type                      | Où                                                | Ce qui est prouvé                                                        |
+| ------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------ |
+| Unitaire — génération     | `tests/unit/ViteConfigGenerator.test.ts`          | la configuration écrite : proxy, base absolue, HTTPS, greffons, entrées  |
+| Unitaire — build          | `tests/unit/ViteBuilder.test.ts`                  | la base de production dérivée de `publicPath` et `assetBaseUrl`          |
+| Unitaire — isolation      | `tests/unit/isolationGroups.test.ts`              | familles, ordre déterministe, blocs de ports disjoints                   |
+| Unitaire — hôte           | `tests/unit/viteHost.test.ts`                     | spécification reçue, journal, sonde de port, remparts imposés à Vite     |
+| Intégration — superviseur | `tests/integration/ViteProcessSupervisor.test.ts` | vrai hôte, vraie Vite : arrêt, décalage de port, relance, config intacte |
+| Intégration — build       | `tests/integration/frontend-build.test.ts`        | vrai `vite.build`, manifeste lu, document rendu                          |
 
 ```bash
 cd src/packages/@nodefony/frontend

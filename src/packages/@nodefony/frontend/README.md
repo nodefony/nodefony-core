@@ -14,12 +14,13 @@ Builder frontend Nodefony — supervise [Vite](https://vite.dev/) dans un proces
 
 ## Pourquoi un process séparé ?
 
-Vite a besoin d'un event-loop et d'un tas V8 pour compiler/HMR. L'exécuter **in-proc** dans le serveur Nodefony bloque les requêtes pendant les rebuilds. Un process séparé (`child_process.spawn`) isole parfaitement Vite du backend :
+Vite a besoin d'un event-loop et d'un tas V8 pour compiler/HMR. L'exécuter **in-proc** dans le serveur Nodefony bloque les requêtes pendant les rebuilds. Chaque famille Vite tourne donc dans son **hôte** : un petit process Node, lancé par `fork`, qui démarre Vite par son API (`createServer`) et rapporte au superviseur qu'il est prêt, et sur quel port. Rien n'est deviné en lisant la sortie de Vite :
 
 - Crash Vite ≠ crash Nodefony
 - Compilation Vite ≠ latence event-loop Nodefony
 - HMR WebSocket de Vite relayé par Nodefony, sur l'origine de la page
-- Auto-restart en cas de mort du child (résilience built-in)
+- Auto-restart en cas de mort de l'hôte (résilience built-in)
+- Serveur tué net → l'hôte perd son canal et s'arrête : aucun Vite orphelin
 
 ---
 
@@ -191,12 +192,12 @@ const config = {
     // Résilience supervisor
     resilience: {
       autoRestart: true, // restart sur crash
-      maxRestarts: 5, // avant abandon
+      maxRestarts: 5, // plantages en rafale avant abandon
       restartBackoffBaseMs: 500, // backoff exponentiel
       restartBackoffMaxMs: 8_000,
-      healthCheckIntervalMs: 30_000, // ping HTTP périodique (0 = off)
-      healthCheckFailureThreshold: 3, // échecs avant restart
-      portRetryAttempts: 3, // port+1, port+2 sur EADDRINUSE
+      healthCheckIntervalMs: 30_000, // preuve de vie par le canal de l'hôte (0 = off)
+      healthCheckFailureThreshold: 3, // preuves manquées avant restart
+      portRetryAttempts: 3, // port+1, port+2… si le port est pris
     },
   },
 };
@@ -210,12 +211,12 @@ Tout est optionnel — les defaults fonctionnent out-of-the-box.
 
 `FrontendService` est un `Service` Nodefony (donc un `EventEmitter`). Tu peux écouter :
 
-| Event               | Payload                 | Quand                                   |
-| ------------------- | ----------------------- | --------------------------------------- |
-| `frontend:starting` | `{ entries }`           | Juste avant le spawn Vite               |
-| `frontend:ready`    | `IViteSupervisorStatus` | Vite a annoncé `Local:` dans son stdout |
-| `frontend:error`    | `Error`                 | Spawn ou ready timeout échoué           |
-| `frontend:stopped`  | (rien)                  | Après `stop()` propre (SIGINT envoyé)   |
+| Event               | Payload                 | Quand                                          |
+| ------------------- | ----------------------- | ---------------------------------------------- |
+| `frontend:starting` | `{ entries }`           | Juste avant le lancement des hôtes Vite        |
+| `frontend:ready`    | `IViteSupervisorStatus` | Au moins une famille a rapporté « prêt »       |
+| `frontend:error`    | `Error`                 | Aucune famille n'a pu démarrer                 |
+| `frontend:stopped`  | (rien)                  | Après `stop()` propre (hôtes arrêtés et morts) |
 
 Exemple :
 
@@ -283,15 +284,15 @@ En développement, l'application n'écoute que la boucle locale. `NF_BIND_ALL=tr
 
 ### Vite crash en boucle (`max restarts reached`)
 
-Le superviseur abandonne après `maxRestarts` (default 5). Regarde les logs Vite dans le syslog (`[vite!] ...`) pour la cause. Augmente `maxRestarts` ou fix le source du crash.
+Le superviseur abandonne après `maxRestarts` (default 5). Regarde les lignes `[vite]` du syslog pour la cause. Augmente `maxRestarts` ou fix le source du crash.
 
 ---
 
 ## Tests
 
 ```bash
-npm test                     # unit — ViteConfigGenerator
-npm run test:integration     # intégration — supervisor, spawn réel
+npm test                     # unit — générateur, hôte Vite (sur un double de Vite)
+npm run test:integration     # intégration — vrai hôte, vraie Vite
 ```
 
 Les tests d'intégration nécessitent `vite` installé (déjà en devDependencies du repo).
@@ -311,12 +312,13 @@ Kernel "onServersReady"               ← 4 servers Nodefony écoutent
 FrontendService.startDev()
    ↓
 ViteProcessSupervisor.start()
-   ├─ écrit vite.config.generated.mjs (base /_vite/<famille>/, env)
+   ├─ écrit vite.config.generated.mjs s'il a changé (base /_vite/<famille>/)
    ├─ monte /_vite/<famille>/ sur le proxy inverse de @nodefony/http
-   ├─ spawn(node, [vite.js, "--config", ...])   (repli npx si le binaire n'est pas résolu)
-   ├─ parse stdout "Local: https://host:port" → state = "ready"
-   ├─ attach exit handler (auto-restart si crash inattendu)
-   └─ start health check loop (ping HTTP périodique)
+   └─ HeldHost (cœur) lance l'hôte viteHost par fork
+         ├─ sonde le port, prend le suivant s'il est pris
+         ├─ createServer({ configFile, clearScreen:false, forwardConsole:false })
+         ├─ listen → rapporte « prêt » + port réel par le canal → state = "ready"
+         └─ preuve de vie périodique ; relance avec recul si l'hôte meurt
 
 Browser GET /my-route/
    │
