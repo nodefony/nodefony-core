@@ -105,9 +105,18 @@ tenue par un autre propriétaire est refusée. Le registre qui réconcilie :
 ### D4 — La relance se décide sur une EMPREINTE émise par l'enfant
 
 `crypto.hash("sha256", …)` de ce qui exige un NOUVEL hôte : le module hôte, la `spec` (chemin
-du `.mjs`, adresse, port demandé, mode), les variables ajoutées et le `cwd`. Jamais la catégorie
-du fichier modifié : modifier le `index.ts` d'un module peut changer ses entrées. Le parent
-compare deux chaînes ; une `spec` qui change sans changer l'empreinte n'est pas relue.
+du `.mjs`, adresse, port demandé, mode), les variables ajoutées, le `cwd`, **et la version
+installée de Vite et de chaque paquet de greffon de la famille** (lue une fois par démarrage de
+l'enfant, depuis le `cwd`). Jamais la catégorie du fichier modifié : modifier le `index.ts` d'un
+module peut changer ses entrées. Le parent compare deux chaînes ; une `spec` qui change sans
+changer l'empreinte n'est pas relue.
+
+Pourquoi les versions : quand Vite se relance lui-même, il réimporte sa config sous un nom neuf
+(source 8.3.8, `loadConfigFromBundledFile` : fichier temporaire `…timestamp-<n>.mjs`), mais les
+paquets de `node_modules` y restent EXTERNES (`bundleConfigFile`) — le chargeur ESM de Node les
+garde en cache, sous la même URL. Après la mise à jour d'un greffon ou de Vite, une relance
+interne garderait l'ancien code, sans un mot. Le texte du `.mjs` ne le révèle pas non plus (il ne
+change pas) : seule la version le dit, et elle impose alors un process neuf.
 
 **Symbiose avec Vite — le texte de `vite.config.generated.mjs` est HORS empreinte.** Vite
 surveille son fichier de config et se relance lui-même, DANS son process, quand il change
@@ -119,6 +128,11 @@ démarrage de Node (~60 ms), ni chargement de Vite (~111 ms, médiane de 7, Vite
 famille se relance, et par Vite. L'hôte n'est remplacé que pour ce que Vite ne peut pas
 reprendre seul. Le titre du process (`nodefony-vite[…]`), qui suit les entrées, reste hors
 empreinte pour la même raison : il se met à jour au prochain remplacement.
+
+Mettre le texte DANS l'empreinte ne serait pas seulement plus lent, ce serait faux : l'enfant
+réécrit le `.mjs` avant d'envoyer son plan, Vite entame sa relance interne, puis le plan arrive
+avec une empreinte neuve et le superviseur tue ce Vite EN PLEINE relance pour en forker un
+autre — deux relances au lieu d'une, et une course entre elles.
 
 ### D5 — Les états sont POUSSÉS ; l'enfant lit un instantané
 
@@ -179,7 +193,7 @@ chaque lot de lignes) : seul l'appel d'ingestion changera.
 
 `@nodefony/ai` fournit un module hôte qui lance le serveur d'inférence et annonce `ready` avec son
 adresse. L'enfant déclare un plan pour le propriétaire `ai` :
-`{ key: "llm:<modèle>", host: <module hôte>, fingerprint: hash(modèle, paramètres), spec }`. Le
+`{ key: "llm:<modèle>", module: <module hôte>, fingerprint: hash(modèle, paramètres), spec, cwd, env }`. Le
 modèle se charge une fois par session, survit à chaque sauvegarde, n'est relancé que si sa
 configuration change. Rien du cœur n'est à ajouter.
 
@@ -187,7 +201,7 @@ configuration change. Rien du cœur n'est à ajouter.
 
 | Structure                  | Type retenu                                                     | Pourquoi                                                                                       | Mesuré                                                              |
 | -------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Hôtes tenus (parent)       | `Map<string, HeldHost>`                                         | clé texte, ajouts ET retraits au fil des plans (`delete` fait passer un objet en dictionnaire) | non — hors chemin chaud                                             |
+| Hôtes tenus (parent)       | `Map<string, HeldEntry>` (teneur + propriétaire + empreinte)    | clé texte, ajouts ET retraits au fil des plans (`delete` fait passer un objet en dictionnaire) | non — hors chemin chaud                                             |
 | `HeldHost`                 | classe à champs déclarés au constructeur                        | forme stable                                                                                   | —                                                                   |
 | Plans en vol               | `Map<number, …>`, `id` entier croissant (smi)                   | retrait à chaque acquittement                                                                  | —                                                                   |
 | Instantané d'état (enfant) | objet figé remplacé en bloc                                     | lecture O(1) sans allocation sur le relais                                                     | **A/B relais** : l'actuel `status()` alloue un objet à chaque appel |
@@ -206,7 +220,9 @@ page se recharge une fois. Le gain est ~2,8 s et un Vite chaud, pas un HMR inint
   et l'ADR-0013 §6 y renvoie.
 - `dev-restart-cycle.mjs <fichier-backend> 5` : PID des Vite identiques avant et après ; comparaison
   d'empreinte débranchée → les PID changent (garde vue mordre).
-- Une entrée ajoutée à une famille → seule cette famille relancée ; une famille retirée → arrêtée.
+- Une entrée ajoutée à une famille → seule cette famille relancée, par Vite lui-même (PID de
+  l'hôte inchangé) ; une famille retirée → arrêtée.
+- Version de Vite ou d'un greffon changée → l'hôte de la famille est remplacé (PID neuf).
 - Chaque rempart de D6 a un test vu rouge en débranchant la ligne qu'il garde.
 - `--no-watch`, `start`, `production` : tests existants verts, Vite possédé par le serveur.
 - Windows (job CI) : après Ctrl-C du superviseur, aucun process Vite ni hôte ne survit.
