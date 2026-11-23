@@ -210,3 +210,47 @@ describe("runCapturedCommand — turbo figé après son bilan", () => {
     expect(r.output).not.toContain("bilan affiché");
   }, 30_000);
 });
+
+describe("runCapturedCommand — décodage de la sortie capturée", () => {
+  it("un caractère multi-octets coupé entre deux morceaux reste entier (jamais U+FFFD)", async () => {
+    // « ✓ » = E2 9C 93 : les deux premiers octets, puis le dernier 100 ms plus tard.
+    const code =
+      "process.stdout.write(Buffer.from([0xe2, 0x9c]));" +
+      "setTimeout(() => process.stdout.write(Buffer.from([0x93, 0x0a])), 100);";
+    const run = await runCapturedCommand(
+      process.execPath,
+      ["-e", code],
+      process.cwd(),
+      10_000,
+    );
+    expect(run.ok).toBe(true);
+    expect(run.output).toBe("✓\n");
+  });
+
+  it("une sortie continue ne recrée pas un minuteur par morceau", async () => {
+    let created = 0;
+    const original = globalThis.setTimeout;
+    const counting = ((...args: Parameters<typeof setTimeout>) => {
+      created++;
+      return original(...args);
+    }) as typeof setTimeout;
+    globalThis.setTimeout = counting;
+    try {
+      const code =
+        "let n = 0; const t = setInterval(() => { process.stdout.write('x\\n');" +
+        " if (++n === 200) clearInterval(t); }, 1);";
+      const run = await runCapturedCommand(
+        process.execPath,
+        ["-e", code],
+        process.cwd(),
+        10_000,
+      );
+      expect(run.ok).toBe(true);
+      expect(run.output.length).toBe(400);
+    } finally {
+      globalThis.setTimeout = original;
+    }
+    // Le minuteur d'inactivité est posé une fois ; il ne se recrée qu'à son réveil.
+    expect(created).toBeLessThan(5);
+  });
+});

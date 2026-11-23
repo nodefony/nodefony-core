@@ -231,6 +231,12 @@ export const DIRECT_BINS: Readonly<Record<string, string>> = Object.freeze({
   turbo: "turbo",
 });
 
+/**
+ * Lignes « ↻ changement » écrites par cycle : au-delà, une seule ligne dit que
+ * le reste est regroupé (un `git checkout` touche des milliers de fichiers).
+ */
+export const WATCH_LOG_MAX = 5;
+
 /** Comment lancer un binaire du projet — cf {@link planBinInvocation}. */
 export interface IBinInvocation {
   /** Fichier du binaire, lancé sous `node` ; `null` → lanceur du gestionnaire. */
@@ -447,17 +453,24 @@ export function needsServerRestart(files: readonly string[]): boolean {
  * @param isFile - `true` si l'entrée est un fichier (un non-`.ts` est alors ignoré).
  */
 export function isIgnoredWatchPath(p: string, isFile = false): boolean {
-  // Sources client d'un module (HMR Vite) — mais PAS le paquet `@nodefony/frontend`.
-  if (/(^|[/\\])(?<!@nodefony[/\\])frontend([/\\]|$)/.test(p)) return true;
-  if (/(^|[/\\])(node_modules|dist|\.git|tests)([/\\]|$)/.test(p)) return true;
-  // Dossiers de TRAVAIL : réécrits en permanence par le runtime et les suites de
-  // tests, ils ne contiennent aucune source. Les scanner n'apporte rien et coûte
-  // un crash : sous Windows, lire un dossier en train d'être supprimé rend `EBUSY`.
-  if (/(^|[/\\])(tmp|var)([/\\]|$)/.test(p)) return true;
-  if (/\.(test|spec)\.ts$/.test(p)) return true;
+  // En tête : le cas le plus fréquent d'une rafale (`.js`/`.map` d'un build), sans regex.
   if (isFile && !p.endsWith(".ts")) return true;
-  return false;
+  if (IGNORED_WATCH_DIR.test(p)) return true;
+  if (CLIENT_SOURCES_DIR.test(p)) return true;
+  return TEST_SOURCE_FILE.test(p);
 }
+
+/**
+ * Artefacts (`node_modules`, `dist`, `.git`), tests, et dossiers de TRAVAIL
+ * (`tmp`, `var`) : réécrits en permanence par le runtime et les suites de tests,
+ * ils ne contiennent aucune source. Les scanner n'apporte rien et coûte un
+ * crash : sous Windows, lire un dossier en train d'être supprimé rend `EBUSY`.
+ */
+const IGNORED_WATCH_DIR =
+  /(^|[/\\])(node_modules|dist|\.git|tests|tmp|var)([/\\]|$)/;
+/** Sources client d'un module (HMR Vite) — mais PAS le paquet `@nodefony/frontend`. */
+const CLIENT_SOURCES_DIR = /(^|[/\\])(?<!@nodefony[/\\])frontend([/\\]|$)/;
+const TEST_SOURCE_FILE = /\.(test|spec)\.ts$/;
 
 /**
  * Applique {@link isIgnoredWatchPath} à une entrée relative au projet ou absolue —
@@ -479,7 +492,13 @@ export function shouldIgnoreWatchEntry(
   p: string,
   isFile = false,
 ): boolean {
-  const relative = path.relative(cwd, path.resolve(cwd, p));
+  // Le verdict d'un fichier non-`.ts` ne dépend pas de la forme du chemin.
+  if (isFile && !p.endsWith(".ts")) return true;
+  // Relatif (le watcher) : `normalize` suffit — c'est ce que rendrait
+  // `relative(cwd, resolve(cwd, p))`, sans résoudre ni relativiser.
+  const relative = path.isAbsolute(p)
+    ? path.relative(cwd, p)
+    : path.normalize(p);
   // Hors du projet (`..`) : rien à dire, on laisse les autres règles trancher.
   return isIgnoredWatchPath(relative.startsWith("..") ? p : relative, isFile);
 }
@@ -744,6 +763,42 @@ export function readProjectName(cwd: string): string {
 }
 
 /**
+ * `true` si un fichier source SURVEILLÉ de `dir` (mêmes exclusions que le
+ * watch, cf {@link shouldIgnoreWatchEntry}) est plus récent que `since`.
+ *
+ * @param cwd - racine du projet, à laquelle les exclusions se rapportent.
+ * @param dir - dossier à parcourir.
+ * @param since - instant de référence (`mtimeMs` du `dist`).
+ * @returns `true` dès le premier fichier plus récent.
+ * @throws Si un dossier est illisible — l’appelant décide.
+ */
+export function hasWatchedSourceNewerThan(
+  cwd: string,
+  dir: string,
+  since: number,
+): boolean {
+  // Pile explicite : un dossier ignoré (`node_modules`, `dist`, `frontend`…)
+  // n'est jamais LU — une lecture récursive les matérialisait avant de filtrer.
+  const pending = [dir];
+  let current: string | undefined;
+  while ((current = pending.pop()) !== undefined) {
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const p = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        if (!shouldIgnoreWatchEntry(cwd, p)) pending.push(p);
+      } else if (
+        entry.isFile() &&
+        !shouldIgnoreWatchEntry(cwd, p, true) &&
+        statSync(p).mtimeMs > since
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * `true` si le `dist/index.js` de l'application est absent, bâti pour la
  * production (sans sourcemaps), ou plus ancien qu'une de ses sources : fichiers
  * racine (`index.ts`, `nodefony.config.ts`, `env.ts`) et sources de l'app sous
@@ -948,8 +1003,13 @@ export function runCapturedCommand(
     const kill = (): void => {
       if (p.pid !== undefined) signalProcessGroup(p.pid, "SIGKILL");
     };
-    const schedule = (ms: number): void => {
+    // Échéance du minuteur : une sortie qui arrive ne le réarme pas (`check`
+    // recalcule le silence au réveil) — sauf si elle RAPPROCHE l'échéance, ce que
+    // fait seul le bilan de turbo (borne de gel plus courte que l'inactivité).
+    let dueAt = 0;
+    const schedule = (ms: number, now: number): void => {
       if (idle) clearTimeout(idle);
+      dueAt = now + ms;
       idle = setTimeout(check, ms);
       idle.unref();
     };
@@ -988,11 +1048,14 @@ export function runCapturedCommand(
           1,
           Math.min(idleMs - silent, turboWatch?.remaining(now) ?? idleMs),
         ),
+        now,
       );
     }
-    const heard = (): void => {
-      lastOutputAt = Date.now();
-      schedule(Math.min(idleMs, turboWatch?.remaining(lastOutputAt) ?? idleMs));
+    const heard = (now: number): void => {
+      lastOutputAt = now;
+      if (turboWatch === null) return;
+      const remaining = turboWatch.remaining(now);
+      if (now + remaining < dueAt) schedule(Math.max(1, remaining), now);
     };
     const settle = (ok: boolean): void => {
       if (idle) clearTimeout(idle);
@@ -1008,18 +1071,22 @@ export function runCapturedCommand(
       if (frozen) resolve({ ok: frozen.code === 0, output });
       else resolve({ ok: ok && !stalled, output });
     };
-    schedule(idleMs);
-    p.stdout.on("data", (d: Buffer) => {
-      const text = d.toString();
+    schedule(idleMs, lastOutputAt);
+    // Décodage par flux : un caractère multi-octets (`✓`, `─` de rolldown) coupé
+    // entre deux morceaux se recolle, au lieu de devenir U+FFFD.
+    p.stdout.setEncoding("utf8");
+    p.stderr.setEncoding("utf8");
+    p.stdout.on("data", (text: string) => {
+      const now = Date.now();
       output += text;
-      turboWatch?.stdout(text, Date.now());
-      heard();
+      turboWatch?.stdout(text, now);
+      heard(now);
     });
-    p.stderr.on("data", (d: Buffer) => {
-      const text = d.toString();
+    p.stderr.on("data", (text: string) => {
+      const now = Date.now();
       // Le journal détaillé de turbo est gardé à part, jamais mêlé à la sortie.
-      output += turboWatch ? turboWatch.stderr(text, Date.now()) : text;
-      heard();
+      output += turboWatch ? turboWatch.stderr(text, now) : text;
+      heard(now);
     });
     p.once("exit", (code) => settle(code === 0));
     p.once("error", () => settle(false));
@@ -1884,19 +1951,8 @@ export class DevSupervisor {
         continue;
       }
       try {
-        const distMtime = statSync(dist).mtimeMs;
-        const newer = readdirSync(dir, {
-          withFileTypes: true,
-          recursive: true,
-        }).some((entry) => {
-          if (!entry.isFile() || !entry.name.endsWith(".ts")) return false;
-          const p = path.join(entry.parentPath, entry.name);
-          return (
-            !shouldIgnoreWatchEntry(this.#cwd, p, true) &&
-            statSync(p).mtimeMs > distMtime
-          );
-        });
-        if (newer) stale.push(rel);
+        if (hasWatchedSourceNewerThan(this.#cwd, dir, statSync(dist).mtimeMs))
+          stale.push(rel);
       } catch {
         // dossier illisible → ne bloque pas le démarrage
       }
@@ -2312,8 +2368,10 @@ export class DevSupervisor {
     //    tenait DÉJÀ au lancement en sont retirés : ils répondraient OUI sans
     //    rien devoir à notre enfant, et le démarrage s'annoncerait fini avant
     //    d'avoir commencé — sur l'adresse de quelqu'un d'autre, qui plus est.
-    const mine = this.#ports.filter((p) => !this.#preHeldPorts.has(p));
-    if (this.#ports.length === 0) return true;
+    // UNE lecture : le getter relit le state file à chaque appel.
+    const ports = this.#ports;
+    if (ports.length === 0) return true;
+    const mine = ports.filter((p) => !this.#preHeldPorts.has(p));
     if (mine.length === 0) return false;
     const states = await Promise.all(mine.map((p) => this.#isPortFree(p)));
     return states.some((free) => !free);
@@ -2408,11 +2466,17 @@ export class DevSupervisor {
    * cf {@link isIgnoredWatchPath}, la règle EXACTE, testée à part).
    */
   #startWatch(): void {
+    // `file` est déjà relatif au projet (cf `watchSources`). Une ligne par fichier
+    // NOUVEAU du cycle, plafonnée : un `git checkout` en compte des milliers, et
+    // chaque ligne traverse le terminal.
     this.#watcher = watchSources(this.#cwd, this.#paths, (file) => {
+      const pending = this.#cycle.mark(file);
+      if (pending === 0 || pending > WATCH_LOG_MAX + 1) return;
       this.#log(
-        `↻ changement : ${path.relative(this.#cwd, path.resolve(this.#cwd, file))}`,
+        pending <= WATCH_LOG_MAX
+          ? `↻ changement : ${file}`
+          : "↻ … d'autres changements, regroupés dans le même cycle",
       );
-      this.#cycle.mark(file);
     });
     attachWatcherErrorGuard(this.#watcher, (message) =>
       this.#log(message, "yellow"),
@@ -2654,20 +2718,31 @@ export class DevSupervisor {
   #resolvePackage(file: string): IWorkspaceInfo | null {
     const root = path.resolve(this.#cwd);
     let dir = path.dirname(path.resolve(this.#cwd, file));
+    // Dossiers traversés sans `package.json` : ils reçoivent le même verdict,
+    // sinon chaque fichier d'un dossier profond refait un `stat` par niveau.
+    let crossed: string[] | null = null;
+    let workspace: IWorkspaceInfo | null = null;
     for (;;) {
       const cached = this.#pkgCache.get(dir);
-      if (cached !== undefined) return cached;
+      if (cached !== undefined) {
+        workspace = cached;
+        break;
+      }
       const pj = path.join(dir, "package.json");
       if (existsSync(pj)) {
-        const workspace = dir === root ? null : readWorkspaceInfo(pj, dir);
+        workspace = dir === root ? null : readWorkspaceInfo(pj, dir);
         this.#pkgCache.set(dir, workspace);
-        return workspace;
+        break;
       }
-      if (dir === root) return null;
+      if (dir === root) break;
       const parent = path.dirname(dir);
-      if (parent === dir) return null;
+      if (parent === dir) break;
+      (crossed ??= []).push(dir);
       dir = parent;
     }
+    if (crossed !== null)
+      for (const d of crossed) this.#pkgCache.set(d, workspace);
+    return workspace;
   }
 
   /**

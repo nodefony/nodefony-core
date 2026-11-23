@@ -105,6 +105,45 @@ describe("RestartCycle — cycle de rechargement du superviseur", () => {
     assert.deepStrictEqual(fake.builds[0]?.files, ["a.ts", "b.ts"]);
   });
 
+  it("mark rend le nombre de fichiers en attente, et 0 pour un fichier déjà noté", () => {
+    const cycle = new RestartCycle(fakeSteps().steps, {
+      debounceMs: DEBOUNCE,
+      recheckMs: RECHECK,
+    });
+    assert.strictEqual(cycle.mark("a.ts"), 1);
+    assert.strictEqual(cycle.mark("a.ts"), 0);
+    assert.strictEqual(cycle.mark("b.ts"), 2);
+    cycle.cancel();
+  });
+
+  it("une rafale réarme UN SEUL minuteur, et le cycle part un anti-rebond après le DERNIER événement", async () => {
+    const fake = fakeSteps();
+    const cycle = new RestartCycle(fake.steps, {
+      debounceMs: DEBOUNCE,
+      recheckMs: RECHECK,
+    });
+    const armed = vi.spyOn(globalThis, "setTimeout");
+    for (let i = 0; i < 1000; i++) cycle.mark(`f${i % 10}.ts`);
+    assert.strictEqual(
+      armed.mock.calls.length,
+      1,
+      "réarmé en place, jamais recréé",
+    );
+    armed.mockRestore();
+    assert.strictEqual(vi.getTimerCount(), 1);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE - 1);
+    cycle.mark("f0.ts");
+    await vi.advanceTimersByTimeAsync(DEBOUNCE - 1);
+    assert.strictEqual(
+      fake.builds.length,
+      0,
+      "réarmé par le dernier événement",
+    );
+    await vi.advanceTimersByTimeAsync(1);
+    assert.strictEqual(fake.builds.length, 1);
+    assert.strictEqual(fake.builds[0]?.files.length, 10);
+  });
+
   it("une sauvegarde pendant l'ARRÊT du serveur ne lance pas un second cycle concurrent", async () => {
     const fake = fakeSteps();
     const cycle = new RestartCycle(fake.steps, {
