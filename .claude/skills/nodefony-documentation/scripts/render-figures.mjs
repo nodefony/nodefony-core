@@ -55,7 +55,13 @@ if (!pageArg) {
 }
 const page = path.resolve(pageArg);
 const rel = path.relative(REPO, page).split(path.sep).join("/");
-const slug = path.basename(page, ".md");
+// Une page hub (`<module>/docs/index.md`) est rendue AU dossier de son module
+// (`modules/<module>/index.html`), jamais dans un sous-dossier `index` : son nom
+// est alors celui du module qui porte le dossier `docs/`.
+const slug =
+  path.basename(page, ".md") === "index"
+    ? path.basename(path.dirname(path.dirname(page)))
+    : path.basename(page, ".md");
 const out = path.join(REPO, "tmp", "reports", `figures-${slug}`);
 mkdirSync(out, { recursive: true });
 
