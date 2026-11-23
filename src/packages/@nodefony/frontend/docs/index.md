@@ -751,9 +751,15 @@ et son manifeste — c'est ce qui rend le multi-modules possible et ce qui isole
 
 Quatre comportements à connaître :
 
-- **Idempotent.** Une entrée dont le manifeste est plus récent que ses sources est ignorée
-  (`isBuildFresh()`, `FrontendService.ts#FrontendService.isBuildFresh`) — le scan est borné au dossier front et saute
-  `node_modules`. Relancer un déploiement ne recompile pas tout.
+- **Idempotent.** Une entrée est ignorée quand son manifeste est plus récent que ses sources
+  ET que les versions de ce qui construit le bundle n'ont pas bougé depuis ce build
+  (`buildFingerprint.ts#judgeBuildFreshness`). Ces versions sont celles du cœur, de
+  `@nodefony/frontend`, de `vite` et des paquets déclarés par l'application. Elles sont
+  écrites au build dans `.vite/nodefony-build.json`, à côté du manifeste. Le scan des
+  sources est borné au dossier front et saute `node_modules`.
+  Après une montée du framework, l'entrée est donc reconstruite, et la commande dit
+  pourquoi (« framework passé de 10.0.2 à 10.0.3 »). Relancer un déploiement sans
+  changement ne recompile rien.
 - **Les échecs sont collectés, pas propagés.** Un bundle en échec n'arrête pas les autres ; la
   commande passe le code de sortie à `1` s'il en reste un — de quoi casser un pipeline sans masquer
   les autres résultats.

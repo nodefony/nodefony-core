@@ -37,11 +37,7 @@ class FrontendBuild extends Command {
     // lisait donc `opts.force` sur l'objet `command` (pas d'options en Commander
     // moderne) → `--force` silencieusement ignoré. `opts()` est fiable quel que soit
     // le nombre de positionnels.
-    const opts =
-      (
-        this.command as unknown as
-          { opts?: () => { force?: boolean } } | null | undefined
-      )?.opts?.() ?? {};
+    const opts = this.command.opts<{ force?: boolean }>();
     const svc = this.kernel?.container?.get("frontend") as
       FrontendService | undefined;
     if (!svc) {
@@ -84,12 +80,18 @@ class FrontendBuild extends Command {
     );
     try {
       const res = await svc.build({ force: opts.force });
-      if (res.built.length) {
-        console.log(`  ✓ construit(s) : ${res.built.join(", ")}`);
+      // Le POURQUOI de chaque verdict : un bundle reconstruit après une montée
+      // du framework doit le dire, et un « à jour » doit dire sur quoi il se fonde.
+      const why = (name: string): string => {
+        const reason = res.reasons?.[name];
+        return reason === undefined ? "" : ` — ${reason}`;
+      };
+      for (const name of res.built) {
+        console.log(`  ✓ construit    : ${name}${why(name)}`);
       }
       for (const name of res.skipped) {
         console.log(
-          `  • à jour       : ${name} (dernier build ${lastBuilt(name)}) — rien à faire`,
+          `  • à jour       : ${name} (dernier build ${lastBuilt(name)})${why(name)}`,
         );
       }
       for (const f of res.failures) {
