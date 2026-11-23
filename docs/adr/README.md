@@ -45,3 +45,4 @@ status: stable
 | [0027](0027-arret-en-deux-phases.md)                          | Arrêt de l'application — cesser de servir, puis libérer dans l'ordre inverse                  | accepted | 2026-11-14 |
 | [0028](0028-temoins-nommes-pages-performance.md)              | Pages de performance — les témoins sont nommés, dans le décor                                 | accepted | 2026-11-16 |
 | [0029](0029-travailler-en-demandes-de-fusion.md)              | Travailler en demandes de fusion — branches longues, maintenance et publication               | accepted | 2026-11-21 |
+| [0030](0030-services-portes-par-le-superviseur.md)            | Services portés par le superviseur de développement — un hôte, un plan, des états poussés     | accepted | 2026-11-23 |

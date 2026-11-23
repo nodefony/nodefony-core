@@ -387,7 +387,9 @@ class DevTerminal {
 - **`suspend` reste dû** : prévu dès la première version de ce paragraphe, il n'est toujours pas
   implémenté. Il arrive avec #538, qui en est le premier consommateur.
 - **Une mutation marque sa région** (§11), elle ne programme pas une image complète : `setStatus`
-  → la barre ; une ingestion → les vues qui montrent ce canal ; une frappe → l'invite. Le canal IPC reste le seul contrat superviseur ⇄ serveur
+  → la barre ; une ingestion → les vues qui montrent ce canal ; une frappe → l'invite.
+
+### 6. Le canal IPC reste le seul contrat superviseur ⇄ serveur
 
 `src/nodefony/src/service/dev/devChannel.ts`, union discriminée. Il gagne :
 
@@ -449,6 +451,10 @@ interface IDevCommandCancel {
 - Repli par phase : serveur en build ou en démarrage → attente bornée et annulable ; enfant mort
   → requêtes en vol rejetées ; `crashed` → la voie sous-processus (§7).
 - Les LIGNES du journal ne passent toujours pas par l'IPC : la règle ci-dessus tient.
+- **Services portés par le superviseur (#692)** : le canal gagne `held-plan` (serveur →
+  superviseur, l'état voulu des services d'un propriétaire), `held-plan-ack` et `held-state`
+  (superviseur → serveur). Contrat, remparts et branchement d'un backend d'inférence :
+  [ADR-0030](0030-services-portes-par-le-superviseur.md).
 
 ### 7. Une action d'invite — le contrat que partagent commandes et assistant
 
