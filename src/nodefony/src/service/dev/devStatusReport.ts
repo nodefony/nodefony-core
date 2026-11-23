@@ -30,6 +30,7 @@ import {
   type PortState,
   type RuntimeMode,
 } from "./devProcess";
+import { ANSI } from "./ansi";
 import { buildProjectTable, type IProjectRuntime } from "./devProjects";
 import { probeReadiness, type IReadinessProbe } from "./bootVerdict";
 import { runStopReport } from "./devStop";
@@ -53,16 +54,6 @@ import {
  * trunk requise → exécutable depuis N'IMPORTE OÙ (cf le fast-path « standalone » de
  * `CliKernel.start`). Cohérent avec le choix no-IPC du superviseur (observation externe).
  */
-
-const ANSI = {
-  dim: "\x1b[90m",
-  cyan: "\x1b[36m",
-  green: "\x1b[32m",
-  red: "\x1b[31m",
-  yellow: "\x1b[33m",
-  bold: "\x1b[1m",
-  reset: "\x1b[0m",
-};
 
 /** Commandes « système » exécutables SANS boot kernel ni trunk (outillage process). */
 const STANDALONE_DEV_COMMANDS = new Set<string>(["status", "stop"]);

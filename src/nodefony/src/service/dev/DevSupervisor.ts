@@ -11,6 +11,7 @@ import {
   type WatchEventType,
 } from "node:fs";
 import { EventEmitter } from "node:events";
+import { setTimeout as delay } from "node:timers/promises";
 import { createRequire } from "node:module";
 import { Nodefony } from "../../Nodefony";
 import path from "node:path";
@@ -79,9 +80,11 @@ import {
   signalProcessGroup,
   waitGroupDead,
   terminateDevProcesses,
+  waitPortsFree,
 } from "./devProcess";
 import { installShutdownSignals } from "./shutdownSignals";
 import { RestartCycle } from "./restartCycle";
+import { ANSI } from "./ansi";
 import {
   describeTurboFreeze,
   TurboFreezeWatch,
@@ -108,15 +111,6 @@ export interface DevSupervisorOptions {
    */
   readonly ports?: readonly number[];
 }
-
-const ANSI = {
-  dim: "\x1b[90m",
-  cyan: "\x1b[36m",
-  green: "\x1b[32m",
-  red: "\x1b[31m",
-  yellow: "\x1b[33m",
-  reset: "\x1b[0m",
-};
 
 /**
  * Arguments du build de l'application en DÉVELOPPEMENT — le `rolldown -c` de
@@ -708,9 +702,6 @@ const SWAP_SETTLE_MAX_MS = 10000;
  * (anti-pattern « au loup », l'inverse du but de la sonde).
  */
 const DEGRADED_SETTLE_MS = 5000;
-
-const delay = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Ne garde, d'une sortie turbo en échec, que les lignes des tâches qui ont
@@ -2833,22 +2824,17 @@ export class DevSupervisor {
     this.#preHeldPorts.clear();
     const mine = this.#ports.filter((p) => !this.#foreignHeldPorts.has(p));
     if (mine.length === 0) return;
-    const deadline = Date.now() + timeoutMs;
-    for (;;) {
-      const states = await Promise.all(mine.map((p) => this.#isPortFree(p)));
-      if (states.every(Boolean)) return;
-      if (Date.now() >= deadline) {
-        const busy = mine.filter((_, i) => !states[i]);
-        // Ce qui écoute ici n'est PAS notre enfant : il n'est pas encore lancé.
-        for (const p of busy) this.#preHeldPorts.add(p);
-        this.#log(
-          `ports encore occupés après ${timeoutMs}ms : ${busy.join(", ")} — relance quand même`,
-          "yellow",
-        );
-        return;
-      }
-      await delay(120);
+    const busy: number[] = [];
+    for (const s of await waitPortsFree(mine, timeoutMs)) {
+      if (s.listening) busy.push(s.port);
     }
+    if (busy.length === 0) return;
+    // Ce qui écoute ici n'est PAS notre enfant : il n'est pas encore lancé.
+    for (const p of busy) this.#preHeldPorts.add(p);
+    this.#log(
+      `ports encore occupés après ${timeoutMs}ms : ${busy.join(", ")} — relance quand même`,
+      "yellow",
+    );
   }
 
   /** Arrête le superviseur : ferme le watcher, tue le groupe, libère le verrou. */

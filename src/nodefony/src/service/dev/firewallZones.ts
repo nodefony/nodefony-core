@@ -6,6 +6,7 @@
  * le détail du bilan (tableau des zones) et le point d'attention « routes
  * métier publiques » (déclaré par `@nodefony/security`) l'appellent tous deux.
  */
+import { ANSI } from "./ansi";
 
 /**
  * Vue minimale d'une zone du firewall (`firewall.describe().zones`), résolue
@@ -64,10 +65,10 @@ export function renderZoneTable(
     ...zones.map((z) => cleanZonePattern(z.pattern).length),
   );
   const authW = Math.max(4, ...zones.map((z) => authOf(z).length));
-  const GREEN = "\x1b[32m";
-  const YELLOW = "\x1b[33m";
-  const DIM = "\x1b[2m";
-  const RESET = "\x1b[0m";
+  const GREEN = ANSI.green;
+  const YELLOW = ANSI.yellow;
+  const DIM = ANSI.faint;
+  const RESET = ANSI.reset;
   lines.push(
     `${DIM}${indent}${"ZONE".padEnd(nameW)}  ${"MODULE".padEnd(modW)}  ${"PATTERN".padEnd(patW)}  ${"AUTH".padEnd(authW)}  ACCÈS${RESET}`,
     `${DIM}${indent}${"─".repeat(nameW + modW + patW + authW + 13)}${RESET}`,

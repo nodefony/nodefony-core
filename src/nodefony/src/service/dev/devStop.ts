@@ -17,12 +17,14 @@ import {
   readRuntimeState,
   splitByProject,
   terminateDevProcesses,
+  waitPortsFree,
   type DevObservationDeps,
   type DevProcessInfo,
   type DevProcessWithCwd,
   type PortState,
   type RuntimeMode,
 } from "./devProcess";
+import { ANSI } from "./ansi";
 import {
   buildProjectTable,
   formatProjectTable,
@@ -55,37 +57,10 @@ function runtimeLabel(mode: RuntimeMode | null): string {
   return "runtime";
 }
 
-const ANSI = {
-  dim: "\x1b[90m",
-  green: "\x1b[32m",
-  red: "\x1b[31m",
-  yellow: "\x1b[33m",
-  bold: "\x1b[1m",
-  reset: "\x1b[0m",
-};
-
 /** Délai d'arrêt gracieux (SIGTERM) avant d'escalader en SIGKILL. */
 const TERM_WAIT_MS = 4000;
 /** Délai max d'attente de libération des ports après le kill. */
 const PORTS_WAIT_MS = 4000;
-
-const delay = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
-/** Attend que tous les `ports` soient libres (poll), renvoie le dernier état sondé. */
-async function waitPortsFree(
-  ports: readonly number[],
-  timeoutMs: number,
-  probe: (ports: readonly number[]) => Promise<PortState[]> = probePorts,
-): Promise<PortState[]> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const states = await probe(ports);
-    if (states.every((s) => !s.listening)) return states;
-    if (Date.now() >= deadline) return states;
-    await delay(150);
-  }
-}
 
 /**
  * Ligne d'état des ports après (ou faute d') arrêt.

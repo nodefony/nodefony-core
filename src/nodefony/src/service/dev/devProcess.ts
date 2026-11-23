@@ -1,5 +1,6 @@
 import { execFile, spawnSync } from "node:child_process";
 import { readlink } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   existsSync,
   mkdirSync,
@@ -1101,10 +1102,6 @@ export function clearSupervisorPidFile(cwd: string): void {
   }
 }
 
-/** Petite pause (poll/backoff des boucles d'attente). */
-const delay = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
 /**
  * Le sous-arbre d'un process : lui-même s'il est observé, et tous ses descendants.
  *
@@ -1720,6 +1717,34 @@ export async function probePorts(
       listening: await isPortListening(port),
     })),
   );
+}
+
+/** Intervalle de re-sonde pendant l'attente de libération des ports (ms). */
+const PORTS_FREE_POLL_MS = 120;
+
+/**
+ * Attend que plus rien n'écoute sur `ports`, ou l'échéance — la seule attente de
+ * libération des outils de développement (`nodefony stop`, relance par le
+ * superviseur).
+ *
+ * @param ports - ports à voir se libérer.
+ * @param timeoutMs - échéance.
+ * @param probe - sonde des ports (défaut {@link probePorts}), injectable en test.
+ * @returns le DERNIER état sondé : tout libre, ou ce qui écoute encore à l'échéance.
+ */
+export async function waitPortsFree(
+  ports: readonly number[],
+  timeoutMs: number,
+  probe: (ports: readonly number[]) => Promise<PortState[]> = probePorts,
+): Promise<PortState[]> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const states = await probe(ports);
+    if (states.every((s) => !s.listening) || Date.now() >= deadline) {
+      return states;
+    }
+    await delay(PORTS_FREE_POLL_MS);
+  }
 }
 
 /** Convertit le champ `etime` de `ps` (`[[DD-]HH:]MM:SS`) en secondes. */

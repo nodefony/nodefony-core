@@ -41,6 +41,7 @@ import {
   parseTasklistImage,
   processSubtree,
   signalProcessGroup,
+  isTcpPort,
   parseLsofCwd,
   processCwd,
   processCwds,
@@ -856,6 +857,15 @@ describe("splitByProject — plusieurs apps Nodefony sur le même poste", () => 
       assert.strictEqual(path.resolve(cwd), path.resolve(process.cwd()));
     }
   }, 30_000);
+
+  it("isTcpPort : 1..65535 entiers, rien d'autre", () => {
+    assert.deepStrictEqual(
+      [1, 5151, 65535, 0, 65536, -1, 1.5, Number.NaN, "5151", null].map(
+        isTcpPort,
+      ),
+      [true, true, true, false, false, false, false, false, false, false],
+    );
+  });
 
   it("parseLsofCwd : un `p<pid>` ouvre un process, le `n<chemin>` qui suit est SON répertoire", () => {
     const out = [

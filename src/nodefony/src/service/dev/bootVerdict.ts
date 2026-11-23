@@ -1,4 +1,5 @@
 import http from "node:http";
+import { isTcpPort } from "./devProcess";
 
 /**
  * Le verdict de boot d'un runtime, OBSERVÉ DE L'EXTÉRIEUR — une seule implémentation.
@@ -53,7 +54,7 @@ export function probeBootDegraded(
   // reste de la cible est en dur (boucle locale, chemin fixe), mais une valeur
   // hors bornes n'aurait de toute façon aucun sens : la refuser ici évite qu'un
   // fichier corrompu fasse frapper un port arbitraire de la machine.
-  if (!port || !Number.isInteger(port) || port < 1 || port > 65535) {
+  if (!isTcpPort(port)) {
     return Promise.resolve("unreachable");
   }
   const fetchLivez = deps.fetchLivez ?? httpGetLivez;
@@ -180,7 +181,7 @@ export function probeReadiness(
     readonly fetchLivez?: (port: number) => Promise<string | null>;
   } = {},
 ): Promise<IReadinessProbe | null> {
-  if (!port || !Number.isInteger(port) || port < 1 || port > 65535) {
+  if (!isTcpPort(port)) {
     return Promise.resolve(null);
   }
   const fetchLivez = deps.fetchLivez ?? httpGetLivez;
