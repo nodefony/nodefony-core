@@ -1061,6 +1061,10 @@ export {
   // hors du cœur (Vite et son service esbuild) : la recopier ailleurs ferait
   // réapparaître, dans le paquet suivant, l'angle mort qu'on vient de fermer ici.
   signalProcessGroup,
+  // Préfixe du titre des hôtes Vite : `nodefony status`/`stop` le reconnaissent
+  // en tête de ligne `ps`. Exposé pour que `@nodefony/frontend` compose le titre
+  // sur LA constante, jamais sur une copie du littéral.
+  DEV_VITE_PREFIX,
   // Sonde « quelqu'un écoute-t-il ici ? » — une connexion en boucle locale, donc
   // AUCUN outil système. Exposée pour la même raison que le kill d'arbre : hors du
   // cœur, la question se repose (un banc qui attend un serveur, une app qui vérifie

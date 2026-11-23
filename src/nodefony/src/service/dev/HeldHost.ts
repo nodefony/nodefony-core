@@ -59,7 +59,11 @@ export interface IHeldHostOptions {
   readonly execArgv?: readonly string[];
   /** Délai pour que l'hôte rapporte `ready` (défaut 30 000). */
   readonly startupTimeoutMs?: number;
-  /** Relances après un plantage, au-delà → `errored` (défaut 5). */
+  /**
+   * Relances après des plantages EN RAFALE, au-delà → `errored` (défaut 5). Le
+   * compte revient à zéro dès qu'une preuve de vie arrive à l'heure sur un
+   * hôte prêt — sans preuve de vie (`livenessIntervalMs: 0`), il ne revient pas.
+   */
   readonly maxRestarts?: number;
   /** Recul de relance exponentiel : base et plafond (défauts 500 / 8 000). */
   readonly restartBackoffBaseMs?: number;
@@ -356,6 +360,15 @@ export class HeldHost {
         performance.now() - this.#pingSentAt >
         (this.#opts.livenessTimeoutMs ?? 5_000);
       this.#missed = late ? this.#missed + 1 : 0;
+      // Une preuve de vie à l'heure, hôte prêt : un intervalle entier a été
+      // VÉCU depuis la relance. Le budget de relances est rendu — il ne doit
+      // compter que les plantages en RAFALE (une boucle), jamais la vie
+      // entière : cinq plantages épars sur une longue session condamnaient
+      // sinon le service en `errored`, sans relance possible.
+      if (!late && this.#state === "ready" && this.#restartCount > 0) {
+        this.#restartCount = 0;
+        this.#publish();
+      }
       return;
     }
     if (message.state === "ready") {

@@ -3,6 +3,8 @@
  * process : l'hôte de fixture (`fixtures/held/host.mjs`) joue chaque scénario.
  */
 import { fork } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -143,6 +145,28 @@ describe("HeldHost — plantages et preuve de vie", () => {
     const s = await until(host, (x) => x.state === "errored");
     expect(s.restartCount).to.equal(1);
     expect(s.lastError).to.contain("max restarts (1)");
+  });
+
+  it("une preuve de vie à l'heure après une relance rend le budget de relances", async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "nf-held-"));
+    try {
+      const { host } = makeHost("crash-once", {
+        spec: { mode: "crash-once", marker: path.join(dir, "crashed") },
+        livenessIntervalMs: 60,
+        livenessTimeoutMs: 1_000,
+        maxRestarts: 5,
+      });
+      await host.start();
+      await until(host, (s) => s.state === "ready" && s.restartCount === 1);
+      // Stable depuis : le compte ne doit plus porter le plantage passé.
+      const rearmed = await until(
+        host,
+        (s) => s.state === "ready" && s.restartCount === 0,
+      );
+      expect(rearmed.lastError).to.match(/exited/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("une boucle d'évènements gelée est détectée par la preuve de vie, l'hôte tué et relancé", async () => {

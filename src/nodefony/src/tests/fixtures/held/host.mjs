@@ -1,5 +1,6 @@
 // Hôte de fixture (ADR-0030) : joue le scénario nommé par `spec.mode`.
 // Fichier .mjs non typé ; il charge le canal SOURCE (dépouillement des types de Node).
+import { existsSync, writeFileSync } from "node:fs";
 import { serveHeldService } from "../../../service/dev/heldChannel.ts";
 
 let deaf = false;
@@ -18,6 +19,11 @@ serveHeldService({
       process.stderr.write("erreur\n");
     }
     if (mode === "crash-after-ready") {
+      setTimeout(() => process.exit(3), 80).unref();
+    }
+    // Plante UNE fois (le témoin survit au process), puis reste sain.
+    if (mode === "crash-once" && !existsSync(spec.marker)) {
+      writeFileSync(spec.marker, "1");
       setTimeout(() => process.exit(3), 80).unref();
     }
     if (mode === "freeze-after-ready") {
