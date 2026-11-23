@@ -237,15 +237,86 @@ function isPortOpen(port: number, timeoutMs = 500): Promise<boolean> {
 }
 
 /**
- * Saute le cas quand le serveur de dev du dépôt tourne déjà : le child
- * échouerait sur EADDRINUSE, et le `stop` de son nettoyage arrêterait le
- * serveur du développeur — vécu, un serveur profilé tué en pleine passe.
+ * Ports qu'un boot `production` ouvre : HTTP ET HTTPS. La garde les sonde
+ * TOUS — un serveur tiers qui ne tient que le second faisait partir le bloc,
+ * puis échouer trois tests en EADDRINUSE imputés au diff en cours (#387).
  */
-async function skipIfDevServerUp(ctx: {
-  skip(note?: string): void;
-}): Promise<void> {
-  if (await isPortOpen(HTTP_PORT)) ctx.skip("serveur de dev déjà levé");
+const BOOT_PORTS: readonly number[] = [HTTP_PORT, HTTPS_PORT];
+
+/** Le saut s'annonce UNE fois par fichier : sinon N lignes identiques. */
+let bootSkipAnnounced = false;
+
+/**
+ * Fabrique la garde d'un bloc de boot réel : saute le cas dès qu'un des ports
+ * est déjà tenu. Le child échouerait sur EADDRINUSE, et le `stop` de son
+ * nettoyage arrêterait le serveur du développeur — vécu, un serveur profilé
+ * tué en pleine passe. Le saut reste un vert : la note nomme le port, et
+ * `announce` le dit hors du rapport de test.
+ *
+ * @param ports - ports que le boot ouvrira
+ * @param announce - reçoit la note de chaque saut
+ * @returns le crochet `beforeEach`
+ */
+function skipIfPortsBusy(
+  ports: readonly number[],
+  announce: (note: string) => void,
+): (ctx: { skip(note?: string): void }) => Promise<void> {
+  return async (ctx) => {
+    const open = await Promise.all(ports.map((port) => isPortOpen(port)));
+    const busy = ports.filter((_, i) => open[i]);
+    if (busy.length === 0) return;
+    const note = `port ${busy.join(", ")} déjà occupé — boot réel NON exercé`;
+    announce(note);
+    ctx.skip(note);
+  };
 }
+
+const skipIfDevServerUp = skipIfPortsBusy(BOOT_PORTS, (note) => {
+  if (bootSkipAnnounced) return;
+  bootSkipAnnounced = true;
+  process.stderr.write(`⚠️ CliIntegration : ${note}\n`);
+});
+
+/** Écoute sur un port éphémère de la boucle locale et rend ce port. */
+async function listenEphemeral(): Promise<{
+  server: ReturnType<typeof createServer>;
+  port: number;
+}> {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error("adresse d'écoute inattendue");
+  }
+  return { server, port: address.port };
+}
+
+// La garde ne demande ni dist ni boot : elle se prouve à CHAQUE passe, dans
+// les deux sens — un port tenu fait sauter, le même port libéré laisse partir.
+describe("CLI integration — garde des ports du boot réel (#387)", () => {
+  it("saute dès qu'UN des ports est tenu, le nomme, puis laisse partir une fois libéré", async () => {
+    const free = await listenEphemeral();
+    await new Promise<void>((resolve) => free.server.close(() => resolve()));
+    const held = await listenEphemeral();
+    const notes: string[] = [];
+    const announced: string[] = [];
+    const ctx = { skip: (note?: string) => void notes.push(note ?? "") };
+    const guard = skipIfPortsBusy([free.port, held.port], (note) =>
+      announced.push(note),
+    );
+    const expected = `port ${held.port} déjà occupé — boot réel NON exercé`;
+    try {
+      await guard(ctx);
+      assert.deepStrictEqual(notes, [expected]);
+      assert.deepStrictEqual(announced, [expected]);
+    } finally {
+      await new Promise<void>((resolve) => held.server.close(() => resolve()));
+    }
+    notes.length = 0;
+    await guard(ctx);
+    assert.deepStrictEqual(notes, []);
+  });
+});
 
 /** Compte les lignes non vides du trace file (1 ligne = 1 `new Kernel()`). */
 function countKernelBoots(traceFile: string): number {
