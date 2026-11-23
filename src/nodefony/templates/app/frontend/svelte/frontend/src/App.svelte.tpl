@@ -247,9 +247,9 @@
               </p>
             {/if}
             <p>
-              {#each card.text as part, i (i)}{#if part.code}<code
-                    >{part.text}</code
-                  >{:else}{part.text}{/if}{/each}
+              {#each card.text as part, i (i)}
+                {#if part.code}<code>{part.text}</code>{:else}{part.text}{/if}
+              {/each}
             </p>
             {#if card.go}<span class="nf-go">{card.go}</span>{/if}
             {#if card.skins}

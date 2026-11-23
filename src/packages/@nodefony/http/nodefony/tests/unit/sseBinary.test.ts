@@ -55,32 +55,30 @@ describe("SseStream.send — des octets sont refusés, pas déformés", () => {
 });
 
 /**
- * Une écriture rend TOUJOURS une promesse — jamais `undefined` : un envoi
- * « tire et oublie » s'écrit `void sse.send(d)`, sans `?.catch`. Retour d'une
- * application réelle (TS2532 à chaque appel). La promesse d'une écriture
- * acceptée est PARTAGÉE : aucune allocation par événement.
+ * Le retour d'une écriture EST le signal de contre-pression : `undefined`
+ * quand elle passe, une promesse (jamais rejetée) quand le client est en
+ * retard. Un consommateur s'en sert pour jeter plutôt qu'empiler
+ * (`LiveSyslogController.stream`) — une promesse rendue à chaque envoi lui
+ * faisait jeter une rafale entière (#890, rattrapé par la CI).
  */
-describe("SseStream — une écriture rend toujours une promesse", () => {
-  it("écriture acceptée : la même promesse résolue, partagée", async () => {
-    const { sse } = open();
-    const first = sse.send("un");
-    const second = sse.comment("deux");
-    const third = sse.retry(1000);
-    expect(first).to.be.instanceOf(Promise);
-    expect(second).to.equal(first);
-    expect(third).to.equal(first);
-    await expect(first).resolves.toBeUndefined();
+describe("SseStream — undefined si l'écriture passe, une promesse sous contre-pression", () => {
+  it("🔴 écriture acceptée ou flux fermé : undefined, aucune allocation", () => {
+    const { sse, response } = open();
+    expect(sse.send("un")).to.equal(undefined);
+    expect(sse.comment("deux")).to.equal(undefined);
+    expect(sse.retry(1000)).to.equal(undefined);
+    response.emit("close");
+    expect(sse.send("trop tard")).to.equal(undefined);
   });
 
-  it("flux fermé (client parti) : encore une promesse, résolue, rien d'écrit", async () => {
+  it("🔴 tampon plein : une promesse, PARTAGÉE, réglée au drain, jamais rejetée", async () => {
     const { sse, response } = open();
-    response.emit("close");
-    expect(sse.closed).to.equal(true);
-    const before = response.writableLength;
-    const late = sse.send("trop tard");
-    expect(late).to.be.instanceOf(Promise);
-    await expect(late).resolves.toBeUndefined();
-    expect(response.writableLength).to.equal(before);
-    expect(sse.close()).to.be.instanceOf(Promise);
+    response.write = () => false;
+    const first = sse.send("un");
+    const second = sse.send("deux");
+    expect(first).to.be.instanceOf(Promise);
+    expect(second).to.equal(first);
+    response.emit("drain");
+    await expect(first).resolves.toBeUndefined();
   });
 });
