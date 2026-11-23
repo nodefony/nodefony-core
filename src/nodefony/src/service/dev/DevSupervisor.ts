@@ -51,6 +51,7 @@ import {
   listenToServer,
   sendToServer,
 } from "./devChannel";
+import { HeldServiceRegistry } from "./heldServices";
 import {
   DevTerminal,
   probeTerminal,
@@ -1170,6 +1171,12 @@ export class DevSupervisor {
    */
   #terminal: DevTerminal | null = null;
   /**
+   * Les services de longue durée que le serveur demande de PORTER (Vite,
+   * demain un serveur d'inférence — ADR-0030) : ils survivent à ses
+   * redémarrages. `null` tant qu'aucun plan n'est arrivé.
+   */
+  #held: HeldServiceRegistry | null = null;
+  /**
    * Le serveur tourne-t-il en `--debug` ? Alors il ne rend pas de bilan, et le
    * superviseur annonce lui-même qu'il est prêt.
    */
@@ -2168,6 +2175,34 @@ export class DevSupervisor {
     await delay(200);
   }
 
+  /**
+   * Le registre des services portés, créé au premier plan. Ses états vont
+   * au serveur COURANT, sa sortie au terminal (source `held`), ou telle
+   * quelle sur la sortie du superviseur hors rendu humain — là où le serveur,
+   * qui hérite alors du terminal, l'aurait écrite.
+   *
+   * @returns le registre.
+   */
+  #heldServices(): HeldServiceRegistry {
+    this.#held ??= new HeldServiceRegistry({
+      baseEnv: process.env,
+      onState: (owner, status) => {
+        sendToServer(this.#child, {
+          channel: DEV_CHANNEL,
+          type: "held-state",
+          owner,
+          status,
+        });
+      },
+      onOutput: (_key, stream, lines) => {
+        const terminal = this.#terminal;
+        if (terminal) terminal.ingest("held", stream, lines);
+        else (stream === "err" ? process.stderr : process.stdout).write(lines);
+      },
+    });
+    return this.#held;
+  }
+
   /** (Re)lance le serveur enfant — même commande + flag enfant, en leader de groupe. */
   #spawnChild(reload = false): void {
     this.#childSpawnedAt = Date.now();
@@ -2220,26 +2255,31 @@ export class DevSupervisor {
       },
     );
     this.#child = child;
-    if (terminal) {
-      relayServerOutput(child, terminal);
-      listenToServer(child, (message) => {
-        if (message.type === "status-view" && this.#child === child) {
+    if (terminal) relayServerOutput(child, terminal);
+    // Écouté dans TOUS les rendus : un plan de services portés n'a rien à voir
+    // avec le terminal, et le serveur attend son acquittement.
+    listenToServer(child, (message) => {
+      if (this.#child !== child) return;
+      if (message.type === "held-plan") {
+        sendToServer(child, this.#heldServices().apply(message));
+      } else if (terminal) {
+        if (message.type === "status-view") {
           terminal.setStatus(message.view, message.context, "ready");
-        } else if (message.type === "runtime" && this.#child === child) {
+        } else if (message.type === "runtime") {
           terminal.setRuntime({
             rssBytes: message.rssBytes,
             cpuPercent: message.cpuPercent,
             eluPercent: message.eluPercent,
           });
-        } else if (message.type === "boot-step" && this.#child === child) {
+        } else if (message.type === "boot-step") {
           // Le cycle du noyau, suivi en direct dans la barre.
           terminal.setActivity(message.step, {
             done: message.done,
             total: message.total,
           });
         }
-      });
-    }
+      }
+    });
     onServerEnded(child, (code, signal) => {
       terminal?.flush("server");
       // Restart sollicité : `#killChild` a déjà mis `#child` à null avant l'exit.
@@ -2249,9 +2289,9 @@ export class DevSupervisor {
       terminal?.setPhase("crashed");
       this.#onChildCrash(code, signal);
     });
-    // Confirme « framework ready » par OBSERVATION EXTERNE (sonde de ports), JAMAIS
-    // par IPC (choix acté : le superviseur n'a aucun canal vers l'enfant — il
-    // l'observe via le code de sortie + l'écoute des ports). Non bloquant.
+    // Confirme « framework ready » par OBSERVATION EXTERNE (sonde de ports),
+    // jamais sur la parole du serveur : un serveur qui se dit prêt sans écouter
+    // ne l'est pas. Non bloquant.
     void this.#reportReady(child);
   }
 
@@ -2849,7 +2889,9 @@ export class DevSupervisor {
     this.#watcher?.close();
     this.#terminal?.setPhase("restarting");
     await this.#killBuild();
-    await this.#killChild();
+    // Le serveur et les services portés s'arrêtent ensemble : ce sont des
+    // arbres distincts, et chacun attend la mort effective du sien.
+    await Promise.all([this.#killChild(), this.#held?.stopAll()]);
     this.#terminal?.close();
     this.#releaseLock();
     process.exit(0);
@@ -2883,6 +2925,7 @@ export class DevSupervisor {
     if (this.#buildChild !== null) {
       this.#signalGroup(this.#buildChild, "SIGKILL");
     }
+    this.#held?.killAll();
     this.#terminal?.close();
     this.#releaseLock();
     process.exit(130);

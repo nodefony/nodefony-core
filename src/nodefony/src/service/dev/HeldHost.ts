@@ -7,56 +7,27 @@ import {
 } from "./devProcess";
 import {
   HELD_CHANNEL,
+  IGNORE_SEND_ERROR,
   isHeldHostMessage,
   type HeldHolderMessage,
   type HeldHostMessage,
+  type HeldHostState,
   type HeldJsonObject,
+  type IHeldHostStatus,
 } from "./heldChannel";
 
-/** L'état d'un hôte, vu par son teneur. */
-export type HeldHostState =
-  | "idle"
-  | "starting"
-  | "ready"
-  | "restarting"
-  | "crashed"
-  | "errored"
-  | "stopping"
-  | "stopped";
-
-/**
- * Instantané de l'état d'un hôte — figé, remplacé en bloc à chaque changement :
- * le lire ne coûte ni allocation ni appel (ADR-0030 §D5).
- */
-export interface IHeldHostStatus {
-  readonly key: string;
-  readonly state: HeldHostState;
-  readonly pid: number | null;
-  /** La donnée rapportée par l'hôte prêt (adresse, port…), sinon `null`. */
-  readonly data: HeldJsonObject | null;
-  readonly lastError: string | null;
-  readonly restartCount: number;
-}
+export type { HeldHostState, IHeldHostStatus };
 
 /** Le flux d'origine d'une sortie d'hôte. */
 export type HeldOutputStream = "out" | "err";
 
-/** Options d'un {@link HeldHost}. Les durées sont en millisecondes. */
-export interface IHeldHostOptions {
-  /** Identifiant stable du service (`vite:default`, `llm:mistral`). */
-  readonly key: string;
-  /** Chemin ABSOLU du module hôte, lancé par `fork`. */
-  readonly module: string;
-  /** Ce que l'hôte reçoit à son démarrage (`IHeldStart.spec`). */
-  readonly spec: HeldJsonObject;
-  readonly cwd: string;
-  /**
-   * Environnement de l'hôte. `NF_DEV_CHILD` en est TOUJOURS retiré : l'hôte
-   * se croirait sinon le serveur enfant du superviseur (ADR-0030 §D6).
-   */
-  readonly env: NodeJS.ProcessEnv;
-  /** Drapeaux `node` de l'hôte ; aucun par défaut (jamais l'`--inspect` du teneur). */
-  readonly execArgv?: readonly string[];
+/**
+ * Le réglage du cycle d'un hôte — délais, relances, preuve de vie. Partagé
+ * tel quel par le plan qu'un serveur déclare à son superviseur
+ * (`devChannel.ts#IHeldServiceDeclaration`) : une seule liste de réglages.
+ * Les durées sont en millisecondes.
+ */
+export interface IHeldHostTuning {
   /** Délai pour que l'hôte rapporte `ready` (défaut 30 000). */
   readonly startupTimeoutMs?: number;
   /**
@@ -76,6 +47,24 @@ export interface IHeldHostOptions {
   readonly livenessMissedLimit?: number;
   /** Délai laissé à l'hôte pour sortir après `stop`, puis l'arbre est tué (défaut 3 000). */
   readonly stopGraceMs?: number;
+}
+
+/** Options d'un {@link HeldHost}. */
+export interface IHeldHostOptions extends IHeldHostTuning {
+  /** Identifiant stable du service (`vite:default`, `llm:mistral`). */
+  readonly key: string;
+  /** Chemin ABSOLU du module hôte, lancé par `fork`. */
+  readonly module: string;
+  /** Ce que l'hôte reçoit à son démarrage (`IHeldStart.spec`). */
+  readonly spec: HeldJsonObject;
+  readonly cwd: string;
+  /**
+   * Environnement de l'hôte. `NF_DEV_CHILD` en est TOUJOURS retiré : l'hôte
+   * se croirait sinon le serveur enfant du superviseur (ADR-0030 §D6).
+   */
+  readonly env: NodeJS.ProcessEnv;
+  /** Drapeaux `node` de l'hôte ; aucun par défaut (jamais l'`--inspect` du teneur). */
+  readonly execArgv?: readonly string[];
   /**
    * Reçoit la sortie de l'hôte par LIGNES COMPLÈTES (fin `\n` comprise) — une
    * ligne n'est jamais coupée entre deux appels, si bien que plusieurs hôtes
@@ -463,7 +452,7 @@ export class HeldHost {
   #send(child: ChildProcess, msg: HeldHolderMessage): void {
     if (!child.connected) return;
     try {
-      child.send(msg);
+      child.send(msg, IGNORE_SEND_ERROR);
     } catch {
       // canal en cours de fermeture : la sortie suivra
     }

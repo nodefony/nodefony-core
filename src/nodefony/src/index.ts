@@ -1098,7 +1098,17 @@ export type {
   HeldOutputStream,
   IHeldHostOptions,
   IHeldHostStatus,
+  IHeldHostTuning,
 } from "./service/dev/HeldHost";
+// Le plan qu'un serveur déclare à son superviseur pour lui faire PORTER ses
+// services (ADR-0030 §D3-§D5) — envoyé par `kernel.supervisorLink`.
+export { DEV_CHANNEL, heldPlanProblem } from "./service/dev/devChannel";
+export type {
+  IDevHeldPlan,
+  IDevHeldPlanAck,
+  IDevHeldState,
+  IHeldServiceDeclaration,
+} from "./service/dev/devChannel";
 export {
   HELD_CHANNEL,
   isHeldHostMessage,

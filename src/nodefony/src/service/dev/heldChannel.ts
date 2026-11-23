@@ -32,6 +32,55 @@ export type HeldJson =
 /** Un objet JSON — la forme d'une spécification ou d'une donnée d'état. */
 export type HeldJsonObject = { readonly [key: string]: HeldJson };
 
+/** L'état d'un hôte, vu par son teneur. */
+export type HeldHostState =
+  | "idle"
+  | "starting"
+  | "ready"
+  | "restarting"
+  | "crashed"
+  | "errored"
+  | "stopping"
+  | "stopped";
+
+/** Les états connus — la seule liste que les gardes consultent. */
+export const HELD_HOST_STATES: ReadonlySet<string> = new Set<HeldHostState>([
+  "idle",
+  "starting",
+  "ready",
+  "restarting",
+  "crashed",
+  "errored",
+  "stopping",
+  "stopped",
+]);
+
+/**
+ * Instantané de l'état d'un hôte — figé, remplacé en bloc à chaque changement :
+ * le lire ne coûte ni allocation ni appel (ADR-0030 §D5). Il traverse tel quel
+ * le canal `nf-dev` quand le superviseur tient l'hôte.
+ */
+export interface IHeldHostStatus {
+  readonly key: string;
+  readonly state: HeldHostState;
+  readonly pid: number | null;
+  /** La donnée rapportée par l'hôte prêt (adresse, port…), sinon `null`. */
+  readonly data: HeldJsonObject | null;
+  readonly lastError: string | null;
+  readonly restartCount: number;
+}
+
+/** Au-delà, une clé de service n'est plus un identifiant. */
+export const MAX_HELD_KEY_LENGTH = 128;
+
+/**
+ * Rappel d'envoi PARTAGÉ. Sans rappel, un envoi qui échoue (pair déjà sorti)
+ * émet `'error'` sur le process — sans écouteur, c'est une exception non
+ * rattrapée (doc `child_process`, `subprocess.send`). Une seule fonction pour
+ * tous les envois : rien n'est alloué par message.
+ */
+export const IGNORE_SEND_ERROR = (): void => {};
+
 /** Teneur → hôte : démarre le service décrit par `spec` (une seule fois). */
 export interface IHeldStart {
   channel: typeof HELD_CHANNEL;
@@ -96,8 +145,32 @@ function isSeq(value: unknown): value is number {
  * @param value - la valeur reçue.
  * @returns `true` si c'est un objet au sens JSON.
  */
-function isJsonObject(value: unknown): value is HeldJsonObject {
+export function isJsonObject(value: unknown): value is HeldJsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Un instantané d'état bien formé — ce que le superviseur pousse à l'enfant.
+ *
+ * @param value - la valeur reçue.
+ * @returns `true` si c'est un {@link IHeldHostStatus} exploitable.
+ */
+export function isHeldHostStatus(value: unknown): value is IHeldHostStatus {
+  if (!isJsonObject(value)) return false;
+  const { key, state, pid, data, lastError, restartCount } = value;
+  return (
+    typeof key === "string" &&
+    key.length > 0 &&
+    key.length <= MAX_HELD_KEY_LENGTH &&
+    typeof state === "string" &&
+    HELD_HOST_STATES.has(state) &&
+    (pid === null || (isSeq(pid) && pid > 0)) &&
+    (data === null || isJsonObject(data)) &&
+    (lastError === null ||
+      (typeof lastError === "string" &&
+        lastError.length <= MAX_HELD_REASON_LENGTH)) &&
+    isSeq(restartCount)
+  );
 }
 
 /**
@@ -157,7 +230,10 @@ export interface IHeldServiceImpl {
  */
 export interface IHeldHostEndpoint {
   readonly connected?: boolean;
-  send?(message: HeldHostMessage): boolean;
+  send?(
+    message: HeldHostMessage,
+    callback?: (error: Error | null) => void,
+  ): boolean;
   on(event: "message", listener: (message: unknown) => void): unknown;
   on(event: "disconnect", listener: () => void): unknown;
   exit(code?: number): never | void;
@@ -187,7 +263,7 @@ export function serveHeldService(
     if (typeof endpoint.send !== "function" || endpoint.connected === false)
       return;
     try {
-      endpoint.send(message);
+      endpoint.send(message, IGNORE_SEND_ERROR);
     } catch {
       // canal en cours de fermeture : la déconnexion suivra
     }

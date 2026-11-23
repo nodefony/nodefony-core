@@ -24,7 +24,14 @@ import { controlSequenceLength } from "../../runtime/textWidth";
 
 /** Qui a produit une ligne de l'historique. */
 export type TranscriptSource =
-  "server" | "supervisor" | "command" | "user" | "assistant";
+  | "server"
+  | "supervisor"
+  | "command"
+  | "user"
+  | "assistant"
+  // Un service porté par le superviseur (ADR-0030 §D8) ; sa ligne porte
+  // déjà son nom (`[vite:default]`) — le superviseur n’en nomme aucun.
+  | "held";
 
 /** Le flux d'origine d'une ligne. */
 export type TranscriptStream = "out" | "err";

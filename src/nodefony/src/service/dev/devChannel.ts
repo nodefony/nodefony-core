@@ -22,7 +22,18 @@
  *   du canal, ou d'un type inconnu, est ignoré — jamais interprété.
  */
 import type { ChildProcess } from "node:child_process";
+import { isAbsolute } from "node:path";
 import type { IStartupView, IStatusContext } from "./startupScreen";
+import type { IHeldHostTuning } from "./HeldHost";
+import {
+  IGNORE_SEND_ERROR,
+  isHeldHostStatus,
+  isJsonObject,
+  MAX_HELD_KEY_LENGTH,
+  MAX_HELD_REASON_LENGTH,
+  type HeldJsonObject,
+  type IHeldHostStatus,
+} from "./heldChannel";
 import {
   DEV_CHANNEL,
   DEV_CHILD_ENV,
@@ -76,9 +87,268 @@ export interface IDevRuntime {
   eluPercent: number;
 }
 
+/**
+ * Un service de longue durée que le serveur demande à son superviseur de
+ * PORTER (ADR-0030 §D3) : Vite aujourd'hui, un serveur d'inférence demain.
+ * Le superviseur n'en connaît que cette description — il ne nomme aucun
+ * service, n'importe aucun paquet, et ne lit pas `spec`.
+ */
+export interface IHeldServiceDeclaration {
+  /** Identifiant stable, unique pour toute la session (`vite:default`). */
+  readonly key: string;
+  /** Chemin ABSOLU du module hôte, lancé par `fork`. */
+  readonly module: string;
+  /**
+   * Empreinte de tout ce qui exige un NOUVEL hôte (ADR-0030 §D4), calculée
+   * par le serveur. Le superviseur compare deux chaînes, rien de plus :
+   * identique → l'hôte vivant est gardé ; différente → il est remplacé.
+   */
+  readonly fingerprint: string;
+  /** Ce que l'hôte reçoit à son démarrage (`IHeldStart.spec`). */
+  readonly spec: HeldJsonObject;
+  /** Répertoire de travail de l'hôte (absolu). */
+  readonly cwd: string;
+  /**
+   * Variables AJOUTÉES à l'environnement du superviseur — jamais un
+   * environnement complet : le serveur ne recopie pas le sien sur le canal.
+   */
+  readonly env: Readonly<Record<string, string>>;
+  /** Réglage du cycle de l'hôte ; défauts du teneur pour ce qui manque. */
+  readonly tuning?: IHeldHostTuning;
+}
+
+/**
+ * Serveur → superviseur : l'état VOULU des services d'un propriétaire
+ * (`frontend`, demain `ai`), liste COMPLÈTE (ADR-0030 §D3). Clé neuve →
+ * démarrée ; empreinte changée → remplacée ; identique → gardée ; absente →
+ * arrêtée. Corrélé par `id` (JSON-RPC 2.0), acquitté par {@link IDevHeldPlanAck}.
+ */
+export interface IDevHeldPlan {
+  channel: typeof DEV_CHANNEL;
+  type: "held-plan";
+  /** Entier croissant choisi par le serveur ; repris par l'acquittement. */
+  id: number;
+  owner: string;
+  services: readonly IHeldServiceDeclaration[];
+}
+
+/** Superviseur → serveur : le plan `id` est appliqué, ou refusé en nommant la cause. */
+export interface IDevHeldPlanAck {
+  channel: typeof DEV_CHANNEL;
+  type: "held-plan-ack";
+  id: number;
+  owner: string;
+  accepted: boolean;
+  reason: string | null;
+}
+
+/**
+ * Superviseur → serveur : l'instantané d'un service porté, poussé à chaque
+ * changement et rejoué à la réception d'un plan (ADR-0030 §D5). Le serveur le
+ * garde tel quel : le lire ne coûte ni allocation ni aller-retour.
+ */
+export interface IDevHeldState {
+  channel: typeof DEV_CHANNEL;
+  type: "held-state";
+  owner: string;
+  status: IHeldHostStatus;
+}
+
 /** Tout ce qui peut transiter sur le canal. */
 export type DevChannelMessage =
-  IDevStatusView | IDevResize | IDevBootStep | IDevRuntime;
+  | IDevStatusView
+  | IDevResize
+  | IDevBootStep
+  | IDevRuntime
+  | IDevHeldPlan
+  | IDevHeldPlanAck
+  | IDevHeldState;
+
+/** Au-delà, un plan n'est plus une déclaration mais un déversement. */
+export const MAX_HELD_SERVICES = 32;
+/** Longueur maximale d'un nom de propriétaire. */
+const MAX_HELD_OWNER_LENGTH = 64;
+/** Longueur maximale d'une empreinte (un SHA-512 en hexadécimal tient en 128). */
+const MAX_HELD_FINGERPRINT_LENGTH = 128;
+/** Longueur maximale d'un chemin (module, répertoire de travail). */
+const MAX_HELD_PATH_LENGTH = 4096;
+/** Variables ajoutées : nombre et tailles bornés. */
+const MAX_HELD_ENV_ENTRIES = 64;
+const MAX_HELD_ENV_NAME_LENGTH = 256;
+const MAX_HELD_ENV_VALUE_LENGTH = 8192;
+/** Longueur maximale d’une `spec` une fois sérialisée (caractères JSON). */
+const MAX_HELD_SPEC_LENGTH = 64 * 1024;
+
+/**
+ * Un identifiant de clé ou de propriétaire : lettres, chiffres, puis
+ * `: . _ + @ -`. Sans quantificateur imbriqué ni alternance (ReDoS impossible).
+ */
+const HELD_IDENTIFIER = /^[A-Za-z0-9][\w:.+@-]*$/;
+
+/**
+ * Bornes du réglage d'un hôte — une entrée par champ de
+ * {@link IHeldHostTuning}, que le compilateur exige toutes.
+ */
+const HELD_TUNING_MAX = {
+  startupTimeoutMs: 600_000,
+  maxRestarts: 1_000,
+  restartBackoffBaseMs: 600_000,
+  restartBackoffMaxMs: 3_600_000,
+  livenessIntervalMs: 3_600_000,
+  livenessTimeoutMs: 600_000,
+  livenessMissedLimit: 1_000,
+  stopGraceMs: 600_000,
+} as const satisfies Record<keyof IHeldHostTuning, number>;
+
+/**
+ * Un champ de réglage connu.
+ *
+ * @param field - le nom reçu.
+ * @returns `true` si c'est un champ de {@link IHeldHostTuning}.
+ */
+function isTuningField(field: string): field is keyof IHeldHostTuning {
+  return Object.hasOwn(HELD_TUNING_MAX, field);
+}
+
+/**
+ * Un identifiant (clé, propriétaire) bien formé.
+ *
+ * @param value - la valeur reçue.
+ * @param max - longueur maximale.
+ * @returns `true` si exploitable.
+ */
+function isHeldIdentifier(value: unknown, max: number): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= max &&
+    HELD_IDENTIFIER.test(value)
+  );
+}
+
+/**
+ * Un entier positif sûr (identifiant de plan).
+ *
+ * @param value - la valeur reçue.
+ * @returns `true` si exploitable.
+ */
+function isPlanId(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+/**
+ * Le premier défaut d'une déclaration de service, ou `null` si elle est
+ * exploitable. Le texte NOMME le champ : il part tel quel dans l'acquittement.
+ *
+ * @param value - une entrée de `services`.
+ * @returns la cause du refus, ou `null`.
+ */
+function heldDeclarationProblem(value: unknown): string | null {
+  if (!isJsonObject(value)) return "a service is not an object";
+  const { key, module, fingerprint, spec, cwd, env, tuning } = value;
+  if (!isHeldIdentifier(key, MAX_HELD_KEY_LENGTH))
+    return "a service has an invalid key";
+  if (
+    typeof module !== "string" ||
+    module.length > MAX_HELD_PATH_LENGTH ||
+    !isAbsolute(module)
+  )
+    return `service "${key}": module must be an absolute path`;
+  if (
+    typeof fingerprint !== "string" ||
+    fingerprint.length === 0 ||
+    fingerprint.length > MAX_HELD_FINGERPRINT_LENGTH
+  )
+    return `service "${key}": invalid fingerprint`;
+  if (!isJsonObject(spec)) return `service "${key}": spec must be an object`;
+  if (JSON.stringify(spec).length > MAX_HELD_SPEC_LENGTH)
+    return `service "${key}": spec exceeds ${MAX_HELD_SPEC_LENGTH} JSON characters`;
+  if (
+    typeof cwd !== "string" ||
+    cwd.length > MAX_HELD_PATH_LENGTH ||
+    !isAbsolute(cwd)
+  )
+    return `service "${key}": cwd must be an absolute path`;
+  if (!isJsonObject(env)) return `service "${key}": env must be an object`;
+  const names = Object.keys(env);
+  if (names.length > MAX_HELD_ENV_ENTRIES)
+    return `service "${key}": more than ${MAX_HELD_ENV_ENTRIES} env entries`;
+  for (const name of names) {
+    const v = env[name];
+    if (
+      name.length === 0 ||
+      name.length > MAX_HELD_ENV_NAME_LENGTH ||
+      typeof v !== "string" ||
+      v.length > MAX_HELD_ENV_VALUE_LENGTH
+    )
+      return `service "${key}": invalid env entry "${name.slice(0, 64)}"`;
+  }
+  if (tuning === undefined) return null;
+  if (!isJsonObject(tuning))
+    return `service "${key}": tuning must be an object`;
+  for (const field of Object.keys(tuning)) {
+    if (!isTuningField(field))
+      return `service "${key}": unknown tuning "${field.slice(0, 64)}"`;
+    const max = HELD_TUNING_MAX[field];
+    const v = tuning[field];
+    if (typeof v !== "number" || !Number.isSafeInteger(v) || v < 0 || v > max)
+      return `service "${key}": tuning "${field}" must be an integer in [0, ${max}]`;
+  }
+  return null;
+}
+
+/**
+ * Le premier défaut d'un plan, ou `null` s'il est applicable : chaque
+ * déclaration bien formée, aucune clé en double. L'enveloppe (`id`, `owner`,
+ * `services` tableau borné) a déjà passé {@link isDevChannelMessage}.
+ *
+ * @param plan - le plan reçu.
+ * @returns la cause du refus, ou `null`.
+ */
+export function heldPlanProblem(plan: IDevHeldPlan): string | null {
+  const seen = new Set<string>();
+  for (const declaration of plan.services) {
+    const problem = heldDeclarationProblem(declaration);
+    if (problem !== null) return problem;
+    if (seen.has(declaration.key))
+      return `service "${declaration.key}" is declared twice`;
+    seen.add(declaration.key);
+  }
+  return null;
+}
+
+/**
+ * Un `held-plan` dont l'enveloppe est lisible — de quoi l'acquitter. Le
+ * contenu de chaque service est jugé par {@link heldPlanProblem}, qui nomme
+ * la cause d'un refus au lieu de taire le message.
+ */
+function isHeldPlan(m: HeldJsonObject): boolean {
+  return (
+    isPlanId(m.id) &&
+    isHeldIdentifier(m.owner, MAX_HELD_OWNER_LENGTH) &&
+    Array.isArray(m.services) &&
+    m.services.length <= MAX_HELD_SERVICES
+  );
+}
+
+/** Un `held-plan-ack` bien formé. */
+function isHeldPlanAck(m: HeldJsonObject): boolean {
+  return (
+    isPlanId(m.id) &&
+    isHeldIdentifier(m.owner, MAX_HELD_OWNER_LENGTH) &&
+    typeof m.accepted === "boolean" &&
+    (m.reason === null ||
+      (typeof m.reason === "string" &&
+        m.reason.length <= MAX_HELD_REASON_LENGTH))
+  );
+}
+
+/** Un `held-state` bien formé. */
+function isHeldState(m: HeldJsonObject): boolean {
+  return (
+    isHeldIdentifier(m.owner, MAX_HELD_OWNER_LENGTH) &&
+    isHeldHostStatus(m.status)
+  );
+}
 
 /**
  * Un `runtime` bien formé : trois nombres finis, positifs, bornés.
@@ -129,6 +399,9 @@ const KNOWN_TYPES: ReadonlySet<string> = new Set<DevChannelMessage["type"]>([
   "resize",
   "boot-step",
   "runtime",
+  "held-plan",
+  "held-plan-ack",
+  "held-state",
 ]);
 
 /**
@@ -155,6 +428,12 @@ export function isDevChannelMessage(
   if (m.type === "resize") return isDevResize(message);
   if (m.type === "boot-step") return isBootStep(message);
   if (m.type === "runtime") return isRuntime(message);
+  if (m.type.startsWith("held-")) {
+    if (!isJsonObject(message)) return false;
+    if (m.type === "held-plan") return isHeldPlan(message);
+    if (m.type === "held-plan-ack") return isHeldPlanAck(message);
+    return isHeldState(message);
+  }
   return true;
 }
 
@@ -193,7 +472,10 @@ export interface IDevChannelEndpoint {
   /** `true` tant que le canal IPC vers le parent est ouvert. */
   readonly connected?: boolean;
   /** Présent seulement si le processus a été lancé avec un canal IPC. */
-  send?(message: DevChannelMessage): boolean;
+  send?(
+    message: DevChannelMessage,
+    callback?: (error: Error | null) => void,
+  ): boolean;
   on(event: "message", listener: (message: unknown) => void): unknown;
   removeListener(
     event: "message",
@@ -217,7 +499,9 @@ export function sendToSupervisor(
 ): boolean {
   if (typeof endpoint.send !== "function" || !endpoint.connected) return false;
   try {
-    return endpoint.send(message);
+    // Rappel posé : un échec d'écriture (superviseur sorti) le reçoit, au lieu
+    // d'un `'error'` émis sur le process, fatal sans écouteur.
+    return endpoint.send(message, IGNORE_SEND_ERROR);
   } catch {
     return false; // canal en cours de fermeture : le processus s'arrête
   }
@@ -259,7 +543,9 @@ export function sendToServer(
 ): boolean {
   if (!child?.connected) return false;
   try {
-    return child.send(message);
+    // Le superviseur n'écoute pas `'error'` sur le serveur : sans ce rappel, un
+    // envoi croisant la mort du serveur ferait tomber le superviseur.
+    return child.send(message, IGNORE_SEND_ERROR);
   } catch {
     return false; // le serveur s'arrête
   }

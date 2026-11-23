@@ -92,16 +92,33 @@ seul change le process qui le tient. `ViteProcessSupervisor` devient un adaptate
 ### D3 — L'enfant déclare un PLAN par propriétaire ; le superviseur réconcilie
 
 À chaque démarrage, l'enfant envoie l'état voulu pour un propriétaire (`frontend`, demain `ai`) :
-la liste complète de ses services, chacun `{ key, host, fingerprint, spec }`. Clé neuve →
-démarrée ; empreinte changée → SEULE cette instance relancée ; identique et vivante → gardée ; clé
-absente → arrêtée. Un plan plutôt qu'un « assure ce service » unitaire : une famille retirée de la
-config resterait sinon vivante pour toujours, puisque le nouvel enfant ne la connaît plus.
+la liste complète de ses services, chacun `{ key, module, fingerprint, spec, cwd, env, tuning? }`
+(`devChannel.ts#IHeldServiceDeclaration`). Clé neuve → démarrée ; empreinte changée → SEULE cette
+instance remplacée, la nouvelle ne démarrant qu'après la mort de l'ancienne (même port) ;
+identique → gardée, et relancée si elle était `errored` ; clé absente → arrêtée. Un plan plutôt
+qu'un « assure ce service » unitaire : une famille retirée de la config resterait sinon vivante
+pour toujours, puisque le nouvel enfant ne la connaît plus. `env` ne porte que les variables
+AJOUTÉES à l'environnement du superviseur : l'enfant ne recopie pas le sien sur le canal. Une clé
+tenue par un autre propriétaire est refusée. Le registre qui réconcilie :
+`heldServices.ts#HeldServiceRegistry` ; il ne nomme aucun service et ne lit aucune `spec`.
 
 ### D4 — La relance se décide sur une EMPREINTE émise par l'enfant
 
-`crypto.hash("sha256", …)` du texte de `vite.config.generated.mjs` (déterministe depuis #131), du
-port demandé, de l'environnement passé et du `cwd`. Jamais la catégorie du fichier modifié :
-modifier le `index.ts` d'un module peut changer ses entrées. Le parent compare deux chaînes.
+`crypto.hash("sha256", …)` de ce qui exige un NOUVEL hôte : le module hôte, la `spec` (chemin
+du `.mjs`, adresse, port demandé, mode), les variables ajoutées et le `cwd`. Jamais la catégorie
+du fichier modifié : modifier le `index.ts` d'un module peut changer ses entrées. Le parent
+compare deux chaînes ; une `spec` qui change sans changer l'empreinte n'est pas relue.
+
+**Symbiose avec Vite — le texte de `vite.config.generated.mjs` est HORS empreinte.** Vite
+surveille son fichier de config et se relance lui-même, DANS son process, quand il change
+(source 8.3.8 : `handleHMRUpdate` → `restartServerWithUrls` → `restartServer`) : même
+`inlineConfig` (donc mêmes remparts et même port, `strictPort`), environnements précédents
+repris (`previousEnvironments`), pile de middlewares conservée ; un échec garde l'ancien serveur
+(« server restart failed »). Ajouter une entrée à une famille ne coûte donc ni `fork` ni
+démarrage de Node (~60 ms), ni chargement de Vite (~111 ms, médiane de 7, Vite 8.3.8) : seule cette
+famille se relance, et par Vite. L'hôte n'est remplacé que pour ce que Vite ne peut pas
+reprendre seul. Le titre du process (`nodefony-vite[…]`), qui suit les entrées, reste hors
+empreinte pour la même raison : il se met à jour au prochain remplacement.
 
 ### D5 — Les états sont POUSSÉS ; l'enfant lit un instantané
 
@@ -110,7 +127,23 @@ courant de chaque clé à la réception d'un plan (nouvel enfant). L'enfant gard
 instantané figé, remplacé en bloc. `status()` = lecture de champ : **zéro allocation, zéro IPC**.
 C'est le chemin chaud : le relais lit `TemplateHelper.devTarget()` → `status()` à chaque requête
 relayée, et une page en charge des centaines. Le plan porte un `id` entier croissant, acquitté par
-`held-plan-ack` ; un plan refusé l'est en nommant la cause.
+`held-plan-ack` ; un plan refusé l'est en nommant la cause. L'acquittement est décidé de façon
+SYNCHRONE ; démarrages et arrêts suivent, et leurs états partent par `held-state`. Une instance
+remplacée ou retirée ne parle plus au propriétaire : il verrait sinon « arrêté » pour un service
+qu'il vient de redemander.
+
+Ce que l'IPC de Node impose (doc et source `lib/internal/child_process.js`, Node 26) :
+
+- **Tout envoi porte un rappel** (`devChannel.ts`, `heldChannel.ts#IGNORE_SEND_ERROR`, partagé) :
+  sans lui, un échec d'écriture (pair sorti) est émis en `'error'` au tick suivant — exception non
+  rattrapée sans écouteur, et le superviseur n'en pose pas sur le serveur.
+- **Sérialisation JSON** (`JSON.stringify` + `\n`, une ligne lue = un `JSONParse`, livraison par
+  `nextTick`) : ~4 Ko par démarrage de l'enfant pour trois familles, loin du seuil de
+  contre-pression (`send` rend `false` au-delà de 128 Kio en attente). La sérialisation
+  `advanced` n'apporte rien à des objets JSON et n'est pas plus rapide (doc).
+- **Un message reçu sans écouteur `'message'` est mis en file** (`kPendingMessages`) puis rejoué :
+  un `held-state` n'est jamais perdu, mais la file n'a pas de borne — l'enfant écoute AVANT
+  d'envoyer son premier plan.
 
 ### D6 — Vite ne peut ni faire tomber, ni geler, ni salir le superviseur
 
@@ -136,8 +169,11 @@ qui sait l'absence de groupes sous Windows), puis le superviseur attend la mort 
 ### D8 — Journaux : par les tubes, jamais par l'IPC
 
 La sortie de l'hôte (son `customLogger` écrit sur sa sortie standard) entre dans le terminal du
-superviseur par ses tubes, source `vite`. Le modèle en canaux de #903 la rangera dans
-`vite:<nom>` : seul l'appel d'ingestion changera.
+superviseur par ses tubes, source `held` (`devTranscript.ts#TranscriptSource`) : le superviseur
+ne nomme aucun service, et chaque ligne porte déjà le sien (`[vite:<famille>]`). Hors rendu
+humain, elle part telle quelle sur la sortie du superviseur, là où le serveur l'aurait écrite.
+Le modèle en canaux de #903 la rangera dans `vite:<nom>` (la clé du service est déjà livrée avec
+chaque lot de lignes) : seul l'appel d'ingestion changera.
 
 ### D9 — Comment un backend d'inférence s'y branche
 
