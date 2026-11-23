@@ -15,6 +15,8 @@ import type { DefaultOptionsService } from "../Service";
 import { Nodefony } from "../Nodefony";
 import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
+import { defineEnv, envString } from "../config/defineEnv";
+import { BootConfigurationError } from "../kernel/BootConfigurationError";
 
 // Chemin d'un dossier réel portant un package.json (setPath du Module).
 const PKG = resolve(process.cwd(), "package.json");
@@ -299,6 +301,65 @@ describe("config — câblage Kernel boot (Lot 4 : loadApp + defineConfig)", () 
           ).resolveAppOptions(desc, ctxOf()),
         /boom par-env/,
       );
+    });
+  });
+
+  describe("loadApp — une faute de configuration n'envoie pas chercher le build (#882)", () => {
+    type BootErr = nodefonyError & { exitCode?: number };
+    interface IKernelSeam {
+      loadModule: () => Promise<never>;
+      log: (message: unknown) => void;
+      loadApp: () => Promise<unknown>;
+    }
+
+    /** Fait échouer l'import de l'application sur `cause`, et rend le journal. */
+    async function loadAppFailingWith(cause: Error): Promise<string> {
+      const seam = makeKernelReal() as unknown as IKernelSeam;
+      const logged: string[] = [];
+      seam.loadModule = () => Promise.reject(cause);
+      seam.log = (message) => {
+        logged.push(String(message));
+      };
+      await assert.rejects(
+        seam.loadApp(),
+        (e: BootErr) => e.exitCode === SysExit.CONFIG,
+      );
+      return logged.join("\n");
+    }
+
+    it("variable requise absente : le diagnostic la nomme et ne parle plus de build", async () => {
+      // Vécu sur une application réelle : `NF_CSRF_SECRET` manquait en
+      // production, la cause le disait — et « Pour corriger » proposait un
+      // build périmé.
+      let cause: unknown;
+      try {
+        defineEnv(
+          {
+            NF_CSRF_SECRET: envString({
+              optional: true,
+              requiredIn: ["production"],
+            }),
+          },
+          { NODE_ENV: "production" },
+        );
+      } catch (e) {
+        cause = e;
+      }
+      assert.ok(cause instanceof Error, "defineEnv a levé");
+      assert.ok(
+        BootConfigurationError.is(cause),
+        "une variable absente est une faute de CONFIGURATION",
+      );
+      const text = await loadAppFailingWith(cause);
+      assert.match(text, /NF_CSRF_SECRET/);
+      assert.match(text, /\.env\.example/);
+      assert.doesNotMatch(text, /Build périmé/);
+      assert.doesNotMatch(text, /déréférence le kernel/);
+    });
+
+    it("cause inconnue : les pistes du build et de l'import restent (témoin)", async () => {
+      const text = await loadAppFailingWith(new Error("boom à l'import"));
+      assert.match(text, /Build périmé/);
     });
   });
 
