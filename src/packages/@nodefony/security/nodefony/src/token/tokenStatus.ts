@@ -36,6 +36,30 @@ export function tokenStatusOf(token: ITokenLifetime, now: number): TokenStatus {
 }
 
 /**
+ * **La** règle du seuil de révocation en masse : un artefact émis AVANT le seuil
+ * de son porteur est mort, quel que soit son état propre.
+ *
+ * Le seuil (`ITokenStore.getInvalidBefore`) est posé par la cascade de
+ * révocation d'un compte (suppression, désactivation, réinitialisation,
+ * changement de mot de passe) sans toucher aux enregistrements : une clé tuée
+ * ainsi garde `revokedAt === null`. Toute lecture qui dit « active » ou « compte
+ * dans le plafond » doit donc passer ici, pas seulement l'authentification.
+ *
+ * Un instant d'émission INCONNU vaut 0 : il est antérieur à tout seuil. Un jeton
+ * qui ne dit pas quand il a été émis ne survit pas à une révocation en masse.
+ *
+ * @param issuedAt - instant d'émission en ms (`createdAt`, `iat × 1000`), `null` si inconnu.
+ * @param invalidBefore - seuil du porteur en ms, `null` s'il n'en a pas.
+ * @returns `true` si l'artefact est tué par le seuil.
+ */
+export function issuedBeforeThreshold(
+  issuedAt: number | null,
+  invalidBefore: number | null,
+): boolean {
+  return invalidBefore !== null && (issuedAt ?? 0) < invalidBefore;
+}
+
+/**
  * `true` si le jeton correspond au filtre d'état demandé (`undefined` = tous).
  *
  * @param token - les deux horodatages du jeton.

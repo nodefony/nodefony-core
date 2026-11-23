@@ -58,6 +58,11 @@ sur le module, il n'entre pas dans l'ordre de démarrage, échappe au rapport de
 et à l'introspection, et n'est construit qu'à la première requête qui le réclame
 ```
 
+**Une fonction PURE n'est pas un service** : un calcul, une commande système à arguments fixes,
+sans config, sans journal, sans état partagé, vit en fonction exportée sous `nodefony/src/`. Ce qui
+précède vise la classe à méthodes `static` qui AURAIT besoin du conteneur (config, journal,
+événements, autre service) — pas l'utilitaire qui n'en a pas.
+
 ## Deux noms, et ils ne servent pas à la même chose
 
 C'est le piège n°1, et il ne produit aucune erreur — juste un `null` :

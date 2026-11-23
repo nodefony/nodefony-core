@@ -28,6 +28,7 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
 import { pathLooksSecret } from "./envOverride";
+import { BootConfigurationError } from "../kernel/BootConfigurationError";
 
 /** Nature coercée d'une variable d'env du catalogue. */
 export type EnvVarKind = "string" | "number" | "boolean" | "enum";
@@ -544,7 +545,8 @@ export function isRequiredByStage(
  * @param catalog - déclaration des variables (clé = nom de la variable d'env).
  * @param source - source des valeurs (défaut `process.env` ; injectable pour les tests).
  * @returns objet **figé** + typé : `{ [NOM]: valeur coercée }`.
- * @throws Error (message agrégé nommant chaque variable fautive) si invalide.
+ * @throws BootConfigurationError (message agrégé nommant chaque variable
+ * fautive) si une variable requise manque ou si une valeur est invalide.
  */
 export function defineEnv<M extends Record<string, z.ZodType>>(
   catalog: M,
@@ -589,8 +591,10 @@ export function defineEnv<M extends Record<string, z.ZodType>>(
           isRequiredByStage(meta, stages)
         );
       });
+  // Les deux refus sont des fautes de CONFIGURATION : le boot les présente
+  // comme telles (`Kernel.loadApp`), au lieu d'envoyer chercher un build périmé.
   if (missing.length > 0) {
-    throw new Error(
+    throw new BootConfigurationError(
       `[nodefony] Variables d'environnement requises en ${stages.join("/")} et ABSENTES : ` +
         `${missing.join(", ")} — les poser dans l'environnement du déploiement ` +
         `(ou dans .env sur le poste). Une valeur générée à la volée ne survit pas ` +
@@ -603,7 +607,7 @@ export function defineEnv<M extends Record<string, z.ZodType>>(
     const issues = result.error.issues
       .map((i) => `${i.path.join(".") || "(env)"}: ${i.message}`)
       .join(" · ");
-    throw new Error(
+    throw new BootConfigurationError(
       `[nodefony] Variables d'environnement invalides : ${issues}`,
     );
   }

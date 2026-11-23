@@ -148,6 +148,12 @@ data: {"step":"écriture"}
   mesure, en-tête retiré, reste étalée sur nginx 1.30 : l'en-tête n'y est pas ce qui tient le
   flux, il protège les proxys qui retiennent.
 - `await sse.send()` freine l'action si le client lit lentement — c'est la contre-pression.
+  `send()`, `comment()` et `retry()` rendent `undefined` quand l'écriture passe (ou que le flux
+  est fermé), et une promesse **seulement** sous contre-pression — réglée au `drain`, **jamais
+  rejetée**. Un envoi « tire et oublie » s'écrit donc `void sse.send(d)`, sans `.catch(…)`. La
+  différence entre les deux EST le signal : `if (sse.send(d))` dit que le client est en retard,
+  ce qui permet de jeter les événements suivants plutôt que de les empiler
+  (`LiveSyslogController.ts#LiveSyslogController.stream`).
 
 ## ⚙️ Les deux bouts de l'API
 

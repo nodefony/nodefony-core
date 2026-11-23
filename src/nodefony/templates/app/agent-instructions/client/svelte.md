@@ -28,6 +28,10 @@ mount(App, { target: el });
 <p>{last?.message ?? "en attente…"}</p>
 ```
 
+Plusieurs écrans, chacun sa socket : rappeler `configureNodefony({ url })`
+AVANT de monter l'écran suivant — les liaisons créées ensuite lisent la nouvelle
+socket, l'ancienne n'est pas coupée.
+
 Les autres fonctions (`nodefony`, `nodefonyState`, `nodefonyIdentity`,
-`nodefonyChannel`) et pourquoi aucune rune n'est publiée :
-`node_modules/nodefony/docs/svelte-reactivite.md`.
+`nodefonyChannel`), l'exemple de navigation entre écrans et pourquoi aucune
+rune n'est publiée : `node_modules/nodefony/docs/svelte-reactivite.md`.

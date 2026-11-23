@@ -14,6 +14,7 @@ import type {
   IViteSupervisorStatus,
 } from "../../interfaces/IViteSupervisor";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder";
+import { viteDevRoot } from "../../service/ViteConfigGenerator";
 
 /**
  * Chemin de base de l'instance, sans `/` final : `/_vite/default` pour
@@ -24,6 +25,39 @@ import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder";
 function basePathOf(status: IViteSupervisorStatus): string {
   const base = status.base ?? "/";
   return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+/**
+ * URL de développement d'une entrée, écrite comme Vite écrit celle de ses
+ * imports — sinon un même module se charge sous deux URL, donc deux fois.
+ *
+ * Vite (`normalizeUrl`) sert un fichier SOUS sa racine en chemin relatif à
+ * celle-ci (`/src/x.ts`), et un fichier HORS de sa racine en `/@fs/<absolu>`.
+ * L'entrée injectée suit la même règle : sous la racine (le cas d'une
+ * application à un seul front), relative ; hors de la racine (le second front
+ * d'une famille, dont le `frontend/src/main.tsx` collisionnerait sinon avec
+ * celui du premier), `/@fs`. Vécu : l'entrée posée en `/@fs` alors que ses
+ * voisins arrivaient en `/src/…` — un module qui importait l'entrée en
+ * recevait une seconde instance (deux singletons).
+ *
+ * @param baseUrl - préfixe de la famille, sans `/` final (`/_vite/default`)
+ * @param viteRoot - racine du Vite de la famille (`viteDevRoot`)
+ * @param entry - racine et fichier de l'entrée
+ * @param pathApi - grammaire de chemin (injectée pour éprouver `win32`)
+ * @returns l'URL à placer dans `<script src>`, toujours en `/`
+ */
+export function devEntryUrl(
+  baseUrl: string,
+  viteRoot: string,
+  entry: Pick<IResolvedFrontendEntry, "root" | "entryFile">,
+  pathApi: typeof path.posix = path,
+): string {
+  const abs = pathApi.resolve(entry.root, entry.entryFile).replace(/\\/g, "/");
+  const root = pathApi.resolve(viteRoot).replace(/\\/g, "/");
+  const prefix = root.endsWith("/") ? root : `${root}/`;
+  if (abs.startsWith(prefix)) return `${baseUrl}/${abs.slice(prefix.length)}`;
+  // `/abs/…` sous Unix, `C:/…` sous Windows : Vite accepte `/@fs/C:/…`.
+  return abs.startsWith("/") ? `${baseUrl}/@fs${abs}` : `${baseUrl}/@fs/${abs}`;
 }
 
 /**
@@ -255,20 +289,13 @@ ${tags}
     // partagent l'origine de la page — un certificat, aucun contenu mixte.
     // Vite exige ce préfixe (`base`), Nodefony le relaie (#528).
     const baseUrl = basePathOf(status);
-    // Multi-bundle (P14.6) : URL via `/@fs/<absolute>` plutôt que relative au
-    // root Vite unique. Sans ça, deux consumers qui ont chacun `frontend/src/main.tsx`
-    // produisent la même URL `${baseUrl}/src/main.tsx` et Vite résout contre le
-    // root du PREMIER consumer pour les deux pages.
-    // Slash backslash → URL : normalise pour Windows (path.resolve renvoie OS-native).
-    const absEntryPath = path
-      .resolve(entry.root, entry.entryFile)
-      .replace(/\\/g, "/");
-    // absEntryPath commence par `/` sur Unix, par `C:/...` sur Windows.
-    // Vite accepte `/@fs/C:/...` sur Windows et `/@fs/abs/path` sur Unix.
-    const fsPath = absEntryPath.startsWith("/")
-      ? `/@fs${absEntryPath}`
-      : `/@fs/${absEntryPath}`;
-    const entryUrl = `${baseUrl}${fsPath}`;
+    // Relative à la racine Vite si l'entrée est dessous, `/@fs` sinon — la
+    // règle de Vite lui-même (multi-bundle et doublon d'instance : devEntryUrl).
+    const entryUrl = devEntryUrl(
+      baseUrl,
+      viteDevRoot(status.entries) ?? entry.root,
+      entry,
+    );
     const tags: string[] = [];
     // Nonce CSP (étape B) : posé sur le preamble INLINE (obligatoire — `script-src
     // 'nonce-…'` sans `'unsafe-inline'`) ET sur les `<script src>` Vite (cohérence +

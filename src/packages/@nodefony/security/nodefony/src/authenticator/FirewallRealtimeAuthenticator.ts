@@ -15,7 +15,7 @@ import {
   type IRealtimeAdmissionSource,
 } from "../realtime/UserRealtimeToken";
 import { isEphemeralSubject } from "./ExternalSubjectResolver";
-import { tokenStatusOf } from "../token/tokenStatus";
+import { issuedBeforeThreshold, tokenStatusOf } from "../token/tokenStatus";
 
 /** Le verdict booléen d'un état : seul `active` fait vivre l'identité. */
 function toValidity(
@@ -281,9 +281,10 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
       try {
         if (jti !== null && (await store.isJtiDenied(jti))) return true;
         const invalidBefore = await store.getInvalidBefore(identifier);
-        return (
-          invalidBefore !== null && iatMs !== null && iatMs < invalidBefore
-        );
+        // Règle unique du seuil : un `iat` inconnu vaut 0, donc tué par tout
+        // seuil — comme en HTTP (`JwtAuthenticator`). Avant, la socket d'un tel
+        // jeton survivait à la révocation de son compte (#865).
+        return issuedBeforeThreshold(iatMs, invalidBefore);
       } catch {
         return null;
       }
