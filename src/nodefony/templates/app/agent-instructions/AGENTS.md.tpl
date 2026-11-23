@@ -75,6 +75,9 @@ gabarit courant, et cette divergence ne se voit qu'à la première montée de
 version. `npx nodefony create --help` liste les générateurs de CETTE version : la
 liste s'allonge, ne te fie pas à ta mémoire.
 
+Code sans générateur (fonctions pures) → `nodefony/src/`, typé et bâti tel
+quel ; config, journal ou état partagé → `create service`.
+
 Chaque commande se décrit à une machine : `--describe-json` (questions + options
 en JSON), `--answers-json <fichier|->` (réponses en JSON), `--dry-run` (plan et
 diffs, zéro écriture). Un refus n'écrit jamais rien (transaction).
@@ -259,7 +262,7 @@ conclure FAUX.
 
 ```bash
 npm run dev                          # développement (Ctrl+C pour arrêter)
-npx nodefony status                  # que tourne-t-il ? ports, PID — ne boote rien
+npx nodefony status                  # adresse RÉELLE de CE projet (un port pris GLISSE) — avant curl
 npx nodefony status --json           # état du démarrage (adresses, points) — jamais l'écran
 npx nodefony stop                    # arrêt PROPRE — jamais `… &`, qui meurt sur SIGHUP
 npx nodefony production --detach --wait   # boot réel détaché, rend la main ports OUVERTS
@@ -271,7 +274,6 @@ npx nodefony inspect config --json   # la config EFFECTIVE, et d'où vient chaqu
 
 `card` et `symbols` répondent même sur une app pas construite, sans aucune variable
 posée ; `inspect` boote sans ouvrir un port.
-
 **Déboguer** : en développement, une pile d'appels pointe vers TON `.ts` — le build
 de dev porte ses sourcemaps, `npm run build` n'en émet pas. Point d'arrêt : `npm run debug`
 (port 9229 ; détail et pièges : skill `nodefony-dev`).

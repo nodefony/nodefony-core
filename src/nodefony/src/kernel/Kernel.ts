@@ -2495,6 +2495,19 @@ class Kernel extends Service implements IKernel {
       // contrôle ci-dessous, le diagnostic accuserait le build : ce serait la
       // QUATRIÈME fois que ce même incident se fait raconter de travers.
       this.assertSinglePackageInstance();
+      // Une faute de CONFIGURATION levée à l'import (variable d'environnement
+      // requise absente, valeur invalide, `X` et `X_FILE` ensemble) se nomme
+      // elle-même dans la cause : lui opposer « build périmé » envoyait sur une
+      // fausse piste (vécu : `NF_CSRF_SECRET` manquante en production).
+      const hints = BootConfigurationError.is(e)
+        ? [
+            "Faute de CONFIGURATION, nommée dans la cause ci-dessus : la corriger suffit — ni le build ni le code de l'application ne sont en cause.",
+            "Variable d'environnement : la poser dans l'environnement du déploiement (ou dans `.env` sur le poste) — `.env.example` décrit chacune.",
+          ]
+        : [
+            "Build périmé ou absent → `npm run clean && npm run build`.",
+            "Un fichier de config déréférence le kernel au top-level (résolu à l'import) → différer en getter/lazy.",
+          ];
       throw this.bootConfigError(
         "Chargement de l'application impossible",
         `Le point d'entrée \`${appEntry}\` n'a pas pu être importé/évalué.`,
@@ -2505,8 +2518,7 @@ class Kernel extends Service implements IKernel {
                 "DEUX paquets `nodefony` dans ce process (avertissement ci-dessus) : le module de l'application a été construit avec les classes de l'autre copie, donc sans container ni kernel. Régler la dualité AVANT de suspecter le build.",
               ]
             : []),
-          "Build périmé ou absent → `npm run clean && npm run build`.",
-          "Un fichier de config déréférence le kernel au top-level (résolu à l'import) → différer en getter/lazy.",
+          ...hints,
         ],
       );
     } finally {

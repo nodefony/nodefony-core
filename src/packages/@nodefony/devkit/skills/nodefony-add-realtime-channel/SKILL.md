@@ -1,7 +1,7 @@
 ---
 name: nodefony-add-realtime-channel
 metadata:
-  version: 3.1.0
+  version: 3.1.1
 description: >
   Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la
   socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket
@@ -230,6 +230,10 @@ route dans la démo, parce qu'elle doit vérifier l'admission au salon.
   est partagée entre connexions : elle ne capture jamais `this.context`.
 - **`params` vient du réseau** : valide-le. L'auteur est `connection.userId`, jamais un champ de
   la charge.
+- **Refuser une action (`@RealtimeAction`) par un message que le client LIT** :
+  `throw new RpcError("motif publiable", code)` (`import { RpcError } from "nodefony"`). Tout autre
+  `throw` arrive en `-32603 internal error` — opaque par sécurité, donc indiscernable d'un bug pour
+  le client. Codes et propagation : `node_modules/@nodefony/realtime/docs/actions.md`.
 - **Publier depuis n'importe où** (service, tâche, minuteur) : `getRealtimeHub().publish(canal,
 charge)`. La charge est un objet, un tableau, des octets ou rien — **un scalaire lève**
   (`publish("c", 42)` → `TypeError`) : écris `{ value: 42 }`. Un canal au nom calculé se publie par
