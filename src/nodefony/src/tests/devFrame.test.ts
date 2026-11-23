@@ -266,6 +266,27 @@ describe("FrameHeights — mémoïsées par largeur", () => {
     heights.prune(2);
     expect(heights.size).to.equal(1);
   });
+
+  it("les lignes repliées d'une image servent à la suivante, puis s'oublient hors de l'écran (#896)", () => {
+    const t = transcriptOf(["abcdefghij", "ab"]);
+    const heights = new FrameHeights();
+    const entry = t.at(0);
+    if (!entry) throw new Error("entrée absente");
+    const first = heights.lines(entry, 4);
+    expect(first).to.deep.equal(["abcd", "efgh", "ij"]);
+    heights.endFrame();
+    // Affichée à l'image précédente : pas repliée de nouveau.
+    expect(heights.lines(entry, 4)).to.equal(first);
+    heights.endFrame();
+    heights.endFrame();
+    // Une image sans elle : la fenêtre l'a oubliée, bornée par l'écran.
+    const again = heights.lines(entry, 4);
+    expect(again).to.deep.equal(first);
+    expect(again).not.to.equal(first);
+    // Une autre largeur ne rend jamais les lignes d'avant.
+    heights.endFrame();
+    expect(heights.lines(entry, 5)).to.deep.equal(["abcde", "fghij"]);
+  });
 });
 
 describe("diffFrame", () => {

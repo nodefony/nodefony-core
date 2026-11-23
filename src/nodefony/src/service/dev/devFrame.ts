@@ -159,19 +159,38 @@ const PHASE_LABELS: Readonly<Record<DevPhase, string>> = {
 export class FrameHeights {
   #width = -1;
   readonly #heights = new Map<number, number>();
+  // Lignes repliées des entrées de l'image précédente (`#shown`) et de
+  // l'image en cours (`#showing`) : d'une image à l'autre, presque tout le
+  // journal est le même, et le replier coûtait le tiers de l'image. Bornées
+  // par l'écran, jamais par l'historique.
+  #shown = new Map<number, readonly string[]>();
+  #showing = new Map<number, readonly string[]>();
 
   /**
-   * Replie une entrée et retient sa hauteur.
+   * Replie une entrée affichée et retient sa hauteur ; une entrée de l'image
+   * précédente n'est pas repliée de nouveau.
    *
    * @param entry - l'entrée.
    * @param width - largeur de repli, en colonnes.
-   * @returns ses lignes repliées.
+   * @returns ses lignes repliées, à ne pas modifier.
    */
-  lines(entry: ITranscriptEntry, width: number): string[] {
+  lines(entry: ITranscriptEntry, width: number): readonly string[] {
     this.#reset(width);
-    const lines = wrapToWidth(entry.text.replace(ERASE_IN_LINE, ""), width);
-    this.#heights.set(entry.seq, lines.length);
+    let lines = this.#showing.get(entry.seq) ?? this.#shown.get(entry.seq);
+    lines ??= this.#wrap(entry);
+    this.#showing.set(entry.seq, lines);
     return lines;
+  }
+
+  /**
+   * Clôt une image : seules les entrées qu'elle a affichées gardent leurs
+   * lignes repliées pour la suivante.
+   */
+  endFrame(): void {
+    const shown = this.#shown;
+    this.#shown = this.#showing;
+    shown.clear();
+    this.#showing = shown;
   }
 
   /**
@@ -183,7 +202,7 @@ export class FrameHeights {
    */
   height(entry: ITranscriptEntry, width: number): number {
     this.#reset(width);
-    return this.#heights.get(entry.seq) ?? this.lines(entry, width).length;
+    return this.#heights.get(entry.seq) ?? this.#wrap(entry).length;
   }
 
   /** Nombre de hauteurs retenues. */
@@ -202,11 +221,23 @@ export class FrameHeights {
     }
   }
 
-  /** Une autre largeur rend toutes les hauteurs fausses. */
+  /** Replie une entrée à la largeur courante et retient sa hauteur. */
+  #wrap(entry: ITranscriptEntry): readonly string[] {
+    const lines = wrapToWidth(
+      entry.text.replace(ERASE_IN_LINE, ""),
+      this.#width,
+    );
+    this.#heights.set(entry.seq, lines.length);
+    return lines;
+  }
+
+  /** Une autre largeur rend toutes les hauteurs — et les lignes — fausses. */
   #reset(width: number): void {
     if (width === this.#width) return;
     this.#width = width;
     this.#heights.clear();
+    this.#shown.clear();
+    this.#showing.clear();
   }
 }
 
@@ -370,6 +401,7 @@ function journalLines(
       }
     }
   }
+  heights.endFrame();
   // En direct, une page courte s'écrit DEPUIS LE HAUT, comme dans un
   // terminal : alignée en bas, la page propre du serveur prêt naissait collée
   // à la barre puis sautait en haut quand le bilan la remplissait.
