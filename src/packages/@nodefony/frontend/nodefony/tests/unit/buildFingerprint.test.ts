@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { GENERATED_VITE_CONFIG_FILE } from "nodefony";
 import {
   BUILD_FINGERPRINT_FILE,
   collectBuildFingerprint,
@@ -119,6 +120,23 @@ describe("empreinte des versions d'un build front (#872)", () => {
     const verdict = await judgeBuildFreshness(root, outDir);
     expect(verdict.fresh).toBe(false);
     expect(verdict.reason).toBe("sources modifiées depuis le dernier build");
+  });
+
+  it("la config Vite réécrite par le serveur de dev n'est pas une source", async () => {
+    // Le superviseur de dev la réécrit à CHAQUE démarrage, à la racine front :
+    // la compter faisait reconstruire le bundle de production après tout
+    // `npm run dev` — et rougissait en CI le test d'intégration du build, qui
+    // partage sa fixture avec celui du superviseur.
+    await builtEntry();
+    fs.writeFileSync(
+      path.join(root, GENERATED_VITE_CONFIG_FILE),
+      "export {};\n",
+    );
+    const verdict = await judgeBuildFreshness(root, outDir);
+    expect(verdict.reason).toBe(
+      "sources et versions inchangées (framework 10.0.2)",
+    );
+    expect(verdict.fresh).toBe(true);
   });
 
   it("une entrée sans manifeste n'a jamais été construite", async () => {

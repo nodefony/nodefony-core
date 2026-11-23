@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import path from "node:path";
-import { isPlainObject } from "nodefony";
+import { GENERATED_VITE_CONFIG_FILE, isPlainObject } from "nodefony";
 
 /**
  * Nom du fichier d'empreinte, posé à côté du manifeste Vite (`<outDir>/.vite/`).
@@ -176,8 +176,8 @@ export function describeFingerprintChange(
  *
  * Trois conditions, dans l'ordre où elles se lisent : un manifeste Vite existe ;
  * les versions de ce qui construit le bundle n'ont pas bougé depuis ce build ;
- * aucun fichier source (sous `root`, hors `node_modules`, `.vite` et `outDir`)
- * n'est plus récent que le manifeste.
+ * aucun fichier source (sous `root`, hors `node_modules`, `.vite`, `outDir` et
+ * `vite.config.generated.mjs`) n'est plus récent que le manifeste.
  *
  * @param root - racine front de l'entrée.
  * @param outDir - dossier de sortie de l'entrée.
@@ -217,7 +217,8 @@ export async function judgeBuildFreshness(
 
 /**
  * Date de modification du fichier le plus récent sous `dir`, en sautant
- * `node_modules`, `.vite` et le dossier de sortie.
+ * `node_modules`, `.vite`, le dossier de sortie et la config Vite générée par
+ * le serveur de dev.
  *
  * @param dir - racine front.
  * @param outDir - dossier de sortie, exclu s'il est sous `dir`.
@@ -232,7 +233,16 @@ async function newestSourceMtime(dir: string, outDir: string): Promise<number> {
   }
   const dates = await Promise.all(
     items.map(async (item): Promise<number> => {
-      if (item.name === "node_modules" || item.name === ".vite") return 0;
+      // La config que le superviseur de dev RÉÉCRIT à chaque démarrage n'est
+      // pas une source : la compter reconstruisait le bundle après tout
+      // `npm run dev`. Nom unique, partagé avec le contrôle de fraîcheur du cœur.
+      if (
+        item.name === "node_modules" ||
+        item.name === ".vite" ||
+        item.name === GENERATED_VITE_CONFIG_FILE
+      ) {
+        return 0;
+      }
       const full = path.join(dir, item.name);
       if (full === outDir) return 0;
       if (item.isDirectory()) return newestSourceMtime(full, outDir);
