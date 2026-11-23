@@ -463,11 +463,12 @@ export class DevTranscript {
     // Recopie à plat, une fois par ligne : la ligne en cours est faite de
     // tranches (`slice`) qui RETIENNENT leur chaîne mère dans V8 — une ligne
     // courte découpée d'un paquet de 60 Ko garderait les 60 Ko vivants, et
-    // `#maxBytes` ne bornerait plus que des chiffres. Le tampon donne la
-    // taille en octets au passage.
-    const bytes = Buffer.from(sanitizeTerminalText(pending.text), "utf8");
-    const text = bytes.toString("utf8");
-    const size = bytes.length;
+    // `#maxBytes` ne bornerait plus que des chiffres. Concaténer puis
+    // découper force V8 à aplatir dans une chaîne NEUVE, seule retenue par
+    // la tranche — une copie, là où un aller-retour par un tampon en faisait
+    // deux et allouait le tampon.
+    const text = (" " + sanitizeTerminalText(pending.text)).slice(1);
+    const size = Buffer.byteLength(text, "utf8");
     pending.text = "";
     pending.truncated = false;
     pending.carriageReturn = false;
