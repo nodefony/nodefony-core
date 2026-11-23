@@ -444,6 +444,7 @@ class FrontendService extends Service implements IFrontendService {
     const supervisor = new ViteProcessSupervisor({
       devHost: this.cfg.devHost,
       devPort: port,
+      family,
       devBase,
       startupTimeoutMs: this.cfg.startupTimeoutMs,
       pipeLogs: this.cfg.pipeViteLogs,

@@ -3,6 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import http from "node:http";
 import net from "node:net";
+import { statSync } from "node:fs";
+import { GENERATED_VITE_CONFIG_FILE } from "nodefony";
 import { pidListeningOn } from "../helpers/pidListening.js";
 import { ViteProcessSupervisor } from "../../service/ViteProcessSupervisor.js";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
@@ -156,6 +158,42 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
     }
     expect(sup.status().state).to.equal("stopped");
     expect(sup.status().pid).to.equal(null);
+  });
+
+  it("config inchangée → fichier NON réécrit (Vite redémarre à toute écriture de sa config)", async () => {
+    // Vite surveille `vite.config.generated.mjs` : une écriture, même d'un
+    // texte identique, le fait redémarrer. Un serveur qui redémarre et réécrit
+    // la config relancerait donc le Vite qu'on cherche à garder chaud (#692).
+    const opts = {
+      devHost: "127.0.0.1",
+      startupTimeoutMs: 20_000,
+      pipeLogs: false,
+      cwd: FIXTURE_ROOT,
+      logger: silentLogger,
+      healthCheckIntervalMs: 0,
+      autoRestart: false,
+    };
+    const configFile = path.join(FIXTURE_ROOT, GENERATED_VITE_CONFIG_FILE);
+    const first = new ViteProcessSupervisor({
+      ...opts,
+      devPort: await freePort(),
+    });
+    try {
+      await first.start([makeEntry()], {});
+    } finally {
+      await first.stop();
+    }
+    const before = statSync(configFile).mtimeMs;
+    const second = new ViteProcessSupervisor({
+      ...opts,
+      devPort: await freePort(),
+    });
+    try {
+      await second.start([makeEntry()], {});
+    } finally {
+      await second.stop();
+    }
+    expect(statSync(configFile).mtimeMs).to.equal(before);
   });
 
   it("idempotence start : 2e appel ne re-spawn pas", async () => {

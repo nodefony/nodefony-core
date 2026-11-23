@@ -72,6 +72,14 @@ avec elles la dépendance aux libellés d'une version de Vite. La 8.4 le confirm
 commande ne s'applique qu'à la ligne de commande — rester sur elle, c'était hériter d'une sortie
 anticipée que nos expressions auraient lue comme un plantage, puis relancée en boucle.
 
+Précisé à l'implémentation (source de Vite 8.3.8 et 8.4.0-beta.1, `httpServerStart`) : avec
+`strictPort`, un port pris rejette `listen` par `new Error("Port N is already in use")` — un
+texte, SANS code. L'hôte ne le lit donc pas : il SONDE le port lui-même par `node:net`
+(`EADDRINUSE`, et `EACCES` sous Windows) avant `createServer`, et lit le port réel sur la socket
+(`httpServer.address()`). Il charge le protocole par le sous-chemin `nodefony/held`, sans
+importer le paquet `nodefony` entier (~1 ms contre ~330 ms, mesuré) : un hôte démarre à chaque
+relance de son service.
+
 ### D2 — Un seul TENEUR d'hôte, pour tous les modes
 
 La mécanique qui lance un hôte, attend son `ready`, le relance avec recul, sonde sa santé et
