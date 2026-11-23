@@ -1,4 +1,6 @@
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
+import { readlink } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   existsSync,
   mkdirSync,
@@ -441,18 +443,16 @@ export function writeRuntimeState(
 }
 
 /**
- * Lit les ports publiés par le runtime, ou `null`.
+ * `true` si `n` est un port TCP adressable (`1..65535`) — la seule règle de
+ * validité d'un port des outils de développement.
  *
- * **Un state file dont le process est MORT est ignoré** (et purgé) : sinon un
- * `status` lirait les ports d'un serveur d'hier et sonderait dans le vide.
- *
- * @param cwd - racine du projet à interroger.
- * @param opts.purgeStale - retirer le fichier d'un process mort (défaut `true`).
- *   À passer `false` pour lire l'état d'un projet ÉTRANGER : on interroge son canal
- *   pour savoir à qui appartient un port, on ne fait pas son ménage. Purger le décor
- *   d'un autre projet depuis une commande scopée à celui-ci serait un effet de bord
- *   hors périmètre — et le voisin perdrait la trace de ses propres ports.
+ * @param n - valeur à éprouver, de forme inconnue.
+ * @returns `true` pour un entier de `1` à `65535`.
  */
+export function isTcpPort(n: unknown): n is number {
+  return typeof n === "number" && Number.isInteger(n) && n > 0 && n <= 65535;
+}
+
 /**
  * Ports lus d'un FICHIER, ramenés à ce qu'un port peut être.
  *
@@ -467,9 +467,7 @@ export function writeRuntimeState(
  */
 function sanitizePorts(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(
-    (n): n is number => Number.isInteger(n) && n > 0 && n <= 65535,
-  );
+  return value.filter(isTcpPort);
 }
 
 /**
@@ -503,6 +501,19 @@ function sanitizeUrls(value: unknown, ports: readonly number[]): string[] {
   return out;
 }
 
+/**
+ * Lit les ports publiés par le runtime, ou `null`.
+ *
+ * **Un state file dont le process est MORT est ignoré** (et purgé) : sinon un
+ * `status` lirait les ports d'un serveur d'hier et sonderait dans le vide.
+ *
+ * @param cwd - racine du projet à interroger.
+ * @param opts.purgeStale - retirer le fichier d'un process mort (défaut `true`).
+ *   À passer `false` pour lire l'état d'un projet ÉTRANGER : on interroge son canal
+ *   pour savoir à qui appartient un port, on ne fait pas son ménage. Purger le décor
+ *   d'un autre projet depuis une commande scopée à celui-ci serait un effet de bord
+ *   hors périmètre — et le voisin perdrait la trace de ses propres ports.
+ */
 export function readRuntimeState(
   cwd: string,
   opts: { purgeStale?: boolean } = {},
@@ -543,8 +554,6 @@ export function readRuntimeState(
     return null;
   }
 }
-
-/** Retire le state file (arrêt propre, ou reliquat d'un process mort). */
 
 /**
  * Retrouve le runtime de CE projet par son fichier d'état, sans observer les process.
@@ -604,6 +613,7 @@ export function discoverFromRuntimeState(cwd: string): DevProcessInfo[] {
   return found;
 }
 
+/** Retire le state file (arrêt propre, ou reliquat d'un process mort). */
 export function clearRuntimeState(cwd: string): void {
   try {
     rmSync(runtimeStateFile(cwd), { force: true });
@@ -798,21 +808,24 @@ function isSupervisorLock(value: unknown): value is SupervisorLock {
  * @param env - l'environnement de l'application jugée (défaut `process.env`).
  *   Un diagnostic qui vise un AUTRE projet que celui du processus passe le sien
  *   (`projectEnv`) : sinon les marches 1 et 3 lisent les ports d'un voisin.
+ * @param state - fichier d'état déjà lu par l'appelant (défaut : lu ici) — un
+ *   rapport qui en a besoin ailleurs ne le relit pas.
  */
 export function defaultDevPorts(
   cwd: string = process.cwd(),
   env: Record<string, string | undefined> = process.env,
+  state?: RuntimeState | null,
 ): number[] {
   const override = env.NF_DEV_PORTS;
   if (override) {
     const parsed = override
       .split(",")
       .map((s) => Number.parseInt(s.trim(), 10))
-      .filter((n) => Number.isInteger(n) && n > 0);
+      .filter(isTcpPort);
     if (parsed.length > 0) return parsed;
   }
-  const state = readRuntimeState(cwd);
-  if (state && state.ports.length > 0) return [...state.ports];
+  const published = state === undefined ? readRuntimeState(cwd) : state;
+  if (published && published.ports.length > 0) return [...published.ports];
   // Ce que l'application DÉCLARE. On ne sonde QUE ce qui est déclaré : compléter
   // avec un port par défaut reviendrait à surveiller celui d'un voisin.
   const declares = declaredPorts(env);
@@ -1089,10 +1102,6 @@ export function clearSupervisorPidFile(cwd: string): void {
   }
 }
 
-/** Petite pause (poll/backoff des boucles d'attente). */
-const delay = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
 /**
  * Le sous-arbre d'un process : lui-même s'il est observé, et tous ses descendants.
  *
@@ -1251,38 +1260,146 @@ export async function terminateDevProcesses(
   return alive;
 }
 
+/** Lecture du répertoire courant d'un pid — `null` si irrésolu. Seam du scoping projet. */
+export type CwdReader = (pid: number) => string | null;
+
+/** Arguments d'un `lsof` qui rend le répertoire courant de TOUS les `pids` d'un appel. */
+function lsofCwdArgs(pids: readonly number[]): string[] {
+  return ["-a", "-p", pids.join(","), "-d", "cwd", "-Fpn"];
+}
+
 /**
- * Répertoire de travail d'un process — `/proc/<pid>/cwd` (Linux) ou `lsof -d cwd`
- * (macOS/BSD). `null` si irrésolu (process mort, permissions, outil absent).
+ * Analyse la sortie `lsof -Fpn` : une ligne `p<pid>` ouvre un process, la ligne
+ * `n<chemin>` qui suit porte son répertoire courant. Fonction PURE.
+ *
+ * @param out - sortie brute de `lsof -a -p … -d cwd -Fpn`.
+ * @returns le répertoire courant de chaque pid résolu ; un pid absent est irrésolu.
+ */
+export function parseLsofCwd(out: string): Map<number, string> {
+  const cwds = new Map<number, string>();
+  let pid = -1;
+  for (const line of out.split("\n")) {
+    if (line.startsWith("p")) {
+      pid = Number.parseInt(line.slice(1), 10);
+    } else if (line.startsWith("n") && pid > 0 && !cwds.has(pid)) {
+      cwds.set(pid, line.slice(1));
+    }
+  }
+  return cwds;
+}
+
+/**
+ * Répertoires de travail de plusieurs process, en UN appel système de lecture —
+ * `/proc/<pid>/cwd` (Linux) ou UN seul `lsof` pour tous les pids (macOS/BSD).
  *
  * Sert au SCOPING PAR PROJET du multi-app : plusieurs apps Nodefony peuvent
  * tourner en dev sur le même poste — un balayage `ps` global sans notion de
  * projet faisait tuer le runtime d'un AUTRE dossier (destructeur, vécu en
  * design review). Le cwd est le seul identifiant de projet observable de
  * l'extérieur (aucun IPC — choix d'architecture de ce module).
+ *
+ * Un `lsof` coûte environ 120 ms sous macOS, quel que soit le nombre de pids
+ * demandés : un appel par process rendait `nodefony status` linéaire en process.
+ * `lsof` sort en code 1 dès qu'UN pid est illisible (mort, autre utilisateur) :
+ * sa sortie reste exploitable pour les autres, on la lit quel que soit le code.
+ *
+ * @param pids - process à résoudre.
+ * @returns le répertoire de chaque pid résolu ; un pid absent est irrésolu.
  */
-export function processCwd(pid: number): string | null {
+export function processCwds(pids: readonly number[]): Map<number, string> {
+  if (pids.length === 0) return new Map<number, string>();
   if (process.platform === "linux") {
-    try {
-      return readlinkSync(`/proc/${pid}/cwd`);
-    } catch {
-      return null;
+    const cwds = new Map<number, string>();
+    for (const pid of pids) {
+      try {
+        cwds.set(pid, readlinkSync(`/proc/${pid}/cwd`));
+      } catch {
+        /* process mort / interdit → irrésolu */
+      }
     }
+    return cwds;
   }
   try {
-    const res = spawnSync(
-      "lsof",
-      ["-a", "-p", String(pid), "-d", "cwd", "-Fn"],
-      { encoding: "utf8", env: { ...process.env, LC_ALL: "C" } },
-    );
-    if (typeof res.stdout !== "string") return null;
-    for (const line of res.stdout.split("\n")) {
-      if (line.startsWith("n")) return line.slice(1);
-    }
+    const res = spawnSync("lsof", lsofCwdArgs(pids), {
+      encoding: "utf8",
+      env: { ...process.env, LC_ALL: "C" },
+    });
+    return typeof res.stdout === "string"
+      ? parseLsofCwd(res.stdout)
+      : new Map<number, string>();
   } catch {
     /* lsof absent / interdit → inconnu */
+    return new Map<number, string>();
   }
-  return null;
+}
+
+/**
+ * Variante ASYNCHRONE de {@link processCwds}, pour un appelant qui SERT des
+ * requêtes (la page Runtime de la console d'administration) : le `lsof` ne
+ * bloque plus la boucle d'évènements du serveur pendant qu'il tourne.
+ *
+ * @param pids - process à résoudre.
+ * @returns le répertoire de chaque pid résolu ; un pid absent est irrésolu.
+ */
+export async function processCwdsAsync(
+  pids: readonly number[],
+): Promise<Map<number, string>> {
+  if (pids.length === 0) return new Map<number, string>();
+  if (process.platform === "linux") {
+    const cwds = new Map<number, string>();
+    await Promise.all(
+      pids.map(async (pid) => {
+        try {
+          cwds.set(pid, await readlink(`/proc/${pid}/cwd`));
+        } catch {
+          /* process mort / interdit → irrésolu */
+        }
+      }),
+    );
+    return cwds;
+  }
+  const out = await new Promise<string>((resolve) => {
+    // Le rappel reçoit la sortie même en code 1 (un pid illisible parmi d'autres).
+    execFile(
+      "lsof",
+      lsofCwdArgs(pids),
+      { encoding: "utf8", env: { ...process.env, LC_ALL: "C" } },
+      (_err, stdout) => resolve(typeof stdout === "string" ? stdout : ""),
+    );
+  });
+  return parseLsofCwd(out);
+}
+
+/**
+ * Lecteur de répertoire courant adossé à un relevé déjà fait.
+ *
+ * @param cwds - relevé de {@link processCwds} ou {@link processCwdsAsync}.
+ * @returns le lecteur, qui rend `null` pour un pid absent du relevé.
+ */
+export function cwdReaderOf(cwds: ReadonlyMap<number, string>): CwdReader {
+  return (pid) => cwds.get(pid) ?? null;
+}
+
+/**
+ * Relève en UNE lecture le répertoire courant de `procs` et rend son lecteur —
+ * le défaut de toute fonction qui rattache des process à un projet.
+ *
+ * @param procs - process à résoudre.
+ * @returns le lecteur adossé au relevé.
+ */
+export function readCwdsOf(procs: readonly { pid: number }[]): CwdReader {
+  return cwdReaderOf(processCwds(procs.map((p) => p.pid)));
+}
+
+/**
+ * Répertoire de travail d'UN process. Pour plusieurs process, {@link processCwds}
+ * — un seul appel système pour tous.
+ *
+ * @param pid - process à résoudre.
+ * @returns son répertoire courant, ou `null` si irrésolu.
+ */
+export function processCwd(pid: number): string | null {
+  return processCwds([pid]).get(pid) ?? null;
 }
 
 /** Un process découvert, enrichi du cwd résolu (`null` = irrésolu). */
@@ -1302,11 +1419,14 @@ export type DevProcessWithCwd = DevProcessInfo & { cwd: string | null };
  *
  * Limite assumée : deux projets IMBRIQUÉS (une app dans un sous-dossier du repo)
  * partagent le préfixe → le Vite de l'app peut être adopté par le parent.
+ *
+ * @param getCwd - lecteur de répertoire courant ; par défaut, UN relevé groupé
+ *   de tous les `procs` ({@link readCwdsOf}).
  */
 export function splitByProject(
   procs: readonly DevProcessInfo[],
   projectCwd: string,
-  getCwd: (pid: number) => string | null = processCwd,
+  getCwd: CwdReader = readCwdsOf(procs),
 ): { mine: DevProcessInfo[]; foreign: DevProcessWithCwd[] } {
   const root = path.resolve(projectCwd);
   const mine: DevProcessInfo[] = [];
@@ -1599,6 +1719,34 @@ export async function probePorts(
   );
 }
 
+/** Intervalle de re-sonde pendant l'attente de libération des ports (ms). */
+const PORTS_FREE_POLL_MS = 120;
+
+/**
+ * Attend que plus rien n'écoute sur `ports`, ou l'échéance — la seule attente de
+ * libération des outils de développement (`nodefony stop`, relance par le
+ * superviseur).
+ *
+ * @param ports - ports à voir se libérer.
+ * @param timeoutMs - échéance.
+ * @param probe - sonde des ports (défaut {@link probePorts}), injectable en test.
+ * @returns le DERNIER état sondé : tout libre, ou ce qui écoute encore à l'échéance.
+ */
+export async function waitPortsFree(
+  ports: readonly number[],
+  timeoutMs: number,
+  probe: (ports: readonly number[]) => Promise<PortState[]> = probePorts,
+): Promise<PortState[]> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const states = await probe(ports);
+    if (states.every((s) => !s.listening) || Date.now() >= deadline) {
+      return states;
+    }
+    await delay(PORTS_FREE_POLL_MS);
+  }
+}
+
 /** Convertit le champ `etime` de `ps` (`[[DD-]HH:]MM:SS`) en secondes. */
 function parseEtime(etime: string): number {
   let rest = etime.trim();
@@ -1646,6 +1794,9 @@ const PS_ROW_RE = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d.,]+)\s+(\S+)\s+(.*)$/;
  * la détection à zéro). Fonction PURE (testable sans `ps`).
  */
 export function parsePsRow(line: string): DevProcessInfo | null {
+  // Tous les titres reconnus par `classify` portent « nodefony » : les centaines
+  // d'autres lignes de `ps -A` s'écartent sans passer par la regex à six groupes.
+  if (!line.includes("nodefony")) return null;
   const m = line.match(PS_ROW_RE);
   if (!m) return null;
   const [, pid = "", ppid = "", rss = "", cpu = "", etime = "", command = ""] =
@@ -1743,10 +1894,18 @@ export interface DiscoverOptions {
  * ce qui tourne sur la machine, et sans jamais risquer de signaler un process réel.
  */
 export interface DevObservationDeps {
-  /** Observation externe des process (défaut : {@link discoverDevProcessesDetailed}). */
-  readonly discover?: (opts: DiscoverOptions) => ProcessDiscovery;
-  /** Répertoire courant d'un pid (défaut : {@link processCwd}) — clé du scoping projet. */
-  readonly getCwd?: (pid: number) => string | null;
+  /**
+   * Observation externe des process. Défaut : la voie synchrone pour une
+   * commande, {@link discoverDevProcessesAsync} pour un rapport servi par HTTP.
+   */
+  readonly discover?: (
+    opts: DiscoverOptions,
+  ) => ProcessDiscovery | Promise<ProcessDiscovery>;
+  /**
+   * Répertoire courant d'un pid — clé du scoping projet. Défaut : UN relevé
+   * groupé de tous les process découverts ({@link processCwds}).
+   */
+  readonly getCwd?: CwdReader;
   /** Sonde TCP des ports (défaut : {@link probePorts}). */
   readonly probe?: (ports: readonly number[]) => Promise<PortState[]>;
   /**
@@ -1792,46 +1951,110 @@ export interface ProcessDiscovery {
 export function discoverDevProcessesDetailed(
   opts: DiscoverOptions = {},
 ): ProcessDiscovery {
-  if (process.platform === "win32") return { supported: false, procs: [] };
-  let out: string;
+  if (process.platform === "win32") return unsupportedDiscovery();
   try {
-    const res = spawnSync(
-      "ps",
-      ["-A", "-o", "pid=,ppid=,rss=,pcpu=,etime=,command="],
-      {
-        encoding: "utf8",
-        maxBuffer: 4 * 1024 * 1024,
-        // Locale POSIX forcée : sans ça, une locale FR/… formate `%CPU` avec une
-        // VIRGULE décimale (`0,0`) que le parsing rejetterait silencieusement
-        // (→ 0 process détecté). `C` garantit un format stable, machine-indépendant.
-        env: { ...process.env, LC_ALL: "C", LANG: "C" },
-      },
-    );
+    const res = spawnSync("ps", PS_ARGS, psSpawnOptions());
     // `res.error` couvre le binaire ABSENT (`ENOENT`) — le cas des images minces.
     if (res.error || res.status !== 0 || typeof res.stdout !== "string")
-      return { supported: false, procs: [] };
-    out = res.stdout;
+      return unsupportedDiscovery();
+    return { supported: true, procs: parsePsOutput(res.stdout, opts) };
   } catch {
-    return { supported: false, procs: [] };
+    return unsupportedDiscovery();
   }
+}
+
+/**
+ * Variante ASYNCHRONE de {@link discoverDevProcessesDetailed}, pour un appelant
+ * qui SERT des requêtes (la page Runtime de la console d'administration) : `ps`
+ * ne bloque plus la boucle d'évènements du serveur. Même analyse
+ * ({@link parsePsOutput}), mêmes verdicts de capacité.
+ *
+ * @param opts - options de découverte.
+ * @returns les process observés, ou `supported:false` si `ps` n'a pas pu répondre.
+ */
+export function discoverDevProcessesAsync(
+  opts: DiscoverOptions = {},
+): Promise<ProcessDiscovery> {
+  if (process.platform === "win32")
+    return Promise.resolve(unsupportedDiscovery());
+  return new Promise((resolve) => {
+    execFile("ps", PS_ARGS, psSpawnOptions(), (err, stdout) => {
+      // `err` couvre le binaire absent ET le code de sortie non nul.
+      resolve(
+        err || typeof stdout !== "string"
+          ? unsupportedDiscovery()
+          : { supported: true, procs: parsePsOutput(stdout, opts) },
+      );
+    });
+  });
+}
+
+/** Colonnes demandées à `ps` — l'ordre est celui de {@link PS_ROW_RE}. */
+const PS_ARGS = ["-A", "-o", "pid=,ppid=,rss=,pcpu=,etime=,command="];
+
+/** Options du `ps`, communes aux voies synchrone et asynchrone — l'environnement est lu à l'appel. */
+function psSpawnOptions(): {
+  encoding: "utf8";
+  maxBuffer: number;
+  env: NodeJS.ProcessEnv;
+} {
+  return {
+    encoding: "utf8",
+    maxBuffer: 4 * 1024 * 1024,
+    // Locale POSIX forcée : sans ça, une locale FR/… formate `%CPU` avec une
+    // VIRGULE décimale (`0,0`) que le parsing rejetterait silencieusement
+    // (→ 0 process détecté). `C` garantit un format stable, machine-indépendant.
+    env: { ...process.env, LC_ALL: "C", LANG: "C" },
+  };
+}
+
+/** Verdict « je n'ai pas pu regarder ». */
+function unsupportedDiscovery(): ProcessDiscovery {
+  return { supported: false, procs: [] };
+}
+
+/** Rang d'affichage par rôle : superviseurs/masters, puis ceux qui servent, puis Vite. */
+const ROLE_ORDER: Readonly<Record<DevProcessRole, number>> = {
+  supervisor: 0,
+  master: 0,
+  server: 1,
+  worker: 1,
+  vite: 2,
+};
+
+/**
+ * Analyse la sortie complète de `ps` en process dev Nodefony triés. Fonction PURE,
+ * partagée par les voies synchrone et asynchrone.
+ *
+ * @param out - sortie brute de `ps -A -o pid=,ppid=,rss=,pcpu=,etime=,command=`.
+ * @param opts - `includeSelf` : garder le process appelant.
+ * @returns les process reconnus, superviseurs en tête puis par pid.
+ */
+export function parsePsOutput(
+  out: string,
+  opts: DiscoverOptions = {},
+): DevProcessInfo[] {
   const procs: DevProcessInfo[] = [];
-  for (const raw of out.split("\n")) {
-    const info = parsePsRow(raw);
+  // On saute d'occurrence en occurrence de « nodefony » au lieu de découper la
+  // sortie : `ps -A` rend des centaines de lignes, une dizaine nous concerne.
+  // Mesuré sur 945 lignes : 525 µs (regex sur chaque ligne) → 186 µs (découpe
+  // + pré-filtre) → 160 µs (ce balayage, aucune chaîne pour les autres lignes).
+  let from = 0;
+  for (;;) {
+    const hit = out.indexOf("nodefony", from);
+    if (hit === -1) break;
+    let end = out.indexOf("\n", hit);
+    if (end === -1) end = out.length;
+    const info = parsePsRow(out.slice(out.lastIndexOf("\n", hit) + 1, end));
+    from = end + 1;
     if (!info) continue;
     if (!opts.includeSelf && info.pid === process.pid) continue; // ignore soi-même (défaut CLI)
     procs.push(info);
   }
-  // Superviseurs (dev) / masters (cluster) en tête, puis ceux qui servent
-  // (server/worker), puis les Vite ; départage par pid.
-  const order: Record<DevProcessRole, number> = {
-    supervisor: 0,
-    master: 0,
-    server: 1,
-    worker: 1,
-    vite: 2,
-  };
-  procs.sort((a, b) => order[a.role] - order[b.role] || a.pid - b.pid);
-  return { supported: true, procs };
+  procs.sort(
+    (a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || a.pid - b.pid,
+  );
+  return procs;
 }
 
 /**

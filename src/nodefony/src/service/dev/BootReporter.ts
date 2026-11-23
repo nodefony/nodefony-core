@@ -19,6 +19,7 @@ import { StatusLine } from "./statusLine";
 import { onTerminalResize, terminalSize } from "../../runtime/isTerminal";
 import { DEV_CHANNEL } from "./devChannel";
 import { startRuntimeSampler } from "./runtimeSampler";
+import { ANSI } from "./ansi";
 import {
   buildStartupView,
   diffReload,
@@ -40,11 +41,11 @@ import {
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 /** Spinner ASCII — la console Windows classique n'a pas le braille. */
 const ASCII_FRAMES = ["|", "/", "-", "\\"] as const;
-const GREEN = "\x1b[32m";
-const RED = "\x1b[31m";
-const CYAN = "\x1b[36m";
-const DIM = "\x1b[2m";
-const RESET = "\x1b[0m";
+const GREEN = ANSI.green;
+const RED = ANSI.red;
+const CYAN = ANSI.cyan;
+const DIM = ANSI.faint;
+const RESET = ANSI.reset;
 
 /** Une phase de boot = l'event Kernel qui la CLÔT + son libellé affiché. */
 interface BootPhase {

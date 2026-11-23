@@ -11,6 +11,7 @@ import {
   type WatchEventType,
 } from "node:fs";
 import { EventEmitter } from "node:events";
+import { setTimeout as delay } from "node:timers/promises";
 import { createRequire } from "node:module";
 import { Nodefony } from "../../Nodefony";
 import path from "node:path";
@@ -71,6 +72,7 @@ import {
   isPortListening,
   readRuntimeState,
   readyAnnouncement,
+  readCwdsOf,
   splitByProject,
   formatForeignRuntimes,
   identifyProcess,
@@ -78,9 +80,11 @@ import {
   signalProcessGroup,
   waitGroupDead,
   terminateDevProcesses,
+  waitPortsFree,
 } from "./devProcess";
 import { installShutdownSignals } from "./shutdownSignals";
 import { RestartCycle } from "./restartCycle";
+import { ANSI } from "./ansi";
 import {
   describeTurboFreeze,
   TurboFreezeWatch,
@@ -107,15 +111,6 @@ export interface DevSupervisorOptions {
    */
   readonly ports?: readonly number[];
 }
-
-const ANSI = {
-  dim: "\x1b[90m",
-  cyan: "\x1b[36m",
-  green: "\x1b[32m",
-  red: "\x1b[31m",
-  yellow: "\x1b[33m",
-  reset: "\x1b[0m",
-};
 
 /**
  * Arguments du build de l'application en DÉVELOPPEMENT — le `rolldown -c` de
@@ -707,9 +702,6 @@ const SWAP_SETTLE_MAX_MS = 10000;
  * (anti-pattern « au loup », l'inverse du but de la sonde).
  */
 const DEGRADED_SETTLE_MS = 5000;
-
-const delay = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Ne garde, d'une sortie turbo en échec, que les lignes des tâches qui ont
@@ -1992,8 +1984,15 @@ export class DevSupervisor {
       // balayage `ps` est GLOBAL — sans scoping par cwd, l'app 2 « nettoyait »
       // le runtime de l'app 1 (destructeur). Règle : on ne touche JAMAIS un
       // process d'un autre dossier ; seule la collision de PORTS le concerne.
+      // UN relevé des répertoires courants pour les trois rattachements qui suivent.
+      const getCwd = readCwdsOf(all);
       const conflict = findRuntimeConflict(all, "dev");
-      const conflictHere = splitByProject(conflict, this.#cwd);
+      const conflictHere = splitByProject(conflict, this.#cwd, getCwd);
+      const devHere = splitByProject(
+        all.filter((p) => p.mode === "dev"),
+        this.#cwd,
+        getCwd,
+      );
 
       // 1a. Conflit cross-mode de CE projet → REFUS fail-loud. On ne tue JAMAIS
       //     un prod/cluster automatiquement (il est intentionnel — bench, démo).
@@ -2013,13 +2012,7 @@ export class DevSupervisor {
       //     refuse en NOMMANT l'occupant (le dev sait immédiatement quoi faire :
       //     l'arrêter depuis SON dossier, ou changer les ports de cette app) —
       //     jamais d'attente muette ni de kill trans-projet.
-      const others = [
-        ...conflictHere.foreign,
-        ...splitByProject(
-          all.filter((p) => p.mode === "dev"),
-          this.#cwd,
-        ).foreign,
-      ];
+      const others = [...conflictHere.foreign, ...devHere.foreign];
       if (others.length > 0) {
         const busy = await probePorts(this.#ports);
         const taken = busy.filter((p) => p.listening).map((p) => p.port);
@@ -2056,10 +2049,7 @@ export class DevSupervisor {
       }
 
       // 1b. Résiduels DEV de CE projet (empilés OU orphelins) → nettoyage auto.
-      const stale = splitByProject(
-        all.filter((p) => p.mode === "dev"),
-        this.#cwd,
-      ).mine;
+      const stale = devHere.mine;
       if (stale.length > 0) {
         this.#log(
           `${stale.length} process dev résiduel(s) de ce projet — nettoyage avant démarrage`,
@@ -2834,22 +2824,17 @@ export class DevSupervisor {
     this.#preHeldPorts.clear();
     const mine = this.#ports.filter((p) => !this.#foreignHeldPorts.has(p));
     if (mine.length === 0) return;
-    const deadline = Date.now() + timeoutMs;
-    for (;;) {
-      const states = await Promise.all(mine.map((p) => this.#isPortFree(p)));
-      if (states.every(Boolean)) return;
-      if (Date.now() >= deadline) {
-        const busy = mine.filter((_, i) => !states[i]);
-        // Ce qui écoute ici n'est PAS notre enfant : il n'est pas encore lancé.
-        for (const p of busy) this.#preHeldPorts.add(p);
-        this.#log(
-          `ports encore occupés après ${timeoutMs}ms : ${busy.join(", ")} — relance quand même`,
-          "yellow",
-        );
-        return;
-      }
-      await delay(120);
+    const busy: number[] = [];
+    for (const s of await waitPortsFree(mine, timeoutMs)) {
+      if (s.listening) busy.push(s.port);
     }
+    if (busy.length === 0) return;
+    // Ce qui écoute ici n'est PAS notre enfant : il n'est pas encore lancé.
+    for (const p of busy) this.#preHeldPorts.add(p);
+    this.#log(
+      `ports encore occupés après ${timeoutMs}ms : ${busy.join(", ")} — relance quand même`,
+      "yellow",
+    );
   }
 
   /** Arrête le superviseur : ferme le watcher, tue le groupe, libère le verrou. */

@@ -1,4 +1,5 @@
 import http from "node:http";
+import { isTcpPort } from "./devProcess";
 
 /**
  * Le verdict de boot d'un runtime, OBSERVÉ DE L'EXTÉRIEUR — une seule implémentation.
@@ -53,7 +54,7 @@ export function probeBootDegraded(
   // reste de la cible est en dur (boucle locale, chemin fixe), mais une valeur
   // hors bornes n'aurait de toute façon aucun sens : la refuser ici évite qu'un
   // fichier corrompu fasse frapper un port arbitraire de la machine.
-  if (!port || !Number.isInteger(port) || port < 1 || port > 65535) {
+  if (!isTcpPort(port)) {
     return Promise.resolve("unreachable");
   }
   const fetchLivez = deps.fetchLivez ?? httpGetLivez;
@@ -180,7 +181,7 @@ export function probeReadiness(
     readonly fetchLivez?: (port: number) => Promise<string | null>;
   } = {},
 ): Promise<IReadinessProbe | null> {
-  if (!port || !Number.isInteger(port) || port < 1 || port > 65535) {
+  if (!isTcpPort(port)) {
     return Promise.resolve(null);
   }
   const fetchLivez = deps.fetchLivez ?? httpGetLivez;
@@ -205,15 +206,20 @@ export function probeReadiness(
  * GET `livez` en boucle locale, en clair. Rend `null` sur tout échec — c'est une
  * observation best-effort, jamais un point de rupture du démarrage.
  *
+ * La promesse se résout TOUJOURS : une réponse coupée en cours de route (le
+ * serveur relancé pendant son boot) n'émet jamais `end`, seulement `close` —
+ * et `error` sur la réponse quand quelqu'un l'écoute. Sans ces deux écouteurs,
+ * l'appelant attendait pour toujours.
+ *
  * @param port - port en clair du runtime.
  * @returns le corps de la réponse, ou `null`.
  */
 function httpGetLivez(port: number): Promise<string | null> {
   return new Promise((resolve) => {
-    let repondu = false;
-    const conclure = (v: string | null): void => {
-      if (!repondu) {
-        repondu = true;
+    let settled = false;
+    const settle = (v: string | null): void => {
+      if (!settled) {
+        settled = true;
         resolve(v);
       }
     };
@@ -228,13 +234,17 @@ function httpGetLivez(port: number): Promise<string | null> {
         let data = "";
         res.setEncoding("utf8");
         res.on("data", (c) => (data += c));
-        res.on("end", () => conclure(data));
+        res.once("end", () => settle(data));
+        // `close` suit `end` sur une réponse complète : `settle` est alors sans
+        // effet. Il ne tranche que lorsque la réponse est morte avant sa fin.
+        res.once("close", () => settle(null));
+        res.once("error", () => settle(null));
       },
     );
-    req.once("error", () => conclure(null));
+    req.once("error", () => settle(null));
     req.once("timeout", () => {
       req.destroy();
-      conclure(null);
+      settle(null);
     });
   });
 }

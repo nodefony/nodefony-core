@@ -1,3 +1,5 @@
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 import { describe, it } from "vitest";
 import { expect } from "vitest";
 import {
@@ -54,6 +56,36 @@ describe("probeBootDegraded — le verdict se demande, il ne se déduit pas", ()
       fetchLivez: () => Promise.resolve(null),
     });
     expect(p).to.equal("unreachable");
+  });
+
+  it("🔴 serveur qui MEURT en pleine réponse (vraie requête) → « unreachable », jamais une attente sans fin", async () => {
+    // Le décor réel du défaut : une relance pendant le boot coupe la connexion
+    // après les en-têtes et un bout de corps. La réponse n'émet alors jamais
+    // `end` — une promesse qui n'écoute que lui reste en attente pour toujours.
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.write('{"booted":tr', () => res.socket?.destroy());
+    });
+    await new Promise<void>((resolve) => {
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    const { port } = server.address() as AddressInfo;
+    // Le minuteur borne le TEST, pas la sonde : sans écouteur de fermeture, il
+    // tranche à sa place et le test rougit au lieu de pendre jusqu'au délai global.
+    let timer: NodeJS.Timeout | undefined;
+    const hung = new Promise<"hung">((resolve) => {
+      timer = setTimeout(() => resolve("hung"), 3000);
+    });
+    try {
+      const p = await Promise.race([probeBootDegraded(port), hung]);
+      expect(p).to.equal("unreachable");
+    } finally {
+      clearTimeout(timer);
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      });
+    }
   });
 
   it("réponse illisible → « unreachable »", async () => {
