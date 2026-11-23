@@ -7,6 +7,7 @@
 
 import assert from "node:assert";
 import path from "node:path";
+import { spawn } from "node:child_process";
 import os from "node:os";
 import {
   existsSync,
@@ -14,6 +15,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -39,7 +41,10 @@ import {
   parseTasklistImage,
   processSubtree,
   signalProcessGroup,
+  parseLsofCwd,
   processCwd,
+  processCwds,
+  processCwdsAsync,
   readRuntimeState,
   readyAnnouncement,
   runtimeModes,
@@ -849,6 +854,70 @@ describe("splitByProject — plusieurs apps Nodefony sur le même poste", () => 
     // Sonde réelle (lsof/procfs) : résolution possible → doit matcher notre cwd.
     if (cwd !== null) {
       assert.strictEqual(path.resolve(cwd), path.resolve(process.cwd()));
+    }
+  }, 30_000);
+
+  it("parseLsofCwd : un `p<pid>` ouvre un process, le `n<chemin>` qui suit est SON répertoire", () => {
+    const out = [
+      "p101",
+      "fcwd",
+      "n/srv/app-un",
+      "p202", // illisible : aucun `n` — reste irrésolu
+      "p303",
+      "fcwd",
+      "n/srv/app trois", // espaces conservés
+      "",
+    ].join("\n");
+    assert.deepStrictEqual(
+      [...parseLsofCwd(out)],
+      [
+        [101, "/srv/app-un"],
+        [303, "/srv/app trois"],
+      ],
+    );
+  });
+
+  it("processCwds / processCwdsAsync : UN relevé rend le répertoire de CHAQUE process (vrais process)", async () => {
+    const dirs = [0, 1].map((i) =>
+      realpathSync(mkdtempSync(path.join(os.tmpdir(), `nf-cwd-${i}-`))),
+    );
+    const children = dirs.map((cwd) =>
+      spawn(process.execPath, ["-e", "setTimeout(() => {}, 60_000)"], {
+        cwd,
+        stdio: "ignore",
+      }),
+    );
+    try {
+      await Promise.all(
+        children.map((c) => new Promise((r) => c.once("spawn", r))),
+      );
+      const pids = children.map((c) => c.pid as number);
+      const expected = pids.map((pid, i) => [pid, dirs[i]]);
+      // La capacité se CONSTATE : sous Windows ni `/proc` ni `lsof` — relevé
+      // vide, jamais une erreur. Ailleurs, chaque process est résolu.
+      for (const cwds of [processCwds(pids), await processCwdsAsync(pids)]) {
+        if (process.platform === "win32") {
+          assert.strictEqual(cwds.size, 0);
+        } else {
+          assert.deepStrictEqual(
+            pids.map((pid) => [pid, cwds.get(pid)]),
+            expected,
+          );
+        }
+      }
+    } finally {
+      for (const c of children) c.kill("SIGKILL");
+      // Mort CONSTATÉE avant de retirer leurs dossiers (Windows refuse sinon).
+      await Promise.all(
+        children.map(
+          (c) =>
+            new Promise<void>((r) => {
+              if (c.exitCode !== null || c.signalCode !== null) r();
+              else c.once("exit", () => r());
+            }),
+        ),
+      );
+      for (const d of dirs) rmSync(d, { recursive: true, force: true });
     }
   }, 30_000);
 });

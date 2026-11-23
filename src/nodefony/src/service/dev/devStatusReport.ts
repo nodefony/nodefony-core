@@ -5,7 +5,8 @@ import {
   defaultDevPorts,
   detectRuntimeMode,
   devSupervisorPidFile,
-  discoverDevProcessesDetailed,
+  cwdReaderOf,
+  discoverDevProcessesAsync,
   discoverFromRuntimeState,
   foreignPortOwners,
   formatForeignRuntimes,
@@ -14,6 +15,7 @@ import {
   isPidAlive,
   portOwnership,
   probePorts,
+  processCwdsAsync,
   detectPortShift,
   readReadinessState,
   readRuntimeState,
@@ -496,12 +498,19 @@ export async function collectDevStatus(
   // Là où les process ne s'observent pas, on ne rend plus un rapport VIDE : c'était se
   // taire au moment précis où l'on a besoin de savoir ce qui tourne. Le pidfile, le
   // fichier d'état et la sonde TCP ne dépendent d'aucun `ps` — ils répondent partout.
-  const observed = (opts.discover ?? discoverDevProcessesDetailed)(opts);
+  // Voie ASYNCHRONE par défaut : ce rapport est aussi servi par la page Runtime,
+  // DANS le serveur de développement — `ps` et `lsof` synchrones l'y figeaient.
+  const observed = await (opts.discover ?? discoverDevProcessesAsync)(opts);
   // Le balayage `ps` est GLOBAL au poste : il faut le ramener à CE projet, sinon on
   // rapporte l'application du voisin comme la sienne. Le repli par fichier d'état,
   // lui, est déjà scopé par construction (le fichier vit sous notre racine).
   const scoped = observed.supported
-    ? splitByProject(observed.procs, cwd, opts.getCwd)
+    ? splitByProject(
+        observed.procs,
+        cwd,
+        opts.getCwd ??
+          cwdReaderOf(await processCwdsAsync(observed.procs.map((p) => p.pid))),
+      )
     : {
         mine: discoverFromRuntimeState(cwd),
         foreign: [] as DevProcessWithCwd[],
@@ -516,7 +525,11 @@ export async function collectDevStatus(
     observed.procs.length > 0 &&
     scoped.mine.length === 0 &&
     scoped.foreign.every((p) => p.cwd === null);
-  const ports = await (opts.probe ?? probePorts)(defaultDevPorts(cwd));
+  // Lu UNE fois : il donne les ports à sonder ET le décalage éventuel.
+  const state = readRuntimeState(cwd);
+  const ports = await (opts.probe ?? probePorts)(
+    defaultDevPorts(cwd, process.env, state),
+  );
   // La disponibilité ne se demande qu'à un runtime qui écoute, et JAMAIS à celui
   // d'un autre projet : afficher la disponibilité du voisin sous notre titre
   // serait la variante exacte du « 4 process · 2/2 ports UP » que ce rapport a
@@ -536,7 +549,7 @@ export async function collectDevStatus(
   // Le décalage se lit dans le fichier que le runtime publie, jamais des ports
   // sondés : ceux-ci sont DÉJÀ les ports effectifs (`defaultDevPorts` lit le même
   // fichier), donc ils ne peuvent pas révéler l'écart avec la configuration.
-  const portShift = detectPortShift(readRuntimeState(cwd));
+  const portShift = detectPortShift(state);
   return buildDevStatus(
     cwd,
     pid,

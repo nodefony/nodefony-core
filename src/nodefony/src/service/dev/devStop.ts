@@ -12,7 +12,8 @@ import {
   isNodefonyProjectDir,
   portOwnership,
   probePorts,
-  processCwd,
+  readCwdsOf,
+  type CwdReader,
   readRuntimeState,
   splitByProject,
   terminateDevProcesses,
@@ -136,13 +137,13 @@ const portsLine = (
  * doit pas rester une branche non éprouvée.
  *
  * @param procs - runtimes découverts par `ps`.
- * @param getCwd - lecture du cwd d'un pid (défaut : `processCwd`).
+ * @param getCwd - lecture du cwd d'un pid (défaut : UN relevé groupé de `procs`).
  * @param isProject - test « ce dossier est un projet Nodefony » (défaut : `isNodefonyProjectDir`).
  * @returns `kept` = appartenance PROUVÉE (tuables) ; `rejected` = épargnés + le motif.
  */
 export function scopeAllToNodefonyProjects(
   procs: readonly DevProcessInfo[],
-  getCwd: (pid: number) => string | null = processCwd,
+  getCwd: CwdReader = readCwdsOf(procs),
   isProject: (dir: string) => boolean = isNodefonyProjectDir,
 ): {
   kept: DevProcessInfo[];
@@ -190,7 +191,7 @@ export function scopeAllToNodefonyProjects(
  */
 export function hostProjects(
   procs: readonly DevProcessInfo[],
-  getCwd: (pid: number) => string | null = processCwd,
+  getCwd: CwdReader = readCwdsOf(procs),
 ): string[] {
   const roots = new Set<string>();
   for (const p of procs) {
@@ -205,8 +206,9 @@ export function hostProjects(
 function allRuntimesOfThisPoste(
   procs: readonly DevProcessInfo[],
   write: (chunk: string) => void,
+  getCwd: CwdReader,
 ): DevProcessInfo[] {
-  const { kept, rejected } = scopeAllToNodefonyProjects(procs);
+  const { kept, rejected } = scopeAllToNodefonyProjects(procs, getCwd);
   if (rejected.length > 0) {
     write(
       `${ANSI.dim}[stop]${ANSI.reset} ${rejected.length} process au titre Nodefony NON confirmé(s), épargné(s) :\n` +
@@ -241,8 +243,12 @@ export async function runStopReport(
   const tag = `${ANSI.dim}[stop]${ANSI.reset}`;
   const write = opts.write ?? ((chunk: string) => writeSync(1, chunk));
   const probe = opts.probe ?? probePorts;
-  const observed = (opts.discover ?? discoverDevProcessesDetailed)({});
+  const observed = await (opts.discover ?? discoverDevProcessesDetailed)({});
   const discovered = observed.procs;
+  // UN relevé des répertoires courants pour tout l'arrêt : désignation de la
+  // cible, scoping, puis racines à sonder — ces dernières APRÈS le kill, quand
+  // un process mort n'a plus de répertoire à lire.
+  const getCwd = opts.getCwd ?? readCwdsOf(discovered);
 
   // ── Cible explicite : la résoudre AVANT tout, et REFUSER si elle est douteuse.
   // Rien n'est tué tant que la désignation n'est pas certaine — un arrêt est
@@ -255,7 +261,7 @@ export async function runStopReport(
       );
       return 1;
     }
-    const here = splitByProject(discovered, cwd, opts.getCwd);
+    const here = splitByProject(discovered, cwd, getCwd);
     const projects = buildProjectTable(
       cwd,
       here.mine,
@@ -316,10 +322,10 @@ export async function runStopReport(
 
   const scoped = opts.all
     ? {
-        mine: allRuntimesOfThisPoste(discovered, write),
+        mine: allRuntimesOfThisPoste(discovered, write, getCwd),
         foreign: [] as DevProcessWithCwd[],
       }
-    : splitByProject(discovered, cwd, opts.getCwd);
+    : splitByProject(discovered, cwd, getCwd);
   // Quand `ps` n'a pas pu répondre — Windows, mais AUSSI une image Node mince où
   // `procps` n'est pas installé, ce qui est le cas de déploiement nominal — la
   // découverte rend une liste vide qu'on ne peut pas distinguer de « rien ne tourne » :
@@ -400,7 +406,7 @@ export async function runStopReport(
     ? [
         ...new Set([
           ...defaultDevPorts(cwd),
-          ...hostProjects(before, opts.getCwd).flatMap(
+          ...hostProjects(before, getCwd).flatMap(
             (projectRoot) =>
               readRuntimeState(projectRoot, { purgeStale: false })?.ports ?? [],
           ),

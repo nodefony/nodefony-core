@@ -71,6 +71,7 @@ import {
   isPortListening,
   readRuntimeState,
   readyAnnouncement,
+  readCwdsOf,
   splitByProject,
   formatForeignRuntimes,
   identifyProcess,
@@ -1992,8 +1993,15 @@ export class DevSupervisor {
       // balayage `ps` est GLOBAL — sans scoping par cwd, l'app 2 « nettoyait »
       // le runtime de l'app 1 (destructeur). Règle : on ne touche JAMAIS un
       // process d'un autre dossier ; seule la collision de PORTS le concerne.
+      // UN relevé des répertoires courants pour les trois rattachements qui suivent.
+      const getCwd = readCwdsOf(all);
       const conflict = findRuntimeConflict(all, "dev");
-      const conflictHere = splitByProject(conflict, this.#cwd);
+      const conflictHere = splitByProject(conflict, this.#cwd, getCwd);
+      const devHere = splitByProject(
+        all.filter((p) => p.mode === "dev"),
+        this.#cwd,
+        getCwd,
+      );
 
       // 1a. Conflit cross-mode de CE projet → REFUS fail-loud. On ne tue JAMAIS
       //     un prod/cluster automatiquement (il est intentionnel — bench, démo).
@@ -2013,13 +2021,7 @@ export class DevSupervisor {
       //     refuse en NOMMANT l'occupant (le dev sait immédiatement quoi faire :
       //     l'arrêter depuis SON dossier, ou changer les ports de cette app) —
       //     jamais d'attente muette ni de kill trans-projet.
-      const others = [
-        ...conflictHere.foreign,
-        ...splitByProject(
-          all.filter((p) => p.mode === "dev"),
-          this.#cwd,
-        ).foreign,
-      ];
+      const others = [...conflictHere.foreign, ...devHere.foreign];
       if (others.length > 0) {
         const busy = await probePorts(this.#ports);
         const taken = busy.filter((p) => p.listening).map((p) => p.port);
@@ -2056,10 +2058,7 @@ export class DevSupervisor {
       }
 
       // 1b. Résiduels DEV de CE projet (empilés OU orphelins) → nettoyage auto.
-      const stale = splitByProject(
-        all.filter((p) => p.mode === "dev"),
-        this.#cwd,
-      ).mine;
+      const stale = devHere.mine;
       if (stale.length > 0) {
         this.#log(
           `${stale.length} process dev résiduel(s) de ce projet — nettoyage avant démarrage`,
