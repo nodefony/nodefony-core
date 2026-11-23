@@ -1084,6 +1084,27 @@ export type {
   SupervisorLock,
   TreeSignalOutcome,
 } from "./service/dev/devProcess";
+// Services de longue durée tenus par un process (ADR-0030) : le TENEUR (lancer,
+// prouver la vie, relancer, tuer l'arbre) et le canal qu'un module hôte sert.
+// Exposés parce que les hôtes vivent hors du cœur (Vite dans @nodefony/frontend,
+// demain un backend d'inférence) — chacun RÉUTILISE ce cycle, ne le recopie pas.
+export { HeldHost } from "./service/dev/HeldHost";
+export type {
+  HeldHostState,
+  HeldOutputStream,
+  IHeldHostOptions,
+  IHeldHostStatus,
+} from "./service/dev/HeldHost";
+export {
+  HELD_CHANNEL,
+  isHeldHostMessage,
+  serveHeldService,
+} from "./service/dev/heldChannel";
+export type {
+  HeldJson,
+  HeldJsonObject,
+  IHeldServiceImpl,
+} from "./service/dev/heldChannel";
 
 // ─── Scaffold (création app/module/…) : spec déclarative + moteur PUR ─────────
 // Trois fronts, UN moteur : CLI rapide (argv), CLI interactif (readline) et le

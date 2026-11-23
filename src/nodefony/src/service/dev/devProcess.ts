@@ -1040,6 +1040,25 @@ function defaultRunTreeKill(cmd: { file: string; args: string[] }): boolean {
 }
 
 /**
+ * Un process qu'on lance doit-il devenir LEADER de son groupe ?
+ *
+ * POSIX : oui — `kill(-pid)` emporte alors l'arbre entier, et un redémarrage
+ * du lanceur n'atteint plus ce groupe. Windows : non — il n'y a pas de
+ * groupes, `detached` y ouvre une console à part et coupe la FILIATION, seul
+ * chemin que `taskkill /T` suit pour atteindre les descendants.
+ * SEULE implémentation de la règle (lancement de l'enfant de développement,
+ * des hôtes de services, des serveurs de test).
+ *
+ * @param platform - la plateforme ; `process.platform` par défaut.
+ * @returns la valeur à donner à l'option `detached` de `spawn`/`fork`.
+ */
+export function leadsOwnProcessGroup(
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  return platform !== "win32";
+}
+
+/**
  * Envoie `signal` à l'ARBRE de `pid` — enfant serveur ET ses Vite — et dit ce qu'il a
  * pu atteindre. No-op silencieux si le process n'existe plus.
  *

@@ -78,6 +78,7 @@ import {
   identifyProcess,
   isPidAlive,
   signalProcessGroup,
+  leadsOwnProcessGroup,
   waitGroupDead,
   terminateDevProcesses,
   waitPortsFree,
@@ -988,7 +989,7 @@ export function runCapturedCommand(
     const p = spawn(run.file, run.args, {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
-      detached: options.detached === true && process.platform !== "win32",
+      detached: options.detached === true && leadsOwnProcessGroup(),
       windowsVerbatimArguments: run.windowsVerbatimArguments,
     });
     options.onSpawn?.(p);
@@ -2215,7 +2216,7 @@ export class DevSupervisor {
         // inclus) au restart. Windows : pas de groupes, et le rattachement est ce
         // qui rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher
         // y couperait le lien de parenté, seul chemin vers les Vite.
-        detached: process.platform !== "win32",
+        detached: leadsOwnProcessGroup(),
       },
     );
     this.#child = child;
