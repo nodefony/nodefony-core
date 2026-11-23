@@ -91,6 +91,8 @@ export interface IFrameModel {
   readonly mark: readonly string[];
   /** Cache des hauteurs repliées — à garder d'une image à l'autre. */
   readonly heights?: FrameHeights;
+  /** La barre bornée de l'image précédente — à garder d'une image à l'autre. */
+  readonly statusBar?: StatusBarCache;
   /**
    * Dernière entrée effacée par `ESC[2J` : en direct, rien d'antérieur ne
    * s'affiche — la page propre du serveur prêt. Remonter le journal la
@@ -263,10 +265,6 @@ export class FrameHeights {
 }
 
 /**
- * Les lignes de la barre d'état : le bloc (ou la ligne) du bilan quand le
- * serveur est prêt, sinon la phase.
- */
-/**
  * L'activité de la barre pour une phase — `undefined` serveur prêt sans
  * problème : la ligne d'état dit alors le verdict du bilan.
  */
@@ -290,11 +288,18 @@ function activityOf(status: IFrameStatus): IStatusActivity | undefined {
   };
 }
 
-function statusLines(model: IFrameModel, size: IFrameSize): readonly string[] {
+/**
+ * Les lignes de la barre d'état : le bloc (ou la ligne) du bilan quand le
+ * serveur est prêt, sinon la phase.
+ */
+function statusLines(
+  model: IFrameModel,
+  size: IFrameSize,
+  activity: IStatusActivity | undefined,
+): readonly string[] {
   const status = model.status;
   if (status === null) return [];
   const { view, phase } = status;
-  const activity = activityOf(status);
   const context =
     activity === undefined ? status.context : { ...status.context, activity };
   const options = {
@@ -478,6 +483,116 @@ interface IFrameLayout {
   journalHeight: number;
 }
 
+/**
+ * La barre d'état de l'image, bornée à `width` — rejouée depuis le cache du
+ * modèle tant que rien de ce qu'elle affiche n'a changé.
+ */
+function statusBar(
+  model: IFrameModel,
+  size: IFrameSize,
+  width: number,
+): readonly string[] {
+  const activity = model.status === null ? undefined : activityOf(model.status);
+  const kept = model.statusBar?.lookup(model, size, activity);
+  if (kept !== undefined) return kept;
+  const lines = statusLines(model, size, activity).map((line) =>
+    fitToWidth(line.replace(ERASE_IN_LINE, ""), width),
+  );
+  model.statusBar?.store(model, size, activity, lines);
+  return lines;
+}
+
+/** Mêmes champs, mêmes valeurs (`===`) — un niveau, sans descendre. */
+function sameFields(a: object | undefined, b: object | undefined): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  let count = 0;
+  for (const key in a) {
+    count++;
+    const left: unknown = Reflect.get(a, key);
+    const right: unknown = Reflect.get(b, key);
+    if (left !== right) return false;
+  }
+  return count === Object.keys(b).length;
+}
+
+/**
+ * La barre d'état bornée de l'image précédente, rejouée tant que rien de ce
+ * qu'elle affiche n'a changé. Le statut est reconstruit à chaque image
+ * (horloge, toupie) : la comparaison porte donc sur ses CHAMPS, et sur
+ * l'activité telle que la barre la lit — serveur prêt, la toupie et le temps
+ * écoulé n'y figurent pas, et la barre se rejoue d'une image à l'autre.
+ */
+export class StatusBarCache {
+  #status: IFrameStatus | null = null;
+  #activity: IStatusActivity | undefined = undefined;
+  #color = false;
+  #charset: IFrameModel["charset"] | null = null;
+  #mark: readonly string[] | null = null;
+  #columns = -1;
+  #rows = -1;
+  #lines: readonly string[] = [];
+
+  /**
+   * Les lignes retenues, si la barre de cette image est la même.
+   *
+   * @param model - le modèle de l'image.
+   * @param size - dimensions du terminal.
+   * @param activity - l'activité lue par la barre (`activityOf`).
+   * @returns les lignes bornées, ou `undefined` s'il faut recomposer.
+   */
+  lookup(
+    model: IFrameModel,
+    size: IFrameSize,
+    activity: IStatusActivity | undefined,
+  ): readonly string[] | undefined {
+    if (
+      size.columns !== this.#columns ||
+      size.rows !== this.#rows ||
+      model.color !== this.#color ||
+      model.charset !== this.#charset ||
+      model.mark !== this.#mark ||
+      !sameFields(activity, this.#activity)
+    ) {
+      return undefined;
+    }
+    const a = model.status;
+    const b = this.#status;
+    if (a === b) return this.#lines;
+    if (a === null || b === null) return undefined;
+    return a.view === b.view &&
+      a.phase === b.phase &&
+      a.notice === b.notice &&
+      sameFields(a.context, b.context)
+      ? this.#lines
+      : undefined;
+  }
+
+  /**
+   * Retient la barre composée pour les images suivantes.
+   *
+   * @param model - le modèle de l'image.
+   * @param size - dimensions du terminal.
+   * @param activity - l'activité lue par la barre.
+   * @param lines - les lignes bornées.
+   */
+  store(
+    model: IFrameModel,
+    size: IFrameSize,
+    activity: IStatusActivity | undefined,
+    lines: readonly string[],
+  ): void {
+    this.#status = model.status;
+    this.#activity = activity;
+    this.#color = model.color;
+    this.#charset = model.charset;
+    this.#mark = model.mark;
+    this.#columns = size.columns;
+    this.#rows = size.rows;
+    this.#lines = lines;
+  }
+}
+
 function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   const rows = Math.max(0, Math.floor(size.rows));
   const width = Math.max(1, Math.floor(size.columns) - 1);
@@ -486,7 +601,7 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   if (first && heights.size > 2 * model.transcript.length + 64) {
     heights.prune(first.seq);
   }
-  const bar = statusLines(model, size);
+  const bar = statusBar(model, size, width);
   const promptLines = model.prompt?.lines ?? [];
   const unseen =
     model.anchor === null
@@ -674,10 +789,12 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
   const range = model.selection ?? null;
   // Le journal arrive déjà borné (`fitRows`, une fois par entrée) : seuls
   // l'indicateur, l'invite et la barre se réajustent à chaque image.
+  // La barre aussi (`statusBar`, une fois tant qu'elle ne change pas).
   const journalRows = Math.max(0, journal.lines.length - cut);
+  const barStart = all.length - cut - bar.length;
   const lines = all.slice(cut).map((line, row) => {
     const fitted =
-      row < journalRows
+      row < journalRows || row >= barStart
         ? line
         : fitToWidth(line.replace(ERASE_IN_LINE, ""), width);
     const origin = origins[row] ?? null;
