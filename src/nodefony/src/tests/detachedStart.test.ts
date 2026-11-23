@@ -745,6 +745,69 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     }
   });
 
+  it("🔴 `--wait N` s'arrête à N secondes d'HORLOGE, quelle que soit la durée des sondes", async () => {
+    const p1 = await freePort();
+    const log = tmpLog("clock");
+    let childPid: number | undefined;
+    // Horloge factice : chaque pause coûte sa durée PLUS 3 s de sondes lentes.
+    // Un plafond compté en tours ferait 20 pauses (10 s / 500 ms) et durerait
+    // ici 70 s d'horloge ; compté en temps, il s'arrête au premier tour qui
+    // franchit l'échéance.
+    let clock = 0;
+    let pauses = 0;
+    const progress: string[] = [];
+    try {
+      // Une ligne de remplissage plus longue que la fenêtre lue en fin de
+      // journal : la phase doit se trouver APRÈS la coupe, ligne tronquée écartée.
+      const script =
+        `console.log("[dev] phase périmée " + "x".repeat(20000));` +
+        `console.log("[dev] compilation des modules");` +
+        `setTimeout(() => process.exit(0), 180_000);`;
+      const r = await launchDetached({
+        spawnCmd: process.execPath,
+        spawnArgs: ["-e", script],
+        logFile: log,
+        ports: [p1],
+        waitSec: 10,
+        now: () => clock,
+        delay: async (ms) => {
+          // Au premier tour, attendre le FAIT (la phase écrite au journal)
+          // plutôt qu'une durée : l'horloge factice ne laisse aucun temps réel.
+          if (pauses === 0) {
+            for (let i = 0; i < 100; i++) {
+              const text = fs.existsSync(log)
+                ? fs.readFileSync(log, "utf8")
+                : "";
+              if (text.includes("compilation des modules")) break;
+              await new Promise((rr) => setTimeout(rr, 50));
+            }
+          }
+          pauses++;
+          clock += ms + 3000;
+        },
+        onProgress: (m) => progress.push(m),
+      });
+      childPid = r.pid as number;
+      assert.strictEqual(r.ok, false);
+      assert.ok(r.reason?.includes("readiness non atteinte"), String(r.reason));
+      assert.ok(pauses <= 4, `${pauses} pauses — le plafond compte des tours`);
+      assert.ok(clock <= 10_000 + 3500, `horloge à ${clock} ms pour --wait 10`);
+      // L'écoulé affiché vient de l'horloge, pas d'un compte de tours.
+      assert.ok(
+        progress.some((m) => m.includes("7s")),
+        `progression : ${progress.join(" | ")}`,
+      );
+      // La phase vient de la FIN du journal, lue sans le relire en entier.
+      assert.ok(
+        progress.some((m) => m.endsWith("— [dev] compilation des modules")),
+        `progression : ${progress.join(" | ")}`,
+      );
+    } finally {
+      await killDetached(childPid);
+      fs.rmSync(log, { force: true });
+    }
+  });
+
   it("timeout : child vivant sans readiness → EX_UNAVAILABLE + child group-killé", async () => {
     const p1 = await freePort();
     const log = tmpLog("timeout");

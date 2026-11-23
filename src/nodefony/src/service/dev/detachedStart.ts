@@ -1,11 +1,15 @@
 import {
   openSync,
   closeSync,
+  fstatSync,
   mkdirSync,
   readFileSync,
+  readSync,
   writeSync,
 } from "node:fs";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
+import { stripVTControlCharacters } from "node:util";
 import { spawn } from "node:child_process";
 import https from "node:https";
 import http from "node:http";
@@ -70,6 +74,13 @@ export interface DetachedStartOptions {
   onProgress?: ((msg: string) => void) | undefined;
   /** Variables d'env additionnelles pour le child. */
   env?: Record<string, string> | undefined;
+  /**
+   * Horloge du plafond `waitSec`, en ms (défaut `Date.now`) — injectable pour
+   * éprouver l'échéance sans attendre.
+   */
+  now?: (() => number) | undefined;
+  /** Pause entre deux sondes (défaut : minuteur natif) — injectable en test. */
+  delay?: ((ms: number) => Promise<unknown>) | undefined;
 }
 
 /** Résultat du lancement détaché. */
@@ -200,6 +211,16 @@ export function childExecArgv(parentExecArgv: string[]): string[] {
 /** Fenêtre de tick de la boucle d'attente (ms). */
 const TICK_MS = 500;
 
+/** Cadence de la ligne de progression pendant l'attente (ms). */
+const PROGRESS_MS = 5000;
+
+/**
+ * Octets lus en fin de journal pour retrouver la phase courante : de quoi
+ * couvrir les quarante dernières lignes d'un boot bavard, sans relire le
+ * fichier entier toutes les cinq secondes.
+ */
+const PHASE_TAIL_BYTES = 16 * 1024;
+
 /** Nombre de lignes de log remontées au diagnostic d'échec. */
 const TAIL_LINES = 10;
 
@@ -279,8 +300,7 @@ function readLog(logFile: string): string {
 /** Dernières lignes non vides d'un fichier de log, ANSI strippé (diagnostic). */
 function tailLog(logFile: string, n = TAIL_LINES): string[] {
   try {
-    return readFileSync(logFile, "utf8")
-      .replace(/\x1b\[[0-9;]*m/g, "")
+    return stripVTControlCharacters(readFileSync(logFile, "utf8"))
       .split("\n")
       .filter((l) => l.trim().length > 0)
       .slice(-n);
@@ -289,10 +309,39 @@ function tailLog(logFile: string, n = TAIL_LINES): string[] {
   }
 }
 
+/**
+ * Fin d'un fichier de log, décodée — au plus `bytes` octets, la première ligne
+ * (tronquée par la coupe) retirée. Le journal d'un boot grossit sans cesse : le
+ * relire en entier à chaque ligne de progression coûtait d'autant plus que le
+ * boot était lent.
+ */
+function readLogEnd(logFile: string, bytes: number): string {
+  let fd: number | undefined;
+  try {
+    fd = openSync(logFile, "r");
+    const size = fstatSync(fd).size;
+    const start = Math.max(0, size - bytes);
+    const chunk = new Uint8Array(size - start);
+    const read = readSync(fd, chunk, 0, chunk.length, start);
+    const text = new TextDecoder().decode(chunk.subarray(0, read));
+    return start === 0 ? text : text.slice(text.indexOf("\n") + 1);
+  } catch {
+    return "";
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
 /** Dernière ligne de phase du DevSupervisor (`[dev] …`) pour la progression. */
 function lastPhaseLine(logFile: string): string {
-  const lines = tailLog(logFile, 40).filter((l) => l.startsWith("[dev]"));
-  return lines.at(-1)?.slice(0, 70) ?? "";
+  const lines = stripVTControlCharacters(
+    readLogEnd(logFile, PHASE_TAIL_BYTES),
+  ).split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i] ?? "";
+    if (line.startsWith("[dev]")) return line.slice(0, 70);
+  }
+  return "";
 }
 
 /**
@@ -474,11 +523,19 @@ export async function launchDetached(
     exited = true;
   });
 
-  const ticks = Math.ceil((waitSec * 1000) / TICK_MS);
+  // Le plafond se compte en TEMPS, jamais en tours : chaque tour paie ses
+  // sondes (ports, state file, santé) en plus de sa pause, et un compte de
+  // tours laissait `--wait 120` durer bien au-delà de 120 s — en affichant un
+  // écoulé faux pour la même raison.
+  const now = opts.now ?? Date.now;
+  const pause = opts.delay ?? sleep;
+  const startedAt = now();
+  const deadline = startedAt + waitSec * 1000;
+  let nextProgressAt = startedAt + PROGRESS_MS;
   // Ports RÉELLEMENT sondés : ceux du state file dès que l'enfant l'a publié
   // (seule source exacte si un repli a décalé l'écoute), la convention sinon.
   let watched = ports;
-  for (let i = 1; i <= ticks; i++) {
+  for (;;) {
     if (exited) {
       return {
         ok: false,
@@ -567,7 +624,11 @@ export async function launchDetached(
       // pas ne doit ni bloquer un démarrage, ni le certifier.
       const degraded = opts.allowDegraded
         ? null
-        : await waitBootVerdict(watched[0], DEGRADED_SETTLE_MS);
+        : await waitBootVerdict(
+            watched[0],
+            // La fenêtre de stabilisation ne repousse pas le plafond.
+            Math.min(DEGRADED_SETTLE_MS, Math.max(0, deadline - now())),
+          );
       if (degraded === true) {
         const skipped = extractSkippedModules(readLog(logFile));
         // Pas de runtime à moitié debout laissé derrière : l'appelant a reçu un
@@ -605,15 +666,18 @@ export async function launchDetached(
         desiredPorts: shift ? [...shift.desired] : undefined,
       };
     }
+    const t = now();
+    if (t >= deadline) break;
     // Progression ~toutes les 5 s, avec la phase courante du superviseur si visible.
-    if (i % 10 === 0) {
+    if (t >= nextProgressAt) {
+      nextProgressAt = t + PROGRESS_MS;
       const phase = lastPhaseLine(logFile);
-      const elapsed = Math.round((i * TICK_MS) / 1000);
+      const elapsed = Math.round((t - startedAt) / 1000);
       progress(
         `booting (${up}/${watched.length} ports, ${elapsed}s)${phase ? ` — ${phase}` : ""}`,
       );
     }
-    await new Promise((r) => setTimeout(r, TICK_MS));
+    await pause(Math.min(TICK_MS, deadline - t));
   }
 
   // Plafond dépassé : pas de runtime zombie à moitié booté.
