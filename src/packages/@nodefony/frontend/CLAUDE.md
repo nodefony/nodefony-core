@@ -106,7 +106,7 @@ Kernel onTerminate
 ## Mode prod (build + renderProdTags)
 
 - **Build** : `build()` appelle `vite.build()` **par entry** (chaque bundle = son `root`/`outDir`/`base`/`manifest` → multi-module + isolation Angular). In-proc, one-shot, pas de superviseur.
-  - **Idempotent** : une entrée dont `outDir/.vite/manifest.json` est plus récent que ses sources est **ignorée** (`skipped`) → relance prod console rapide. `--force` rebuild tout.
+  - **Idempotent** : une entrée dont `outDir/.vite/manifest.json` est plus récent que ses sources ET dont l'empreinte des versions (`.vite/nodefony-build.json`, `src/buildFingerprint.ts`) est inchangée est **ignorée** (`skipped`) → relance prod console rapide. Une montée du framework, de `vite` ou d'un paquet déclaré reconstruit. `--force` rebuild tout. Fraîcheur = VERSIONS, jamais les dates de `node_modules`.
   - **Erreurs collectées** : un bundle KO n'arrête pas les autres ; `failures[]` remonté → la commande met `process.exitCode = 1` (pipeline CI).
   - Scripts racine : `npm run build:front` (= `nodefony frontend:build`) · `npm run build:all` (backend turbo + front).
   - ✅ CLI `nodefony frontend:build` fonctionne (fix dispatch commandes de module : `CliKernel` diffère le parse des commandes non-built-in à `onPreRegister`, après enregistrement par les modules — cf `project_cli_commands_broken_claude_ts`).
