@@ -19,7 +19,14 @@ Proposé (2026-10-04), contre-revu avant toute ligne de code. **Livré en partie
 (propriétaire unique, modèle d'écran pur, foyers, `DevTerminal`, canal IPC) et l'annotation des
 outils MCP le sont — #535, #536, #537 et #540 fermés. Restent proposés le §7 (l'invite, #538) et
 le §8 (l'assistant local, #539), ouverts sans jalon : l'ADR passera à « accepté » quand ils seront
-tranchés ou retirés. Epic
+tranchés ou retirés.
+
+**Amendement proposé (2026-11-23)**, issu de l'audit du terminal
+([#896](https://github.com/nodefony/nodefony-core/issues/896)), décisions D1 à D7 validées par
+l'auteur et portées par [#903](https://github.com/nodefony/nodefony-core/issues/903) : le §11
+(zone centrale à plusieurs vues) est neuf ; les §2, §3, §5, §6, §7, §8 et §9 sont amendés en
+place, chaque amendement marqué **« Amendement #903 »** ; la section « Normes et antériorités »
+est ajoutée. Aucune ligne de code avant la relecture de l'auteur. Epic
 [#534](https://github.com/nodefony/nodefony-core/issues/534) ; sous-tickets
 [#535](https://github.com/nodefony/nodefony-core/issues/535) (modèle d'écran),
 [#536](https://github.com/nodefony/nodefony-core/issues/536) (propriétaire unique),
@@ -45,6 +52,13 @@ Trois besoins dépassent ce modèle :
    dernière ligne écrite : elle défile avec l'historique du terminal.
 2. **Une invite `❯`** dans la barre, pour lancer une commande du CLI sans second terminal.
 3. **Un assistant** répondant en langage naturel, adossé à un modèle qui tourne sur la machine.
+4. **Plusieurs sorties à la fois** (amendement #903). Le superviseur devient l'hôte du
+   développement : la sortie du serveur, celle de Vite (#692), celle d'une commande de l'invite,
+   plus tard celle de l'assistant (#539) et de sous-agents, en onglets ou en écran partagé, avec
+   des menus en surimpression. Le modèle de #535 ne connaît qu'UN historique, UN état de
+   défilement et trois zones empilées pleine largeur ; y brancher Vite ou l'invite puis le
+   refaire paierait le travail deux fois, et réécrirait à chaque fois le défilement, qui a déjà
+   coûté cher (#533 à #537).
 
 Les faits qui contraignent la solution, au code :
 
@@ -64,6 +78,24 @@ Les faits qui contraignent la solution, au code :
 - Vite n'est PAS concerné : le serveur le lance déjà en tube, sans couleur
   (`src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts#ViteProcessSupervisor.attemptSpawn`,
   `FORCE_COLOR: "0"`) ; il ne touche jamais le terminal et n'efface jamais l'écran.
+  L'amendement #903 n'y change rien : quand le superviseur portera Vite (#692), sa sortie aura
+  un canal à elle (§11), et n'écrira toujours pas dans le terminal.
+
+Faits ajoutés par l'audit de #896 (amendement #903) :
+
+- `src/nodefony/src/service/dev/DevTerminal.ts#DevTerminal` — un seul historique pour toutes les
+  sources, un seul état de défilement (ancre, hauteurs, plancher, sélection).
+- `src/nodefony/src/service/dev/devTranscript.ts#TranscriptSource` — union FERMÉE de cinq
+  sources, sans Vite ni identifiant d'agent ; `devTranscript.ts#DevTranscript.indexOf` suppose
+  des `seq` contigus, donc aucune vue filtrée.
+- `src/nodefony/src/service/dev/devFrame.ts#frameLayout` — trois zones pleine largeur ;
+  `DevTerminal.ts#DevTerminal.#drawFrame` termine chaque ligne par `ESC[K`, qui effacerait un
+  volet voisin.
+- `src/nodefony/src/service/dev/DevTerminal.ts#DevTerminal.addFocus` — sans plein écran, aucun
+  foyer n'est branché : aucune saisie en surface `inline`. Et `suspend` (§5) n'existe pas encore.
+- En rafale en direct, chaque ligne se décale : le diff par ligne réécrit tout l'écran à chaque
+  image (jusqu'à ~62 par seconde). Le retour de `write` est ignoré : aucune image n'est sautée
+  quand le terminal ne suit pas.
 
 ## Décision
 
@@ -150,6 +182,21 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
 
 Les deux surfaces consomment le **même modèle** et rendent la **même** invite.
 
+**Amendement #903 (D3) — `inline` est un repli DÉGRADÉ, pas une seconde surface complète.**
+
+- Il rend le flux FUSIONNÉ des canaux, chaque ligne préfixée par son canal quand il y en a plus
+  d'un, plus une invite d'UNE ligne. Onglets, écran partagé et bandes en surimpression (§11)
+  n'existent qu'en plein écran.
+- UNE écriture par paquet : effacement de la barre, contenu, barre redessinée, composés par
+  `DevTerminal` en une chaîne. L'interception de `StatusLine` (`statusLine.ts#StatusLine`) reste
+  un filet pour le mode sans superviseur, pas le chemin nominal.
+- Les foyers y sont branchés : l'invite existe aussi en `inline` (aujourd'hui, aucun foyer hors
+  plein écran).
+- **Garde-fou ConPTY** : sous Windows Terminal, des écritures positionnées peuvent laisser des
+  fragments — Claude Code le documente et force une repeinte complète. Le plein écran y repeint
+  donc toute image au lieu de la différencier, tant qu'un banc à la main n'a pas prouvé le diff.
+  Le plein écran par défaut sous Windows reste conditionné à cette preuve.
+
 ### 3. Le modèle d'écran est pur — quatre briques, sans terminal
 
 Fichiers à plat dans `src/nodefony/src/service/dev/` (#535). Identifiants en anglais, prose en
@@ -172,6 +219,23 @@ interface ITranscriptEntry {
 
 - **Deux plafonds** : 10 000 entrées ET **8 Mio d'octets** — le second est celui qui compte
   (10 000 × 16 Kio feraient 160 Mio). Éviction par la tête tant que l'un est dépassé.
+
+**Amendement #903 (D1, D4) — un anneau PAR CANAL, le canal remplace la source fermée.**
+
+- Le canal est un identifiant OUVERT : `server`, `supervisor`, `vite:<nom>`, `run:<n>` (une
+  commande de l'invite, sa ligne `❯` comprise), `agent:<id>`. L'union fermée `TranscriptSource`
+  disparaît : un producteur neuf (sous-agent, second serveur Vite) ne rouvre pas le modèle.
+- Un `DevTranscript` par canal, créé au premier octet reçu (aucun anneau alloué d'avance). Le
+  `seq` reste monotone, mais **GLOBAL** à tous les canaux : `since(seq)` et le fil fusionné de
+  `inline` se lisent par fusion des anneaux sur `seq`, et un lecteur reprend sans savoir combien
+  de canaux existent. Un `seq` n'est donc plus contigu dans un anneau : `indexOf` passe par
+  dichotomie (O(log n)).
+- **Plafond par canal ET plafond global de 8 Mio** : une rafale de Vite n'évince jamais la pile
+  d'un crash du serveur. Proposé : le plafond global évince d'abord dans le canal qui dépasse le
+  plus sa part ; le détail (part fixe ou proportionnelle) se règle au banc, l'invariant non.
+- Les canaux sont le modèle de données du SUPERVISEUR, pas de l'écran : le terminal n'en est
+  qu'un lecteur ; l'assistant en est un autre (il lit le serveur et Vite, écrit les siens) ; la
+  console d'administration et le serveur MCP pourront l'être par le lot à la demande (§6).
 - **Un seul anneau dans le dépôt** : `CircularBuffer`, jusque-là interne à `Syslog.ts`, sort
   dans `src/nodefony/src/runtime/` (`src/nodefony/src/runtime/CircularBuffer.ts#CircularBuffer`), ÉTENDU de `at(i)` et `shift()` (O(1), sans
   copie — `toArray()` à chaque image allouerait 10 000 cases soixante fois par seconde). `Syslog`
@@ -219,6 +283,10 @@ interface IFrame {
 // zones : journal (fenêtre + « ↑ N nouvelles lignes — Fin ») · invite (hauteur 0 avant #538) · barre
 // hauteur repliée de chaque entrée mémoïsée par largeur, invalidée au redimensionnement
 ```
+
+**Amendement #903** : les trois zones fixes deviennent une liste de RÉGIONS rendue par une
+fonction pure (§11). Le cache de repli porte les LIGNES repliées, plus seulement leur hauteur —
+c'est ce qui permet de comparer une ligne inchangée par identité (§9).
 
 ```typescript
 // terminalCapability.ts — le verdict, constaté, transmis
@@ -287,7 +355,39 @@ class DevTerminal {
   extrait dans `src/nodefony/src/runtime/` et partagé. Jamais un second protocole sur les mêmes
   signaux : l'un gagnerait, l'autre laisserait un terminal cassé.
 
-### 6. Le canal IPC reste le seul contrat superviseur ⇄ serveur
+**Amendement #903 — la surface de `DevTerminal` suit les canaux et les vues (§11).**
+
+```typescript
+class DevTerminal {
+  ingestBytes(channel: string, stream: "out" | "err", chunk: Buffer): void; // octets d'un enfant
+  appendText(channel: string, text: string, stream?: "out" | "err"): void; // producteur interne (jetons du modèle)
+  addView(view: IDevView): void; // une vue de la zone centrale (onglet ou volet)
+  openBand(band: IDevBand): () => void; // bande modale ; rend sa fermeture
+  setStatus(
+    view: IStartupView | null,
+    context: IStatusContext,
+    phase: DevPhase,
+  ): void;
+  addFocus(focus: IInputFocus): void;
+  dispatch(event: InputEvent): void;
+  since(seq: number): readonly ITranscriptEntry[]; // fil fusionné, tous canaux
+  clear(): void;
+  suspend<T>(task: () => Promise<T>): Promise<T>;
+  close(): void;
+}
+```
+
+- **Deux portes d'ingestion, parce que deux natures de données.** `ingestBytes` découpe sur le
+  `Buffer` et décode une ligne à la fois (§3) — ce que l'ingestion actuelle ne fait pas : elle
+  décode le paquet entier, puis l'historique refait un aller-retour `Buffer.from` / `toString`
+  par ligne. `appendText` reçoit des chaînes déjà décodées (jetons d'un modèle) et ne les
+  ré-encode pas. Chacune tient UNE ligne en cours par (canal, flux), affichée par les vues, et
+  replie incrémentalement la seule dernière ligne : un flux de jetons ne repaie pas le repli de
+  toute la ligne à chaque jeton.
+- **`suspend` reste dû** : prévu dès la première version de ce paragraphe, il n'est toujours pas
+  implémenté. Il arrive avec #538, qui en est le premier consommateur.
+- **Une mutation marque sa région** (§11), elle ne programme pas une image complète : `setStatus`
+  → la barre ; une ingestion → les vues qui montrent ce canal ; une frappe → l'invite. Le canal IPC reste le seul contrat superviseur ⇄ serveur
 
 `src/nodefony/src/service/dev/devChannel.ts`, union discriminée. Il gagne :
 
@@ -316,8 +416,39 @@ interface IDevResize {
   coûterait) : elles empruntent les tubes. Un **lot borné à la demande** (`transcript-request` /
   `transcript-batch`, servi par `since(seq)`) reste un membre légitime de l'union, le jour où la
   console d'administration ou un agent lira l'historique par le plan d'administration.
-- **Ni l'invite ni l'assistant n'ajoutent de message** : les commandes tournent en sous-processus
-  du superviseur, l'assistant parle à l'application par son serveur MCP.
+- ~~**Ni l'invite ni l'assistant n'ajoutent de message**~~ — **Amendement #903 (#538)** :
+  l'assistant n'en ajoute toujours aucun (il parle à l'application par son serveur MCP), mais
+  l'INVITE ajoute une paire requête / résultat et une annulation, pour lire l'état vivant du
+  serveur en mémoire (§7) :
+
+```typescript
+interface IDevCommandRequest {
+  channel: "nf-dev";
+  type: "command-request";
+  id: number;
+  name: string;
+  args: readonly string[];
+  columns: number;
+} // superviseur → serveur
+interface IDevCommandResult {
+  channel: "nf-dev";
+  type: "command-result";
+  id: number;
+  result: ICommandResult; // borné : au-delà, refus explicite, jamais une troncature muette
+} // serveur → superviseur
+interface IDevCommandCancel {
+  channel: "nf-dev";
+  type: "command-cancel";
+  id: number;
+} // superviseur → serveur
+```
+
+- Un consommateur UNIQUE côté serveur, aiguillé dans `supervisorLink.ts#SupervisorLink.listen`,
+  installé après `onPostReady`, sous l'identité de l'opérateur local. Un flux (`command-chunk`)
+  ne s'ajoute qu'au second lot, si une commande `live` le demande.
+- Repli par phase : serveur en build ou en démarrage → attente bornée et annulable ; enfant mort
+  → requêtes en vol rejetées ; `crashed` → la voie sous-processus (§7).
+- Les LIGNES du journal ne passent toujours pas par l'IPC : la règle ci-dessus tient.
 
 ### 7. Une action d'invite — le contrat que partagent commandes et assistant
 
@@ -356,8 +487,40 @@ interface IConfirmDecision {
   l'appel qu'elle accompagne, jamais « pour la session ».
 - Implémentations : **verbes du superviseur** (`restart`, `clear`, `help`, `quit`) et **commandes
   du CLI** (`nodefony <cmd>` en sous-processus, complétion par `readCliManifest` /
-  `computeCompletions`, `src/nodefony/src/cli/completion.ts#computeCompletions` et `src/nodefony/src/cli/completion.ts#computeCompletions`) en #538 ;
+  `computeCompletions`, `src/nodefony/src/cli/completion.ts#readCliManifest` et `src/nodefony/src/cli/completion.ts#computeCompletions`) en #538 ;
   **assistant** en #539.
+
+**Amendement #903 (#538) — trois voies d'exécution, routées par une capacité DÉCLARÉE.**
+`IPromptAction` et `IPromptIO` ne bougent pas ; ce qui change, c'est la seule phrase « `nodefony
+<cmd>` en sous-processus ». Mesuré : `npx nodefony inspect routes --json` prend 3,1 s (médiane de
+5 runs ; `--version` seul : 0,6 s). Le sous-processus ne peut être que le REPLI.
+
+| Voie                                | Pour                                                                                                          | Comment                                                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| IPC → noyau du serveur (en mémoire) | lectures de l'état vivant : `/routes`, `inspect <sujet>`, puis d'autres par extraction d'un producteur pur    | `command-request` (§6) ; `src/nodefony/src/kernel/inspect/adminSubjects.ts#readAdminSubject` est déjà pur et sérialisable      |
+| Dans le superviseur                 | verbes (`restart`, `clear`, `help`, `quit`, `status` depuis l'état qu'il tient), menu `/nodefony`, complétion | modèle pur du menu `src/nodefony/src/cli/startMenu.ts#buildStartMenu`, rendu en bande (§11) ; complétion sur `readCliManifest` |
+| Sous-processus (repli universel)    | écrit ou génère, long ou lourd, interactif (terminal cédé par `suspend`), serveur absent ou en crash          | tubes vers un canal `run:<n>` ; `AbortSignal` → arbre tué par `devProcess.ts#signalProcessGroup`                               |
+
+- **La voie se déclare** : `execution: "live" | "local" | "process"` dans les options de
+  commande (défaut `process`), publié dans le manifeste des commandes. Le superviseur route sans
+  interroger le serveur, même mort.
+- **Une commande `live` fournit `query(args, ctx) → ICommandResult`** (`{ ok, code, data,
+render? }`, calqué sur le résultat de `inspect`) : ni sortie standard, ni `terminate`, ni
+  `process.exitCode`. Son `generate()` devient `render(await query())` puis `terminate` — la CLI
+  reste identique.
+- **Jamais `Command.generate()` dans le serveur vivant.** Les bloqueurs sont ceux du CADRE, pas
+  du calcul : `terminate()` tuerait le serveur (`src/nodefony/src/kernel/commands/InspectCommand.ts#Inspect.generate`),
+  `process.exitCode` est global, `kernel.command` est écrasé (`src/nodefony/src/command/Command.ts#Command.run`),
+  la sortie va sur `process.stdout`, `process.argv` est partagé, l'exécution s'accroche à une
+  phase de boot déjà passée.
+- **Le superviseur ne sert pas ces lectures lui-même** : son noyau est parqué avant le chargement
+  des modules (`src/nodefony/src/kernel/commands/DevCommand.ts#Dev.onKernelStart`) — ni modules,
+  ni conteneur.
+- **Le cycle de vie n'est jamais lancé depuis l'invite** (`development`, `stop`, `production`…) :
+  il tuerait le superviseur ou son serveur. Le refus nomme le verbe équivalent ; la liste dérive
+  de la déclaration des commandes, jamais d'une liste écrite à la main.
+- **`confirm` et la complétion s'affichent en bande** (§11), pas par une bibliothèque d'invite
+  qui prendrait l'entrée et la sortie standard.
 
 ### 8. L'assistant : un client de l'application, jamais un passe-droit
 
@@ -393,6 +556,17 @@ interface IConfirmDecision {
 - **Garde-fous chiffrés** du livre blanc (§3.4) : plafonds de jetons et de durée, annulation par
   Ctrl+C (`AbortSignal`).
 
+**Amendement #903 (D6, D7).**
+
+- **D7 — foyer pressenti : le superviseur.** Le compromis ci-dessus reste tranché par #245, mais
+  l'orientation est fixée : l'agent de développement vivra vraisemblablement dans le superviseur,
+  hôte qui survit aux rechargements. Rien dans le socle (§11) ne doit lui fermer la porte : ses
+  flux sont des canaux `agent:<id>`, sa conversation une vue, ses confirmations une bande.
+- **D6 — une boucle d'événements partagée.** Relais des enfants, rendu, flux du modèle et outils
+  de l'agent tourneront sur la MÊME boucle. Le rendu y est donc un invité borné : régions sales
+  seulement, image sautée quand le terminal ne suit pas (§9). Un worker de rendu n'est envisagé
+  que si le banc de #896 le montre nécessaire.
+
 ### 9. Rendu borné, terminal toujours rendu propre
 
 - Images regroupées (au plus une toutes les 16 ms), dessin différentiel, sortie synchronisée
@@ -418,11 +592,103 @@ interface IConfirmDecision {
   ses flux), plus sur `exit` (`onServerEnded`, `DevSupervisor.ts#onServerEnded`) : sinon la pile d'un crash
   au démarrage arrive après le message, ou se perd.
 
+**Amendement #903 (D2, D6) — différencier par segment, défiler par le terminal, sauter une
+image.**
+
+- **Diff par SEGMENT de ligne** : (ligne, colonne, texte rembourré à la largeur de la région).
+  `ESC[K` n'est émis que si la région touche le bord droit ; à côté d'un volet voisin, le
+  rembourrage par espaces le remplace. Une ligne inchangée se compare par IDENTITÉ de chaîne,
+  grâce au cache de repli (§3), sans la reconstruire.
+- **Défilement confié au terminal en rafale** : quand le journal est au direct et que N lignes
+  arrivent, la région du journal défile de N lignes par `SU` (`CSI N S`) et seules les lignes
+  neuves s'écrivent, au lieu de réécrire tout l'écran à chaque image. `SU` agit sur la zone de
+  défilement : la région du journal y est bornée par `DECSTBM` (`CSI haut;bas r`), en plein écran
+  SEULEMENT — l'écran alternatif n'a pas d'historique à vider, ce qui lève l'objection de #533
+  (voir « Alternatives écartées »). Les marges sont remises (`CSI r`) à chaque image qui ne
+  défile pas, et à la sortie par le protocole unique.
+- **Limite constatée de la norme** : `DECSTBM` ne borne que des lignes. Deux volets CÔTE À CÔTE
+  exigeraient des marges gauche/droite (`DECSLRM`, sous le mode `DECLRMM`), dont la prise en
+  charge par les terminaux visés n'est pas relevée. Tant qu'elle ne l'est pas, des volets côte à
+  côte se différencient par segment, sans `SU` ; des volets EMPILÉS gardent `SU`.
+- **Diff par cellule** (`Uint32Array`, double tampon — le patron de ratatui, bubbletea v2,
+  notcurses) : gardé SEULEMENT s'il gagne en A/B sur le banc de #896, petite charge comprise.
+- **Image sautée sous contre-pression** : quand `write` rend `false`, aucune image ne part avant
+  `drain` ; les mutations continuent de marquer leurs régions, et l'image suivante les rend
+  toutes. Un seul écouteur `drain` en vol, retiré à `close`. C'est ce qui garde le relais des
+  enfants et l'agent (D6) vivants sous SSH ou sous Windows.
+- **Régions sales** (§11) : une image ne recalcule que les régions marquées. Une graduation de la
+  barre ne replie pas le journal ; une touche sans effet ne rebâtit rien.
+- **Largeur** : la fonction unique de largeur reste la seule règle, mais compte d'abord le
+  préfixe ASCII sans segmenteur et saute les séquences de contrôle sans allouer ; le découpage
+  en graphèmes ne sert qu'au-delà. Gardé seulement si le banc de #896 le montre.
+
 ### 10. Hors du rendu humain, rien ne change
 
 `plain` (agent sans terminal), `json`, `--debug`, production : ni plein écran, ni invite, ni
 transit de la sortie. `--no-watch` : pas de superviseur, le serveur dessine sa barre comme
 aujourd'hui (§1).
+
+### 11. Zone centrale à plusieurs vues (amendement #903)
+
+Le socle sur lequel Vite (#692), l'invite (#538) et l'assistant (#539) se branchent — posé
+AVANT eux, pour ne pas être repris.
+
+**Canaux, vues, régions — trois niveaux, trois responsabilités.**
+
+| Niveau | Ce qu'il porte                                                                     | Qui le possède                                        |
+| ------ | ---------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Canal  | un anneau `DevTranscript`, un `seq` global, une ligne en cours par flux (§3)       | le superviseur — lu par le terminal, l'agent, Studio  |
+| Vue    | { canal, ancre, cache de repli, sélection, rendu de la ligne en cours } — légère   | le terminal ; deux vues peuvent montrer le même canal |
+| Région | un rectangle de l'écran (ligne, colonne, largeur, hauteur) et son drapeau « sale » | la mise en page, recalculée à la taille ou à l'état   |
+
+**Mise en page** : une fonction PURE `layout(taille, état) → régions`, rendant une liste PLATE
+de rectangles : onglets (1 ligne, absente avec une seule vue), volets (1 ou 2, empilés ou côte à
+côte), bande (menu, complétion, confirmation ; hauteur 0 si absente), invite, barre. Pas d'arbre
+générique tant que les volets sont peu nombreux. Avec UNE vue et aucune bande, la mise en page
+rend exactement les trois zones d'aujourd'hui : c'est la preuve d'équivalence de la refonte.
+
+**Trois contrats de branchement**, dans `src/nodefony/src/service/dev/` :
+
+```typescript
+interface IDevView {
+  readonly id: string;
+  readonly title: string; // l'onglet
+  readonly channel: string;
+  render(rect: IRegion): IViewFrame; // segments + origines (entrée, colonne) de chaque ligne
+  handle?(event: InputEvent): boolean; // foyer local, coordonnées de la région
+}
+interface IDevBand {
+  readonly height: number; // lignes demandées, bornées par la mise en page
+  render(rect: IRegion): IViewFrame;
+  handle(event: InputEvent): boolean; // modale : consomme tout ce qu'elle ne rend pas
+}
+// l'invite = une bande PERMANENTE : éditeur pur (tampon, curseur compté en graphèmes par la
+// fonction de largeur, historique Ctrl+P / Ctrl+N)
+```
+
+- **Souris** : le test de région passe AVANT la chaîne de foyers (§4), et l'évènement arrive à
+  la région en coordonnées LOCALES. Un clic ne traverse pas une bande ; une sélection ne déborde
+  pas d'un volet — sélection et origines descendent dans la vue.
+- **Défilement** : par vue. Il lit la hauteur du volet dans la mise en page mémorisée, sans
+  rebâtir le modèle ; une touche qui ne défile pas ne coûte rien.
+- **Régions sales** : chaque mutateur marque la sienne (§5) ; l'image ne rend que celles-là
+  (§9).
+
+**Matrice de défilement — chaque case est un scénario rejoué sur l'écran obtenu.** Banc sous
+pseudo-terminal (`script`) et `@xterm/headless`, celui des Conséquences :
+
+| Scénario                           | Ce qui doit tenir                                   |
+| ---------------------------------- | --------------------------------------------------- |
+| molette captée, et traduite (1007) | trois lignes par cran dans les deux régimes         |
+| PgUp / PgDn / Début / Fin          | une page = la hauteur du volet, pas de l'écran      |
+| rafale pendant qu'on est remonté   | l'ancre (`seq`) ne bouge pas, l'indicateur compte   |
+| redimensionnement remonté          | même entrée en haut du volet                        |
+| glisser au bord                    | défile la vue qui porte la sélection, et elle seule |
+| crash pendant qu'on est remonté    | la pile reste lisible au retour au direct           |
+| deux volets défilés indépendamment | aucun ne bouge l'autre                              |
+| retour au direct                   | l'indicateur disparaît, `SU` reprend                |
+
+Essais à la main, avec liste de contrôle : iTerm2, Terminal.app, tmux ; Windows Terminal à part.
 
 ## Conséquences
 
@@ -442,12 +708,43 @@ aujourd'hui (§1).
   de `script` coexistent (BSD sous macOS, util-linux sous Linux). Le banc vit dans
   `CliIntegration.test.ts`, déclaré comme décor (une absence se dit, elle ne se saute pas en
   silence) et joué sur les jobs Linux et macOS. Windows Terminal se vérifie à la main.
+- **Amendement #903** — l'ordre des travaux devient une contrainte : banc et leviers à surface
+  constante (#896, preuve d'équivalence ancien / nouveau rendu), PUIS socle à plusieurs vues
+  (#903), PUIS Vite (#692) et l'invite (#538). Chaque étape est prouvée à l'écran sur la matrice
+  du §11 ; avec une seule vue, l'écran obtenu est identique à celui d'avant.
+- Le plafond mémoire reste 8 Mio au total, quel que soit le nombre de canaux.
+- Une seconde dépendance au terminal : `DECSTBM` + `SU` en plein écran. Leur restauration entre
+  dans le protocole unique de sortie (§5, §9).
+
+## Normes et antériorités
+
+Le terminal n'a pas de norme d'application : ce qui fait foi, ce sont les séquences (ECMA-48,
+la documentation des séquences de xterm, les extensions publiées) et ce que des projets mûrs ont
+appris à leurs dépens. Relevé hors ligne : skill `nodefony-rfc`, `references/terminal/`.
+
+| Source                                                                    | Ce que l'ADR reprend                                                   | Où il s'écarte, et pourquoi                                                  |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **ECMA-48** (`SU`, `CSI Pn S`) et **DEC** (`DECSTBM`, `DECSLRM`)          | défilement d'une région par le terminal, région bornée par `DECSTBM`   | pas de `DECSLRM` : prise en charge non relevée chez les terminaux visés (§9) |
+| **xterm ctlseqs** (modes 1000, 1002, 1006, 1007, 1049, `ESC[6n`, DECRQM)  | souris, défilement alterné, écran alternatif, sonde                    | jamais 1003 ni 1004 (§2)                                                     |
+| **Sortie synchronisée** (mode 2026, contour-terminal/vt-extensions)       | une image encadrée quand la sonde l'a vu                               | jamais une condition du plein écran (§2)                                     |
+| **Protocole clavier kitty** (`CSI u`, sondé par `CSI ? u`)                | Maj+Entrée (saut de ligne dans l'invite), le jour où #538 le demande   | pas encore décodé (`src/nodefony/src/service/dev/inputDecoder.ts#csiEvent`)  |
+| **ratatui, bubbletea v2, opentui, notcurses**, plein écran de Claude Code | double tampon : seul ce qui change part au terminal                    | par segment de ligne d'abord, par cellule seulement si l'A/B gagne (§9)      |
+| **Textual**                                                               | régions et segments immuables en cache                                 | liste plate de régions, pas d'arbre de composants                            |
+| **Ink**                                                                   | rendu par ligne                                                        | aucune dépendance d'exécution (voir Alternatives)                            |
+| **Claude Code sous Windows Terminal (ConPTY)**                            | repeinte complète, les écritures positionnées y laissant des fragments | — (repris tel quel, §2)                                                      |
+| **string-width**                                                          | préfixe ASCII compté sans segmenteur, un seul `Intl.Segmenter`         | aucune dépendance : la règle est reprise dans `textWidth.ts`                 |
 
 ## Alternatives écartées
 
 | Alternative                                         | Pourquoi non                                                                                                                                                                                                                                                                                                                                                  |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Zone de défilement `DECSTBM`                        | historique vidé, non tenue par Windows Terminal, terminal cassé au `kill -9` (essayé en #533)                                                                                                                                                                                                                                                                 |
+| Zone de défilement `DECSTBM` sur l'écran PRINCIPAL  | historique vidé, non tenue par Windows Terminal, terminal cassé au `kill -9` (essayé en #533). Amendement #903 : l'objection tient pour l'écran principal (`inline`) ; en plein écran, l'écran alternatif n'a pas d'historique, `DECSTBM` y borne la région du journal pour `SU` (§9)                                                                         |
+| Un seul historique filtré par source                | `seq` contigus perdus, défilement et sélection uniques : deux vues ne défileraient pas indépendamment ; et un producteur neuf rouvrirait l'union des sources (§3)                                                                                                                                                                                             |
+| Un arbre générique de mise en page                  | une liste plate de régions suffit tant que les volets sont peu nombreux ; un arbre s'ajoutera sans changer les contrats de vue et de bande                                                                                                                                                                                                                    |
+| Un diff par cellule d'emblée                        | gardé seulement s'il gagne en A/B : le diff par segment comparé par identité peut suffire, à moindre coût mémoire                                                                                                                                                                                                                                             |
+| `Command.generate()` dans le serveur vivant         | `terminate()`, `process.exitCode`, `process.stdout`, `process.argv` et `kernel.command` partagés : la commande tuerait ou polluerait le serveur (§7)                                                                                                                                                                                                          |
+| L'invite par `POST /nodefony/mcp`                   | URL, TLS, jeton et pipeline HTTP pour une lecture locale ; c'est la voie de l'assistant, pas de l'invite                                                                                                                                                                                                                                                      |
+| Un worker de rendu d'emblée                         | une frontière de copie pour un rendu borné qui tient peut-être sur la boucle : seulement si le banc de #896 le montre                                                                                                                                                                                                                                         |
 | Invite dans le serveur                              | suspendu par `SIGTTIN` (groupe détaché)                                                                                                                                                                                                                                                                                                                       |
 | Sonde par DECRQM du mode 1049                       | extension que des terminaux capables d'écran alternatif n'implémentent pas : le plein écran ne s'allumerait jamais chez eux                                                                                                                                                                                                                                   |
 | `node-pty`                                          | dépendance native, compilée par plateforme — non justifiée pour relayer des tubes                                                                                                                                                                                                                                                                             |

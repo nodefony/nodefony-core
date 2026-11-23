@@ -95,6 +95,31 @@ function isAllowedSequence(sequence: string): boolean {
 }
 
 /**
+ * Fin d'une couleur (`SGR`) ou d'un effacement de ligne (`EL`) qui commence
+ * à `index` — les deux séquences gardées les plus fréquentes, reconnues sans
+ * expression ni découpe. Rend exactement ce que `controlSequenceLength` puis
+ * {@link isAllowedSequence} accepteraient pour elles ; toute autre séquence
+ * suit le chemin général.
+ *
+ * @param text - le texte.
+ * @param index - position d'un `ESC`.
+ * @returns la position qui suit la séquence, ou `-1`.
+ */
+function keptSequenceEnd(text: string, index: number): number {
+  if (text.charCodeAt(index + 1) !== 0x5b) return -1; // `[`
+  let end = index + 2;
+  let code = text.charCodeAt(end);
+  // Paramètres de `SGR` : chiffres, `:` et `;` (0x30 à 0x3b).
+  while (code >= 0x30 && code <= 0x3b) code = text.charCodeAt(++end);
+  if (code === 0x6d) return end + 1; // `m`
+  const params = end - index - 2;
+  return code === 0x4b && // `K`, sans paramètre ou avec 0, 1, 2
+    (params === 0 || (params === 1 && text.charCodeAt(index + 2) <= 0x32))
+    ? end + 1
+    : -1;
+}
+
+/**
  * Assainit un texte destiné au terminal : garde les couleurs, l'effacement
  * de ligne et les hyperliens `http`/`https`/`file` ; retire tout le reste —
  * déplacement de curseur, titre de fenêtre, presse-papiers (OSC 52),
@@ -113,6 +138,15 @@ export function sanitizeTerminalText(text: string): string {
     const isControl =
       code < 0x20 || code === 0x7f || (code >= 0x80 && code <= 0x9f);
     if (!isControl || code === 0x0d || code === 0x0a) continue;
+    if (code === 0x1b) {
+      // Couleur ou effacement de ligne : gardés tels quels, ils restent dans
+      // la tranche en cours — une ligne qui n'a qu'eux revient intacte.
+      const end = keptSequenceEnd(text, i);
+      if (end !== -1) {
+        i = end - 1;
+        continue;
+      }
+    }
     out += text.slice(start, i);
     if (code === 0x1b) {
       const length = controlSequenceLength(text, i) || 1;
@@ -429,11 +463,12 @@ export class DevTranscript {
     // Recopie à plat, une fois par ligne : la ligne en cours est faite de
     // tranches (`slice`) qui RETIENNENT leur chaîne mère dans V8 — une ligne
     // courte découpée d'un paquet de 60 Ko garderait les 60 Ko vivants, et
-    // `#maxBytes` ne bornerait plus que des chiffres. Le tampon donne la
-    // taille en octets au passage.
-    const bytes = Buffer.from(sanitizeTerminalText(pending.text), "utf8");
-    const text = bytes.toString("utf8");
-    const size = bytes.length;
+    // `#maxBytes` ne bornerait plus que des chiffres. Concaténer puis
+    // découper force V8 à aplatir dans une chaîne NEUVE, seule retenue par
+    // la tranche — une copie, là où un aller-retour par un tampon en faisait
+    // deux et allouait le tampon.
+    const text = (" " + sanitizeTerminalText(pending.text)).slice(1);
+    const size = Buffer.byteLength(text, "utf8");
     pending.text = "";
     pending.truncated = false;
     pending.carriageReturn = false;

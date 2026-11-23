@@ -30,6 +30,7 @@ import { isIncompleteControlSequence } from "../../runtime/textWidth";
 import { guardTerminal } from "../../runtime/terminalGuard";
 import {
   FrameHeights,
+  StatusBarCache,
   diffFrame,
   frameJournalRows,
   renderFrame,
@@ -338,6 +339,7 @@ interface IFullscreenState {
   /** L'image à l'écran — `null` : tout redessiner. */
   frame: IFrame | null;
   heights: FrameHeights;
+  statusBar: StatusBarCache;
   anchor: IScrollAnchor | null;
   floorSeq: number | undefined;
   /** La chaîne de foyers, du premier servi au dernier. */
@@ -820,6 +822,7 @@ export class DevTerminal {
       lastFrameAt: 0,
       frame: null,
       heights: new FrameHeights(),
+      statusBar: new StatusBarCache(),
       anchor: null,
       floorSeq: undefined,
       foci: [],
@@ -1225,6 +1228,7 @@ export class DevTerminal {
       charset: this.#charset,
       mark: this.#mark,
       heights: full.heights,
+      statusBar: full.statusBar,
       ...(full.floorSeq === undefined ? {} : { floorSeq: full.floorSeq }),
       // L'indicateur de build du superviseur se réécrit sur place, sans fin
       // de ligne : sans lui, un long build laissait l'écran figé.

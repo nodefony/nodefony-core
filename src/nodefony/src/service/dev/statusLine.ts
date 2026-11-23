@@ -113,6 +113,14 @@ export class StatusLine {
   readonly #ownWrite: Array<WriteFn | undefined>;
   /** Lignes du bloc — `null` tant que rien n'a été montré. */
   #lines: readonly string[] | null = null;
+  /**
+   * Le bloc borné à la largeur, prêt à écrire — `null` à recomposer. Il est
+   * redessiné après CHAQUE écriture relayée : le réajuster à chaque fois
+   * coûtait plus que d'écrire le paquet.
+   */
+  #block: string | null = null;
+  /** La largeur pour laquelle {@link StatusLine.#block} a été composé. */
+  #blockColumns: number | undefined = undefined;
   /** Le bloc est-il À L'ÉCRAN en ce moment (et donc à effacer) ? */
   #displayed = false;
   #atLineStart = true;
@@ -132,7 +140,12 @@ export class StatusLine {
     const write = this.#originals[0];
     const stream = this.#streams[0];
     if (!write || !stream || this.#lines === null) return;
-    write(this.#lines.map((l) => fitStatus(l, stream.columns)).join("\n"));
+    const columns = stream.columns;
+    if (this.#block === null || columns !== this.#blockColumns) {
+      this.#block = this.#lines.map((l) => fitStatus(l, columns)).join("\n");
+      this.#blockColumns = columns;
+    }
+    write(this.#block);
     this.#displayed = true;
   }
 
@@ -158,6 +171,7 @@ export class StatusLine {
       this.#atLineStart = true;
     }
     this.#lines = typeof lines === "string" ? [lines] : [...lines];
+    this.#block = null;
     this.#draw();
   }
 
@@ -169,6 +183,7 @@ export class StatusLine {
   hide(): void {
     this.#erase();
     this.#lines = null;
+    this.#block = null;
   }
 
   /**
@@ -180,6 +195,7 @@ export class StatusLine {
     if (!this.#attached) return;
     this.#erase();
     this.#lines = null;
+    this.#block = null;
     this.#streams.forEach((stream, i) =>
       restoreWrite(stream, this.#ownWrite[i]),
     );

@@ -1,0 +1,232 @@
+# Sortie de référence du terminal du superviseur (#896) — régénérer : npx vitest run terminalEquivalence -u (src/nodefony)
+live.wide.cursor	null
+live.wide.0	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long\u001b]8;;\u001b\\",{"seq":43,"column":0}]
+live.wide.1	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ \u001b]8;;\u001b\\ après",{"seq":43,"column":119}]
+live.wide.2	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgris\u001b[22m",{"seq":44,"column":0}]
+live.wide.3	["",{"seq":45,"column":0}]
+live.wide.4	["GET /api/users 200 1.2 ms",{"seq":46,"column":0}]
+live.wide.5	["\u001b[32mINFO\u001b[0m  \u001b[36mHTTP\u001b[0m  GET /x \u001b[1;31m500\u001b[0m fin",{"seq":47,"column":0}]
+live.wide.6	["\u001b[38;5;208morange\u001b[0m \u001b[38;2;10;20;30mrgb\u001b[39m \u001b[mreset",{"seq":48,"column":0}]
+live.wide.7	["✅ prêt 👍🏽 famille 👨‍👩‍👧 drapeau 🇫🇷 cœur ❤️ fin",{"seq":49,"column":0}]
+live.wide.8	["漢字のテスト 한국어 全角ＡＢＣ",{"seq":50,"column":0}]
+live.wide.9	["été café ä ñ",{"seq":51,"column":0}]
+live.wide.10	["a​b‍c﻿d",{"seq":52,"column":0}]
+live.wide.11	["voir \u001b]8;;https://nodefony.net\u001b\\le site\u001b]8;;\u001b\\ maintenant",{"seq":53,"column":0}]
+live.wide.12	["\u001b]8;;file:///tmp/a.ts\u0007a.ts:12\u001b]8;;\u0007 ouvert",{"seq":54,"column":0}]
+live.wide.13	["\u001b[34m\u001b]8;;http://127.0.0.1:5151\u001b\\http://127.0.0.1:5151\u001b]8;;\u001b\\\u001b[0m prêt",{"seq":55,"column":0}]
+live.wide.14	["coupé 3",{"seq":56,"column":0}]
+live.wide.15	["a fin",{"seq":57,"column":0}]
+live.wide.16	["texte suite",{"seq":58,"column":0}]
+live.wide.17	["cloche retour",{"seq":59,"column":0}]
+live.wide.18	["a    b    c",{"seq":60,"column":0}]
+live.wide.19	["01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678",{"seq":61,"column":0}]
+live.wide.20	["90123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567",{"seq":61,"column":119}]
+live.wide.21	["89012345678901234567890123456789012345678901234567890123456789",{"seq":61,"column":238}]
+live.wide.22	["\u001b[33mjaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune\u001b[0m",{"seq":62,"column":0}]
+live.wide.23	["\u001b[33m \u001b[0mneutre neutre neutre neutre neutre neutre neutre neutre neutre neutre \u001b[1mgras gras gras gras gras gras gras gras gras gra\u001b[0m",{"seq":62,"column":119}]
+live.wide.24	["\u001b[1ms \u001b[0m",{"seq":62,"column":238}]
+live.wide.25	["漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢",{"seq":63,"column":0}]
+live.wide.26	["字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字",{"seq":63,"column":118}]
+live.wide.27	["漢字",{"seq":63,"column":236}]
+live.wide.28	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅",{"seq":64,"column":0}]
+live.wide.29	[" 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":119}]
+live.wide.30	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long\u001b]8;;\u001b\\",{"seq":65,"column":0}]
+live.wide.31	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ \u001b]8;;\u001b\\ après",{"seq":65,"column":119}]
+live.wide.32	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgris\u001b[22m",{"seq":66,"column":0}]
+live.wide.33	["\u001b[90m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\u001b[39m",null]
+live.wide.34	["   \u001b[34m⢀⡤⠖⠂ \u001b[0m   \u001b[7m\u001b[1m ⬢ mon-app \u001b[0m  \u001b[90mNodefony 10.0.0 · development · rechargement auto\u001b[39m",null]
+live.wide.35	[" \u001b[34m⣠⠞⢉\u001b[32m⣤⠶⢛⠁\u001b[0m   \u001b[32m➜\u001b[39m \u001b[36mhttp://127.0.0.1:5151\u001b[39m",null]
+live.wide.36	["\u001b[34m⣸⡏\u001b[32m⢠⣿⢁\u001b[36m⣶⠟⠁\u001b[0m   \u001b[32m✓ prêt\u001b[39m \u001b[90mà 16:48\u001b[39m\u001b[90m  ·  rechargé en 1,2 s\u001b[39m\u001b[90m  ·  ↻ 2\u001b[39m",null]
+live.wide.37	["\u001b[34m⢻⣇\u001b[32m⠸⣿⡈\u001b[36m⢿⣄⡀\u001b[0m",null]
+live.wide.38	[" \u001b[34m⠙⢦⣈\u001b[32m⠻⢦⣌⡁\u001b[0m",null]
+live.wide.39	["   \u001b[34m⠉⠓⠦⣄ \u001b[0m",null]
+nostatus.wide.cursor	null
+nostatus.wide.0	["\u001b[33m \u001b[0mneutre neutre neutre neutre neutre neutre neutre neutre neutre neutre \u001b[1mgras gras gras gras gras gras gras gras gras gra\u001b[0m",{"seq":40,"column":119}]
+nostatus.wide.1	["\u001b[1ms \u001b[0m",{"seq":40,"column":238}]
+nostatus.wide.2	["漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢",{"seq":41,"column":0}]
+nostatus.wide.3	["字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字",{"seq":41,"column":118}]
+nostatus.wide.4	["漢字",{"seq":41,"column":236}]
+nostatus.wide.5	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅",{"seq":42,"column":0}]
+nostatus.wide.6	[" 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":42,"column":119}]
+nostatus.wide.7	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long\u001b]8;;\u001b\\",{"seq":43,"column":0}]
+nostatus.wide.8	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ \u001b]8;;\u001b\\ après",{"seq":43,"column":119}]
+nostatus.wide.9	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgris\u001b[22m",{"seq":44,"column":0}]
+nostatus.wide.10	["",{"seq":45,"column":0}]
+nostatus.wide.11	["GET /api/users 200 1.2 ms",{"seq":46,"column":0}]
+nostatus.wide.12	["\u001b[32mINFO\u001b[0m  \u001b[36mHTTP\u001b[0m  GET /x \u001b[1;31m500\u001b[0m fin",{"seq":47,"column":0}]
+nostatus.wide.13	["\u001b[38;5;208morange\u001b[0m \u001b[38;2;10;20;30mrgb\u001b[39m \u001b[mreset",{"seq":48,"column":0}]
+nostatus.wide.14	["✅ prêt 👍🏽 famille 👨‍👩‍👧 drapeau 🇫🇷 cœur ❤️ fin",{"seq":49,"column":0}]
+nostatus.wide.15	["漢字のテスト 한국어 全角ＡＢＣ",{"seq":50,"column":0}]
+nostatus.wide.16	["été café ä ñ",{"seq":51,"column":0}]
+nostatus.wide.17	["a​b‍c﻿d",{"seq":52,"column":0}]
+nostatus.wide.18	["voir \u001b]8;;https://nodefony.net\u001b\\le site\u001b]8;;\u001b\\ maintenant",{"seq":53,"column":0}]
+nostatus.wide.19	["\u001b]8;;file:///tmp/a.ts\u0007a.ts:12\u001b]8;;\u0007 ouvert",{"seq":54,"column":0}]
+nostatus.wide.20	["\u001b[34m\u001b]8;;http://127.0.0.1:5151\u001b\\http://127.0.0.1:5151\u001b]8;;\u001b\\\u001b[0m prêt",{"seq":55,"column":0}]
+nostatus.wide.21	["coupé 3",{"seq":56,"column":0}]
+nostatus.wide.22	["a fin",{"seq":57,"column":0}]
+nostatus.wide.23	["texte suite",{"seq":58,"column":0}]
+nostatus.wide.24	["cloche retour",{"seq":59,"column":0}]
+nostatus.wide.25	["a    b    c",{"seq":60,"column":0}]
+nostatus.wide.26	["01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678",{"seq":61,"column":0}]
+nostatus.wide.27	["90123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567",{"seq":61,"column":119}]
+nostatus.wide.28	["89012345678901234567890123456789012345678901234567890123456789",{"seq":61,"column":238}]
+nostatus.wide.29	["\u001b[33mjaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune\u001b[0m",{"seq":62,"column":0}]
+nostatus.wide.30	["\u001b[33m \u001b[0mneutre neutre neutre neutre neutre neutre neutre neutre neutre neutre \u001b[1mgras gras gras gras gras gras gras gras gras gra\u001b[0m",{"seq":62,"column":119}]
+nostatus.wide.31	["\u001b[1ms \u001b[0m",{"seq":62,"column":238}]
+nostatus.wide.32	["漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢",{"seq":63,"column":0}]
+nostatus.wide.33	["字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字",{"seq":63,"column":118}]
+nostatus.wide.34	["漢字",{"seq":63,"column":236}]
+nostatus.wide.35	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅",{"seq":64,"column":0}]
+nostatus.wide.36	[" 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":119}]
+nostatus.wide.37	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long\u001b]8;;\u001b\\",{"seq":65,"column":0}]
+nostatus.wide.38	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ \u001b]8;;\u001b\\ après",{"seq":65,"column":119}]
+nostatus.wide.39	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgris\u001b[22m",{"seq":66,"column":0}]
+live.medium.cursor	null
+live.medium.0	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ",{"seq":64,"column":0}]
+live.medium.1	["✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":39}]
+live.medium.2	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ",{"seq":64,"column":78}]
+live.medium.3	["✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":117}]
+live.medium.4	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":156}]
+live.medium.5	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\lien long lien long lien long lien long\u001b]8;;\u001b\\",{"seq":65,"column":0}]
+live.medium.6	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ lien long lien long lien long lien lon\u001b]8;;\u001b\\",{"seq":65,"column":39}]
+live.medium.7	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\g lien long lien long lien long lien lo\u001b]8;;\u001b\\",{"seq":65,"column":78}]
+live.medium.8	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ng \u001b]8;;\u001b\\ après",{"seq":65,"column":117}]
+live.medium.9	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgris\u001b[22m",{"seq":66,"column":0}]
+live.medium.10	["\u001b[90m───────────────────────────────────────\u001b[39m",null]
+live.medium.11	["\u001b[7m\u001b[1m ⬢ mon-app \u001b[0m \u001b[32m✓ prêt\u001b[39m \u001b[90mà 16:48\u001b[39m",null]
+nostatus.medium.cursor	null
+nostatus.medium.0	["字漢字漢字漢字漢字漢字漢字漢字漢字漢字",{"seq":63,"column":190}]
+nostatus.medium.1	["漢字漢字漢字",{"seq":63,"column":228}]
+nostatus.medium.2	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ",{"seq":64,"column":0}]
+nostatus.medium.3	["✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":39}]
+nostatus.medium.4	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ",{"seq":64,"column":78}]
+nostatus.medium.5	["✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":117}]
+nostatus.medium.6	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":156}]
+nostatus.medium.7	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\lien long lien long lien long lien long\u001b]8;;\u001b\\",{"seq":65,"column":0}]
+nostatus.medium.8	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ lien long lien long lien long lien lon\u001b]8;;\u001b\\",{"seq":65,"column":39}]
+nostatus.medium.9	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\g lien long lien long lien long lien lo\u001b]8;;\u001b\\",{"seq":65,"column":78}]
+nostatus.medium.10	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ng \u001b]8;;\u001b\\ après",{"seq":65,"column":117}]
+nostatus.medium.11	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgris\u001b[22m",{"seq":66,"column":0}]
+live.narrow.cursor	null
+live.narrow.0	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ng lien long lien l\u001b]8;;\u001b\\",{"seq":65,"column":57}]
+live.narrow.1	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ong lien long lien \u001b]8;;\u001b\\",{"seq":65,"column":76}]
+live.narrow.2	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\long lien long lien\u001b]8;;\u001b\\",{"seq":65,"column":95}]
+live.narrow.3	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ long \u001b]8;;\u001b\\ après",{"seq":65,"column":114}]
+live.narrow.4	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgr\u001b[0m",{"seq":66,"column":0}]
+live.narrow.5	["\u001b[2mis\u001b[22m",{"seq":66,"column":19}]
+live.narrow.6	["\u001b[90m───────────────────\u001b[39m",null]
+live.narrow.7	["\u001b[7m\u001b[1m ⬢ mon-app \u001b[0m ",null]
+nostatus.narrow.cursor	null
+nostatus.narrow.0	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ lien long lien lon\u001b]8;;\u001b\\",{"seq":65,"column":19}]
+nostatus.narrow.1	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\g lien long lien lo\u001b]8;;\u001b\\",{"seq":65,"column":38}]
+nostatus.narrow.2	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ng lien long lien l\u001b]8;;\u001b\\",{"seq":65,"column":57}]
+nostatus.narrow.3	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ong lien long lien \u001b]8;;\u001b\\",{"seq":65,"column":76}]
+nostatus.narrow.4	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\long lien long lien\u001b]8;;\u001b\\",{"seq":65,"column":95}]
+nostatus.narrow.5	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ long \u001b]8;;\u001b\\ après",{"seq":65,"column":114}]
+nostatus.narrow.6	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgr\u001b[0m",{"seq":66,"column":0}]
+nostatus.narrow.7	["\u001b[2mis\u001b[22m",{"seq":66,"column":19}]
+partial.cursor	null
+partial.0	["✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":39}]
+partial.1	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ",{"seq":64,"column":78}]
+partial.2	["✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":117}]
+partial.3	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":156}]
+partial.4	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\lien long lien long lien long lien long\u001b]8;;\u001b\\",{"seq":65,"column":0}]
+partial.5	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ lien long lien long lien long lien lon\u001b]8;;\u001b\\",{"seq":65,"column":39}]
+partial.6	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\g lien long lien long lien long lien lo\u001b]8;;\u001b\\",{"seq":65,"column":78}]
+partial.7	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ng \u001b]8;;\u001b\\ après",{"seq":65,"column":117}]
+partial.8	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgris\u001b[22m",{"seq":66,"column":0}]
+partial.9	["en cours… 👍🏽 \u001b[33m50 %\u001b[0m",null]
+partial.10	["\u001b[90m───────────────────────────────────────\u001b[39m",null]
+partial.11	["\u001b[7m\u001b[1m ⬢ mon-app \u001b[0m \u001b[32m✓ prêt\u001b[39m \u001b[90mà 16:48\u001b[39m",null]
+anchored.cursor	null
+anchored.0	["GET /api/users 200 1.2 ms",{"seq":24,"column":0}]
+anchored.1	["\u001b[32mINFO\u001b[0m  \u001b[36mHTTP\u001b[0m  GET /x \u001b[1;31m500\u001b[0m fin",{"seq":25,"column":0}]
+anchored.2	["\u001b[38;5;208morange\u001b[0m \u001b[38;2;10;20;30mrgb\u001b[39m \u001b[mreset",{"seq":26,"column":0}]
+anchored.3	["✅ \u001b[7mprêt 👍🏽 famille 👨‍👩‍👧 drapeau 🇫🇷 cœur \u001b[27m",{"seq":27,"column":0}]
+anchored.4	["\u001b[7m❤️ fin\u001b[27m",{"seq":27,"column":38}]
+anchored.5	["\u001b[7m漢字のテスト 한국어 全角ＡＢＣ\u001b[27m",{"seq":28,"column":0}]
+anchored.6	["\u001b[7mété café ä ñ\u001b[27m",{"seq":29,"column":0}]
+anchored.7	["\u001b[7ma​b‍c﻿d\u001b[27m",{"seq":30,"column":0}]
+anchored.8	["voir \u001b]8;;https://nodefony.net\u001b\\le site\u001b]8;;\u001b\\ maintenant",{"seq":31,"column":0}]
+anchored.9	["\u001b[7m ↑ 35 nouvelles lignes — Fin \u001b[0m",null]
+anchored.10	["\u001b[90m───────────────────────────────────────\u001b[39m",null]
+anchored.11	["\u001b[7m\u001b[1m ⬢ mon-app \u001b[0m \u001b[32m✓ prêt\u001b[39m \u001b[90mà 16:48\u001b[39m",null]
+floor.cursor	null
+floor.0	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ",{"seq":64,"column":0}]
+floor.1	["✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":39}]
+floor.2	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ",{"seq":64,"column":78}]
+floor.3	["✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":117}]
+floor.4	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":156}]
+floor.5	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\lien long lien long lien long lien long\u001b]8;;\u001b\\",{"seq":65,"column":0}]
+floor.6	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ lien long lien long lien long lien lon\u001b]8;;\u001b\\",{"seq":65,"column":39}]
+floor.7	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\g lien long lien long lien long lien lo\u001b]8;;\u001b\\",{"seq":65,"column":78}]
+floor.8	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ng \u001b]8;;\u001b\\ après",{"seq":65,"column":117}]
+floor.9	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgris\u001b[22m",{"seq":66,"column":0}]
+floor.10	["\u001b[90m───────────────────────────────────────\u001b[39m",null]
+floor.11	["\u001b[7m\u001b[1m ⬢ mon-app \u001b[0m \u001b[32m✓ prêt\u001b[39m \u001b[90mà 16:48\u001b[39m",null]
+prompt.cursor	{"row":9,"column":16}
+prompt.0	["✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":39}]
+prompt.1	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ",{"seq":64,"column":78}]
+prompt.2	["✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":117}]
+prompt.3	["👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ ",{"seq":64,"column":156}]
+prompt.4	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\lien long lien long lien long lien long\u001b]8;;\u001b\\",{"seq":65,"column":0}]
+prompt.5	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ lien long lien long lien long lien lon\u001b]8;;\u001b\\",{"seq":65,"column":39}]
+prompt.6	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\g lien long lien long lien long lien lo\u001b]8;;\u001b\\",{"seq":65,"column":78}]
+prompt.7	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ng \u001b]8;;\u001b\\ après",{"seq":65,"column":117}]
+prompt.8	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgris\u001b[22m",{"seq":66,"column":0}]
+prompt.9	["❯ inspect routes",null]
+prompt.10	["\u001b[90m───────────────────────────────────────\u001b[39m",null]
+prompt.11	["\u001b[7m\u001b[1m ⬢ mon-app \u001b[0m \u001b[32m✓ prêt\u001b[39m \u001b[90mà 16:48\u001b[39m",null]
+promptWide.cursor	{"row":4,"column":19}
+promptWide.0	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\long lien long lien\u001b]8;;\u001b\\",{"seq":65,"column":95}]
+promptWide.1	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ long \u001b]8;;\u001b\\ après",{"seq":65,"column":114}]
+promptWide.2	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgr\u001b[0m",{"seq":66,"column":0}]
+promptWide.3	["\u001b[2mis\u001b[22m",{"seq":66,"column":19}]
+promptWide.4	["❯ \u001b[1minspect routes i…\u001b[0m",null]
+promptWide.5	["suite",null]
+promptWide.6	["\u001b[90m───────────────────\u001b[39m",null]
+promptWide.7	["\u001b[7m\u001b[1m ⬢ mon-app \u001b[0m ",null]
+anchoredNarrow.cursor	null
+anchoredNarrow.0	["\u001b]8;;https://nodefony.net\u001b\\e\u001b]8;;\u001b\\ maintenan",{"seq":9,"column":11}]
+anchoredNarrow.1	["t",{"seq":9,"column":22}]
+anchoredNarrow.2	["\u001b]8;;file:///tmp/a.ts\u0007a.ts:12\u001b]8;;\u0007 ouv",{"seq":10,"column":0}]
+anchoredNarrow.3	["ert",{"seq":10,"column":11}]
+anchoredNarrow.4	["\u001b[34m\u001b]8;;http://127.0.0.1:5151\u001b\\http://127.\u001b[0m\u001b]8;;\u001b\\",{"seq":11,"column":0}]
+anchoredNarrow.5	["\u001b[34m\u001b]8;;http://127.0.0.1:5151\u001b\\0.0.1:5151\u001b]8;;\u001b\\\u001b[0m ",{"seq":11,"column":11}]
+anchoredNarrow.6	["prêt",{"seq":11,"column":22}]
+anchoredNarrow.7	["\u001b[7m ↑ 55 nouv…\u001b[0m",null]
+anchoredNarrow.8	["\u001b[90m───────────\u001b[39m",null]
+anchoredNarrow.9	["\u001b[7m\u001b[1m ⬢ mon-app…\u001b[0m",null]
+diff.0	""
+diff.1	"GET /api/users 200 1.2 ms"
+diff.2	"\u001b[32mINFO\u001b[0m  \u001b[36mHTTP\u001b[0m  GET /x \u001b[1;31m500\u001b[0m fin"
+diff.3	"\u001b[38;5;208morange\u001b[0m \u001b[38;2;10;20;30mrgb\u001b[39m \u001b[mreset"
+diff.4	"✅ prêt 👍🏽 famille 👨‍👩‍👧 drapeau 🇫🇷 cœur ❤️ fin"
+diff.5	"漢字のテスト 한국어 全角ＡＢＣ"
+diff.6	"été café ä ñ"
+diff.7	"a​b‍c﻿d"
+diff.8	"voir \u001b]8;;https://nodefony.net\u001b\\le site\u001b]8;;\u001b\\ maintenant"
+diff.9	"\u001b]8;;file:///tmp/a.ts\u0007a.ts:12\u001b]8;;\u0007 ouvert"
+diff.10	"\u001b[34m\u001b]8;;http://127.0.0.1:5151\u001b\\http://127.0.0.1:5151\u001b]8;;\u001b\\\u001b[0m prêt"
+diff.11	"coupé 3"
+diff.12	"a fin"
+diff.13	"texte suite"
+diff.14	"cloche retour"
+diff.15	"a    b    c"
+diff.16	"01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678"
+diff.17	"90123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567"
+diff.18	"89012345678901234567890123456789012345678901234567890123456789"
+diff.19	"\u001b[33mjaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune jaune\u001b[0m"
+diff.20	"\u001b[33m \u001b[0mneutre neutre neutre neutre neutre neutre neutre neutre neutre neutre \u001b[1mgras gras gras gras gras gras gras gras gras gra\u001b[0m"
+diff.21	"\u001b[1ms \u001b[0m"
+diff.22	"漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢"
+diff.23	"字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字"
+diff.24	"漢字"
+diff.25	"👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅"
+diff.26	" 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ 👨‍👩‍👧 ✅ "
+diff.27	"\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long lien long\u001b]8;;\u001b\\"
+diff.28	"\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ \u001b]8;;\u001b\\ après"
+diff.29	"\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgris\u001b[22m"
+diff.30	"\u001b[32mINFO\u001b[0m  \u001b[36mHTTP\u001b[0m  GET /x \u001b[1;31m500\u001b[0m fin"
+diff.31	"✅ prêt 👍🏽 famille 👨‍👩‍👧 drapeau 🇫🇷 cœur ❤️ fin"
+diff.32	"fin"

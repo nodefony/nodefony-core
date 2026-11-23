@@ -664,6 +664,26 @@ describe("ligne d'état figée en bas — l'historique continue de se remplir", 
     expect(fitStatus("court", 40)).to.equal("court");
   });
 
+  it("redessinée telle quelle d'une écriture à l'autre, réajustée quand le terminal change de largeur (#896)", () => {
+    const out = terminal(40);
+    const status = new StatusLine([out]);
+    const line = "y".repeat(100);
+    status.show(line);
+    out.write("a\n");
+    out.columns = 20;
+    out.write("b\n");
+    status.show(line.slice(0, 15));
+    out.write("c\n");
+    expect(out.written.filter((w) => w.startsWith("y"))).to.deep.equal([
+      fitStatus(line, 40),
+      fitStatus(line, 40),
+      fitStatus(line, 20),
+      "y".repeat(15),
+      "y".repeat(15),
+    ]);
+    status.release();
+  });
+
   const ctx = { project: "mon-app", readyAt: "16:48", reloads: 0 };
 
   it("dit qui tourne, où l'ouvrir, l'état et depuis quand — l'aide à droite, jamais l'adresse WebSocket", () => {

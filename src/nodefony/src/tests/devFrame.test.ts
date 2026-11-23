@@ -11,8 +11,10 @@ import {
   diffFrame,
   renderFrame,
   scrollAnchor,
+  StatusBarCache,
   topAnchor,
   type IFrameModel,
+  type IFrameStatus,
 } from "../service/dev/devFrame";
 import { DevTranscript } from "../service/dev/devTranscript";
 import type { IStartupView } from "../service/dev/startupScreen";
@@ -265,6 +267,136 @@ describe("FrameHeights — mémoïsées par largeur", () => {
     expect(heights.size).to.equal(2);
     heights.prune(2);
     expect(heights.size).to.equal(1);
+  });
+
+  it("les lignes repliées d'une image servent à la suivante, puis s'oublient hors de l'écran (#896)", () => {
+    const t = transcriptOf(["abcdefghij", "ab"]);
+    const heights = new FrameHeights();
+    const entry = t.at(0);
+    if (!entry) throw new Error("entrée absente");
+    const first = heights.lines(entry, 4);
+    expect(first).to.deep.equal(["abcd", "efgh", "ij"]);
+    heights.endFrame();
+    // Affichée à l'image précédente : pas repliée de nouveau.
+    expect(heights.lines(entry, 4)).to.equal(first);
+    heights.endFrame();
+    heights.endFrame();
+    // Une image sans elle : la fenêtre l'a oubliée, bornée par l'écran.
+    const again = heights.lines(entry, 4);
+    expect(again).to.deep.equal(first);
+    expect(again).not.to.equal(first);
+    // Une autre largeur ne rend jamais les lignes d'avant.
+    heights.endFrame();
+    expect(heights.lines(entry, 5)).to.deep.equal(["abcde", "fghij"]);
+  });
+});
+
+describe("StatusBarCache — la barre rejouée tant qu'elle ne change pas (#896)", () => {
+  // Le statut est reconstruit à chaque image, comme le fait DevTerminal.
+  const ready = (patch: Partial<IFrameStatus> = {}): IFrameStatus => ({
+    view: startupView,
+    context: { ...ctx },
+    phase: "ready",
+    notice: null,
+    activity: { elapsedMs: Date.now(), frame: "⠋" },
+    ...patch,
+  });
+  const runtime = { rssBytes: 200 * 1024 * 1024, cpuPercent: 2, eluPercent: 3 };
+  // La marque est STABLE dans DevTerminal ; le cache la compare par identité.
+  const mark = brandMark("unicode", false);
+
+  it("rend, image après image, exactement ce que rend la barre sans cache", () => {
+    const t = transcriptOf(range(30));
+    const cache = new StatusBarCache();
+    const steps: [IFrameStatus, { columns: number; rows: number }, boolean][] =
+      [
+        [ready(), { columns: 80, rows: 16 }, true],
+        [ready(), { columns: 80, rows: 16 }, true],
+        [
+          ready({ context: { ...ctx, reloads: 3 } }),
+          { columns: 80, rows: 16 },
+          true,
+        ],
+        [
+          ready({ context: { ...ctx, reloads: 3, runtime } }),
+          { columns: 80, rows: 16 },
+          true,
+        ],
+        [
+          ready({ context: { ...ctx, reloads: 3, runtime } }),
+          { columns: 50, rows: 16 },
+          true,
+        ],
+        [
+          ready({ context: { ...ctx, reloads: 3, runtime } }),
+          { columns: 50, rows: 6 },
+          true,
+        ],
+        [
+          ready({ context: { ...ctx, reloads: 3, runtime } }),
+          { columns: 50, rows: 6 },
+          false,
+        ],
+        [
+          ready({ activity: { issue: "1 module en échec" } }),
+          { columns: 80, rows: 16 },
+          true,
+        ],
+        [
+          ready({ notice: "copié", context: { ...ctx, help: "copié" } }),
+          { columns: 80, rows: 16 },
+          true,
+        ],
+        [
+          ready({
+            phase: "building",
+            activity: { elapsedMs: 1200, frame: "⠋" },
+          }),
+          { columns: 80, rows: 16 },
+          true,
+        ],
+        [
+          ready({
+            phase: "building",
+            activity: { elapsedMs: 2400, frame: "⠙" },
+          }),
+          { columns: 80, rows: 16 },
+          true,
+        ],
+        [
+          ready({ view: null, phase: "crashed" }),
+          { columns: 80, rows: 16 },
+          true,
+        ],
+        [ready(), { columns: 80, rows: 16 }, true],
+      ];
+    steps.forEach(([status, size, color], i) => {
+      const cached = renderFrame(
+        model(t, { status, color, mark, statusBar: cache }),
+        size,
+      );
+      const fresh = renderFrame(model(t, { status, color, mark }), size);
+      expect(cached.lines, `image ${i}`).to.deep.equal(fresh.lines);
+    });
+  });
+
+  it("serveur prêt : un statut reconstruit, même horloge ou toupie différente, rejoue la barre", () => {
+    const t = transcriptOf(range(5));
+    const cache = new StatusBarCache();
+    const size = { columns: 80, rows: 16 };
+    renderFrame(model(t, { status: ready(), mark, statusBar: cache }), size);
+    const next = model(t, {
+      status: ready({ activity: { elapsedMs: 999_999, frame: "⠙" } }),
+      mark,
+      statusBar: cache,
+    });
+    expect(cache.lookup(next, size, undefined)).not.to.equal(undefined);
+    const other = model(t, {
+      status: ready({ context: { ...ctx, reloads: 1 } }),
+      mark,
+      statusBar: cache,
+    });
+    expect(cache.lookup(other, size, undefined)).to.equal(undefined);
   });
 });
 
