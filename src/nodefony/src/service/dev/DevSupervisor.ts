@@ -225,7 +225,48 @@ const ROLLDOWN_DECLARATIONS_BUILD = `${ROLLDOWN_BUILD} && tsgo -p tsconfig.decla
 export const DIRECT_BINS: Readonly<Record<string, string>> = Object.freeze({
   rolldown: "rolldown",
   tsgo: "@typescript/native-preview",
+  // Le lanceur de turbo est un script Node qui choisit le binaire natif de la
+  // plateforme : `npm exec` coûtait ~0,46 s des ~0,7 s d'un build à cache
+  // chaud, à chaque démarrage (#64).
+  turbo: "turbo",
 });
+
+/** Comment lancer un binaire du projet — cf {@link planBinInvocation}. */
+export interface IBinInvocation {
+  /** Fichier du binaire, lancé sous `node` ; `null` → lanceur du gestionnaire. */
+  readonly file: string | null;
+  /** Arguments du binaire, options de journal de turbo comprises. */
+  readonly args: readonly string[];
+  /** Un `turbo run` : la garde de gel (#479) s'applique, QUELLE QUE SOIT la voie. */
+  readonly turbo: boolean;
+}
+
+/**
+ * Décide comment lancer le binaire `bin` : par son fichier quand
+ * {@link DIRECT_BINS} le connaît et qu'il se résout, sinon par le lanceur.
+ *
+ * La garde de gel de turbo suit le BINAIRE, pas la voie : la porter sur une
+ * seule branche la perdrait le jour où turbo change de voie.
+ *
+ * @param bin - nom du binaire (`turbo`, `rolldown`, `tsgo`).
+ * @param args - arguments de la commande.
+ * @param resolveFile - résout le fichier d'un binaire de {@link DIRECT_BINS}.
+ * @param ci - valeur de `CI` : turbo y écrit son journal détaillé.
+ * @returns le plan de lancement.
+ */
+export function planBinInvocation(
+  bin: string,
+  args: readonly string[],
+  resolveFile: (pkg: string, bin: string) => string | null,
+  ci: string | undefined,
+): IBinInvocation {
+  const turbo = bin === "turbo";
+  // L'option de journal va AVANT la sous-commande : un `--` l'enverrait aux tâches.
+  const binArgs = turbo ? [...turboVerbosityArgs(ci), ...args] : args;
+  const owner = DIRECT_BINS[bin];
+  const file = owner === undefined ? null : resolveFile(owner, bin);
+  return { file, args: binArgs, turbo };
+}
 
 /** Arguments rolldown du gabarit standard, identiques au script `build`. */
 export const PACKAGE_DEV_BUILD_ARGS: readonly string[] = Object.freeze([
@@ -1555,31 +1596,28 @@ export class DevSupervisor {
     idleMs?: number,
     cwd?: string,
   ): Promise<{ ok: boolean; output: string }> {
-    // Turbo : sous garde de gel (#479), et en journal détaillé sous `CI` —
-    // l'option va AVANT la sous-commande, un `--` l'enverrait aux tâches.
-    const turbo = bin === "turbo";
-    const binArgs = turbo
-      ? [...turboVerbosityArgs(process.env.CI), ...args]
-      : args;
-    // Par son fichier, sans le lanceur du gestionnaire (~0,9 s par appel) :
-    // même résolution, même version. Introuvable → le lanceur.
-    const owner = DIRECT_BINS[bin];
-    if (owner !== undefined) {
-      const cli = this.#localBin(cwd ?? this.#cwd, owner, bin);
-      if (cli !== null) {
-        return this.#runCaptured(
-          process.execPath,
-          [cli, ...binArgs],
-          idleMs,
-          cwd,
-        );
-      }
+    // Par son fichier, sans le lanceur du gestionnaire (~0,5 à 0,9 s par
+    // appel) : même résolution, même version. Introuvable → le lanceur.
+    const plan = planBinInvocation(
+      bin,
+      args,
+      (pkg, name) => this.#localBin(cwd ?? this.#cwd, pkg, name),
+      process.env.CI,
+    );
+    if (plan.file !== null) {
+      return this.#runCaptured(
+        process.execPath,
+        [plan.file, ...plan.args],
+        idleMs,
+        cwd,
+        plan.turbo,
+      );
     }
     return this.#runCaptured(
-      ...this.#binCommand(bin, binArgs),
+      ...this.#binCommand(bin, plan.args),
       idleMs,
       cwd,
-      turbo,
+      plan.turbo,
     );
   }
 
