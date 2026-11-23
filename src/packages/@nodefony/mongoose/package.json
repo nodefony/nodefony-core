@@ -51,7 +51,7 @@
     "esm"
   ],
   "dependencies": {
-    "mongodb": "7.8.0",
+    "mongodb": "7.9.0",
     "mongoose": "9.12.3",
     "tslib": "2.9.1",
     "zod": "^4.6.7"
