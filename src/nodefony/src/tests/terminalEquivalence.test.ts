@@ -178,6 +178,31 @@ describe("terminal du superviseur — équivalence du rendu (#896)", () => {
         MEDIUM,
       ),
     );
+    // Ce que seul le réajustement final de l'image borne : une invite plus
+    // large que l'écran, et l'indicateur des lignes arrivées sur un écran
+    // étroit.
+    out += frameRows(
+      "promptWide",
+      renderFrame(
+        frameModel(t, {
+          prompt: {
+            lines: [
+              `❯ \x1b[1m${"inspect routes ".repeat(4)}\x1b[0m 漢字 👍🏽`,
+              "suite\x1b[K",
+            ],
+            cursor: { row: 0, column: 30 },
+          },
+        }),
+        sizes.narrow ?? MEDIUM,
+      ),
+    );
+    out += frameRows(
+      "anchoredNarrow",
+      renderFrame(frameModel(t, { anchor: { seq: first + 10, below: 0 } }), {
+        columns: 12,
+        rows: 10,
+      }),
+    );
     // Le diff d'une image à la suivante, quand trois lignes arrivent en direct.
     const before = renderFrame(frameModel(t), WIDE);
     t.ingest(

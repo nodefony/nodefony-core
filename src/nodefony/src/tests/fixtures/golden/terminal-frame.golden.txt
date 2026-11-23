@@ -177,6 +177,26 @@ prompt.8	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u
 prompt.9	["❯ inspect routes",null]
 prompt.10	["\u001b[90m───────────────────────────────────────\u001b[39m",null]
 prompt.11	["\u001b[7m\u001b[1m ⬢ mon-app \u001b[0m \u001b[32m✓ prêt\u001b[39m \u001b[90mà 16:48\u001b[39m",null]
+promptWide.cursor	{"row":4,"column":19}
+promptWide.0	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\long lien long lien\u001b]8;;\u001b\\",{"seq":65,"column":95}]
+promptWide.1	["\u001b]8;;https://example.org/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u001b\\ long \u001b]8;;\u001b\\ après",{"seq":65,"column":114}]
+promptWide.2	["\u001b[31m✗\u001b[0m 漢字 é \u001b]8;;https://a.b\u001b\\lien\u001b]8;;\u001b\\ 👍🏽 \u001b[2mgr\u001b[0m",{"seq":66,"column":0}]
+promptWide.3	["\u001b[2mis\u001b[22m",{"seq":66,"column":19}]
+promptWide.4	["❯ \u001b[1minspect routes i…\u001b[0m",null]
+promptWide.5	["suite",null]
+promptWide.6	["\u001b[90m───────────────────\u001b[39m",null]
+promptWide.7	["\u001b[7m\u001b[1m ⬢ mon-app \u001b[0m ",null]
+anchoredNarrow.cursor	null
+anchoredNarrow.0	["\u001b]8;;https://nodefony.net\u001b\\e\u001b]8;;\u001b\\ maintenan",{"seq":9,"column":11}]
+anchoredNarrow.1	["t",{"seq":9,"column":22}]
+anchoredNarrow.2	["\u001b]8;;file:///tmp/a.ts\u0007a.ts:12\u001b]8;;\u0007 ouv",{"seq":10,"column":0}]
+anchoredNarrow.3	["ert",{"seq":10,"column":11}]
+anchoredNarrow.4	["\u001b[34m\u001b]8;;http://127.0.0.1:5151\u001b\\http://127.\u001b[0m\u001b]8;;\u001b\\",{"seq":11,"column":0}]
+anchoredNarrow.5	["\u001b[34m\u001b]8;;http://127.0.0.1:5151\u001b\\0.0.1:5151\u001b]8;;\u001b\\\u001b[0m ",{"seq":11,"column":11}]
+anchoredNarrow.6	["prêt",{"seq":11,"column":22}]
+anchoredNarrow.7	["\u001b[7m ↑ 55 nouv…\u001b[0m",null]
+anchoredNarrow.8	["\u001b[90m───────────\u001b[39m",null]
+anchoredNarrow.9	["\u001b[7m\u001b[1m ⬢ mon-app…\u001b[0m",null]
 diff.0	""
 diff.1	"GET /api/users 200 1.2 ms"
 diff.2	"\u001b[32mINFO\u001b[0m  \u001b[36mHTTP\u001b[0m  GET /x \u001b[1;31m500\u001b[0m fin"
