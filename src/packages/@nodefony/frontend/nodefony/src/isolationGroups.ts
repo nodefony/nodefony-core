@@ -34,8 +34,10 @@
  * l'isolation en process distinct l'arrête. À lever quand l'amont corrige :
  * la sentinelle `tests/integration/vueRefreshSentinel.test.ts` rougit ce jour-là.
  *
- * Svelte, lui, cohabite sans dommage (constaté) : son bloc script n'est pas
- * servi sous un identifiant qui finit par `.ts`.
+ * Svelte, lui, cohabite sans dommage : son bloc script n'est pas servi sous
+ * un identifiant qui finit par `.ts`. Gardé par la sentinelle
+ * `tests/integration/svelteRefreshSentinel.test.ts`, qui rougit le jour où
+ * Svelte reçoit le rafraîchissement React.
  *
  * @param type - type de preset déclaré par le module (`react19`, `vue3`,
  *   `angular`, `vanilla`, …).
