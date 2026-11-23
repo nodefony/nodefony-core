@@ -46,7 +46,7 @@ tient les deux bouts : **le fil est unique et long**, **les branchements sont no
 
 ```mermaid
 flowchart LR
-  APP["main.ts<br/>configureNodefony({ url }) — UNE fois"] --> CL
+  APP["main.ts<br/>configureNodefony({ url }) — avant mount()"] --> CL
   subgraph CL["NodefonySocket (hors Svelte)"]
     direction TB
     S["état · identité · notices"]
@@ -221,6 +221,39 @@ declare const kernel: INodefonyKernel;
 configureNodefony({ kernel });
 ```
 
+### 6. Plusieurs écrans, chacun sa socket
+
+`configureNodefony` **se rappelle**. Chaque appel change la socket de la page pour les liaisons
+créées **ensuite** : on l'appelle donc avant de monter l'écran suivant. Les liaisons déjà créées
+gardent la leur, et l'ancienne connexion n'est pas coupée — elle reste partagée par son adresse, et
+la retrouver ne rouvre rien.
+
+```ts ignore
+// frontend/src/main.ts
+import { mount, unmount, type Component } from "svelte";
+import { configureNodefony } from "nodefony/svelte";
+import Salon from "./Salon.svelte";
+import Tele from "./Tele.svelte";
+
+const target = document.getElementById("app");
+if (!target) throw new Error("#app not found");
+let current: ReturnType<typeof mount> | null = null;
+
+function showScreen(Screen: Component, url: string): void {
+  if (current) void unmount(current);
+  configureNodefony({ url }); // AVANT le montage : ses liaisons liront celle-ci
+  current = mount(Screen, { target });
+}
+
+showScreen(Salon, "/api/salon/realtime");
+// plus tard, à la navigation :
+// showScreen(Tele, "/api/tele/realtime");
+```
+
+Un composant qui ne doit pas dépendre de l'ordre des appels reçoit la socket en **premier argument**
+de ses liaisons — `nodefonyChannel(socket, "tele:etat", onMessage)`, `nodefonyChannelData(socket,
+"tele:etat")` : la socket nommée l'emporte sur celle de la page.
+
 ## 🧰 Les liaisons
 
 Les **valeurs** se lisent `.current` et se libèrent seules. Les trois liaisons à `onMessage` rendent
@@ -313,6 +346,7 @@ démontage trancherait les requêtes en vol des autres consommateurs.
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `nodefony() : configureNodefony() n'a pas été appelé`       | La configuration manque, ou vient APRÈS `mount()`                                                                         | Appeler `configureNodefony({ url })` avant `mount()` dans `main.ts`                                                    |
 | **Rien n'arrive, et aucune trame `subscribe` ne part**      | Personne ne lit `.current` — l'abonnement est paresseux                                                                   | Lire la valeur dans le template, ou prendre `nodefonyChannel` dans `$effect`                                           |
+| Un écran parle à la socket de l'écran précédent             | `configureNodefony` rappelé APRÈS `mount()` : les liaisons ont lu la socket d'avant                                       | Rappeler `configureNodefony({ url })` avant de monter l'écran (§ 6), ou passer la socket en premier argument           |
 | La configuration lève au démarrage                          | Ni `url` ni `client` fourni — le framework ne devine aucune adresse                                                       | Passer l'URL du serveur temps réel                                                                                     |
 | `mount(...) is not available on the server`                 | Svelte a été résolu en construction SERVEUR (test, SSR)                                                                   | Résoudre `svelte` en condition `browser` — cf `vitest.config.ts` du cœur                                               |
 | L'état reste `disconnected`                                 | Le serveur n'écoute pas cette adresse, ou la socket a été coupée                                                          | Vérifier l'adresse, et qu'aucun code n'appelle `disconnect()`                                                          |
