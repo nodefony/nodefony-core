@@ -33,6 +33,32 @@ const defaultOptions: serveStatic.ServeStaticOptions = {
   maxAge: 96 * 60 * 60,
 };
 
+/**
+ * Options serve-static appliquées par défaut à toutes les entrées et à tous
+ * les montages (`addMount`).
+ *
+ * `statics.defaultOptions.maxAge` est documenté en SECONDES, alors que
+ * serve-static lit un nombre en MILLISECONDES. Le défaut de quatre jours
+ * partait donc tel quel et donnait `max-age=345` : 345 s de cache, assets du
+ * front compris (constaté sur une application réelle). La conversion se fait
+ * ici, une fois. Une chaîne (`"1d"`) est laissée à serve-static, qui la lit
+ * elle-même. La constante du module n'est jamais modifiée.
+ *
+ * @param configured - `statics.defaultOptions` de la configuration, en secondes
+ * @returns les options à passer à serve-static, `maxAge` en millisecondes
+ */
+export function serveStaticDefaults(
+  configured: unknown,
+): serveStatic.ServeStaticOptions {
+  const merged = extend(
+    {},
+    defaultOptions,
+    typeof configured === "object" && configured !== null ? configured : {},
+  ) as serveStatic.ServeStaticOptions;
+  if (typeof merged.maxAge === "number") merged.maxAge = merged.maxAge * 1000;
+  return merged;
+}
+
 /** Un dossier monté sous un préfixe public (`/_assets/x/` → dir). */
 type StaticMount = { prefix: string; server: serveStaticType; dir: string };
 
@@ -87,10 +113,7 @@ class Statics extends Service {
     this.enabled = this.options.enabled !== false;
     if (typeof this.options.enabled !== "undefined")
       delete this.options.enabled;
-    this.defaultOptions = extend(
-      defaultOptions,
-      this.options.defaultOptions || {},
-    ) as serveStatic.ServeStaticOptions;
+    this.defaultOptions = serveStaticDefaults(this.options.defaultOptions);
     if (this.options.defaultOptions) delete this.options.defaultOptions;
     if (this.enabled) {
       this.initStaticFiles();
