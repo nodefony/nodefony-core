@@ -2241,6 +2241,33 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
     });
 
+    it("format : le moteur dont Prettier ne lit pas les composants installe ET déclare son greffon", () => {
+      // Vécu sur une application Svelte réelle : `format:check` passait sans
+      // regarder un seul `.svelte`, et `prettier --write App.svelte` sortait
+      // « No parser could be inferred ». Prettier 3 ne charge aucun greffon de
+      // lui-même : installé sans être déclaré, il ne sert à rien.
+      for (const fw of ["react", "vue", "angular", "svelte", "none"]) {
+        const dest = path.join(tmp, `fmt-${fw}`);
+        scaffold(dest, { name: `fmt-${fw}`, preset: "minimal", frontend: fw });
+        const rc = readJson(path.join(dest, ".prettierrc.json"));
+        const dev = readJson(path.join(dest, "package.json"))[
+          "devDependencies"
+        ];
+        if (fw === "svelte") {
+          // `readJson` type les valeurs en objets : un tableau s'y lit par ses valeurs.
+          assert.deepEqual(
+            Object.values(rc["plugins"] ?? {}),
+            ["prettier-plugin-svelte"],
+            fw,
+          );
+          assert.property(dev, "prettier-plugin-svelte", fw);
+        } else {
+          assert.notProperty(rc, "plugins", fw);
+          assert.notProperty(dev, "prettier-plugin-svelte", fw);
+        }
+      }
+    });
+
     it("dev : host.docker.internal est un hôte de confiance — jamais en production", () => {
       // La boucle locale vue d'un conteneur (navigateur piloté). Sans ce nom
       // dans `trustedHosts`, la page annonce ses assets en `127.0.0.1` — le
@@ -6976,6 +7003,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // la première modification de l'utilisateur. C'est le piège déjà payé par
       // `create command --service`, qui EXIGEAIT cette même méthode.
       assert.notInclude(src, "greet");
+      // Même famille : `status()` est AUSSI un exemple. Une application réelle
+      // l'a remplacé comme le gabarit l'y invite, et le test généré ne compilait
+      // plus. Aucune méthode du service n'est appelée par ce fichier.
+      assert.notMatch(src, /service\.\w+\(/);
       // Zéro balise eta résiduelle.
       assertNoEtaResidue(dest);
     });
@@ -8263,6 +8294,32 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           n.includes("svelte-check --tsconfig ./tsconfig.json"),
         ),
         notes.join("\n"),
+      );
+    });
+
+    it("create front svelte : le greffon Prettier est déclaré, les greffons déjà là sont GARDÉS", () => {
+      const dest = path.join(tmp, "fsvelte-fmt");
+      scaffold(dest, {
+        name: "fsvelte-fmt",
+        preset: "minimal",
+        frontend: "none",
+      });
+      const rcPath = path.join(dest, ".prettierrc.json");
+      const before = readJson(rcPath);
+      assert.notProperty(before, "plugins");
+      writeFileSync(
+        rcPath,
+        JSON.stringify({ ...before, plugins: ["prettier-plugin-x"] }, null, 2),
+      );
+      const r = front(dest, { name: "board", frontend: "svelte" });
+      assert.deepEqual(Object.values(readJson(rcPath)["plugins"] ?? {}), [
+        "prettier-plugin-x",
+        "prettier-plugin-svelte",
+      ]);
+      assert.include(r.files, ".prettierrc.json");
+      assert.property(
+        readJson(path.join(dest, "package.json"))["devDependencies"],
+        "prettier-plugin-svelte",
       );
     });
 

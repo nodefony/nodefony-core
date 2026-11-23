@@ -88,6 +88,13 @@ export const SSE_STALL_TIMEOUT_MS = STREAM_STALL_TIMEOUT_MS;
 export const SSE_MAX_EVENT_BYTES = 1_048_576;
 /** Commentaire de battement de cœur — ignoré par tout client conforme. */
 const HEARTBEAT = ":\n\n";
+
+/**
+ * Promesse déjà résolue, PARTAGÉE par toutes les écritures acceptées : la
+ * signature reste `Promise<void>` (un appel « tire et oublie » s'écrit
+ * `void sse.send(d)`, sans `?.`) sans allouer une promesse par événement.
+ */
+const SETTLED: Promise<void> = Promise.resolve();
 /** Fin de ligne : CRLF, CR ou LF (§9.2.5). */
 const LINE_BREAK = /\r\n|\r|\n/;
 
@@ -233,9 +240,11 @@ export class SseStream<Events extends EventsMap = DefaultEventsMap> {
    * @param data - texte envoyé tel quel, ou valeur sérialisée en JSON ; un
    *   texte de plusieurs lignes part en autant de champs `data:`.
    * @param options - type (`event`) et identifiant (`id`) de l'événement.
-   * @returns rien quand l'écriture est acceptée ; une promesse réglée au
-   *   `drain` quand le client lit moins vite qu'on écrit — l'attendre borne la
-   *   mémoire du serveur. Sans effet une fois le flux fermé.
+   * @returns une promesse toujours présente, jamais rejetée : déjà résolue
+   *   quand l'écriture est acceptée ou le flux fermé (même instance partagée,
+   *   aucune allocation), réglée au `drain` quand le client lit moins vite
+   *   qu'on écrit — l'attendre borne la mémoire du serveur. Un envoi « tire et
+   *   oublie » s'écrit `void sse.send(d)`.
    * @throws TypeError quand `event` ou `id` contient une fin de ligne, ou
    *   quand `data` est fait d'octets (`Uint8Array`, `Buffer`, `ArrayBuffer`) :
    *   un flux SSE ne porte que du texte, les encoder soi-même (base64).
@@ -244,7 +253,7 @@ export class SseStream<Events extends EventsMap = DefaultEventsMap> {
   send<K extends EventNames<Events> = never>(
     data: SseEventData<Events, K>,
     options?: ISseSendOptions<K>,
-  ): Promise<void> | undefined {
+  ): Promise<void> {
     let frame = "";
     if (options?.event !== undefined) {
       frame += `event: ${singleLine("event", options.event)}\n`;
@@ -262,7 +271,7 @@ export class SseStream<Events extends EventsMap = DefaultEventsMap> {
    *
    * @returns comme {@link send}.
    */
-  comment(text = ""): Promise<void> | undefined {
+  comment(text = ""): Promise<void> {
     return this.#write(`${lines(": ", text)}\n`);
   }
 
@@ -273,7 +282,7 @@ export class SseStream<Events extends EventsMap = DefaultEventsMap> {
    * @returns comme {@link send}.
    * @throws RangeError quand `ms` n'est pas un entier entre 0 et 2^31-1.
    */
-  retry(ms: number): Promise<void> | undefined {
+  retry(ms: number): Promise<void> {
     if (!Number.isInteger(ms) || ms < 0 || ms > MAX_TIMER_MS) {
       throw new RangeError(
         `retry : entier entre 0 et ${MAX_TIMER_MS} ms attendu`,
@@ -299,14 +308,14 @@ export class SseStream<Events extends EventsMap = DefaultEventsMap> {
    *
    * @returns la fin de la requête (hooks `onClose` du contexte compris).
    */
-  close(): Promise<void> | undefined {
-    return this.#lifecycle.close();
+  close(): Promise<void> {
+    return this.#lifecycle.close() ?? SETTLED;
   }
 
   /** Écrit une trame ; une promesse seulement sous contre-pression. */
-  #write(frame: string): Promise<void> | undefined {
+  #write(frame: string): Promise<void> {
     const lifecycle = this.#lifecycle;
-    if (lifecycle.closed) return undefined;
+    if (lifecycle.closed) return SETTLED;
     // Un caractère vaut au plus 3 octets UTF-8 (UTF-16 → UTF-8) : le compte
     // exact n'est payé que pour une trame qui POURRAIT dépasser.
     const max = this.#maxEventBytes;
@@ -314,7 +323,7 @@ export class SseStream<Events extends EventsMap = DefaultEventsMap> {
       throw new RangeError(`SSE : événement de plus de ${max} octets refusé`);
     }
     const target = lifecycle.target;
-    if (target.write(frame)) return undefined;
+    if (target.write(frame)) return SETTLED;
     if (this.#drain === null) {
       this.#drain = new Promise<void>((resolve) => {
         this.#releaseDrain = resolve;

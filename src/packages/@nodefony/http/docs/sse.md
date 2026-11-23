@@ -148,6 +148,10 @@ data: {"step":"écriture"}
   mesure, en-tête retiré, reste étalée sur nginx 1.30 : l'en-tête n'y est pas ce qui tient le
   flux, il protège les proxys qui retiennent.
 - `await sse.send()` freine l'action si le client lit lentement — c'est la contre-pression.
+  `send()`, `comment()` et `retry()` rendent **toujours** une promesse, jamais rejetée : déjà
+  résolue quand l'écriture passe ou que le flux est fermé (une seule instance partagée, aucune
+  allocation par événement). Un envoi « tire et oublie » s'écrit donc `void sse.send(d)`, sans
+  `?.catch(…)`. `close()` rend toujours une promesse aussi : la fin de la requête.
 
 ## ⚙️ Les deux bouts de l'API
 

@@ -451,17 +451,24 @@ async init(): Promise<this> {
   runOnceAtStartup(this, () => {
     // `scheduleCron` : la fonction de la bibliothèque choisie.
     const job = scheduleCron("0 3 * * *", () => this.purgeExpired());
-    this.kernel?.once("onTerminate", () => job.stop());
+    this.module.hookKernel("onTerminate", () => job.stop());
   });
   return this;
 }
 ```
 
 Vérifier que la bibliothèque n'empêche pas le processus de s'arrêter, et arrêter son travail à
-`onTerminate` comme ci-dessus. Au-delà d'une machine, une tâche qui doit survivre à un
-redémarrage, être rejouée en cas d'échec ou tourner une seule fois entre plusieurs exemplaires
-demande une file de tâches adossée à une base ou à Redis — c'est son métier, pas celui du
-service.
+`onTerminate` comme ci-dessus.
+
+> **S'accrocher au cycle du noyau : une seule forme, `this.module.hookKernel(phase, fn)`** — à
+> l'arrêt (`onTerminate`) comme au démarrage (`onBoot`, `onReady`). Elle pose l'écouteur au nom du
+> module, avec sa criticité : un échec au démarrage est alors attribué au bon module, et ne coupe le
+> démarrage en production que si ce module est critique. `this.kernel?.once(…)` pose un écouteur
+> anonyme, traité comme critique (`Module.ts#Module.hookKernel`).
+
+Au-delà d'une machine, une tâche qui doit survivre à un redémarrage, être rejouée en cas d'échec
+ou tourner une seule fois entre plusieurs exemplaires demande une file de tâches adossée à une
+base ou à Redis — c'est son métier, pas celui du service.
 
 ## 🧰 API publique
 

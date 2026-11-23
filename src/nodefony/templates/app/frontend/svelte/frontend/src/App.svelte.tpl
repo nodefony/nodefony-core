@@ -211,7 +211,8 @@
         </div>
       {:else}
         <p class="nf-learn">
-          {dev.learn.label} : <code>{dev.learn.command}</code> — {dev.learn.note}
+          {dev.learn.label} : <code>{dev.learn.command}</code> —
+          {dev.learn.note}
         </p>
       {/if}
     {:else}

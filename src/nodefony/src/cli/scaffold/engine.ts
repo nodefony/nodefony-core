@@ -448,6 +448,14 @@ export const FRONTEND_PARAMS: Record<
      * son `package.json`, application comme module local.
      */
     componentTypecheck: string | null;
+    /**
+     * Greffon Prettier sans lequel le formateur ne LIT PAS les composants du
+     * moteur, ou `null` quand Prettier les lit seul (`.tsx`, `.vue`). Posé en
+     * dépendance (`devDeps`) ET déclaré dans `.prettierrc.json` (`plugins`) —
+     * Prettier 3 ne charge aucun greffon de lui-même : installé sans être
+     * déclaré, il ne sert à rien, et `format:check` passe sans regarder.
+     */
+    prettierPlugin: string | null;
     mountNode: string;
     deps: Record<string, string>;
     devDeps: Record<string, string>;
@@ -464,6 +472,7 @@ export const FRONTEND_PARAMS: Record<
     tsInclude: "frontend/src/**/*",
     tsJsx: "react-jsx",
     componentTypecheck: null,
+    prettierPlugin: null,
     mountNode: '<div id="root"></div>',
     deps: {},
     devDeps: pick(
@@ -494,6 +503,7 @@ export const FRONTEND_PARAMS: Record<
     tsInclude: "frontend/src/**/*.ts",
     tsJsx: null,
     componentTypecheck: "vue-tsc --noEmit -p tsconfig.json",
+    prettierPlugin: null,
     mountNode: '<div id="app"></div>',
     deps: {},
     devDeps: pick("vue", "vite", "@vitejs/plugin-vue", "vue-tsc"),
@@ -520,6 +530,7 @@ export const FRONTEND_PARAMS: Record<
     // sous le `strictTemplates` de `frontend/tsconfig.app.json`, sans rien
     // écrire. Il vient de `@angular/compiler-cli`, déjà déclaré ci-dessous.
     componentTypecheck: "ngc -p frontend/tsconfig.app.json --noEmit",
+    prettierPlugin: null,
     mountNode: "<app-root></app-root>",
     deps: {},
     devDeps: pick(
@@ -551,6 +562,7 @@ export const FRONTEND_PARAMS: Record<
     tsInclude: "frontend/src/**/*.ts",
     tsJsx: null,
     componentTypecheck: "svelte-check --tsconfig ./tsconfig.json",
+    prettierPlugin: "prettier-plugin-svelte",
     mountNode: '<div id="app"></div>',
     deps: {},
     devDeps: pick(
@@ -558,6 +570,7 @@ export const FRONTEND_PARAMS: Record<
       "vite",
       "@sveltejs/vite-plugin-svelte",
       "svelte-check",
+      "prettier-plugin-svelte",
     ),
     client: {
       subpath: "nodefony/svelte",
@@ -7662,6 +7675,41 @@ export function wireEntitiesDecorator(
  * @param writer - l'écrivain transactionnel du scaffold
  * @returns `changed` si le fichier a été réécrit, et la note des manques
  */
+/**
+ * Déclare un greffon dans le `plugins` de `.prettierrc.json`, s'il n'y est pas.
+ *
+ * Une config absente, ou qui n'est pas un objet JSON (format choisi par
+ * l'utilisateur : `.prettierrc.mjs`, YAML…), n'est pas touchée — on ne
+ * réécrit pas ce qu'on ne sait pas relire.
+ *
+ * @param rcPath - chemin absolu de `.prettierrc.json`.
+ * @param plugin - nom du paquet du greffon.
+ * @param writer - écrivain du scaffold (lecture de l'écriture en attente comprise).
+ * @returns `true` quand le fichier a été modifié.
+ */
+export function wirePrettierPlugin(
+  rcPath: string,
+  plugin: string,
+  writer: ScaffoldWriter,
+): boolean {
+  if (!writer.exists(rcPath)) return false;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(writer.read(rcPath));
+  } catch {
+    return false;
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return false;
+  }
+  const current: unknown = Reflect.get(parsed, "plugins");
+  const plugins: unknown[] = Array.isArray(current) ? current : [];
+  if (plugins.includes(plugin)) return false;
+  Reflect.set(parsed, "plugins", [...plugins, plugin]);
+  writer.write(rcPath, `${JSON.stringify(parsed, null, 2)}\n`);
+  return true;
+}
+
 function wireFrontTsconfig(
   tsconfigPath: string,
   needs: { include: string; jsx: string | null },
@@ -8084,6 +8132,16 @@ function runFrontScaffold(
   // Le typecheck et le lint typé doivent VOIR le front ajouté, comme si la
   // cible était née avec (#515) — `vite/client` compris, module ou application
   // (cf `wireFrontTsconfig`).
+  //
+  // Le greffon Prettier du moteur : installé (`devDeps`) ne suffit pas, il se
+  // DÉCLARE dans la config du projet, à la racine — c'est là que `format`
+  // lit, module ou application.
+  if (front.prettierPlugin !== null) {
+    const rcPath = path.join(projectRoot, ".prettierrc.json");
+    if (wirePrettierPlugin(rcPath, front.prettierPlugin, writer)) {
+      written.push(path.relative(target.dir, rcPath));
+    }
+  }
   const tsWire = wireFrontTsconfig(
     path.join(target.dir, "tsconfig.json"),
     {

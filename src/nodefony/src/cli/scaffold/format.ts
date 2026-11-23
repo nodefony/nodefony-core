@@ -43,8 +43,13 @@ import type { ScaffoldWriter } from "./writer.js";
  * Extensions confiées à prettier : celles qu'il lit SANS plugin. `.vue` en est
  * — prettier l'analyse nativement, et le `format:check` de l'application le
  * vérifie : l'exclure livrait un `App.vue` que ce contrôle refusait. `.svelte`
- * n'en est pas (il exige `prettier-plugin-svelte`, que le projet n'a pas
- * forcément) ; prettier l'ignore alors aussi au contrôle.
+ * n'en est pas : il exige `prettier-plugin-svelte`, et le worker appelle
+ * `format()` sans résoudre la config du projet, donc sans ses greffons. Une
+ * application Svelte déclare pourtant le greffon (`FRONTEND_PARAMS.prettierPlugin`),
+ * et son `format:check` LIT les `.svelte` : le gabarit `App.svelte.tpl` s'écrit
+ * donc directement dans la forme du greffon. Seules deux lignes y portent le
+ * nom de l'application (un commentaire, que prettier ne replie pas, et un
+ * `<span>` court) : un nom ordinaire ne les fait pas déborder.
  */
 const FORMATABLES = new Set([
   ".ts",

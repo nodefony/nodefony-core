@@ -393,7 +393,13 @@ ont leur skill, qui part du symptôme : **`nodefony-troubleshoot`**.
   le téléchargement. Recomposer ça avec `createReadStream` et `response.write` compile, passe les
   tests — et rend une réponse **incohérente** : un statut posé à la main n'atteint jamais la socket
   (le pipeline écrit statut et en-têtes à SON tour), donc le client reçoit **200 avec un corps
-  partiel** et croit tenir le fichier complet. Mesuré au banc, pas supposé.
+  partiel** et croit tenir le fichier complet. Mesuré au banc, pas supposé. Le type MIME se déduit
+  de l'extension (`.m3u8` et `.m4s` d'un flux HLS compris) : ne le passe pas à la main.
+- **Un flux à haute fréquence noie le journal** (HLS : un manifeste et un segment par seconde et
+  par spectateur). Le journal des requêtes RÉUSSIES se réduit sans toucher aux erreurs, toujours
+  journalisées : `httpKernel.setRequestLogger(new JsonAuditLogger({ nominal: false }))` (ou
+  `{ sampleRate: 10 }`, une sur dix) — `import { JsonAuditLogger } from "@nodefony/http"`, doc
+  `observabilite.md` § réglage fin. Ce réglage est global, pas par route.
 - **Un pod dont la base est en retard répond 503 sur `/readyz`** (jamais sur `/livez`) et reste
   hors du répartiteur : c'est voulu, ce n'est pas une panne. `npx nodefony orm:migrate:status` dit
   qui est en retard ; applique les migrations, les pods se mettent en service SEULS.

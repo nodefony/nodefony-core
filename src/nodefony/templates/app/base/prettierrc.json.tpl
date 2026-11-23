@@ -8,5 +8,6 @@
   "trailingComma": "all",
   "bracketSpacing": true,
   "arrowParens": "always",
-  "endOfLine": "lf"
+  "endOfLine": "lf"<% if (it.front && it.front.prettierPlugin) { %>,
+  "plugins": ["<%= it.front.prettierPlugin %>"]<% } %>
 }

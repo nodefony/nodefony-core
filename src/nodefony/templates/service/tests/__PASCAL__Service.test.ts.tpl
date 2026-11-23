@@ -12,8 +12,9 @@ import <%= it.pascal %>Service from "../nodefony/service/<%= it.pascal %>Service
  * chaîne sans rien dire de CETTE responsabilité.
  *
  * ⚠️ Les assertions ci-dessous ne portent QUE sur ce qui survit à ta logique
- * (le nom du service, son état). Le gabarit t'invite à remplacer sa méthode
- * d'exemple : un test écrit sur elle serait rouge à ta première modification.
+ * (le nom du service, l'isolement de ses instances). Le gabarit t'invite à
+ * remplacer TOUTES ses méthodes d'exemple : un test écrit sur l'une d'elles
+ * serait rouge — et ne compilerait plus — à ta première modification.
  * **Ajoute tes propres cas** au dernier `describe` — c'est là que ce fichier
  * devient utile.
  */
@@ -37,7 +38,6 @@ describe("<%= it.pascal %>Service", () => {
     // La clé d'instance vient de `super("<%= it.camel %>", …)` : c'est elle
     // qu'on écrit dans `container.get("…")`.
     expect(service.name).toBe("<%= it.camel %>");
-    expect(service.status()).toEqual({ ready: true });
   });
 
   it("deux instances sont ISOLÉES — un test ne pollue pas le suivant", () => {
