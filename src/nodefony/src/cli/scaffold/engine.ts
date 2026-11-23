@@ -2621,6 +2621,14 @@ function dispatchScaffold(
   const templates = path.join(packageRoot, "templates", request.type);
   const written: string[] = [];
   renderLayer(eta, path.join(templates, "base"), dest, data, written, writer);
+  // Le greffon Prettier du moteur : même geste, même fonction que `create front`.
+  if (front !== null && front.prettierPlugin !== null) {
+    wirePrettierPlugin(
+      path.join(dest, ".prettierrc.json"),
+      front.prettierPlugin,
+      writer,
+    );
+  }
   // Le LICENSE n'est PAS dans le layer `base` : un dossier par identifiant
   // SPDX, dont un seul est rendu. Écrire le texte permissif par-dessus un
   // « tous droits réservés » aurait marché tant que les deux fichiers portent
@@ -7655,28 +7663,10 @@ export function wireEntitiesDecorator(
 }
 
 /**
- * Fait couvrir un front AJOUTÉ par le `tsconfig.json` de sa cible, comme si
- * elle était née avec : entrée `include`, option `jsx` du moteur, et les types
- * `vite/client` — application comme MODULE : le front importe des feuilles de
- * style et une image, que `tsgo` refuse sans eux (TS2882, TS2307). Réservés à
- * l'application, ils faisaient échouer le `typecheck` de tout module à front
- * React ou Angular ; Vue et Svelte ne passaient que grâce à leur shim.
- *
- * Sans elle, `create front` sur une application née sans front livrait des
- * `.tsx` que `npm run typecheck` ne lisait pas, et que le lint typé lisait sans
- * `lib` — `toSorted()`, exigé par ce même lint, y devenait une erreur (#515).
- *
- * Le fichier porte des commentaires : il est édité par motifs ciblés, jamais
- * réécrit par `JSON.parse`. Une entrée qui ne peut pas être posée (fichier
- * remanié à la main) est NOMMÉE dans la note rendue, jamais sautée en silence.
- *
- * @param tsconfigPath - le `tsconfig.json` de la cible
- * @param needs - ce que le moteur exige ({@link FRONTEND_PARAMS})
- * @param writer - l'écrivain transactionnel du scaffold
- * @returns `changed` si le fichier a été réécrit, et la note des manques
- */
-/**
  * Déclare un greffon dans le `plugins` de `.prettierrc.json`, s'il n'y est pas.
+ * Seul point d'écriture du greffon d'un moteur front, pour `create app` comme
+ * pour `create front` : le gabarit `.prettierrc.json` reste du JSON pur, que
+ * l'outillage du dépôt relit tel quel.
  *
  * Une config absente, ou qui n'est pas un objet JSON (format choisi par
  * l'utilisateur : `.prettierrc.mjs`, YAML…), n'est pas touchée — on ne
@@ -7709,6 +7699,28 @@ export function wirePrettierPlugin(
   writer.write(rcPath, `${JSON.stringify(parsed, null, 2)}\n`);
   return true;
 }
+
+/**
+ * Fait couvrir un front AJOUTÉ par le `tsconfig.json` de sa cible, comme si
+ * elle était née avec : entrée `include`, option `jsx` du moteur, et les types
+ * `vite/client` — application comme MODULE : le front importe des feuilles de
+ * style et une image, que `tsgo` refuse sans eux (TS2882, TS2307). Réservés à
+ * l'application, ils faisaient échouer le `typecheck` de tout module à front
+ * React ou Angular ; Vue et Svelte ne passaient que grâce à leur shim.
+ *
+ * Sans elle, `create front` sur une application née sans front livrait des
+ * `.tsx` que `npm run typecheck` ne lisait pas, et que le lint typé lisait sans
+ * `lib` — `toSorted()`, exigé par ce même lint, y devenait une erreur (#515).
+ *
+ * Le fichier porte des commentaires : il est édité par motifs ciblés, jamais
+ * réécrit par `JSON.parse`. Une entrée qui ne peut pas être posée (fichier
+ * remanié à la main) est NOMMÉE dans la note rendue, jamais sautée en silence.
+ *
+ * @param tsconfigPath - le `tsconfig.json` de la cible
+ * @param needs - ce que le moteur exige ({@link FRONTEND_PARAMS})
+ * @param writer - l'écrivain transactionnel du scaffold
+ * @returns `changed` si le fichier a été réécrit, et la note des manques
+ */
 
 function wireFrontTsconfig(
   tsconfigPath: string,

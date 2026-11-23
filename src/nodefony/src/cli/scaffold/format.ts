@@ -47,7 +47,9 @@ import type { ScaffoldWriter } from "./writer.js";
  * `format()` sans résoudre la config du projet, donc sans ses greffons. Une
  * application Svelte déclare pourtant le greffon (`FRONTEND_PARAMS.prettierPlugin`),
  * et son `format:check` LIT les `.svelte` : le gabarit `App.svelte.tpl` s'écrit
- * donc directement dans la forme du greffon. Seules deux lignes y portent le
+ * donc directement dans la forme du greffon — une forme qui ne dépend pas de
+ * sa version : une ligne longue y est coupée différemment en 4.1 et en 4.2, et
+ * la plage `^` installe la plus récente. Seules deux lignes y portent le
  * nom de l'application (un commentaire, que prettier ne replie pas, et un
  * `<span>` court) : un nom ordinaire ne les fait pas déborder.
  */
