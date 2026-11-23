@@ -1,4 +1,13 @@
-import type { IFrontPreset } from "../../interfaces/IFrontPreset";
+import type {
+  IFrontPreset,
+  IVitePluginSpec,
+} from "../../interfaces/IFrontPreset";
+import { definePreset } from "./compose";
+
+/** Le plugin Vue, décrit en données — source unique du build et du serveur de développement. */
+function vue3Plugins(): ReadonlyArray<IVitePluginSpec> {
+  return [{ specifier: "@vitejs/plugin-vue", exportName: "default" }];
+}
 
 /**
  * Preset Vue 3 + Vite.
@@ -8,17 +17,14 @@ import type { IFrontPreset } from "../../interfaces/IFrontPreset";
  * à React, Vue ne nécessite aucun preamble HMR injecté côté serveur —
  * `createApp(App).mount(...)` dans le point d'entrée suffit.
  */
-const vue3Preset: IFrontPreset = {
+const vue3Preset: IFrontPreset = definePreset({
   type: "vue3",
   extensions: [".vue", ".ts", ".js"],
   optimizeDepsInclude: ["vue"],
-
-  async buildPlugins(): Promise<unknown[]> {
-    const mod = (await import("@vitejs/plugin-vue")) as {
-      default: (opts?: Record<string, unknown>) => unknown;
-    };
-    return [mod.default()];
-  },
-};
+  // `@vitejs/plugin-vue` pose déjà `resolve.dedupe: ["vue"]` : défense en
+  // profondeur, qui nous rend indépendants d'un détail du plugin tiers.
+  dedupe: ["vue"],
+  vitePlugins: vue3Plugins,
+});
 
 export default vue3Preset;

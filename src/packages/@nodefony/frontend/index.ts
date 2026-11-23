@@ -115,6 +115,8 @@ export { default as svelte5Preset } from "./nodefony/src/presets/svelte5-vite";
 export {
   FrontendError,
   FrontendPresetUnknownError,
+  FrontendPresetNotDescribedError,
+  FrontendPluginExportError,
   FrontendSupervisorStartError,
   FrontendNoEntriesError,
 } from "./nodefony/src/errors/FrontendError";
@@ -123,6 +125,8 @@ export {
 export type {
   IFrontPreset,
   FrontPresetType,
+  IVitePluginSpec,
+  VitePluginOption,
 } from "./nodefony/interfaces/IFrontPreset";
 export type {
   IFrontBuilder,
