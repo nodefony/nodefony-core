@@ -52,6 +52,15 @@ describe("splitSvgStyles", () => {
     expect(svg).toBe("<svg><g/></svg>");
     expect(css).toBe("");
   });
+
+  it("une balise reconstituée par le retrait est retirée à son tour (CodeQL #273)", () => {
+    const { svg, css } = splitSvgStyles(
+      "<svg><sty<style>.a{}</style>le>.b{}</style><g/></svg>",
+    );
+    expect(svg).toBe("<svg><g/></svg>");
+    expect(svg).not.toMatch(/<style/i);
+    expect(css).toBe(".a{}.b{}");
+  });
 });
 
 describe("patron de feuille par thème", () => {
