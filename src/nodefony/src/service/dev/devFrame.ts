@@ -158,6 +158,9 @@ const PHASE_LABELS: Readonly<Record<DevPhase, string>> = {
  * @returns le même tableau quand aucune ligne ne dépasse.
  */
 function fitRows(lines: readonly string[], width: number): readonly string[] {
+  // Un graphème fait au plus deux colonnes (`graphemeWidth` : 0 | 1 | 2) : dès
+  // deux colonnes, le repli a déjà borné chaque ligne — ne pas la remesurer.
+  if (width >= 2) return lines;
   let out: string[] | null = null;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? "";
