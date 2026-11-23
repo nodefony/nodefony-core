@@ -152,6 +152,24 @@ const PHASE_LABELS: Readonly<Record<DevPhase, string>> = {
 };
 
 /**
+ * Borne chaque ligne repliée à `width` colonnes — ce que le repli ne garantit
+ * pas sous deux colonnes, où un graphème large tient seul sur sa ligne.
+ *
+ * @returns le même tableau quand aucune ligne ne dépasse.
+ */
+function fitRows(lines: readonly string[], width: number): readonly string[] {
+  let out: string[] | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    const fitted = fitToWidth(line, width);
+    if (fitted === line) continue;
+    out ??= [...lines];
+    out[i] = fitted;
+  }
+  return out ?? lines;
+}
+
+/**
  * Hauteurs repliées des entrées, mémoïsées pour UNE largeur : changer de
  * largeur invalide tout. De quoi faire défiler par lignes d'écran sans
  * replier tout l'historique à chaque geste.
@@ -172,12 +190,12 @@ export class FrameHeights {
    *
    * @param entry - l'entrée.
    * @param width - largeur de repli, en colonnes.
-   * @returns ses lignes repliées, à ne pas modifier.
+   * @returns ses lignes repliées et bornées à `width`, à ne pas modifier.
    */
   lines(entry: ITranscriptEntry, width: number): readonly string[] {
     this.#reset(width);
     let lines = this.#showing.get(entry.seq) ?? this.#shown.get(entry.seq);
-    lines ??= this.#wrap(entry);
+    lines ??= fitRows(this.#wrap(entry), width);
     this.#showing.set(entry.seq, lines);
     return lines;
   }
@@ -377,7 +395,10 @@ function journalLines(
       // En direct, la ligne en cours prend le bas du journal.
       const tail =
         model.anchor === null && model.partial
-          ? wrapToWidth(model.partial.replace(ERASE_IN_LINE, ""), width)
+          ? fitRows(
+              wrapToWidth(model.partial.replace(ERASE_IN_LINE, ""), width),
+              width,
+            )
           : [];
       const budget = Math.max(0, height - tail.length);
       for (let i = index; i >= 0 && out.length < budget; i--) {
@@ -648,8 +669,14 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
   const cut = Math.max(0, all.length - rows);
   const origins = allOrigins.slice(cut);
   const range = model.selection ?? null;
+  // Le journal arrive déjà borné (`fitRows`, une fois par entrée) : seuls
+  // l'indicateur, l'invite et la barre se réajustent à chaque image.
+  const journalRows = Math.max(0, journal.lines.length - cut);
   const lines = all.slice(cut).map((line, row) => {
-    const fitted = fitToWidth(line.replace(ERASE_IN_LINE, ""), width);
+    const fitted =
+      row < journalRows
+        ? line
+        : fitToWidth(line.replace(ERASE_IN_LINE, ""), width);
     const origin = origins[row] ?? null;
     return range === null || origin === null
       ? fitted
