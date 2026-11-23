@@ -1,0 +1,10 @@
+# Sortie de référence du terminal du superviseur (#896) — régénérer : npx vitest run terminalEquivalence -u (src/nodefony)
+show	"barre ✅ 漢字\n\u001b[32mvert\u001b[0m xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\u001b[0m"
+lines	"\r\u001b[2K\u001b[1A\u001b[2Ka\nb\nbarre ✅ 漢字\n\u001b[32mvert\u001b[0m xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\u001b[0m"
+partial	"\r\u001b[2K\u001b[1A\u001b[2Ksans fin"
+newline	"\nbarre ✅ 漢字\n\u001b[32mvert\u001b[0m xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\u001b[0m"
+bytes	"\r\u001b[2K\u001b[1A\u001b[2Koctets 👍🏽\nbarre ✅ 漢字\n\u001b[32mvert\u001b[0m xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\u001b[0m"
+empty	""
+replace	"\r\u001b[2K\u001b[1A\u001b[2Kune seule ligne"
+hide	"\r\u001b[2K"
+release	""
