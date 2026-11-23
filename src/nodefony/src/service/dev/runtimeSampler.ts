@@ -4,9 +4,10 @@
  * la boucle d'évènements. La page Runtime de Studio montre bien plus ; la
  * barre ne garde que ce qu'on lit d'un coup d'œil.
  *
- * Coût : trois lectures natives par tick (`memoryUsage.rss`, `cpuUsage`,
- * `eventLoopUtilization`), aucun observateur, minuteur `unref` — rien sur le
- * chemin d'une requête.
+ * Coût : UNE lecture native par source et par tick (`memoryUsage.rss`,
+ * `cpuUsage`, `eventLoopUtilization`, horloge) — les écarts se calculent sur
+ * le relevé précédent, gardé ; aucun observateur, minuteur `unref` — rien sur
+ * le chemin d'une requête.
  */
 import { performance, type EventLoopUtilization } from "node:perf_hooks";
 import type { IRuntimeSample } from "./startupScreen";
@@ -14,26 +15,20 @@ import type { IRuntimeSample } from "./startupScreen";
 /** Cadence par défaut : assez vive pour voir bouger, assez lente pour ne rien coûter. */
 export const RUNTIME_SAMPLE_MS = 2000;
 
-/** Les sources d'un échantillon — injectables en test. */
+/** Les sources d'un échantillon, toutes en relevés CUMULÉS — injectables en test. */
 export interface IRuntimeSources {
   rss: () => number;
-  cpuUsage: (previous?: NodeJS.CpuUsage) => NodeJS.CpuUsage;
-  /**
-   * Sans argument : la mesure cumulée ; avec la précédente : l'écart depuis
-   * elle (`performance.eventLoopUtilization(précédente)` — un seul argument,
-   * Node lève si l'on passe `(undefined, précédente)`).
-   */
-  elu: (previous?: EventLoopUtilization) => EventLoopUtilization;
+  /** Temps CPU cumulé du process (µs). */
+  cpuUsage: () => NodeJS.CpuUsage;
+  /** Temps actif et inactif cumulés de la boucle d'évènements (ms). */
+  elu: () => EventLoopUtilization;
   now: () => number;
 }
 
 const NODE_SOURCES: IRuntimeSources = {
   rss: () => process.memoryUsage.rss(),
-  cpuUsage: (previous) => process.cpuUsage(previous),
-  elu: (previous) =>
-    previous === undefined
-      ? performance.eventLoopUtilization()
-      : performance.eventLoopUtilization(previous),
+  cpuUsage: () => process.cpuUsage(),
+  elu: () => performance.eventLoopUtilization(),
   now: () => performance.now(),
 };
 
@@ -58,17 +53,24 @@ export function startRuntimeSampler(
     // Une mesure n'a pas le droit de tuer le serveur qu'elle observe : une
     // exception ici arrête l'échantillonneur, jamais l'application.
     try {
+      // Un relevé par source ; l'écart se calcule sur le précédent, qui devient
+      // la nouvelle référence. Le relevé suivant ne recompte donc rien.
       const now = sources.now();
-      const cpuDelta = sources.cpuUsage(cpu);
-      const eluDelta = sources.elu(elu);
+      const cpuNow = sources.cpuUsage();
+      const eluNow = sources.elu();
       const elapsedUs = Math.max(1, (now - at) * 1000);
+      const active = eluNow.active - elu.active;
+      const loopMs = active + (eluNow.idle - elu.idle);
       send({
         rssBytes: sources.rss(),
-        cpuPercent: ((cpuDelta.user + cpuDelta.system) / elapsedUs) * 100,
-        eluPercent: eluDelta.utilization * 100,
+        cpuPercent:
+          ((cpuNow.user - cpu.user + (cpuNow.system - cpu.system)) /
+            elapsedUs) *
+          100,
+        eluPercent: loopMs > 0 ? (active / loopMs) * 100 : 0,
       });
-      cpu = sources.cpuUsage();
-      elu = sources.elu();
+      cpu = cpuNow;
+      elu = eluNow;
       at = now;
     } catch {
       clearInterval(timer);

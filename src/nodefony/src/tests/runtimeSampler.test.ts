@@ -11,20 +11,24 @@ afterEach(() => {
 });
 
 describe("startRuntimeSampler", () => {
-  it("CPU en % d'un cœur et boucle en %, mesurés sur l'intervalle", () => {
+  it("CPU en % d'un cœur et boucle en %, mesurés sur l'intervalle — UNE lecture par source et par tick", () => {
     vi.useFakeTimers();
     let clock = 0;
+    let cpuReads = 0;
+    let eluReads = 0;
     const samples: IRuntimeSample[] = [];
     const stop = startRuntimeSampler((s) => samples.push(s), 1000, {
       rss: () => 100,
-      // 500 ms de CPU (user + system) consommées sur 1 s d'horloge.
-      cpuUsage: (previous) =>
-        previous ? { user: 300_000, system: 200_000 } : { user: 0, system: 0 },
-      elu: (previous) => ({
-        idle: 0,
-        active: 0,
-        utilization: previous ? 0.25 : 0,
-      }),
+      // Relevés CUMULÉS : 500 ms de CPU (user + system) consommées sur 1 s
+      // d'horloge, boucle active 250 ms sur 1000.
+      cpuUsage: () =>
+        cpuReads++ === 0
+          ? { user: 0, system: 0 }
+          : { user: 300_000, system: 200_000 },
+      elu: () =>
+        eluReads++ === 0
+          ? { idle: 0, active: 0, utilization: 0 }
+          : { idle: 750, active: 250, utilization: 0.25 },
       now: () => clock,
     });
     expect(samples).to.have.length(0); // un delta exige deux points
@@ -33,6 +37,8 @@ describe("startRuntimeSampler", () => {
     expect(samples).to.deep.equal([
       { rssBytes: 100, cpuPercent: 50, eluPercent: 25 },
     ]);
+    // Un relevé au départ, un par tick : le précédent sert de référence.
+    expect([cpuReads, eluReads]).to.deep.equal([2, 2]);
     stop();
     stop(); // idempotent
     vi.advanceTimersByTime(5000);
