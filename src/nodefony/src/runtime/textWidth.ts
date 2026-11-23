@@ -179,9 +179,45 @@ export function* textUnits(text: string): Generator<ITextUnit> {
  */
 export function visibleWidth(text: string): number {
   if (PLAIN_ASCII.test(text)) return text.length;
+  // Même parcours que `textUnits`, sans générateur ni unité allouée : une
+  // ligne de journal colorée est faite de suites ASCII entre deux séquences,
+  // que le segmenteur découperait caractère par caractère pour rien.
   let width = 0;
-  for (const unit of textUnits(text)) width += unit.width;
+  let i = 0;
+  while (i < text.length) {
+    const esc = text.indexOf("\x1b", i);
+    const end = esc === -1 ? text.length : esc;
+    if (end > i) {
+      if (isPrintableAscii(text, i, end)) width += end - i;
+      else {
+        for (const { segment } of graphemes(text.slice(i, end))) {
+          width += graphemeWidth(segment);
+        }
+      }
+      i = end;
+      continue;
+    }
+    i += controlSequenceLength(text, i) || 1;
+  }
   return width;
+}
+
+/**
+ * Dit si `text[start, end)` n'a que de l'ASCII imprimable : chaque caractère
+ * y est alors un graphème d'UNE colonne (aucun ne se combine à un autre), et
+ * la largeur est la longueur.
+ *
+ * @param text - le texte.
+ * @param start - début, inclus.
+ * @param end - fin, exclue.
+ * @returns `true` si la tranche est entièrement ASCII imprimable.
+ */
+function isPrintableAscii(text: string, start: number, end: number): boolean {
+  for (let i = start; i < end; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 0x20 || code > 0x7e) return false;
+  }
+  return true;
 }
 
 /**
