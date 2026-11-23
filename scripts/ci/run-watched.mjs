@@ -32,6 +32,9 @@ import { pathToFileURL } from "node:url";
 /** Délai laissé aux tuyaux pour se vider après la mort du process. */
 const DRAIN_MS = 3000;
 
+/** Plafond d'une lecture de la table des process (PowerShell froid compris). */
+const TABLE_TIMEOUT_MS = 20000;
+
 /** `[[jj-]hh:]mm:ss` (le `etime` de `ps`) → secondes. */
 export function parseElapsed(etime) {
   const m = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/u.exec(etime.trim());
@@ -166,7 +169,10 @@ function readProcessTable() {
         ]
       : ["ps", ["-eo", "pid=,ppid=,etime=,args="]];
   return new Promise((resolve) => {
-    execFile(cmd, args, { maxBuffer: 32 * 1024 * 1024 }, (error, stdout) => {
+    // Bornée : le lanceur attend un rapport en cours avant de rendre la main —
+    // une lecture qui ne revient pas le retiendrait, le défaut même qu'il traite.
+    const options = { maxBuffer: 32 * 1024 * 1024, timeout: TABLE_TIMEOUT_MS };
+    execFile(cmd, args, options, (error, stdout) => {
       if (error) resolve({ error: error.message });
       else {
         try {
@@ -187,10 +193,17 @@ const MAX_LISTED = 40;
 /** Naissance de ce lanceur : ce qui est né avant n'est pas de cette étape. */
 const STARTED = Date.now();
 
-/** Écrit l'inventaire sur la sortie d'erreur, précédé de sa raison. */
-async function report(reason, rootPid) {
-  const table = await readProcessTable();
-  const lines = [`\n[run-watched] ${reason}`];
+/**
+ * Écrit l'inventaire sur la sortie d'erreur, précédé de sa raison.
+ *
+ * La raison part AVANT la lecture de la table, qui prend plusieurs secondes
+ * sous Windows : si le lanceur devait sortir entre-temps, on saurait au moins
+ * pourquoi l'inventaire avait été demandé.
+ */
+async function report(reason, rootPid, readTable) {
+  process.stderr.write(`\n[run-watched] ${reason}\n`);
+  const table = await readTable();
+  const lines = [];
   if (table.error) {
     lines.push(`  inventaire des process impossible : ${table.error}`);
   } else {
@@ -212,10 +225,15 @@ async function report(reason, rootPid) {
  * Lance la commande, relaie sa sortie, rend son code de sortie.
  *
  * @param {string[]} command - la commande et ses arguments.
- * @param {{idleSeconds:number}} options - silence au-delà duquel on inventorie.
+ * @param {{idleSeconds:number, pollMs?:number, readTable?:() => Promise<{rows?:object[], error?:string}>}} options -
+ *   silence au-delà duquel on inventorie ; cadence de la sonde et lecture de la
+ *   table, injectables pour éprouver la course sans dépendre du système.
  * @returns {Promise<number>} le code de sortie de la commande.
  */
-export async function runWatched(command, { idleSeconds }) {
+export async function runWatched(
+  command,
+  { idleSeconds, pollMs = 5000, readTable = readProcessTable },
+) {
   // `shell` : `npm` est un `.cmd` sous Windows, que `spawn` seul ne lance pas.
   const child = spawn(command.join(" "), {
     shell: true,
@@ -223,6 +241,11 @@ export async function runWatched(command, { idleSeconds }) {
   });
   let last = Date.now();
   let idleReported = false;
+  /**
+   * Les rapports de silence en cours, attendus avant de rendre la main.
+   * @type {Promise<void>[]}
+   */
+  const pendingReports = [];
   child.stdout.on("data", (c) => {
     last = Date.now();
     process.stdout.write(c);
@@ -234,12 +257,15 @@ export async function runWatched(command, { idleSeconds }) {
   const timer = setInterval(() => {
     if (!idleReported && Date.now() - last > idleSeconds * 1000) {
       idleReported = true;
-      void report(
-        `aucune sortie depuis ${idleSeconds} s — la commande ne rend pas la main :`,
-        child.pid,
+      pendingReports.push(
+        report(
+          `aucune sortie depuis ${idleSeconds} s — la commande ne rend pas la main :`,
+          child.pid,
+          readTable,
+        ),
       );
     }
-  }, 5000);
+  }, pollMs);
   timer.unref();
 
   const code = await new Promise((resolve) => {
@@ -260,10 +286,14 @@ export async function runWatched(command, { idleSeconds }) {
       `la commande est terminée (code ${code}) mais un descendant garde sa sortie ouverte — ` +
         "le lanceur rend la main quand même :",
       child.pid,
+      readTable,
     );
     child.stdout.destroy();
     child.stderr.destroy();
   }
+  // La commande a pu finir pendant la lecture de la table : sans cette attente,
+  // le `process.exit` de l'appelant coupait le rapport de silence en route.
+  await Promise.all(pendingReports);
   return code;
 }
 
