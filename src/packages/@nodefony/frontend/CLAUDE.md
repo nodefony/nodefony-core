@@ -76,7 +76,7 @@ Browser GET / (HTTPS 5152)
   └─ Controller render index.html
         └─ inject frontendService.renderTags("test-frontend-react")
               → `<script src="/_vite/<famille>/@vite/client">`
-              → `<script src="/_vite/<famille>/@fs/…/src/main.tsx">`
+              → `<script src="/_vite/<famille>/src/main.tsx">` (`/@fs/…` hors de la racine Vite)
 
 Browser parses HTML → GET /_vite/<famille>/… (origine de la page)
   └─ reverse-proxy (@nodefony/http) → Vite 127.0.0.1:5173 → transpiled
@@ -152,7 +152,7 @@ dérive ici — l'audit `nodefony-check-externals` doit lire ce paragraphe avant
 - **`vite.config.generated.mjs` overwrite** : régénéré à CHAQUE `startDev()`. Ne JAMAIS éditer manuellement.
 - **Port Vite réel ≠ port configuré** : le config généré porte `strictPort: true`, donc Vite ne se décale PAS seul — si 5173 est occupé il meurt, et `spawnWithPortRetry` le relance sur le port suivant (`portRetryAttempts`). Le superviseur parse `Local:` pour récupérer le port réel. La sortie d'erreur du démarrage est RETENUE jusqu'au verdict : un conflit rattrapé ne laisse qu'une ligne d'information, jamais la trace de Vite en ERROR (qui gonflait le compte ERROR du résumé de boot).
 - **`@vitejs/plugin-react` paresseux** : chargé via `await import()` dans le preset → pas d'erreur si pas installé tant qu'aucun module ne déclare `type: "react19"`.
-- **PathRoot vs entryFile** : `entryFile` est relatif au root du module (ex: `./frontend/src/main.tsx`), `root` est la racine front (ex: `./frontend`). Le TemplateHelper retire le root pour produire l'URL Vite (`/src/main.tsx`).
+- **PathRoot vs entryFile** : `entryFile` est relatif au root du module (ex: `./frontend/src/main.tsx`), `root` est la racine front (ex: `./frontend`). L'URL de l'entrée suit la règle de Vite (`TemplateHelper.ts#devEntryUrl`) : relative (`/src/main.tsx`) sous la racine Vite — celle de la PREMIÈRE entrée de la famille (`ViteConfigGenerator.ts#viteDevRoot`) —, `/@fs/<absolu>` hors d'elle. Une entrée posée en `/@fs` sous la racine existait sous deux URL, donc en deux instances.
 - **`experimentalDecorators` requis** : Service injectable via `@injectable()` — sans lui les décorateurs ne compilent pas. `emitDecoratorMetadata` reste à `false` : une dépendance se nomme par `@Inject("nom")` (ADR-0018).
 - **Pas de `@nodefony/framework` en dep dure** : framework dépend de http qui peut dépendre de frontend → on garde frontend en bout de chaîne, sans import framework.
 

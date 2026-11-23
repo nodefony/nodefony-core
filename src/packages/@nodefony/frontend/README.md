@@ -323,7 +323,7 @@ Browser GET /my-route/
 Nodefony rend HTML + svc.renderTags() injecte:
    <script type="module">  preamble React Fast Refresh
    <script src="/_vite/default/@vite/client">
-   <script src="/_vite/default/@fs/…/src/main.tsx">
+   <script src="/_vite/default/src/main.tsx">   (hors de la racine Vite : /@fs/…)
 
 Browser → Nodefony (5152) /_vite/… → relais → Vite 127.0.0.1:5173 (assets + HMR WSS)
 Browser → Nodefony (5152) /api/…  → ton contrôleur, sans proxy

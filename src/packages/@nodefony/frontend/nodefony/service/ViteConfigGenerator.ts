@@ -52,6 +52,21 @@ function toGeneratedPath(p: string): string {
   return p.replace(/\\/g, "/");
 }
 
+/**
+ * Racine du Vite de développement d'une famille : celle de sa PREMIÈRE entrée.
+ * Seule source de ce choix — la config générée la pose en `root`, et le rendu
+ * des balises la relit pour écrire l'URL d'une entrée comme Vite écrit celle de
+ * ses imports (`TemplateHelper.ts#devEntryUrl`).
+ *
+ * @param entries - entrées de la famille, dans l'ordre du superviseur
+ * @returns la racine de la première entrée, ou `undefined` si la famille est vide
+ */
+export function viteDevRoot(
+  entries: ReadonlyArray<IResolvedFrontendEntry>,
+): string | undefined {
+  return entries[0]?.root;
+}
+
 export class ViteConfigGenerator {
   /**
    * Construit le content `.mjs` à écrire à côté de `index.html` du module.
@@ -148,7 +163,7 @@ export class ViteConfigGenerator {
       input[e.entryName] = toGeneratedPath(path.resolve(e.root, e.entryFile));
     }
 
-    const root = toGeneratedPath(first.root);
+    const root = toGeneratedPath(viteDevRoot(entries) ?? first.root);
     // Le cache de pré-compilation des dépendances, PROPRE à la racine. Par
     // défaut Vite le pose sous le `package.json` le plus proche : deux fronts
     // d'un même paquet (deux familles d'une application, deux fixtures de test)

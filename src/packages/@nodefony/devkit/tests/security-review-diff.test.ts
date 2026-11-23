@@ -260,7 +260,12 @@ const PAR_LIGNE: [string, string[], string[]][] = [
   [
     "path-from-input",
     ["const file = path.join(root, this.query.name);"],
-    ['const file = path.join(root, "public", "logo.png");'],
+    [
+      'const file = path.join(root, "public", "logo.png");',
+      // Variable locale homonyme d'une source de requête, AVANT l'appel.
+      'const body = await readFile(manifest, "utf8");',
+      "const params = path.join(root, name);",
+    ],
   ],
   [
     "mcp-tool-exposed",

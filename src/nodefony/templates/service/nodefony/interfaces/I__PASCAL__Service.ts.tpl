@@ -7,7 +7,7 @@
  * d'implémentation, libre de changer.
  */
 export interface I<%= it.pascal %>Service {
-  /** Snapshot de lecture — état courant du service. */
+  /** Exemple de lecture d'état — à remplacer ou retirer, comme `greet()`. */
   status(): { ready: boolean };
 
   /** Exemple de méthode métier — à remplacer par la vôtre. */

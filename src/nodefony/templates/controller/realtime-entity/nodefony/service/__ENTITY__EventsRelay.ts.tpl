@@ -67,12 +67,15 @@ export function relay<%= it.entityPascal %>Events(service: <%= it.entityPascal %
  */
 @injectable()
 class <%= it.relayClass %> extends Service {
+  readonly module: Module;
+
   constructor(module: Module) {
     super(
       "<%= it.entityCamel %>EventsRelay",
       module.container ?? undefined,
       module.notificationsCenter,
     );
+    this.module = module;
   }
 
   async init(): Promise<this> {
@@ -80,7 +83,8 @@ class <%= it.relayClass %> extends Service {
       this,
       () => {
         const stop = relay<%= it.entityPascal %>Events(get<%= it.entityPascal %>Service());
-        this.kernel?.once("onTerminate", stop);
+        // Au nom du module (sa criticité), jamais un écouteur anonyme.
+        this.module.hookKernel("onTerminate", stop);
       },
       { allWorkers: true },
     );

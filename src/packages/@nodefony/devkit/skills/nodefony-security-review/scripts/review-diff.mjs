@@ -357,11 +357,13 @@ export const LINE_RULES = [
     fix: "résous le chemin, puis vérifie que path.relative(racine, chemin) ne commence pas par « .. »",
     test: (t) => {
       const code = codeOnly(t);
-      return (
-        /\b(?:readFile\w*|createReadStream|createWriteStream|sendFile|unlink\w*|writeFile\w*|rm\w*|path\.(?:join|resolve))\s*\(/u.test(
-          code,
-        ) && REQUEST_INPUT.test(code)
+      const call = code.search(
+        /\b(?:readFile\w*|createReadStream|createWriteStream|sendFile|unlink\w*|writeFile\w*|rm\w*|path\.(?:join|resolve))\s*\(/u,
       );
+      // La donnée reçue se cherche DANS l'appel, jamais avant : une variable
+      // locale nommée `body` ou `params` (`const body = await readFile(f)`)
+      // n'est pas la requête — faux positif vécu sur une application réelle.
+      return call !== -1 && REQUEST_INPUT.test(code.slice(call));
     },
   },
   {

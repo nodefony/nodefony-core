@@ -125,6 +125,9 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // déclare déjà — pairs `typescript >=5` et `^5 || ^6`.
   "vue-tsc": "^3.3.14",
   "svelte-check": "^4.7.8",
+  // Prettier 3 ne lit un `.svelte` qu'avec ce greffon, DÉCLARÉ dans la config
+  // (`plugins`) : sans lui, `format:check` passait sans regarder les composants.
+  "prettier-plugin-svelte": "^4.1.1",
   // 🔴 Angular BORNÉ à la mineure (tilde, pas caret) : le plugin Vite
   // d'analogjs dépend d'API PRIVÉES de `@angular/build`. La 22.2 a cessé de
   // faire hériter `SourceFileCache` de `Map` : avec analogjs ≤ 2.7.2, le
