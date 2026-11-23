@@ -196,6 +196,32 @@ describe("sanitizeTerminalText — une ligne de journal ne pilote pas le termina
     expect(sanitizeTerminalText(evil)).to.equal("clic\x1b]8;;\x1b\\");
   });
 
+  it("couleur et effacement de ligne reconnus au plus juste — rien de voisin ne passe (#896)", () => {
+    const cases: Array<[string, string]> = [
+      ["\x1b[m", "\x1b[m"],
+      ["\x1b[38:2:1:2:3m", "\x1b[38:2:1:2:3m"],
+      ["\x1b[1;31m", "\x1b[1;31m"],
+      ["\x1b[K", "\x1b[K"],
+      ["\x1b[0K", "\x1b[0K"],
+      ["\x1b[2K", "\x1b[2K"],
+      ["\x1b[3K", ""], // pas un effacement de ligne
+      ["\x1b[12K", ""],
+      ["\x1b[;K", ""],
+      ["\x1b[<1m", ""], // `<` : paramètre CSI, mais pas de SGR
+      ["\x1b[?25h", ""],
+      ["\x1b[1 m", ""], // octet intermédiaire
+    ];
+    for (const [input, expected] of cases) {
+      expect(
+        sanitizeTerminalText(`a${input}b`),
+        JSON.stringify(input),
+      ).to.equal(`a${expected}b`);
+    }
+    // Coupée en fin de texte : `ESC [` part comme séquence à deux octets.
+    expect(sanitizeTerminalText("a\x1b[31")).to.equal("a31");
+    expect(sanitizeTerminalText("a\x1b[")).to.equal("a");
+  });
+
   it("retire les contrôles C0 et C1, rend les tabulations en espaces", () => {
     expect(sanitizeTerminalText("a\x07b\x08c\u009b2Jd\te")).to.equal(
       "abc2Jd    e",
