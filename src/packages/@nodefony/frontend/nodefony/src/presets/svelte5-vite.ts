@@ -1,4 +1,19 @@
-import type { IFrontPreset } from "../../interfaces/IFrontPreset";
+import type {
+  IFrontPreset,
+  IVitePluginSpec,
+} from "../../interfaces/IFrontPreset";
+import { definePreset } from "./compose";
+
+/**
+ * Le plugin Svelte, décrit en données — source unique du build et du serveur
+ * de développement. Export NOMMÉ (`svelte`) : seul plugin fourni sans export
+ * par défaut. Le paquet n'est pas installé dans le dépôt du framework :
+ * l'application le porte, et le chargeur le résout depuis elle au besoin
+ * (`loadVitePlugins`).
+ */
+function svelte5Plugins(): ReadonlyArray<IVitePluginSpec> {
+  return [{ specifier: "@sveltejs/vite-plugin-svelte", exportName: "svelte" }];
+}
 
 /**
  * Preset Svelte 5 + Vite.
@@ -10,41 +25,15 @@ import type { IFrontPreset } from "../../interfaces/IFrontPreset";
  * il cohabite donc dans la famille d'isolation `default` (extensions `.svelte`
  * disjointes de `.tsx`/`.vue`).
  */
-const svelte5Preset: IFrontPreset = {
+const svelte5Preset: IFrontPreset = definePreset({
   type: "svelte5",
   extensions: [".svelte", ".ts", ".js"],
   optimizeDepsInclude: ["svelte"],
-
-  async buildPlugins(): Promise<unknown[]> {
-    // Spécificateur par VARIABLE (≠ presets react/vue/angular, installés au
-    // root de CE dépôt) : le plugin svelte n'y est pas — un import littéral
-    // ferait échouer le typecheck du framework pour un paquet que seule
-    // l'application déclare. La résolution reste 100 % runtime (lazy).
-    const pkg = "@sveltejs/vite-plugin-svelte";
-    type SveltePlugin = {
-      svelte: (opts?: Record<string, unknown>) => unknown;
-    };
-    let mod: SveltePlugin;
-    try {
-      mod = (await import(pkg)) as SveltePlugin;
-    } catch {
-      // App `--link` : ce preset vit dans le CHECKOUT du framework, le plugin
-      // dans les node_modules de l'APP — l'import relatif à l'importeur ne le
-      // voit pas (react/vue/angular n'y échappent que parce que le repo les
-      // porte en devDeps). On résout donc depuis l'app (cwd), et l'`import()`
-      // prend une URL, jamais un chemin (`D:\…` serait lu comme un protocole).
-      const [{ createRequire }, { pathToFileURL }, path] = await Promise.all([
-        import("node:module"),
-        import("node:url"),
-        import("node:path"),
-      ]);
-      const req = createRequire(path.join(process.cwd(), "package.json"));
-      mod = (await import(
-        pathToFileURL(req.resolve(pkg)).href
-      )) as SveltePlugin;
-    }
-    return [mod.svelte()];
-  },
-};
+  // `@sveltejs/vite-plugin-svelte` pose déjà `SVELTE_DEDUPED_IMPORTS` (svelte
+  // et ses sous-chemins) : défense en profondeur. Mesuré sur une application
+  // liée avec deux `node_modules/svelte` : bundle identique avec ou sans.
+  dedupe: ["svelte"],
+  vitePlugins: svelte5Plugins,
+});
 
 export default svelte5Preset;

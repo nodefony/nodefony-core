@@ -128,7 +128,7 @@ Aucun listener (boot direct via `start.sh`, prod) → `fire` no-op, 0 coût. Ne 
 
 ## Tests
 
-- Unit : `nodefony/tests/unit/ViteConfigGenerator.test.ts` — 21 cases. Pure function, ~10ms. Runner = **vitest** (`npm test` = `vitest run`).
+- Unit : `nodefony/tests/unit/ViteConfigGenerator.test.ts`. Pure function, ~10ms. Runner = **vitest** (`npm test` = `vitest run`).
 - Intégration : `nodefony/tests/integration/ViteProcessSupervisor.test.ts` — 3 cases (start+stop, idempotence, crash auto-restart). Real spawn ~6s. Runner = mocha+ts-node (`npm run test:integration`), **process Vite séparé**.
 - Fixture : `nodefony/tests/fixtures/minimal-frontend/` (index.html + src/main.ts vanilla).
 

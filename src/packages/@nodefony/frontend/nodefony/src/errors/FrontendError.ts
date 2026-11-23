@@ -53,6 +53,33 @@ export class FrontendBuildError extends FrontendError {
   }
 }
 
+/** L'export désigné par la description d'un plugin n'est pas une fabrique appelable. */
+export class FrontendPluginExportError extends FrontendError {
+  constructor(specifier: string, exportName: string) {
+    super(
+      `Vite plugin "${specifier}" has no callable export "${exportName}"`,
+      "PLUGIN_EXPORT",
+      { specifier, exportName },
+    );
+    this.name = "FrontendPluginExportError";
+  }
+}
+
+/**
+ * Le serveur de développement ne peut pas écrire les plugins d'un preset qui ne
+ * les décrit pas en données (`IFrontPreset.vitePlugins` absent).
+ */
+export class FrontendPresetNotDescribedError extends FrontendError {
+  constructor(types: ReadonlyArray<string>) {
+    super(
+      `Frontend preset(s) ${types.map((t) => `"${t}"`).join(", ")} do not describe their Vite plugins (vitePlugins) — the dev server config cannot be written`,
+      "PRESET_NOT_DESCRIBED",
+      { types: [...types] },
+    );
+    this.name = "FrontendPresetNotDescribedError";
+  }
+}
+
 /** Aucune entrée front trouvée alors qu'on tente de démarrer le dev server. */
 export class FrontendNoEntriesError extends FrontendError {
   constructor() {

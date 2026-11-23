@@ -1,6 +1,7 @@
 import { expect } from "vitest";
 import ViteConfigGenerator from "../../service/ViteConfigGenerator.js";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
+import { FrontendPresetNotDescribedError } from "../../src/errors/FrontendError.js";
 
 const baseEntry: IResolvedFrontendEntry = {
   moduleName: "test-mod",
@@ -22,8 +23,8 @@ describe("ViteConfigGenerator — toMjs()", () => {
   it("emits defineConfig + react plugin for react19 preset", () => {
     const out = gen.toMjs([baseEntry], "development");
     expect(out).to.include('import { defineConfig } from "vite"');
-    expect(out).to.include('import react from "@vitejs/plugin-react"');
-    expect(out).to.include('react({ jsxRuntime: "automatic" })');
+    expect(out).to.include('import reactPlugin from "@vitejs/plugin-react"');
+    expect(out).to.include('reactPlugin({"jsxRuntime":"automatic"})');
   });
 
   it("does NOT emit react import for vanilla preset", () => {
@@ -37,8 +38,8 @@ describe("ViteConfigGenerator — toMjs()", () => {
       "development",
     );
     expect(out).to.include('import { defineConfig } from "vite"');
-    expect(out).to.include('import vue from "@vitejs/plugin-vue"');
-    expect(out).to.include("vue()");
+    expect(out).to.include('import vuePlugin from "@vitejs/plugin-vue"');
+    expect(out).to.include("vuePlugin()");
     expect(out).to.include('"vue",');
   });
 
@@ -57,13 +58,13 @@ describe("ViteConfigGenerator — toMjs()", () => {
     );
     expect(out).to.include('import { defineConfig } from "vite"');
     expect(out).to.include(
-      'import angular from "@analogjs/vite-plugin-angular"',
+      'import angularPlugin from "@analogjs/vite-plugin-angular"',
     );
     // tsconfig résolu en absolu depuis le root de l'entry (≠ relatif).
     // analogjs coupe le typecheck des templates par défaut : sans ce drapeau,
     // strictTemplates / strictUnclaimedEventNames ne mordent jamais.
     expect(out).to.include(
-      "angular({ disableTypeChecking: false, liveReload: true, tsconfig:",
+      'angularPlugin({"disableTypeChecking":false,"liveReload":true,"tsconfig":',
     );
     expect(out).to.include("/abs/path/to/frontend/tsconfig.app.json");
     expect(out).to.include('"@angular/core",');
@@ -283,9 +284,9 @@ describe("ViteConfigGenerator — toMjs()", () => {
       "development",
     );
     expect(out).to.include(
-      'import { svelte } from "@sveltejs/vite-plugin-svelte"',
+      'import { svelte as sveltePlugin } from "@sveltejs/vite-plugin-svelte"',
     );
-    expect(out).to.include("plugins: [svelte()]");
+    expect(out).to.include("plugins: [sveltePlugin()]");
     expect(out).to.include('"svelte",'); // optimizeDeps
     expect(out).to.include('resolve: { dedupe: ["svelte"] }');
     expect(out).to.not.include("@vitejs/plugin-react");
@@ -310,5 +311,27 @@ describe("ViteConfigGenerator — toMjs()", () => {
         "development",
       ),
     ).to.throw(/solid/);
+  });
+
+  // Un preset qui ne décrit pas ses plugins en données n'a rien que ce
+  // générateur sache écrire. Avant la source unique, le `switch` lui aurait
+  // substitué EN SILENCE le plugin du preset fourni de même type.
+  it("refuse un preset qui ne décrit pas ses plugins (vitePlugins absent)", () => {
+    const opaque = new ViteConfigGenerator((type) =>
+      type === "react19"
+        ? {
+            type: "react19",
+            extensions: [".tsx"],
+            optimizeDepsInclude: [],
+            // Le SUJET du cas : un preset de l'ancienne forme, sans description.
+            // oxlint-disable-next-line typescript/no-deprecated
+            buildPlugins: () => Promise.resolve([]),
+          }
+        : undefined,
+    );
+    expect(() => opaque.toMjs([baseEntry], "development")).to.throw(
+      FrontendPresetNotDescribedError,
+      /react19/,
+    );
   });
 });

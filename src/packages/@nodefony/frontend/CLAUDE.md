@@ -95,7 +95,7 @@ Kernel onTerminate
 | Builder | **Vite** — ESM natif, HMR rapide, cohérence rolldown backend (même moteur oxc) |
 | Supervisor (cette branche) | `child_process.spawn("npx vite ...")` — process système isolé |
 | Config Vite | Fichier `.mjs` GÉNÉRÉ au boot dans `${root}/vite.config.generated.mjs` |
-| Plugins | Hardcodés dans le `.mjs` généré selon les preset types détectés |
+| Plugins | Décrits en DONNÉES par chaque preset (`IFrontPreset.vitePlugins` → `IVitePluginSpec` : paquet, export, options JSON). `composePresets` (`compose.ts#composePresets`) est la source UNIQUE : le build les charge (`loadVitePlugins`), le générateur les écrit dans le `.mjs`. Plugins, `optimizeDeps` et `resolve.dedupe` ne se décident QUE dans le preset — un test importe le `.mjs` généré et compare ses plugins à ceux du build. |
 | Logs | `child.stdout.pipe → syslog Nodefony` (pas de sérialisation JSON) |
 | Cleanup | `SIGINT` puis `SIGKILL` timeout 3s — évite zombies bloquant 5173 |
 | Multi-bundles | **Une seule instance Vite multi-entry** (rolldown-style `input` map) |

@@ -1,4 +1,9 @@
-export type { IFrontPreset, FrontPresetType } from "./IFrontPreset";
+export type {
+  IFrontPreset,
+  FrontPresetType,
+  IVitePluginSpec,
+  VitePluginOption,
+} from "./IFrontPreset";
 export type {
   IFrontBuilder,
   IFrontendModuleDeclaration,

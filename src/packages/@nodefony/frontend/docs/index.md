@@ -815,8 +815,9 @@ page blanche muette.
 ## 🧩 Extension
 
 **Ajouter un framework UI** revient à écrire un preset (`IFrontPreset`, `IFrontPreset.ts#IFrontPreset`) : son
-identifiant, ses extensions, ses dépendances à pré-empaqueter, et une fonction qui construit ses
-greffons Vite. Les cinq presets fournis sont les modèles à copier — React (`react19-vite.ts#react19Preset`),
+identifiant, ses extensions, ses dépendances à pré-empaqueter et à dédupliquer, et la DESCRIPTION de
+ses greffons Vite (`vitePlugins`) : pour chacun, le paquet, l'export à appeler et ses options, en
+données JSON (`IVitePluginSpec`, `IFrontPreset.ts#IVitePluginSpec`). Les cinq presets fournis sont les modèles à copier — React (`react19-vite.ts#react19Preset`),
 Vue (`vue3-vite.ts#vue3Preset`), Angular (`angular-vite.ts#angularPreset`), Svelte (`svelte5-vite.ts#svelte5Preset`),
 vanilla (`vanilla-vite.ts#vanillaPreset`). Tous
 importent leur greffon **paresseusement** : un preset non utilisé ne coûte ni installation, ni
@@ -824,10 +825,13 @@ chargement.
 
 Deux points d'attention avant de se lancer :
 
-- le preset alimente le build en processus (`ViteBuilder`), mais la configuration du **serveur de
-  développement** est écrite par le générateur, qui possède sa propre correspondance type → greffon
-  (`ViteConfigGenerator.toMjs()`, `ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`). Un nouveau type doit être ajouté aux
-  **deux** endroits, sinon il lève `FrontendPresetUnknownError` (`FrontendError.ts#FrontendPresetUnknownError`) ;
+- la description est la **seule** expression des greffons : le build en processus la charge
+  (`ViteBuilder`) et le générateur l'écrit dans la configuration du **serveur de développement**
+  (`ViteConfigGenerator.toMjs()`, `ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`), tous deux par
+  `composePresets` (`compose.ts#composePresets`). Une option ajoutée au preset vaut donc pour les
+  deux. Un preset qui ne fournit que l'ancienne `buildPlugins()` (dépréciée) se construit encore,
+  mais le serveur de développement le refuse en le nommant
+  (`FrontendPresetNotDescribedError`, `FrontendError.ts#FrontendPresetNotDescribedError`) ;
 - si le nouveau framework transforme des fichiers qui ne lui appartiennent pas, il lui faut sa propre
   famille d'isolation — c'est la leçon d'Angular.
 

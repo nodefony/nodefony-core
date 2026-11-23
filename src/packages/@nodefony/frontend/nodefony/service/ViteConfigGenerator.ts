@@ -1,16 +1,20 @@
 import path from "node:path";
 import { createRequire } from "node:module";
 import type { IResolvedFrontendEntry } from "../interfaces/IFrontBuilder";
-import { FrontendPresetUnknownError } from "../src/errors/FrontendError";
+import type {
+  FrontPresetType,
+  IFrontPreset,
+  IVitePluginSpec,
+} from "../interfaces/IFrontPreset";
+import { FrontendPresetNotDescribedError } from "../src/errors/FrontendError";
+import { getBuiltinPreset } from "../src/presets";
+import {
+  composePresets,
+  toPortablePath as toGeneratedPath,
+} from "../src/presets/compose";
 
 /**
- * Génère le contenu d'un `vite.config.generated.mjs` pour le superviseur
- * child_process. Le fichier généré est autosuffisant : il importe Vite +
- * les plugins de chaque preset hardcodés selon les types détectés.
- *
- * Pourquoi pas appeler `IFrontBuilder.buildViteConfig()` directement et
- * passer la config en stdin ? Parce que Vite ne lit pas la config depuis
- * stdin, et que les plugins (instances JS) ne sont pas sérialisables JSON.
+ * Options de {@link ViteConfigGenerator.toMjs}.
  */
 export interface ViteConfigGeneratorOptions {
   /**
@@ -41,18 +45,88 @@ export interface ViteConfigGeneratorOptions {
     | undefined;
 }
 
+const IDENTIFIER = /^[A-Za-z_$][\w$]*$/u;
+
 /**
- * Normalise un chemin filesystem en séparateurs `/` avant sérialisation dans
- * le fichier `.mjs` généré. Le fichier généré est du JS/ESM : un backslash
- * (produit par `path.resolve` sur `win32`) y est un caractère d'échappement
- * de string — Windows accepte nativement `/` comme séparateur, donc on
- * normalise plutôt que de laisser fuir des `\` bruts dans la sortie.
+ * Nom local d'un plugin dans le fichier généré : `<nom>Plugin`, où `<nom>`
+ * est l'export nommé, ou — pour un export par défaut — le dernier segment du
+ * paquet sans son préfixe `vite-plugin-` / `plugin-`
+ * (`@vitejs/plugin-react` → `reactPlugin`). Suffixé d'un rang en cas de
+ * collision. Déterministe : même description, même texte.
  */
-function toGeneratedPath(p: string): string {
-  return p.replace(/\\/g, "/");
+function localNameOf(spec: IVitePluginSpec, taken: Set<string>): string {
+  const raw =
+    spec.exportName === "default"
+      ? (spec.specifier.split("/").pop() ?? "").replace(
+          /^(?:vite-plugin-|plugin-)/u,
+          "",
+        )
+      : spec.exportName;
+  const camel = raw.replace(/[^A-Za-z0-9_$]+(.)?/gu, (_m, c?: string) =>
+    c === undefined ? "" : c.toUpperCase(),
+  );
+  const base = `${/^[0-9]/u.test(camel) ? "_" : ""}${camel}Plugin`;
+  let name = base;
+  for (let rank = 2; taken.has(name); rank++) name = `${base}${rank}`;
+  taken.add(name);
+  return name;
 }
 
+/**
+ * Écrit les plugins décrits en `import` + appels de fabrique, pour le fichier
+ * généré. Les options sont des données (`VitePluginOption`) : `JSON.stringify`
+ * les rend telles qu'un littéral JavaScript les lirait.
+ */
+function renderPlugins(specs: ReadonlyArray<IVitePluginSpec>): {
+  imports: string[];
+  calls: string[];
+} {
+  const taken = new Set<string>();
+  const imports: string[] = [];
+  const calls: string[] = [];
+  for (const spec of specs) {
+    if (spec.exportName !== "default" && !IDENTIFIER.test(spec.exportName)) {
+      throw new Error(
+        `vite config: export de plugin invalide « ${spec.exportName} » (${spec.specifier})`,
+      );
+    }
+    const local = localNameOf(spec, taken);
+    const from = JSON.stringify(spec.specifier);
+    imports.push(
+      spec.exportName === "default"
+        ? `import ${local} from ${from};`
+        : `import { ${spec.exportName} as ${local} } from ${from};`,
+    );
+    calls.push(
+      `${local}(${spec.options === undefined ? "" : JSON.stringify(spec.options)})`,
+    );
+  }
+  return { imports, calls };
+}
+
+/**
+ * Génère le contenu d'un `vite.config.generated.mjs` pour le superviseur
+ * child_process. Le fichier généré est autosuffisant : il importe Vite + les
+ * plugins des presets employés.
+ *
+ * Pourquoi pas appeler `IFrontBuilder.buildViteConfig()` et passer la config
+ * au process Vite ? Parce que Vite ne lit pas sa config depuis stdin, et que
+ * les plugins (instances JS) ne sont pas sérialisables. Les presets décrivent
+ * donc leurs plugins en DONNÉES (`IFrontPreset.vitePlugins`), que ce générateur
+ * écrit et que le build charge : une seule source, deux consommateurs
+ * (`composePresets`).
+ */
 export class ViteConfigGenerator {
+  /**
+   * @param getPreset - registre des presets ; par défaut, les presets fournis
+   *   par le module
+   */
+  constructor(
+    private readonly getPreset: (
+      type: FrontPresetType,
+    ) => IFrontPreset | undefined = getBuiltinPreset,
+  ) {}
+
   /**
    * Construit le content `.mjs` à écrire à côté de `index.html` du module.
    *
@@ -70,78 +144,20 @@ export class ViteConfigGenerator {
       throw new Error("ViteConfigGenerator: empty entries");
     }
 
-    const usedTypes = new Set<string>();
-    for (const e of entries) usedTypes.add(e.type);
-
-    // Angular : le plugin a besoin du tsconfig de l'app (scoping du compilateur).
-    // On résout un chemin ABSOLU depuis le root de l'entry angular — le cwd du
-    // process Vite est `entries[0].root` (≠ root angular en multi-bundle).
-    const angularEntry = entries.find((e) => e.type === "angular");
+    const composed = composePresets(entries, this.getPreset);
+    if (composed.undescribed.length > 0) {
+      throw new FrontendPresetNotDescribedError(
+        composed.undescribed.map((preset) => preset.type),
+      );
+    }
+    const plugins = renderPlugins(composed.plugins);
 
     const needFs = mode === "development" && !!opts.https;
     const imports: string[] = [
       `import { defineConfig } from "vite";`,
       ...(needFs ? [`import fs from "node:fs";`] : []),
+      ...plugins.imports,
     ];
-    const pluginsExprs: string[] = [];
-    const optimizeInclude: string[] = [];
-
-    for (const type of usedTypes) {
-      switch (type) {
-        case "react19":
-          imports.push(`import react from "@vitejs/plugin-react";`);
-          pluginsExprs.push(`react({ jsxRuntime: "automatic" })`);
-          optimizeInclude.push("react", "react-dom", "react-dom/client");
-          break;
-        case "vue3":
-          imports.push(`import vue from "@vitejs/plugin-vue";`);
-          pluginsExprs.push(`vue()`);
-          optimizeInclude.push("vue");
-          break;
-        case "angular": {
-          imports.push(`import angular from "@analogjs/vite-plugin-angular";`);
-          // `usedTypes` dérive de `entries` : une entrée angular existe forcément ici.
-          if (!angularEntry) {
-            throw new Error(
-              "vite config: aucune entrée angular pour le type « angular »",
-            );
-          }
-          const tsconfigPath = toGeneratedPath(
-            path.resolve(angularEntry.root, "tsconfig.app.json"),
-          );
-          // analogjs coupe le typecheck des templates par défaut
-          // (`disableTypeChecking ?? true`) : sans ce drapeau, `strictTemplates`
-          // et `strictUnclaimedEventNames` du tsconfig.app.json ne mordent
-          // jamais, et une faute de template passe le build. `liveReload` :
-          // le remplacement à chaud des composants (défaut `false` chez
-          // analogjs) — sans lui, toute modification RECHARGE la page entière
-          // et l'état de l'application est perdu. Sans effet hors serveur de
-          // développement ; le plugin le coupe lui-même sous Angular < 19.
-          pluginsExprs.push(
-            `angular({ disableTypeChecking: false, liveReload: true, tsconfig: ${JSON.stringify(tsconfigPath)} })`,
-          );
-          optimizeInclude.push(
-            "@angular/core",
-            "@angular/common",
-            "@angular/platform-browser",
-          );
-          break;
-        }
-        case "svelte5":
-          // Export NOMMÉ (`{ svelte }`) — seul plugin de la liste sans default.
-          imports.push(
-            `import { svelte } from "@sveltejs/vite-plugin-svelte";`,
-          );
-          pluginsExprs.push(`svelte()`);
-          optimizeInclude.push("svelte");
-          break;
-        case "vanilla":
-          // Pas de plugin.
-          break;
-        default:
-          throw new FrontendPresetUnknownError(type);
-      }
-    }
 
     const input: Record<string, string> = {};
     for (const e of entries) {
@@ -196,7 +212,7 @@ export class ViteConfigGenerator {
       )
       .join("\n");
 
-    const optimizeLines = optimizeInclude
+    const optimizeLines = composed.optimizeDepsInclude
       .map((d) => `    ${JSON.stringify(d)},`)
       .join("\n");
 
@@ -255,16 +271,7 @@ ${httpsLines}${fsBlock}  },`;
     // venait du prébundle de l'app → « Invalid hook call … more than one copy
     // of React » et page BLANCHE (vécu, diagnostiqué console navigateur).
     // `resolve.dedupe` force la résolution de ces paquets vers le root Vite.
-    const dedupe: string[] = [];
-    if (usedTypes.has("react19")) dedupe.push("react", "react-dom");
-    if (usedTypes.has("vue3")) dedupe.push("vue");
-    if (usedTypes.has("svelte5")) dedupe.push("svelte");
-    if (usedTypes.has("angular"))
-      dedupe.push(
-        "@angular/core",
-        "@angular/common",
-        "@angular/platform-browser",
-      );
+    const dedupe = composed.dedupe;
     const dedupeLine = dedupe.length
       ? `  resolve: { dedupe: ${JSON.stringify(dedupe)} },\n`
       : "";
@@ -277,7 +284,7 @@ export default defineConfig({
   mode: ${JSON.stringify(mode)},
 ${baseLine}${dedupeLine}  root: ${JSON.stringify(root)},
   cacheDir: ${JSON.stringify(cacheDir)},
-  plugins: [${pluginsExprs.join(", ")}],
+  plugins: [${plugins.calls.join(", ")}],
   optimizeDeps: {
     include: [
 ${optimizeLines}
