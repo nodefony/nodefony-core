@@ -26,7 +26,9 @@ import {
   ACCOUNT_ID_KEY,
   CREDENTIALS_VERSION_KEY,
   credentialsVersionOf,
+  isBoundToAccount,
 } from "../src/accountBinding";
+import { issuedBeforeThreshold, tokenStatusOf } from "../src/token/tokenStatus";
 import type { IUser, IUserProvider } from "@nodefony/user";
 
 const serviceName = "apiKeys";
@@ -173,18 +175,26 @@ class ApiKeyService extends Service {
     const now = Date.now();
     const expiresAt = this.#resolveExpiry(opts.expiresInDays, now);
 
-    // Plafond anti-abus : ne compte que les PAT ACTIFS (ni révoqués ni expirés).
-    const active = (await store.findBySubject(subjectId)).filter(
-      (r) => r.kind === "pat" && this.#isActive(r, now),
-    );
-    if (active.length >= this.#maxPerSubject) {
+    // Plafond anti-abus : ne compte que les clés UTILISABLES par ce compte. Une
+    // clé tuée par le seuil du porteur, ou émise pour un ancien titulaire du
+    // même identifiant, ne fonctionne plus : la compter bloquait la création
+    // (409) d'un porteur dont aucune clé ne marchait.
+    const holder = await this.#resolveHolder(subjectId);
+    const [records, invalidBefore] = await Promise.all([
+      store.findBySubject(subjectId),
+      store.getInvalidBefore(subjectId),
+    ]);
+    let active = 0;
+    for (const r of records) {
+      if (this.#isUsable(r, now, invalidBefore, holder)) active += 1;
+    }
+    if (active >= this.#maxPerSubject) {
       throw new ApiKeyError(
         `API key limit reached (${this.#maxPerSubject})`,
         409,
       );
     }
 
-    const holder = await this.#resolveHolder(subjectId);
     const generated = generateApiKey(this.#prefix);
     const record: IAccessTokenRecord = {
       id: randomUUID(),
@@ -232,13 +242,39 @@ class ApiKeyService extends Service {
     return { ...this.#toView(record), token: generated.token };
   }
 
-  /** Liste les clés (PAT) d'un porteur — vue publique, sans secret, récentes d'abord. */
+  /**
+   * Liste les clés (PAT) d'un porteur — vue publique, sans secret, récentes d'abord.
+   *
+   * Seules les clés émises pour le compte qui porte AUJOURD'HUI cet identifiant
+   * sont rendues : un compte recréé sous le même nom ne voit rien de l'ancien
+   * titulaire. Une clé de ce compte que la révocation en masse a tuée (seuil,
+   * changement de mot de passe) est rendue RÉVOQUÉE, datée du seuil — elle ne
+   * fonctionne plus, la montrer active mentirait.
+   *
+   * @throws ApiKeyError 403 — aucun compte sous cet identifiant.
+   * @throws ApiKeyError 503 — store ou annuaire `users` indisponible.
+   */
   async listForSubject(subjectId: string): Promise<IApiKeyView[]> {
     const store = this.#resolveStore();
-    return (await store.findBySubject(subjectId))
-      .filter((r) => r.kind === "pat")
-      .map((r) => this.#toView(r))
-      .sort((a, b) => b.createdAt - a.createdAt);
+    const holder = await this.#resolveHolder(subjectId);
+    const [records, invalidBefore] = await Promise.all([
+      store.findBySubject(subjectId),
+      store.getInvalidBefore(subjectId),
+    ]);
+    const now = Date.now();
+    const views: IApiKeyView[] = [];
+    for (const r of records) {
+      if (r.kind !== "pat" || r.metadata[ACCOUNT_ID_KEY] !== holder.id) {
+        continue;
+      }
+      const killed =
+        tokenStatusOf(r, now) === "active" &&
+        !this.#isUsable(r, now, invalidBefore, holder);
+      views.push(
+        this.#toView(r, killed ? (invalidBefore ?? r.createdAt) : r.revokedAt),
+      );
+    }
+    return views.sort((a, b) => b.createdAt - a.createdAt);
   }
 
   /**
@@ -347,6 +383,12 @@ class ApiKeyService extends Service {
     if (record?.kind !== "pat" || record.subjectId !== subjectId) {
       return false;
     }
+    // Une clé d'un ANCIEN titulaire du même identifiant n'est pas « à lui » :
+    // même réponse qu'une clé d'autrui (anti-énumération).
+    const holder = await this.#resolveHolder(subjectId);
+    if (record.metadata[ACCOUNT_ID_KEY] !== holder.id) {
+      return false;
+    }
     await store.revoke(id, "manual");
     this.log(`api key revoked — id=${id} subject=${subjectId}`, "INFO");
     recordAudit(this.container, {
@@ -446,14 +488,34 @@ class ApiKeyService extends Service {
     return now + days * MS_PER_DAY;
   }
 
-  #isActive(record: IAccessTokenRecord, now: number): boolean {
+  /**
+   * Une clé est-elle UTILISABLE par ce compte ? Les mêmes conditions que
+   * `ApiKeyAuthenticator.authenticate`, par les mêmes règles appelées :
+   * état propre (`tokenStatusOf`), seuil du porteur (`issuedBeforeThreshold`),
+   * liaison au compte et à sa version d'identifiants (`isBoundToAccount`).
+   */
+  #isUsable(
+    record: IAccessTokenRecord,
+    now: number,
+    invalidBefore: number | null,
+    holder: IUser,
+  ): boolean {
     return (
-      record.revokedAt === null &&
-      (record.expiresAt === null || record.expiresAt > now)
+      record.kind === "pat" &&
+      tokenStatusOf(record, now) === "active" &&
+      !issuedBeforeThreshold(record.createdAt, invalidBefore) &&
+      isBoundToAccount(
+        holder,
+        record.metadata[ACCOUNT_ID_KEY],
+        record.metadata[CREDENTIALS_VERSION_KEY],
+      )
     );
   }
 
-  #toView(record: IAccessTokenRecord): IApiKeyView {
+  #toView(
+    record: IAccessTokenRecord,
+    revokedAt: number | null = record.revokedAt,
+  ): IApiKeyView {
     return {
       id: record.id,
       prefix: record.prefix,
@@ -467,7 +529,7 @@ class ApiKeyService extends Service {
       lastUsedAt: record.lastUsedAt,
       lastUsedIp: record.lastUsedIp,
       lastUsedUserAgent: record.lastUsedUserAgent,
-      revokedAt: record.revokedAt,
+      revokedAt,
     };
   }
 }
