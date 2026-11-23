@@ -61,8 +61,15 @@ export class RestartCycle {
   readonly #recheckMs: number;
   readonly #dirty = new Set<string>();
   #timer: ReturnType<typeof setTimeout> | null = null;
+  /** Délai de {@link #timer} : un même délai se réarme par `refresh()`, sans allocation. */
+  #timerMs = 0;
   #busy = false;
   #pending = false;
+  /** Fin de l'anti-rebond — une seule fermeture pour toute la vie du cycle. */
+  readonly #fire = (): void => {
+    this.#timer = null;
+    void this.run();
+  };
 
   constructor(steps: IRestartSteps, options: IRestartCycleOptions) {
     this.#steps = steps;
@@ -78,11 +85,20 @@ export class RestartCycle {
   /**
    * Note une sauvegarde et réarme l'anti-rebond.
    *
+   * Appelé à CHAQUE événement du watcher — une rafale de `git checkout` en
+   * compte des milliers : le minuteur se réarme en place, rien n'est alloué.
+   *
    * @param file - fichier modifié, tel que le watcher le rapporte.
+   * @returns le nombre de fichiers en attente si `file` est NOUVEAU dans le
+   *   cycle, `0` s'il y était déjà (un éditeur émet 2 à 3 événements par
+   *   sauvegarde).
    */
-  mark(file: string): void {
+  mark(file: string): number {
+    const before = this.#dirty.size;
     this.#dirty.add(file);
     this.#arm(this.#debounceMs);
+    const after = this.#dirty.size;
+    return after === before ? 0 : after;
   }
 
   /** Annule le cycle programmé ; un cycle en vol termine l'étape en cours. */
@@ -125,10 +141,12 @@ export class RestartCycle {
   }
 
   #arm(ms: number): void {
+    if (this.#timer !== null && this.#timerMs === ms) {
+      this.#timer.refresh();
+      return;
+    }
     this.cancel();
-    this.#timer = setTimeout(() => {
-      this.#timer = null;
-      void this.run();
-    }, ms);
+    this.#timerMs = ms;
+    this.#timer = setTimeout(this.#fire, ms);
   }
 }

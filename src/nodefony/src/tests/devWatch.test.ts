@@ -14,6 +14,7 @@
 import assert from "node:assert";
 import { EventEmitter } from "node:events";
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -28,6 +29,7 @@ import path from "node:path";
 import { afterAll, afterEach } from "vitest";
 import {
   attachWatcherErrorGuard,
+  hasWatchedSourceNewerThan,
   type ISourceWatcher,
   type IWatchHandle,
   type WatchFunction,
@@ -279,6 +281,26 @@ describe("DevSupervisor — isIgnoredWatchPath (ce que le watch regarde)", () =>
       );
     });
 
+    it("un chemin relatif non normalisé a le même verdict que sa forme absolue", () => {
+      for (const [rel, isFile] of [
+        ["./src/x/a.ts", true],
+        ["src/x/../x/a.ts", true],
+        // Non normalisé, `dist/` apparaîtrait dans le chemin et l'ignorerait à tort.
+        ["src/x/dist/../a.ts", true],
+        ["./src/x/dist/a.ts", true],
+        ["src/x/node_modules", false],
+        ["./tmp/build", false],
+        ["src/mod/frontend/main.ts", true],
+        ["src/x/a.js", true],
+      ] as const) {
+        assert.strictEqual(
+          shouldIgnoreWatchEntry(app, rel, isFile),
+          shouldIgnoreWatchEntry(app, path.join(app, rel), isFile),
+          rel,
+        );
+      }
+    });
+
     it("les autres règles valent toujours en absolu", () => {
       assert.strictEqual(
         shouldIgnoreWatchEntry(app, `${app}/src/x/dist/index.js`, true),
@@ -289,6 +311,56 @@ describe("DevSupervisor — isIgnoredWatchPath (ce que le watch regarde)", () =>
         true,
       );
     });
+  });
+});
+
+describe("DevSupervisor — hasWatchedSourceNewerThan (fraîcheur d'un module local)", () => {
+  const app = mkdtempSync(path.join(tmpdir(), "nf-fresh-"));
+  afterAll(() => rmSync(app, { recursive: true, force: true }));
+  const mod = path.join(app, "modules", "shop");
+  const past = new Date(Date.now() - 60_000);
+  const since = past.getTime() + 1;
+  const put = (rel: string, recent: boolean): void => {
+    const file = path.join(mod, rel);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, "export {};\n");
+    if (!recent) utimesSync(file, past, past);
+  };
+
+  it("une source serveur plus récente que le dist : vrai", () => {
+    put("nodefony/src/a.ts", false);
+    put("nodefony/src/deep/b.ts", true);
+    assert.strictEqual(hasWatchedSourceNewerThan(app, mod, since), true);
+  });
+
+  it("plus récent seulement sous node_modules, dist, frontend ou tests : faux", () => {
+    rmSync(path.join(mod, "nodefony/src/deep"), { recursive: true });
+    put("node_modules/dep/index.ts", true);
+    put("dist/index.ts", true);
+    put("frontend/src/main.ts", true);
+    put("tests/a.test.ts", true);
+    put("nodefony/src/c.js", true);
+    assert.strictEqual(hasWatchedSourceNewerThan(app, mod, since), false);
+  });
+
+  it("un dossier ignoré n'est jamais LU (élagué avant d'y descendre)", (ctx) => {
+    // Illisible sous node_modules : le LIRE lèverait EACCES.
+    const locked = path.join(mod, "node_modules", "locked");
+    mkdirSync(locked, { recursive: true });
+    chmodSync(locked, 0o000);
+    try {
+      let readable = true;
+      try {
+        readdirSync(locked);
+      } catch {
+        readable = false;
+      }
+      // Droits POSIX non appliqués (Windows, superutilisateur) : CONSTATÉ, pas déduit.
+      if (readable) ctx.skip();
+      assert.strictEqual(hasWatchedSourceNewerThan(app, mod, since), false);
+    } finally {
+      chmodSync(locked, 0o755);
+    }
   });
 });
 

@@ -442,6 +442,10 @@ flowchart LR
   ~1,6 s de build au lieu de ~3,6 s par turbo, qui doit lancer son lanceur et calculer les
   empreintes de la clôture `^build`. Tout autre script (étape d'interface, types par un script npm)
   passe par `turbo --filter=pkg...`, qui rebâtit le paquet et ses DÉPENDANCES.
+- **Turbo lui-même part par son fichier.** Le build de démarrage (`turbo run build`) lance le
+  script Node de turbo sous `node` plutôt que par `npm exec` (`DevSupervisor.ts#planBinInvocation`) :
+  à cache chaud, la phase passe d'environ 0,7 s à 0,33 s, dont le lanceur npm prenait l'essentiel.
+  La garde de gel de turbo suit le binaire, quelle que soit la voie.
 - **Un seul cycle à la fois** (`restartCycle.ts#RestartCycle`) : du build jusqu'à ce que le
   serveur relancé écoute. Une sauvegarde reçue entre-temps est rejouée ensuite, même après un
   build en échec — jamais un second build pendant que le serveur importe `dist/`, que rolldown

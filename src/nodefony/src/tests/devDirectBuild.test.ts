@@ -11,9 +11,11 @@
  */
 
 import assert from "node:assert";
+import { spawnSync } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -27,6 +29,7 @@ import {
   directBuildPlan,
   PACKAGE_DECLARATIONS_ARGS,
   PACKAGE_DEV_BUILD_ARGS,
+  planBinInvocation,
   readWorkspaceInfo,
   resolveLocalBin,
 } from "../service/dev/DevSupervisor";
@@ -112,6 +115,54 @@ describe("directBuildPlan — qui se rebâtit sans turbo", () => {
   });
 });
 
+describe("planBinInvocation — par le fichier ou par le lanceur", () => {
+  const found = (pkg: string, bin: string) => `/nm/${pkg}/${bin}.js`;
+  const missing = () => null;
+
+  it("turbo part en direct (#64) ET garde sa garde de gel (#479)", () => {
+    assert.deepStrictEqual(
+      planBinInvocation("turbo", ["run", "build"], found, undefined),
+      { file: "/nm/turbo/turbo.js", args: ["run", "build"], turbo: true },
+    );
+  });
+
+  it("turbo sans fichier résolu : lanceur, garde de gel conservée", () => {
+    assert.deepStrictEqual(
+      planBinInvocation("turbo", ["run", "build"], missing, undefined),
+      { file: null, args: ["run", "build"], turbo: true },
+    );
+  });
+
+  it("sous CI, le journal détaillé de turbo précède la sous-commande", () => {
+    assert.deepStrictEqual(
+      planBinInvocation("turbo", ["run", "build"], found, "true").args,
+      ["--verbosity=2", "run", "build"],
+    );
+  });
+
+  it("rolldown en direct, sans garde de turbo ni option de journal", () => {
+    assert.deepStrictEqual(
+      planBinInvocation("rolldown", ["-c", "x.ts"], found, "true"),
+      { file: "/nm/rolldown/rolldown.js", args: ["-c", "x.ts"], turbo: false },
+    );
+  });
+
+  it("binaire inconnu de DIRECT_BINS : lanceur, sans même chercher son fichier", () => {
+    let asked = false;
+    const plan = planBinInvocation(
+      "vite",
+      ["build"],
+      () => {
+        asked = true;
+        return "/nm/vite.js";
+      },
+      undefined,
+    );
+    assert.strictEqual(plan.file, null);
+    assert.strictEqual(asked, false);
+  });
+});
+
 describe("readWorkspaceInfo — nom et script build d'un workspace", () => {
   it("lit le nom et le script build", () => {
     const dir = path.join(scratch, "ws-ok");
@@ -172,6 +223,28 @@ describe("resolveLocalBin — le fichier qu'exécute un binaire du projet", () =
       const cli = resolveLocalBin(from, pkg, bin);
       assert.ok(cli, `${bin} (${pkg}) résolu`);
     }
+  });
+
+  it("turbo lancé par `node <fichier>` s'exécute vraiment (pas seulement résolu)", () => {
+    const cli = resolveLocalBin(repoRoot, "turbo");
+    assert.ok(cli, "turbo résolu");
+    const run = spawnSync(process.execPath, [cli, "--version"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    assert.strictEqual(run.status, 0, run.stderr);
+    const manifest: unknown = JSON.parse(
+      readFileSync(
+        path.join(path.dirname(path.dirname(cli)), "package.json"),
+        "utf8",
+      ),
+    );
+    assert.ok(
+      typeof manifest === "object" &&
+        manifest !== null &&
+        "version" in manifest,
+    );
+    assert.strictEqual(run.stdout.trim(), manifest.version);
   });
 
   it("lit un champ bin en chaîne et en table", () => {
