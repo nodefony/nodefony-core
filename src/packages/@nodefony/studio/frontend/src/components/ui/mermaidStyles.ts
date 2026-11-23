@@ -28,15 +28,23 @@ export interface ISvgStyles {
  * Les sélecteurs de mermaid sont préfixés par l'id du schéma (`#mermaid-…`) :
  * appliquée au document, la feuille ne touche que le schéma qui l'a produite.
  *
+ * Le retrait se répète jusqu'à ce que le SVG ne change plus : un seul passage
+ * laisserait une balise reconstituée par la coupe (`<sty<style></style>le>`).
+ *
  * @param svg - SVG rendu par `mermaid.render`.
  * @returns le SVG nettoyé et le texte de ses feuilles.
  */
 export function splitSvgStyles(svg: string): ISvgStyles {
   let css = "";
-  const stripped = svg.replace(STYLE_ELEMENT, (_match, text: string) => {
-    css += text;
-    return "";
-  });
+  let stripped = svg;
+  let previous: string;
+  do {
+    previous = stripped;
+    stripped = stripped.replace(STYLE_ELEMENT, (_match, text: string) => {
+      css += text;
+      return "";
+    });
+  } while (stripped !== previous);
   return { svg: stripped, css };
 }
 
