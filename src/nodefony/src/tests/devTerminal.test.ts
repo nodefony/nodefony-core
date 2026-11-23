@@ -170,6 +170,20 @@ describe("DevTerminal — un seul écrivain (#536)", () => {
     expect(err.written).to.deep.equal(["Error: boom\n"]);
   });
 
+  it.each(["held", "command"] as const)(
+    "ESC[2J venu de la source %s n'efface RIEN : la séquence est retirée (ADR-0030 §D6)",
+    (source) => {
+      const { out, terminal } = make();
+      terminal.ingest("server", "out", "lu par le développeur\n");
+      terminal.ingest(source, "out", `${CLEAR_SCREEN}[vite:default] prêt\n`);
+      expect(out.written.join("")).to.not.include(CLEAR_SCREEN);
+      expect(terminal.since(0).map((e) => e.text)).to.deep.equal([
+        "lu par le développeur",
+        "[vite:default] prêt",
+      ]);
+    },
+  );
+
   it("ESC[2J garde son sens (page propre) ; un déplacement de curseur est retiré", () => {
     const { out, terminal } = make();
     terminal.ingest("server", "out", `${CLEAR_SCREEN}en-tête\n\x1b[5Agarde\n`);

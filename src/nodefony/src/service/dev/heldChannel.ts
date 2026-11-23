@@ -130,6 +130,24 @@ export type HeldHostMessage = IHeldReport | IHeldPong;
 export const MAX_HELD_REASON_LENGTH = 4096;
 
 /**
+ * Au-delà (en caractères JSON), la donnée d'un hôte prêt n'est plus un état
+ * (adresse, port) mais un déversement — et elle repartirait telle quelle vers
+ * le serveur à chaque rejeu (`held-state`).
+ */
+export const MAX_HELD_DATA_LENGTH = 16 * 1024;
+
+/**
+ * La donnée d'un hôte prêt tient-elle dans sa borne ? Hors chemin chaud : un
+ * hôte ne rapporte `ready` qu'une fois par démarrage.
+ *
+ * @param data - la donnée rapportée.
+ * @returns `true` si sa forme JSON tient dans {@link MAX_HELD_DATA_LENGTH}.
+ */
+export function isHeldDataBounded(data: HeldJsonObject): boolean {
+  return JSON.stringify(data).length <= MAX_HELD_DATA_LENGTH;
+}
+
+/**
  * Un numéro de séquence valide : entier positif sûr.
  *
  * @param value - la valeur reçue.
@@ -165,7 +183,7 @@ export function isHeldHostStatus(value: unknown): value is IHeldHostStatus {
     typeof state === "string" &&
     HELD_HOST_STATES.has(state) &&
     (pid === null || (isSeq(pid) && pid > 0)) &&
-    (data === null || isJsonObject(data)) &&
+    (data === null || (isJsonObject(data) && isHeldDataBounded(data))) &&
     (lastError === null ||
       (typeof lastError === "string" &&
         lastError.length <= MAX_HELD_REASON_LENGTH)) &&
@@ -187,7 +205,8 @@ export function isHeldHostMessage(
   if (message.type !== "report") return false;
   const { state, data, reason } = message;
   if (state !== "ready" && state !== "failed") return false;
-  if (data !== null && !isJsonObject(data)) return false;
+  if (data !== null && !(isJsonObject(data) && isHeldDataBounded(data)))
+    return false;
   if (reason === null) return true;
   return typeof reason === "string" && reason.length <= MAX_HELD_REASON_LENGTH;
 }
@@ -220,7 +239,11 @@ export interface IHeldServiceImpl {
    * @throws si le service n'a pas pu démarrer — la raison part au teneur.
    */
   start(spec: HeldJsonObject): Promise<HeldJsonObject>;
-  /** Arrête le service ; borné par le teneur, qui tue l'arbre au-delà. */
+  /**
+   * Arrête le service ; borné par le teneur, qui tue l'arbre au-delà. Un
+   * service qui lance ses propres process (serveur d'inférence) les arrête
+   * ICI : sous Windows, l'arbre d'un hôte déjà sorti est inatteignable.
+   */
   stop(): Promise<void>;
 }
 
@@ -290,25 +313,37 @@ export function serveHeldService(
     }
     if (started) return;
     started = true;
+    const failed = (text: string): void => {
+      send({
+        channel: HELD_CHANNEL,
+        type: "report",
+        state: "failed",
+        data: null,
+        reason: text.slice(0, MAX_HELD_REASON_LENGTH),
+      });
+      leave(1);
+    };
     impl.start(message.spec).then(
-      (data) =>
+      (data) => {
+        // Arrêt demandé pendant le démarrage : le service part, il n'est pas prêt.
+        if (leaving) return;
+        // Une donnée démesurée serait ignorée par le teneur, qui conclurait
+        // au silence après son délai : la cause se nomme ici.
+        if (!isHeldDataBounded(data)) {
+          failed(`ready data exceeds ${MAX_HELD_DATA_LENGTH} JSON characters`);
+          return;
+        }
         send({
           channel: HELD_CHANNEL,
           type: "report",
           state: "ready",
           data,
           reason: null,
-        }),
-      (error: unknown) => {
-        const text = error instanceof Error ? error.message : String(error);
-        send({
-          channel: HELD_CHANNEL,
-          type: "report",
-          state: "failed",
-          data: null,
-          reason: text.slice(0, MAX_HELD_REASON_LENGTH),
         });
-        leave(1);
+      },
+      (error: unknown) => {
+        if (leaving) return;
+        failed(error instanceof Error ? error.message : String(error));
       },
     );
   });

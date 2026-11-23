@@ -83,13 +83,16 @@ describe("HeldHost — démarrer, rapporter, arrêter", () => {
     await host.stop();
     expect(host.status().state).to.equal("stopped");
     expect(isPidAlive(pid as number)).to.equal(false);
+    // Le second `stopping` est la sortie de l'hôte : l'instantané perd son PID.
     expect(states).to.deep.equal([
       "starting",
       "starting",
       "ready",
       "stopping",
+      "stopping",
       "stopped",
     ]);
+    expect(host.status().pid).to.equal(null);
   });
 
   it("l'instantané se lit sans allocation : même objet entre deux changements, figé", async () => {

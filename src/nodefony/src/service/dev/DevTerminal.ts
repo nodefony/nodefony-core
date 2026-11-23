@@ -490,6 +490,14 @@ export class DevTerminal {
     if (text.length === 0) return;
     text = text.replace(COLUMN_ONE, "\r");
     const target = stream === "err" ? this.#stderr : this.#stdout;
+    // Seul le SERVEUR tourne la page (ADR-0030 §D6) : un service porté, une
+    // commande lancée, n'effacent pas ce que le développeur est en train de
+    // lire — la séquence est retirée, jamais exécutée ni recopiée.
+    if (source !== "server") {
+      if (text.includes(CLEAR)) text = text.replaceAll(CLEAR, "");
+      this.#show(source, stream, target, text, run);
+      return;
+    }
     let start = 0;
     let clear = text.indexOf(CLEAR);
     while (clear !== -1) {

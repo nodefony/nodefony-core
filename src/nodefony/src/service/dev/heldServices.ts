@@ -18,7 +18,6 @@ import {
   type IDevHeldPlanAck,
   type IHeldServiceDeclaration,
 } from "./devChannel";
-import { signalProcessGroup } from "./devProcess";
 import {
   HeldHost,
   type HeldOutputStream,
@@ -148,13 +147,16 @@ export class HeldServiceRegistry {
   }
 
   /**
-   * Arrêt FORCÉ, synchrone : SIGKILL à l'arbre de chaque hôte, vivant ou en
-   * cours d'arrêt. Pour la sortie d'urgence du superviseur, qui n'attend rien.
+   * Arrêt FORCÉ, synchrone : SIGKILL à l'arbre de chaque hôte VIVANT, en
+   * service ou en cours d'arrêt, et plus aucune relance. Pour la sortie
+   * d'urgence du superviseur, qui n'attend rien. Le teneur vise son process
+   * vivant, jamais le PID d'un instantané — rendu au système, il peut être
+   * celui d'un étranger.
    */
   killAll(): void {
     this.#closing = true;
-    for (const entry of this.#held.values()) killTree(entry);
-    for (const entry of this.#retiring.keys()) killTree(entry);
+    for (const entry of this.#held.values()) entry.host.kill();
+    for (const entry of this.#retiring.keys()) entry.host.kill();
   }
 
   #create(
@@ -211,12 +213,6 @@ export class HeldServiceRegistry {
     this.#retiring.set(entry, gone);
     return gone;
   }
-}
-
-/** SIGKILL à l'arbre d'un hôte, s'il en a un. */
-function killTree(entry: HeldEntry): void {
-  const { pid } = entry.host.status();
-  if (pid !== null) signalProcessGroup(pid, "SIGKILL");
 }
 
 /** L'acquittement d'un plan : accepté si `reason` est `null`. */

@@ -1164,6 +1164,43 @@ export function rootProcesses(
   return procs.filter((p) => !pids.has(p.ppid));
 }
 
+/** Ce qu'a atteint {@link signalExitedGroup}. */
+export type ExitedGroupOutcome = "group" | "gone" | "unsupported";
+
+/**
+ * Signale le GROUPE d'un process DÉJÀ SORTI — les descendants qu'il a laissés
+ * derrière lui (POSIX). Jamais de repli sur le PID lui-même : rendu au
+ * système, il peut désigner un étranger. Le numéro de groupe, lui, ne peut pas
+ * être réattribué tant qu'un membre du groupe vit (POSIX `setpgid`) : le
+ * signaler ne touche que l'arbre du défunt.
+ *
+ * Sous Windows, il n'y a pas de groupe, et `taskkill /T` ne part que d'un PID
+ * VIVANT : l'arbre d'un process sorti y est inatteignable. Le verdict
+ * `unsupported` l'énonce — au service hôte de tuer ses propres enfants.
+ *
+ * @param pid - le PID du défunt, leader de son groupe (`detached`).
+ * @param signal - le signal à envoyer au groupe.
+ * @param platform - la plateforme ; `process.platform` par défaut.
+ * @param killGroup - le geste, injectable pour l'éprouver.
+ * @returns `group` si le groupe a été atteint, `gone` s'il était vide.
+ */
+export function signalExitedGroup(
+  pid: number,
+  signal: NodeJS.Signals,
+  platform: NodeJS.Platform = process.platform,
+  killGroup: (pid: number, signal: NodeJS.Signals) => void = (p, s) => {
+    process.kill(-p, s);
+  },
+): ExitedGroupOutcome {
+  if (!leadsOwnProcessGroup(platform)) return "unsupported";
+  try {
+    killGroup(pid, signal);
+    return "group";
+  } catch {
+    return "gone";
+  }
+}
+
 /** Attend que tous les `pids` soient morts (poll), renvoie ceux encore vivants à l'échéance. */
 export async function waitAllDead(
   pids: readonly number[],

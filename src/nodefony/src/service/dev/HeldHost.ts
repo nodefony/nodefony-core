@@ -2,6 +2,7 @@ import { fork, type ChildProcess } from "node:child_process";
 import { DEV_CHILD_ENV } from "./devChannelBase";
 import {
   leadsOwnProcessGroup,
+  signalExitedGroup,
   signalProcessGroup,
   waitAllDead,
 } from "./devProcess";
@@ -10,7 +11,6 @@ import {
   IGNORE_SEND_ERROR,
   isHeldHostMessage,
   type HeldHolderMessage,
-  type HeldHostMessage,
   type HeldHostState,
   type HeldJsonObject,
   type IHeldHostStatus,
@@ -80,6 +80,20 @@ const MAX_PARTIAL_LINE_BYTES = 64 * 1024;
 
 /** Délai laissé aux derniers process d'un arbre tué pour disparaître. */
 const TREE_DEATH_WAIT_MS = 2_000;
+
+/**
+ * Fin de la sortie d'erreur gardée jusqu'au `ready` : un hôte qui meurt au
+ * chargement (module introuvable, erreur de syntaxe) n'a que là sa cause.
+ */
+const STDERR_TAIL_BYTES = 2 * 1024;
+
+/** Les derniers `STDERR_TAIL_BYTES` octets de `tail` suivi de `chunk`, copiés. */
+function appendTail(tail: Buffer | null, chunk: Buffer): Buffer {
+  const merged = tail === null ? chunk : Buffer.concat([tail, chunk]);
+  const from = Math.max(0, merged.length - STDERR_TAIL_BYTES);
+  // Copie : garder une vue retiendrait le morceau entier du tube.
+  return Buffer.from(merged.subarray(from));
+}
 
 /**
  * Rassemble les morceaux d'un flux en lignes complètes, sans copie quand le
@@ -154,6 +168,14 @@ export class HeldHost {
   #awaitedSeq = -1;
   #pingSentAt = 0;
   #missed = 0;
+  /**
+   * Époque du cycle : avancée par `start`, `stop` et `kill`. Une relance ou un
+   * démarrage décidé sous une époque passée n'a plus lieu — c'est ce qui
+   * interdit à une décision périmée de lancer un second hôte.
+   */
+  #epoch = 0;
+  /** Pourquoi le teneur a tué l'hôte, lu à sa sortie (sinon la sortie l'écraserait). */
+  #killReason: string | null = null;
 
   constructor(options: IHeldHostOptions) {
     this.key = options.key;
@@ -170,9 +192,14 @@ export class HeldHost {
    * Démarre l'hôte et attend son `ready`. Idempotent : prêt → l'instantané ;
    * démarrage en cours → la même promesse.
    *
+   * Un hôte précédent encore vivant (échec en cours de sortie, relance en vol)
+   * est tué, et le nouveau ne naît qu'après sa mort : deux hôtes ne se
+   * disputent jamais le même port.
+   *
    * @returns l'instantané une fois l'hôte prêt.
    * @throws si l'hôte échoue, sort ou se tait au-delà du délai — l'état passe
-   *   alors `errored`, sans relance (c'est le démarrage qui a échoué).
+   *   alors `errored`, sans relance (c'est le démarrage qui a échoué) ; ou si
+   *   un arrêt survient avant `ready`.
    */
   start(): Promise<IHeldHostStatus> {
     if (this.#state === "ready") return Promise.resolve(this.#snapshot);
@@ -180,9 +207,17 @@ export class HeldHost {
     if (this.#state === "stopping") {
       return Promise.reject(new Error(`held host "${this.key}" is stopping`));
     }
+    const epoch = ++this.#epoch;
+    // Un recul de relance en cours n'a plus lieu d'être : ce démarrage le remplace.
+    this.#clearTimers();
     this.#restartCount = 0;
     this.#lastError = null;
-    this.#startPromise = this.#spawn("starting")
+    this.#setState("starting");
+    this.#startPromise = this.#previousGone()
+      .then(() => {
+        if (epoch !== this.#epoch) throw this.#stoppedBeforeReady();
+        return this.#spawn("starting", epoch);
+      })
       .then(
         () => this.#snapshot,
         (error: unknown) => {
@@ -213,7 +248,24 @@ export class HeldHost {
     return this.#stopPromise;
   }
 
+  /**
+   * Arrêt FORCÉ, synchrone : SIGKILL à l'arbre de l'hôte VIVANT, s'il y en a
+   * un, et plus aucune relance. Pour la sortie d'urgence, qui n'attend rien.
+   * Le signal ne vise jamais le PID d'un instantané : un hôte déjà sorti a
+   * rendu le sien au système, qui a pu le donner à un étranger.
+   */
+  kill(): void {
+    this.#epoch++;
+    this.#clearTimers();
+    const child = this.#child;
+    if (child !== null && !hasExited(child) && typeof child.pid === "number") {
+      signalProcessGroup(child.pid, "SIGKILL");
+    }
+    this.#setState("stopped");
+  }
+
   async #doStop(): Promise<void> {
+    this.#epoch++;
     this.#setState("stopping");
     this.#clearTimers();
     const child = this.#child;
@@ -236,36 +288,63 @@ export class HeldHost {
       timedOut.promise,
     ]);
     clearTimeout(grace);
-    // Même sorti proprement, l'hôte peut laisser des descendants dans son
-    // groupe : on le vide toujours (`gone` si rien n'y reste).
+    // Sorti à temps : sa sortie a déjà vidé son groupe (`#onExit`). En retard :
+    // l'arbre est tué vivant. Dans les deux cas, l'attente est BORNÉE — un
+    // process qui survit à SIGKILL ne doit pas suspendre l'arrêt de la session.
     if (typeof child.pid === "number") {
-      signalProcessGroup(child.pid, "SIGKILL");
-      if (late) await exited;
-      await waitAllDead([child.pid], TREE_DEATH_WAIT_MS);
+      if (late) signalProcessGroup(child.pid, "SIGKILL");
+      const alive = await waitAllDead([child.pid], TREE_DEATH_WAIT_MS);
+      if (alive.length > 0) {
+        this.#lastError = `held host "${this.key}" survived SIGKILL (pid ${child.pid})`;
+      }
     }
     this.#setState("stopped");
   }
 
   /**
-   * Lance l'hôte et résout à son `ready`. Rejette sur `failed`, sortie
-   * prématurée ou silence au-delà du délai (l'arbre est alors tué).
+   * Tenue quand l'hôte précédent n'existe plus — tué s'il vivait encore. Un
+   * hôte qui a échoué est déjà en train de mourir ; une relance en vol, non.
    */
-  #spawn(phase: "starting" | "restarting"): Promise<void> {
+  #previousGone(): Promise<void> {
+    const child = this.#child;
+    if (child === null || hasExited(child)) return Promise.resolve();
+    const gone = new Promise<void>((resolve) =>
+      child.once("exit", () => resolve()),
+    );
+    if (typeof child.pid === "number") signalProcessGroup(child.pid, "SIGKILL");
+    return gone;
+  }
+
+  #stoppedBeforeReady(): Error {
+    return new Error(`held host "${this.key}" stopped before ready`);
+  }
+
+  /**
+   * Lance l'hôte et résout à son `ready`. Rejette sur `failed`, erreur,
+   * sortie prématurée ou silence au-delà du délai — l'arbre est alors tué
+   * aussitôt, pour qu'un hôte condamné ne garde pas son port pendant qu'on
+   * en lance un autre.
+   *
+   * Un message n'est lu que s'il vient de l'hôte COURANT, et un `ready` que
+   * s'il arrive dans la phase et l'époque qui l'ont demandé : arrivé pendant
+   * un arrêt, il ne vaut rien.
+   */
+  #spawn(phase: "starting" | "restarting", epoch: number): Promise<void> {
     this.#data = null;
     this.#setState(phase);
     const env: NodeJS.ProcessEnv = { ...this.#opts.env };
     delete env[DEV_CHILD_ENV];
+    const onOutput = this.#opts.onOutput;
     let child: ChildProcess;
     try {
       child = fork(this.#opts.module, [], {
         cwd: this.#opts.cwd,
         env,
         execArgv: [...(this.#opts.execArgv ?? [])],
-        // Sans lecteur, les sorties sont FERMÉES : un tube jamais lu se
-        // remplit, et l'hôte se bloquerait sur sa prochaine écriture.
-        stdio: this.#opts.onOutput
-          ? ["ignore", "pipe", "pipe", "ipc"]
-          : ["ignore", "ignore", "ignore", "ipc"],
+        // La sortie d'erreur est TOUJOURS lue : sa fin donne la cause d'un
+        // hôte mort avant `ready`. La sortie standard sans lecteur est
+        // fermée — un tube jamais lu se remplit et bloque l'hôte.
+        stdio: ["ignore", onOutput ? "pipe" : "ignore", "pipe", "ipc"],
         detached: leadsOwnProcessGroup(),
         serialization: "json",
         windowsHide: true,
@@ -277,44 +356,69 @@ export class HeldHost {
     }
     this.#child = child;
     this.#publish();
-    const onOutput = this.#opts.onOutput;
     const out = onOutput ? new LineAssembler((b) => onOutput("out", b)) : null;
     const err = onOutput ? new LineAssembler((b) => onOutput("err", b)) : null;
-    const onOut = (chunk: Buffer): void => out?.push(chunk);
-    const onErr = (chunk: Buffer): void => err?.push(chunk);
-    if (out) child.stdout?.on("data", onOut);
-    if (err) child.stderr?.on("data", onErr);
 
     return new Promise<void>((resolve, reject) => {
       let settled = false;
+      let tail: Buffer | null = null;
+      const onOut = (chunk: Buffer): void => out?.push(chunk);
+      // Sans lecteur, le tube est vidé quand même : il ne doit jamais se remplir.
+      const onErr = (chunk: Buffer): void => {
+        err?.push(chunk);
+        if (!settled) tail = appendTail(tail, chunk);
+      };
+      if (out) child.stdout?.on("data", onOut);
+      child.stderr?.on("data", onErr);
+      const killTree = (): void => {
+        if (typeof child.pid === "number" && !hasExited(child))
+          signalProcessGroup(child.pid, "SIGKILL");
+      };
+      const settle = (): void => {
+        settled = true;
+        tail = null;
+        clearTimeout(timer);
+      };
+      const fail = (error: Error): void => {
+        if (settled) return;
+        settle();
+        reject(error);
+      };
       const timer = setTimeout(() => {
         fail(
           new Error(
             `held host "${this.key}" not ready after ${this.#opts.startupTimeoutMs ?? 30_000} ms`,
           ),
         );
-        if (typeof child.pid === "number")
-          signalProcessGroup(child.pid, "SIGKILL");
+        killTree();
       }, this.#opts.startupTimeoutMs ?? 30_000);
-      const fail = (error: Error): void => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        reject(error);
-      };
       const onMessage = (raw: unknown): void => {
-        if (!isHeldHostMessage(raw)) return;
-        this.#onHostMessage(raw);
-        if (raw.type !== "report" || settled) return;
-        if (raw.state === "ready") {
-          settled = true;
-          clearTimeout(timer);
-          resolve();
-        } else {
-          fail(new Error(raw.reason ?? `held host "${this.key}" failed`));
+        if (!isHeldHostMessage(raw) || this.#child !== child) return;
+        if (raw.type === "pong") {
+          this.#onPong(raw.seq);
+          return;
         }
+        // Un rapport après coup (`ready` répété, `failed` tardif) ne change rien.
+        if (settled) return;
+        if (raw.state === "failed") {
+          fail(new Error(raw.reason ?? `held host "${this.key}" failed`));
+          killTree();
+          return;
+        }
+        if (this.#state !== phase || this.#epoch !== epoch) {
+          fail(this.#stoppedBeforeReady());
+          return;
+        }
+        settle();
+        this.#data = raw.data;
+        this.#setState("ready");
+        this.#startLiveness();
+        resolve();
       };
-      const onError = (error: Error): void => fail(error);
+      const onError = (error: Error): void => {
+        fail(error);
+        killTree();
+      };
       const onExit = (
         code: number | null,
         signal: NodeJS.Signals | null,
@@ -322,13 +426,19 @@ export class HeldHost {
         child.removeListener("message", onMessage);
         child.removeListener("error", onError);
         if (out) child.stdout?.removeListener("data", onOut);
-        if (err) child.stderr?.removeListener("data", onErr);
+        child.stderr?.removeListener("data", onErr);
         out?.flush();
         err?.flush();
-        if (this.#child === child) this.#child = null;
         const how = signal ?? `code ${code}`;
-        fail(new Error(`held host "${this.key}" exited before ready (${how})`));
-        this.#onExit(how);
+        if (!settled) fail(new Error(exitedBeforeReady(this.key, how, tail)));
+        // Seule la sortie de l'hôte COURANT parle de l'état : celle d'un hôte
+        // déjà remplacé ne doit ni le faire croire planté ni relancer un
+        // troisième hôte par-dessus le vivant. Défense en profondeur :
+        // `#previousGone` fait qu'aucune voie ne remplace aujourd'hui l'hôte
+        // avant sa sortie — cette garde tient si l'on en ouvre une.
+        if (this.#child !== child) return;
+        this.#child = null;
+        this.#onExit(how, child.pid);
       };
       child.on("message", onMessage);
       child.on("error", onError);
@@ -341,40 +451,42 @@ export class HeldHost {
     });
   }
 
-  #onHostMessage(message: HeldHostMessage): void {
-    if (message.type === "pong") {
-      if (message.seq !== this.#awaitedSeq) return;
-      this.#awaitedSeq = -1;
-      const late =
-        performance.now() - this.#pingSentAt >
-        (this.#opts.livenessTimeoutMs ?? 5_000);
-      this.#missed = late ? this.#missed + 1 : 0;
-      // Une preuve de vie à l'heure, hôte prêt : un intervalle entier a été
-      // VÉCU depuis la relance. Le budget de relances est rendu — il ne doit
-      // compter que les plantages en RAFALE (une boucle), jamais la vie
-      // entière : cinq plantages épars sur une longue session condamnaient
-      // sinon le service en `errored`, sans relance possible.
-      if (!late && this.#state === "ready" && this.#restartCount > 0) {
-        this.#restartCount = 0;
-        this.#publish();
-      }
-      return;
-    }
-    if (message.state === "ready") {
-      this.#data = message.data;
-      this.#setState("ready");
-      this.#startLiveness();
+  #onPong(seq: number): void {
+    if (seq !== this.#awaitedSeq) return;
+    this.#awaitedSeq = -1;
+    const late =
+      performance.now() - this.#pingSentAt >
+      (this.#opts.livenessTimeoutMs ?? 5_000);
+    this.#missed = late ? this.#missed + 1 : 0;
+    // Une preuve de vie à l'heure, hôte prêt : un intervalle entier a été
+    // VÉCU depuis la relance. Le budget de relances est rendu — il ne doit
+    // compter que les plantages en RAFALE (une boucle), jamais la vie
+    // entière : cinq plantages épars sur une longue session condamnaient
+    // sinon le service en `errored`, sans relance possible.
+    if (!late && this.#state === "ready" && this.#restartCount > 0) {
+      this.#restartCount = 0;
+      this.#publish();
     }
   }
 
-  /** L'hôte est sorti : plantage à relancer, sauf arrêt voulu. */
-  #onExit(how: string): void {
+  /**
+   * L'hôte COURANT est sorti : son groupe est vidé (les descendants qu'il
+   * laisse tiendraient son port), puis plantage à relancer, sauf arrêt voulu.
+   * L'instantané est toujours republié : son PID n'est plus.
+   */
+  #onExit(how: string, pid: number | undefined): void {
     this.#stopLiveness();
-    if (this.#state === "stopping" || this.#state === "stopped") return;
-    if (this.#state !== "ready") return; // démarrage : `start()`/la relance tranchent
-    this.#lastError = `held host "${this.key}" exited (${how})`;
-    this.#setState("crashed");
-    this.#scheduleRestart();
+    if (typeof pid === "number") signalExitedGroup(pid, "SIGKILL");
+    const reason = this.#killReason;
+    this.#killReason = null;
+    const before = this.#snapshot;
+    // Démarrage ou relance en vol : `start()`/la relance tranchent ; arrêt : rien à faire.
+    if (this.#state === "ready") {
+      this.#lastError = reason ?? `held host "${this.key}" exited (${how})`;
+      this.#setState("crashed");
+      this.#scheduleRestart();
+    }
+    if (this.#snapshot === before) this.#publish();
   }
 
   #scheduleRestart(): void {
@@ -388,17 +500,24 @@ export class HeldHost {
       (this.#opts.restartBackoffBaseMs ?? 500) * 2 ** this.#restartCount,
       this.#opts.restartBackoffMaxMs ?? 8_000,
     );
+    const epoch = this.#epoch;
     this.#restartCount++;
     this.#setState("restarting");
     this.#restartTimer = setTimeout(() => {
       this.#restartTimer = null;
-      if (this.#state !== "restarting") return;
-      this.#spawn("restarting").catch((error: unknown) => {
-        if (this.#state === "stopping" || this.#state === "stopped") return;
-        this.#lastError = errorText(error);
-        this.#setState("crashed");
-        this.#scheduleRestart();
-      });
+      if (this.#state !== "restarting" || epoch !== this.#epoch) return;
+      this.#previousGone()
+        .then(() => {
+          if (epoch !== this.#epoch) throw this.#stoppedBeforeReady();
+          return this.#spawn("restarting", epoch);
+        })
+        .catch((error: unknown) => {
+          // Un `start`, un `stop` ou un `kill` est passé : la décision est périmée.
+          if (epoch !== this.#epoch) return;
+          this.#lastError = errorText(error);
+          this.#setState("crashed");
+          this.#scheduleRestart();
+        });
     }, delay);
     this.#restartTimer.unref();
   }
@@ -418,9 +537,11 @@ export class HeldHost {
     if (child === null) return;
     if (this.#awaitedSeq !== -1) this.#missed++;
     if (this.#missed >= (this.#opts.livenessMissedLimit ?? 3)) {
-      this.#lastError = `held host "${this.key}" unresponsive`;
-      this.#stopLiveness();
-      // La sortie qui suit passe par `#onExit` → relance avec recul.
+      // La sortie qui suit passe par `#onExit` → relance avec recul, et c'est
+      // cette cause qu'elle publie. La preuve de vie reste armée : si le
+      // signal n'a pas abouti, le prochain tour le renvoie — jamais un hôte
+      // gelé laissé `ready` à vie.
+      this.#killReason = `held host "${this.key}" unresponsive`;
       if (typeof child.pid === "number")
         signalProcessGroup(child.pid, "SIGKILL");
       return;
@@ -484,6 +605,17 @@ export class HeldHost {
 /** Le process est-il déjà sorti ? */
 function hasExited(child: ChildProcess): boolean {
   return child.exitCode !== null || child.signalCode !== null;
+}
+
+/** Le message d'un hôte sorti avant `ready`, avec la fin de sa sortie d'erreur. */
+function exitedBeforeReady(
+  key: string,
+  how: string,
+  tail: Buffer | null,
+): string {
+  const base = `held host "${key}" exited before ready (${how})`;
+  const cause = tail === null ? "" : tail.toString("utf8").trim();
+  return cause === "" ? base : `${base}: ${cause}`;
 }
 
 /** Le texte d'une erreur, quelle que soit sa forme. */

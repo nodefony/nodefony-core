@@ -161,24 +161,33 @@ Ce que l'IPC de Node impose (doc et source `lib/internal/child_process.js`, Node
 
 ### D6 — Vite ne peut ni faire tomber, ni geler, ni salir le superviseur
 
-| Menace                                                                  | Rempart                                                                                                                  |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Plantage de Vite ou d'un greffon                                        | process séparé ; l'hôte meurt seul, ses clés passent `crashed`                                                           |
-| Vite qui prend le clavier ou le terminal                                | `stdin` ignoré, aucun TTY ; `bindCLIShortcuts` jamais appelé                                                             |
-| Vite qui efface l'écran                                                 | `clearScreen: false` posé par l'hôte, prioritaire sur la config                                                          |
-| Vite qui déverse la console du navigateur (défaut changeant sous agent) | `server.forwardConsole` FIXÉ par l'hôte (désactivé ; activable explicitement par la config du module)                    |
-| Déluge de journaux                                                      | par les tubes, jamais par l'IPC ; ingestion bornée et assainie du superviseur (plafond global, puis par canal avec #903) |
-| Message IPC forgé ou démesuré                                           | garde unique, longueurs bornées ; un hôte ne peut que RAPPORTER un état, jamais commander                                |
-| Tempête de relances                                                     | recul exponentiel et plafond → `errored`, plus aucune relance avant le plan suivant                                      |
-| Boucle d'évènements gelée dans l'hôte                                   | sonde de santé HTTP du teneur → relance                                                                                  |
-| Superviseur tué net (`kill -9`)                                         | l'hôte écoute `disconnect` de son IPC → ferme Vite et sort : aucun orphelin                                              |
-| Héritage d'environnement                                                | l'hôte ne reçoit pas `NF_DEV_CHILD` (il se croirait l'enfant du superviseur)                                             |
+| Menace                                                                  | Rempart                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plantage de Vite ou d'un greffon                                        | process séparé ; l'hôte meurt seul, ses clés passent `crashed` ; son GROUPE est vidé à sa sortie (POSIX, `devProcess.ts#signalExitedGroup`) : un descendant ne garde pas le port de la relance                                                                                         |
+| Hôte condamné qui tarde à sortir (échec, relance en vol)                | tué dès l'échec ; un nouvel hôte ne naît qu'après la MORT du précédent ; une décision prise sous une époque passée (`start`/`stop`/`kill` depuis) n'a plus lieu                                                                                                                        |
+| Vite qui prend le clavier ou le terminal                                | `stdin` ignoré, aucun TTY ; `bindCLIShortcuts` jamais appelé                                                                                                                                                                                                                           |
+| Vite qui efface l'écran                                                 | `clearScreen: false` posé par l'hôte, prioritaire sur la config ; et le terminal n'honore `ESC[2J` que venu du serveur — d'une autre source, la séquence est retirée                                                                                                                   |
+| Vite qui déverse la console du navigateur (défaut changeant sous agent) | `server.forwardConsole` FIXÉ par l'hôte (désactivé ; la config inline prime, la config du module ne le rouvre pas)                                                                                                                                                                     |
+| Déluge de journaux                                                      | par les tubes, jamais par l'IPC ; une ligne sans fin est livrée par morceaux de 64 Kio au plus ; ingestion assainie du superviseur (plafond global, puis par canal avec #903)                                                                                                          |
+| Message IPC forgé ou démesuré                                           | garde unique, longueurs bornées (raison 4 096, donnée 16 Kio de JSON — sur `nf-held` ET dans l'instantané de `nf-dev`) ; seul l'hôte COURANT est lu, un `ready` hors de la phase qui l'a demandé (arrêt en cours) est refusé ; un hôte ne peut que RAPPORTER un état, jamais commander |
+| Tempête de relances                                                     | recul exponentiel et plafond → `errored`, plus aucune relance avant le plan suivant                                                                                                                                                                                                    |
+| Boucle d'évènements gelée dans l'hôte                                   | preuve de vie par `ping`/`pong` sur l'IPC (elle prouve la boucle, pas le service) → arbre tué, relance ; le kill est renvoyé tant que l'hôte ne sort pas                                                                                                                               |
+| Superviseur tué net (`kill -9`)                                         | l'hôte écoute `disconnect` de son IPC → ferme Vite et sort : aucun orphelin. Limite : un hôte dont la boucle est GELÉE ne voit pas la perte du canal                                                                                                                                   |
+| Héritage d'environnement                                                | l'hôte ne reçoit pas `NF_DEV_CHILD` (il se croirait l'enfant du superviseur)                                                                                                                                                                                                           |
 
 ### D7 — Fin de session : le teneur tue SES arbres et attend leur mort
 
 Ctrl-C → chaque hôte est arrêté par `devProcess.ts#signalProcessGroup` (seule implémentation,
 qui sait l'absence de groupes sous Windows), puis le superviseur attend la mort effective
-(`devProcess.ts#waitAllDead`) avant de rendre la main.
+(`devProcess.ts#waitAllDead`) avant de rendre la main. L'attente est BORNÉE : un process qui
+survit à SIGKILL est nommé dans `lastError`, il ne suspend pas la fin de session. Elle porte sur
+le chef de groupe ; ses descendants reçoivent le signal du groupe (POSIX). Sous Windows,
+`taskkill /T` ne part que d'un PID vivant : l'arbre d'un hôte déjà sorti y est inatteignable, et
+c'est au service hôte de tuer ses propres enfants (`IHeldServiceImpl.stop`).
+
+Le second Ctrl-C (sortie d'urgence) passe par `HeldHost.kill`, synchrone : le signal vise le
+process VIVANT que le teneur tient, jamais le PID d'un instantané — rendu au système, celui-ci
+peut désigner un étranger.
 
 ### D8 — Journaux : par les tubes, jamais par l'IPC
 
