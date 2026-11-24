@@ -50,6 +50,9 @@ import {
   DEV_CHILD_ENV,
   listenToServer,
   sendToServer,
+  type DevChannelMessage,
+  type IDevHeldPlan,
+  type IDevHeldPlanAck,
 } from "./devChannel";
 import { HeldServiceRegistry } from "./heldServices";
 import {
@@ -1144,6 +1147,60 @@ export function onServerEnded(
  * `frontend/` est exclu de la surveillance → une modif front ne redémarre pas le
  * serveur.
  */
+/** Ce que l'aiguillage des messages du serveur sait atteindre — injecté, donc éprouvable. */
+export interface IServerMessageRoutes {
+  /** Le serveur émetteur est-il encore le serveur COURANT ? */
+  isCurrent: () => boolean;
+  /** Applique un plan de services portés et rend son acquittement. */
+  applyHeldPlan: (plan: IDevHeldPlan) => IDevHeldPlanAck;
+  /** Renvoie l'acquittement au serveur ÉMETTEUR. */
+  reply: (ack: IDevHeldPlanAck) => void;
+  /** Le terminal en rendu humain, `null` ailleurs (`plain`, `json`, `--debug`). */
+  terminal: Pick<
+    DevTerminal,
+    "setStatus" | "setRuntime" | "setActivity"
+  > | null;
+}
+
+/**
+ * Aiguille les messages d'UN serveur enfant : le plan de services portés est
+ * appliqué et acquitté dans TOUS les rendus — il n'a rien à voir avec le
+ * terminal, et le serveur attend son acquittement — ; le reste nourrit la
+ * barre d'état quand il y en a une. Un serveur remplacé n'est plus écouté :
+ * son plan arriverait après celui de son successeur et le défairait.
+ *
+ * @param routes - ce que l'aiguillage peut atteindre.
+ * @returns le gestionnaire à brancher sur le canal du serveur.
+ */
+export function routeServerMessages(
+  routes: IServerMessageRoutes,
+): (message: DevChannelMessage) => void {
+  return (message) => {
+    if (!routes.isCurrent()) return;
+    if (message.type === "held-plan") {
+      routes.reply(routes.applyHeldPlan(message));
+      return;
+    }
+    const terminal = routes.terminal;
+    if (terminal === null) return;
+    if (message.type === "status-view") {
+      terminal.setStatus(message.view, message.context, "ready");
+    } else if (message.type === "runtime") {
+      terminal.setRuntime({
+        rssBytes: message.rssBytes,
+        cpuPercent: message.cpuPercent,
+        eluPercent: message.eluPercent,
+      });
+    } else if (message.type === "boot-step") {
+      // Le cycle du noyau, suivi en direct dans la barre.
+      terminal.setActivity(message.step, {
+        done: message.done,
+        total: message.total,
+      });
+    }
+  };
+}
+
 export class DevSupervisor {
   readonly #cwd: string;
   /** Un échec de régénération du graphe symbolique n'est dit qu'une fois. */
@@ -2256,30 +2313,15 @@ export class DevSupervisor {
     );
     this.#child = child;
     if (terminal) relayServerOutput(child, terminal);
-    // Écouté dans TOUS les rendus : un plan de services portés n'a rien à voir
-    // avec le terminal, et le serveur attend son acquittement.
-    listenToServer(child, (message) => {
-      if (this.#child !== child) return;
-      if (message.type === "held-plan") {
-        sendToServer(child, this.#heldServices().apply(message));
-      } else if (terminal) {
-        if (message.type === "status-view") {
-          terminal.setStatus(message.view, message.context, "ready");
-        } else if (message.type === "runtime") {
-          terminal.setRuntime({
-            rssBytes: message.rssBytes,
-            cpuPercent: message.cpuPercent,
-            eluPercent: message.eluPercent,
-          });
-        } else if (message.type === "boot-step") {
-          // Le cycle du noyau, suivi en direct dans la barre.
-          terminal.setActivity(message.step, {
-            done: message.done,
-            total: message.total,
-          });
-        }
-      }
-    });
+    listenToServer(
+      child,
+      routeServerMessages({
+        isCurrent: () => this.#child === child,
+        applyHeldPlan: (plan) => this.#heldServices().apply(plan),
+        reply: (ack) => sendToServer(child, ack),
+        terminal,
+      }),
+    );
     onServerEnded(child, (code, signal) => {
       terminal?.flush("server");
       // Restart sollicité : `#killChild` a déjà mis `#child` à null avant l'exit.
