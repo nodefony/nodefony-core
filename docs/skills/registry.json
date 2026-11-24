@@ -7930,12 +7930,20 @@
           },
           {
             "path": "scripts/dev-restart-cycle.mjs",
-            "purpose": "dev-restart-cycle.mjs — simule un développeur sous le DevSupervisor : modifie un fichier backend, chronomètre jusqu'à la remise en écoute, N cycles, médiane. Le fichier est RESTAURÉ à la fin. Prérequis : serveur de dev lancé par start.sh (journal /tmp/nodefony-server.log). Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5]",
+            "purpose": "dev-restart-cycle.mjs — simule un développeur sous le DevSupervisor : modifie un fichier backend, chronomètre jusqu'à la remise en écoute, N cycles, médiane. Le fichier est RESTAURÉ à la fin. Prérequis : serveur de dev lancé par start.sh (journal /tmp/nodefony-server.log). Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5] NF_DEV_CYCLE_FRONT=default,vue,angular → chronomètre AUSSI le retour du FRONT : l'instant où le relais `/_vite/<famille>/@vite/client` du serveur RELANCÉ rend 200 pour chaque famille. […]",
             "usage": [
               "Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5]"
             ],
             "options": [],
             "env": [
+              {
+                "name": "NF_DEV_CYCLE_FRONT",
+                "help": ""
+              },
+              {
+                "name": "NF_DEV_CYCLE_HTTPS_PORT",
+                "help": ""
+              },
               {
                 "name": "NF_DEV_CYCLE_PORT",
                 "help": ""
