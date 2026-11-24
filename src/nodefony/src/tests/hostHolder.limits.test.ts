@@ -599,7 +599,18 @@ describe("L10b — plans espacés : on remplace des instances en démarrage ET d
     const all = new Set(
       events.map((e) => e.pid).filter((p): p is number => p !== null),
     );
-    expect(all.size).toBe(10);
+    // Dix INSTANCES, pas dix PID distincts : sous Windows un PID libéré est
+    // réattribué aussitôt, et deux instances successives peuvent porter le
+    // même (vu sur la forge : 9 pour 10). Une instance = une entrée dans la
+    // phase « démarrage, PID connu » ; entre deux, le remplacement publie
+    // toujours `stopping` (`HostHolder.#doStop`).
+    const starts = events.filter(
+      (e, i) =>
+        e.state === "starting" &&
+        e.pid !== null &&
+        !(events[i - 1]?.state === "starting" && events[i - 1]?.pid !== null),
+    ).length;
+    expect(starts).toBe(10);
     for (const pid of all) if (pid !== finalPid) strays.push(pid);
     // La mort des remplacées est PROUVÉE par l'ordre du registre : une
     // instance ne démarre qu'après l'`exit` constaté de la précédente (L1) —
