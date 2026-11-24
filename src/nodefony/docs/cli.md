@@ -149,6 +149,13 @@ Une cible qui ne désigne pas exactement UN projet est **refusée** (code de sor
 liste pour corriger : arrêter un serveur est irréversible, et deviner « le plus proche » ferait
 tomber le mauvais.
 
+**Un superviseur tué net n'abandonne pas son serveur.** Sous `development`, le serveur est un
+processus enfant du superviseur, relié à lui par un canal. Si le superviseur meurt sans pouvoir
+s'arrêter — `kill -9`, terminal fermé, plantage —, le serveur constate la fermeture du canal et
+s'arrête de lui-même, ports libérés, sur les trois plateformes
+(`devChannel.ts#terminateOnSupervisorLoss`) ; les hôtes Vite portés font de même. Le
+`development` suivant trouve donc ses ports libres, sans `stop` préalable.
+
 ### 2. Ajouter sa propre commande
 
 Une commande maison vit dans un **module** : on l'ajoute dans son constructeur avec `addCommand`. Le nom
