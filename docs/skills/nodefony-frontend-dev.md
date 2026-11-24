@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-14
+updated: 2026-11-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 ---
@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.3.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.3.1`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,7 +26,7 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.3.0` |
+| Version | `1.3.1` |
 | Famille | Développer le framework |
 | Corps | 116 lignes |
 | Coût d'activation | ~3 434 tokens (le corps est chargé à l'invocation) |
@@ -67,7 +67,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 739 |
+| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 748 |
 | `references/data-bff.md` | Consommer le data-plane BFF (front Nodefony) | 245 |
 | `references/front-quality.md` | Qualité front (Nodefony) — temps réel calme · perf CSS · a11y · sécu | 154 |
 | `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 271 |
