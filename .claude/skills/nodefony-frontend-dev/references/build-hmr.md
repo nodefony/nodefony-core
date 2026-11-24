@@ -13,7 +13,7 @@ sans lire le source.
   - [3.1 `FrontendService`](#31-frontendservice-service-injectable)
   - [3.2 `registerEntry` + déclaration d'entrée](#32-registerentry--declaration-dentree)
   - [3.3 `renderTags` / `renderDocument` / `assetUrl`](#33-rendertags--renderdocument--asseturl)
-  - [3.4 `ViteProcessSupervisor`](#34-viteprocesssupervisor)
+  - [3.4 Superviseurs Vite (`ViteProcessSupervisor`, `HeldViteSupervisor`)](#34-superviseurs-vite-viteprocesssupervisor-heldvitesupervisor)
   - [3.5 Config (`defineFrontendConfig` / schema)](#35-config-definefrontendconfig--schema)
   - [3.6 Data plane admin (`createFrontendAdminApi`)](#36-data-plane-admin-createfrontendadminapi)
 - [4. Internals / mécanismes](#4-internals--mécanismes)
@@ -73,7 +73,9 @@ DEV (env=development)
     └─ FrontendService.startDev()
          ├─ groupe les entries par FAMILLE d'isolation (default / angular)
          ├─ par famille : ViteConfigGenerator.toMjs() → écrit vite.config.generated.mjs
-         └─ ViteProcessSupervisor.start() → spawn le vrai bin Vite, parse "Local:" → ready
+         └─ par famille : un HÔTE (`viteHost.ts`, `fork`) qui pilote Vite par son API → `ready` + port réel par le canal `nf-held`
+              · sous `nodefony development` : hôte PORTÉ par le superviseur (`HeldViteSupervisor`) — survit aux redémarrages du serveur
+              · sans superviseur (`--no-watch`, `frontend:dev`) : tenu par le serveur (`ViteProcessSupervisor`)
   Navigateur  GET /ma-route  (HTTP 5151 / HTTPS 5152)
     └─ Controller → this.render(svc.renderDocument("nom", ctx.cspNonce))
          → injecte <script src="/_vite/<famille>/@fs/<abs>/main.tsx"> + @vite/client + preamble (RELATIFS)
@@ -184,27 +186,34 @@ contenu mixte. En **production**, les URLs du manifest sont relatives au documen
   `frontend` par nom, anti-cycle) → `<%- frontendTags('studio') %>` / `<%- frontendDocument('studio') %>`.
 - **Twig** : `frontend_tags` / `frontend_document` (échappe → `|raw`).
 
-### 3.4 `ViteProcessSupervisor`
+### 3.4 Superviseurs Vite (`ViteProcessSupervisor`, `HeldViteSupervisor`)
 
-Implémente `IViteSupervisor` (`IViteSupervisor.ts#IViteSupervisor` : `start(entries, viteConfig)`, `stop()`,
-`status()`). Une instance par famille d'isolation.
+Deux adaptateurs `IViteSupervisor` (`IViteSupervisor.ts#IViteSupervisor` : `start(entries, viteConfig)`,
+`stop()`, `status()`), une instance par famille d'isolation, le MÊME hôte (`viteHost.ts#createViteHostService`,
+ADR-0030). Ce qui diffère : QUI tient l'hôte.
 
-`ViteSupervisorOptions` (`ViteProcessSupervisor.ts#ViteSupervisorOptions`) : `devHost`, `devPort`, `startupTimeoutMs`,
-`pipeLogs`, `cwd`, `logger`, `backendOrigin?`, `https?` ({keyPath, certPath}), `nodeEnv?`,
-`extraEnv?`, + résilience (`autoRestart`, `maxRestarts`, `restartBackoffBaseMs`,
-`restartBackoffMaxMs`, `healthCheckIntervalMs`, `healthCheckFailureThreshold`,
-`healthCheckTimeoutMs`, `portRetryAttempts`). `DEFAULTS` à.
+| Adaptateur                                       | Choisi quand                                                              | Hôte tenu par                                            | `stop()`                             |
+| ------------------------------------------------ | ------------------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------ |
+| `HeldViteSupervisor.ts#HeldViteSupervisor`       | `kernel.heldServices("frontend")` rend un client (`nodefony development`) | le superviseur de dev — survit au redémarrage du serveur | cesse d'écouter, n'arrête PAS l'hôte |
+| `ViteProcessSupervisor.ts#ViteProcessSupervisor` | pas de superviseur (`--no-watch`, `frontend:dev`)                         | le serveur (`HostHolder` du cœur)                        | arrête l'hôte, attend sa mort        |
 
-`IViteSupervisorStatus` (`IViteSupervisor.ts#IViteSupervisorStatus`) : `state` (`ViteSupervisorState` `IViteSupervisor.ts#ViteSupervisorState` =
-`idle`|`starting`|`ready`|`compiling`|`restarting`|`crashed`|`stopping`|`stopped`|`errored`),
-`host`, `port` (réel résolu, `null` si non démarré), `pid`, `lastError`, `entries`, `https`,
-`restartCount`, `healthFailures`.
+Ce qu'une famille EST, quel que soit le teneur, vit dans `viteFamily.ts#ViteFamily` (écriture du
+`.mjs` seulement s'il change, spec, environnement AJOUTÉ, réglage, instantané, relais des journaux) —
+ne jamais recopier une de ces règles dans un adaptateur. Options : `viteFamily.ts#ViteSupervisorOptions`
+(`devHost`, `devPort`, `startupTimeoutMs`, `pipeLogs`, `cwd`, `logger`, `https?`, `nodeEnv?`, `extraEnv?`,
 
-Mécanique : résout le **vrai binaire Vite** (`vite/package.json` → champ `bin`, caché) au lieu de
-`npx vite` — 1 process au lieu de 2, et `SIGINT`/`SIGKILL` atteignent Vite directement (sinon Vite
-orphelin → `EADDRINUSE` au restart) ; fallback `npx` si non résolu (`resolveViteBin:32`).
-`detached: false` → Vite reste dans le groupe de process du serveur (Ctrl+C terminal l'atteint,
-). Le port réel est lu en parsant `Local:\s+https?://host:port` dans le stdout.
+- résilience `autoRestart`, `maxRestarts`, `restartBackoff*`, `healthCheck*`, `portRetryAttempts`).
+
+Mode porté : `FrontendService` annonce les clés `vite:<famille>` (`expect`) puis chaque famille se
+déclare (`submit`) — le plan part COMPLET ; l'empreinte (`viteFingerprint.ts#heldViteFingerprint` :
+module, spec sans titre, cwd, env ajoutée, réglage, versions installées de Vite et des greffons)
+décide si le superviseur garde l'hôte ou le remplace. Le texte du `.mjs` n'y est pas : Vite se
+relance seul quand il change.
+
+`IViteSupervisorStatus` (`IViteSupervisor.ts#IViteSupervisorStatus`) : instantané FIGÉ, le même objet
+entre deux changements d'état (`status()` sans allocation, chemin chaud du relais) — `state`, `host`,
+`port` (réel, `null` tant que non prêt), `origin`, `pid`, `lastError`, `entries`, `https`,
+`restartCount`, `healthFailures` (preuves de vie manquées), `portRetries`.
 
 ### 3.5 Config (`defineFrontendConfig` / schema)
 
@@ -395,20 +404,20 @@ couvre le `ws(s):` du HMR de même hôte), `'unsafe-eval'` en `script-src` (Reac
 
 ### 4.7 Résilience du superviseur
 
-`ViteProcessSupervisor` (`service/ViteProcessSupervisor.ts#ViteProcessSupervisor`) :
+Le cycle lancer / relancer / sonder / arrêter est UNE classe du cœur, `HostHolder` (ADR-0030 §D2,
+§D6) — tenue par le serveur (`ViteProcessSupervisor`) ou par le superviseur de dev
+(`HeldServiceRegistry`, pour `HeldViteSupervisor`). Ce que l'adaptateur en voit :
 
-- **Idempotence** : `start()` ré-entrant partage `startPromise` ; `stop()` mémorise `stopPromise`
-  .
-- **Port retry** : `EADDRINUSE` → essaie `devPort+1`, `devPort+2`… jusqu'à `portRetryAttempts`
-  (`spawnWithPortRetry:257`). Le port réel est dans `status().port`.
-- **Auto-restart** : un exit avec `state=ready` (crash inattendu) → `scheduleRestart` avec **backoff
-  exponentiel borné** (`base * 2^n`, plafonné à `restartBackoffMaxMs`). `willingShutdown`
-  distingue un stop volontaire (`attachRuntimeExitHandler:463`). Au-delà de `maxRestarts` → `state=errored`.
-- **Health check** : `setInterval` (défaut 30s) GET HTTP(S) sur `/` ; N échecs consécutifs (défaut 3)
-  → kill le child → restart (`startHealthCheck:529`/`pingVite:573`). `0` désactive.
-- **Cleanup** : `stop()` = SIGINT puis **SIGKILL après 3s** (évite les zombies bloquant le port,
-  `doStop:605`). Tous les listeners sur `child` sont tracés (`trackListener:660`) et drainés
-  à chaque mort (`cleanupChildListeners:669`) → pas de `MaxListenersExceededWarning` entre restarts.
+- **Idempotence** : `start()` ré-entrant partage sa promesse ; prêt → rien.
+- **Port pris** : l'hôte SONDE le port (`viteHost.ts#probePort`) et prend le suivant du bloc
+  (`portRetryAttempts`) ; le port réel est dans `status().port`, `status().portRetries` dit le décalage.
+- **Plantage** : relance avec recul exponentiel borné ; au-delà de `maxRestarts` → `errored`. En mode
+  porté, seul un plan neuf (prochain démarrage du serveur) redonne sa chance à un hôte `errored`.
+- **Boucle gelée** : preuve de vie `ping`/`pong` par le canal (défaut 30 s, 3 manquées → arbre tué,
+  relance) ; `healthFailures` les compte. `0` la coupe.
+- **Arrêt** : `stop` par le canal, arbre tué au-delà de 3 s, mort attendue — par le teneur. Un
+  hôte porté s'arrête quand le plan ne le déclare plus, quand `held-owners` ne nomme plus
+  `frontend`, ou à la fin de la session.
 
 ### 4.8 Assets / CDN
 

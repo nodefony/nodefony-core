@@ -1,1067 +1,139 @@
-import { spawn, ChildProcess } from "node:child_process";
-import {
-  GENERATED_VITE_CONFIG_FILE,
-  signalProcessGroup,
-  type TreeSignalOutcome,
-} from "nodefony";
-import { writeFileSync, readFileSync, existsSync } from "node:fs";
-import { createRequire } from "node:module";
-import http from "node:http";
-import https from "node:https";
-import path from "node:path";
+import { HostHolder } from "nodefony";
 import type {
   IViteSupervisor,
   IViteSupervisorStatus,
-  ViteSupervisorState,
 } from "../interfaces/IViteSupervisor";
 import type { IResolvedFrontendEntry } from "../interfaces/IFrontBuilder";
 import { FrontendSupervisorStartError } from "../src/errors/FrontendError";
-import ViteConfigGenerator from "./ViteConfigGenerator";
+import {
+  VITE_HOST_MODULE,
+  ViteFamily,
+  type ViteSupervisorOptions,
+} from "./viteFamily";
+
+export {
+  browserReachableHost,
+  type IViteSupervisorLogger,
+  type ViteSupervisorOptions,
+} from "./viteFamily";
 
 /**
- * Hôte JOIGNABLE pour une adresse d'écoute : `0.0.0.0`/`::` désignent toutes
- * les interfaces, pas une destination — s'y connecter échoue sous Windows. Le
- * superviseur, sa sonde et le proxy inverse joignent Vite depuis la machine
- * qui le lance : la boucle locale est alors toujours juste.
+ * Le superviseur Vite d'une famille TENU PAR LE SERVEUR — `--no-watch`,
+ * `start`, production, et tout lancement sans superviseur de développement.
+ * ADAPTATEUR `IViteSupervisor` sur le teneur `HostHolder` du cœur (ADR-0030
+ * §D2). Sous `nodefony development`, c'est `HeldViteSupervisor` qui sert :
+ * même hôte, même famille ({@link ViteFamily}), tenu par le superviseur.
  *
- * @param listenHost - adresse d'écoute (`devHost`)
- * @returns l'hôte à joindre
- */
-export function browserReachableHost(listenHost: string): string {
-  return listenHost === "0.0.0.0" ||
-    listenHost === "::" ||
-    listenHost === "[::]" ||
-    listenHost === ""
-    ? "127.0.0.1"
-    : listenHost;
-}
-
-/**
- * Résout le binaire Vite **une seule fois** (mis en cache module-level).
- *
- * Lancer le VRAI `node vite.js` en direct — au lieu du shim `npx vite` — évite le
- * process intermédiaire npm : 1 process au lieu de 2, et surtout `SIGINT`/`SIGKILL`
- * atteignent **directement** Vite (`npx`/`npm exec` relaie mal les signaux → Vite
- * orphelin → `EADDRINUSE` au restart).
- *
- * ⚠️ On passe par `vite/package.json` + son champ `bin` : la map `exports` de Vite
- * **n'expose pas** `./bin/vite.js` → `require.resolve("vite/bin/vite.js")` throw
- * `ERR_PACKAGE_PATH_NOT_EXPORTED`. `package.json`, lui, est exporté → résolvable.
- *
- * `null` = résolution impossible → fallback `npx` (jamais cassé = résilient).
- * `undefined` = pas encore tenté.
- */
-let _viteBin: string | null | undefined;
-function resolveViteBin(): string | null {
-  if (_viteBin !== undefined) return _viteBin;
-  try {
-    const pkgPath = createRequire(import.meta.url).resolve("vite/package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
-      bin?: string | { vite?: string };
-    };
-    const rel = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.vite;
-    const abs = rel ? path.join(path.dirname(pkgPath), rel) : null;
-    _viteBin = abs && existsSync(abs) ? abs : null;
-  } catch {
-    _viteBin = null;
-  }
-  return _viteBin;
-}
-
-/**
- * Logger minimal — injecté par FrontendService pour piper les logs Vite
- * dans le syslog Nodefony sans dépendance dure sur Service.
- */
-export interface IViteSupervisorLogger {
-  info(msg: string): void;
-  error(msg: string): void;
-  /**
-   * Avertissement NON fatal de Vite (cf {@link isViteNonFatalWarning}).
-   * Absent → la ligne part en `info`, jamais en `error`.
-   */
-  warn?(msg: string): void;
-  debug?(msg: string): void;
-}
-
-export interface ViteSupervisorOptions {
-  readonly devHost: string;
-  readonly devPort: number;
-  /**
-   * Chemin de base Vite de l'instance (`devBasePath(famille)`) — émis comme
-   * `base` dans la config générée, rendu par `status().base`.
-   */
-  readonly devBase?: string | undefined;
-  readonly startupTimeoutMs: number;
-  readonly pipeLogs: boolean;
-  readonly cwd: string;
-  readonly logger: IViteSupervisorLogger;
-  /**
-   * Certificats à utiliser si Vite doit servir en HTTPS. Paths absolus vers les
-   * fichiers PEM — les mêmes que Nodefony utilise pour son `server-https` (5152).
-   */
-  readonly https?:
-    | {
-        readonly keyPath: string;
-        readonly certPath: string;
-      }
-    | undefined;
-  /** Valeur de `NODE_ENV` à propager au child Vite — généralement `kernel.environment`. */
-  readonly nodeEnv?: string | undefined;
-  /**
-   * Variables d'env additionnelles passées au child Vite. Les clés `VITE_*`
-   * sont automatiquement exposées au browser via `import.meta.env`.
-   */
-  readonly extraEnv?: Record<string, string>;
-  // ─────────────────────────────────────────────────────────────────────────
-  // Options de résilience
-  // ─────────────────────────────────────────────────────────────────────────
-  /** Auto-restart sur crash inattendu de Vite (default `true`). */
-  readonly autoRestart?: boolean;
-  /** Max tentatives de restart avant d'abandonner (default `5`). */
-  readonly maxRestarts?: number;
-  /** Délai initial du backoff exponentiel — doublé à chaque tentative (default `500ms`). */
-  readonly restartBackoffBaseMs?: number;
-  /** Plafond du backoff (default `8000ms` = 8s). */
-  readonly restartBackoffMaxMs?: number;
-  /**
-   * Intervalle health check (default `30000` = 30s). `0` désactive.
-   * Le supervisor fait un GET HTTP(S) sur `viteOrigin/` et compte les échecs
-   * consécutifs ; au-delà du seuil, kill le child → trigger auto-restart.
-   */
-  readonly healthCheckIntervalMs?: number;
-  /** Échecs health check consécutifs avant restart (default `3`). */
-  readonly healthCheckFailureThreshold?: number;
-  /** Timeout d'un health check individuel (default `5000ms`). */
-  readonly healthCheckTimeoutMs?: number;
-  /**
-   * Tentatives de port à essayer si EADDRINUSE (default `3`).
-   * Le supervisor essaie devPort, devPort+1, devPort+2.
-   */
-  readonly portRetryAttempts?: number;
-}
-
-interface ResolvedOptions {
-  readonly autoRestart: boolean;
-  readonly maxRestarts: number;
-  readonly restartBackoffBaseMs: number;
-  readonly restartBackoffMaxMs: number;
-  readonly healthCheckIntervalMs: number;
-  readonly healthCheckFailureThreshold: number;
-  readonly healthCheckTimeoutMs: number;
-  readonly portRetryAttempts: number;
-}
-
-const DEFAULTS: ResolvedOptions = {
-  autoRestart: true,
-  maxRestarts: 5,
-  restartBackoffBaseMs: 500,
-  restartBackoffMaxMs: 8_000,
-  healthCheckIntervalMs: 30_000,
-  healthCheckFailureThreshold: 3,
-  healthCheckTimeoutMs: 5_000,
-  portRetryAttempts: 3,
-};
-
-/**
- * Un texte (message d'erreur OU sortie brute de Vite) dénonce-t-il un conflit de
- * port FATAL — c'est-à-dire un port que vite n'a PAS pu prendre ?
- *
- * **Source UNIQUE** de cette décision. Elle était dupliquée en deux regex qui ont
- * divergé : l'une cherchait `port X is in use`, alors que Vite écrit
- * `Port 5173 is ALREADY in use`. Résultat, le retry de port ne se déclenchait
- * jamais et la seconde app perdait tout son frontend — un conflit de port pourtant
- * parfaitement rattrapable. On ne l'écrit donc qu'ici (deux implémentations d'une
- * même règle = dérive garantie).
- *
- * 🔴 **`already` est OBLIGATOIRE, et c'est tout le sujet.** Vite émet trois textes
- * qui contiennent « in use », et un seul signifie qu'il a échoué — vérifié au
- * SOURCE de `httpServerStart` (vite 8.3.0, `dist/node/chunks/node.js`) :
- *
- *  - `Port X is already in use` → `throw` : vite MEURT. Seul cas rattrapable par
- *    un repli sur `port + 1`.
- *  - `Port X is in use, trying another one…` → `logger.info` : vite cherche
- *    lui-même le port suivant et annoncera son `Local:`. Rien à rattraper.
- *  - `Port X is in use on a wildcard address, but H:X is available…` →
- *    `logger.warn` sur un `listen` **RÉUSSI** : vite sert sur le port demandé.
- *
- * Rendre `already` optionnel confondait les trois. La conséquence ne se voyait
- * pas sur un poste, où vite meurt vite : elle se voyait sur un agent partagé et
- * lent, via `startupTimeoutMessage`. Un démarrage qui avait seulement AVERTI
- * (wildcard) puis dépassé l'échéance sortait sous un libellé `EADDRINUSE:`, donc
- * `spawnWithPortRetry` repliait — et chaque repli repayait l'échéance entière.
- * Mesuré sur la forge : le cas d'intégration du décalage de port tué à 60 s
- * (`4 tentatives × startupTimeoutMs`) quand les cinq autres du même fichier
- * tenaient en 300 à 700 ms.
- *
- * 🔴 **Sous Windows, un port pris se dit AUSSI `EACCES`.** Un port tenu en
- * exclusivité par un autre processus, ou rangé dans une plage que le système
- * réserve (Hyper-V, WinNAT), fait échouer `listen` en `EACCES` — jamais en
- * `EADDRINUSE`. Vu sur la forge : `listen EACCES: permission denied
- * 127.0.0.1:55879`, vite mort, aucun repli, frontend perdu. Le motif exige
- * `listen` ET un port : un `EACCES` d'ouverture de fichier est une vraie panne,
- * qu'aucun changement de port ne réparerait. Sous Linux, le même texte vise un
- * port privilégié (< 1024) : le repli échoue alors à son tour, borné par
- * `portRetryAttempts`, et l'erreur finale reste nommée.
- */
-export function isPortInUseMessage(text: string): boolean {
-  return (
-    /EADDRINUSE/i.test(text) ||
-    /listen\s+EACCES\b[^\n]*:\d+/i.test(text) ||
-    /address already in use/i.test(text) ||
-    /port\s+\d+\s+is\s+already\s+in use/i.test(text)
-  );
-}
-
-/**
- * Une ligne que Vite écrit sur sa sortie d'ERREUR est-elle un avertissement sur
- * un démarrage RÉUSSI ?
- *
- * Vite émet `Port X is in use on a wildcard address, but H:X is available…` par
- * `logger.warn` (donc sur stderr) après un `listen` qui a RÉUSSI (cf
- * {@link isPortInUseMessage}). Relayée en ERROR, elle laissait une ligne rouge
- * dans un démarrage sain. Vu sous Windows, où la pile réseau signale ce cas
- * quand un autre serveur écoute sur la même plage de ports.
- *
- * @param line - une ligne de sortie, sans codes ANSI ni préfixe `[vite]`.
- * @returns `true` si la ligne doit partir en avertissement, pas en erreur.
- */
-export function isViteNonFatalWarning(line: string): boolean {
-  return /port\s+\d+\s+is\s+in use on a wildcard address/i.test(line);
-}
-
-/**
- * Message d'échec d'un boot qui n'a jamais rendu la main dans le temps imparti —
- * en y REPORTANT ce que vite avait déjà dit.
- *
- * Le conflit de port ne se voit que dans la sortie du child. Le rejet par
- * échéance ne portait que la durée : un boot qui annonçait « Port 5173 is
- * already in use » puis restait pendu (vite ne meurt pas toujours, et sur une
- * application réelle le pré-bundling tient l'échéance) sortait sous le libellé
- * `timeout after …`, que le détecteur de port occupé ne reconnaît pas. Le repli
- * sur `port+1` existait et n'était jamais atteint — la sortie d'échec choisie
- * décidait à elle seule si la 2ᵉ application aurait un frontend.
- *
- * Fonction PURE : la règle « ce qu'on a OBSERVÉ prime sur la façon dont on a
- * échoué » se teste sans spawn, donc sans dépendre d'une course entre l'écriture
- * de l'erreur et la mort du process.
- *
- * @param timeoutMs - échéance dépassée.
- * @param observed - sortie brute accumulée du child (stdout + stderr).
- * @returns message d'erreur, préfixé `EADDRINUSE:` si un port occupé est dénoncé.
- */
-export function startupTimeoutMessage(
-  timeoutMs: number,
-  observed: string,
-): string {
-  const base = `timeout after ${timeoutMs}ms`;
-  return isPortInUseMessage(observed)
-    ? `EADDRINUSE: ${base} — vite a annoncé un port occupé sans rendre la main`
-    : base;
-}
-
-/** Caractères de la sortie de vite joints au message d'un arrêt prématuré. */
-const EXIT_OUTPUT_TAIL_CHARS = 800;
-
-/**
- * Message d'un vite sorti AVANT d'annoncer son adresse : le code de sortie, suivi de la
- * fin de ce qu'il a écrit. Sans cette fin, la cause (config illisible, dépendance
- * absente, port pris) reste muette — vécu en intégration continue, un rouge que rien ne
- * permettait d'instruire.
- *
- * @param code - code de sortie du process, `null` s'il a été tué par un signal.
- * @param signal - signal qui l'a terminé, s'il y en a un.
- * @param observed - sortie (stdout + stderr) accumulée avant l'arrêt, sans codes ANSI.
- * @returns le message, borné à {@link EXIT_OUTPUT_TAIL_CHARS} caractères de sortie.
- */
-export function exitBeforeReadyMessage(
-  code: number | null,
-  signal: string | null,
-  observed: string,
-): string {
-  const base = `vite exited (code=${code}, signal=${signal}) before ready`;
-  const tail = observed.trim().slice(-EXIT_OUTPUT_TAIL_CHARS);
-  return tail === "" ? base : `${base} — sortie de vite :\n${tail}`;
-}
-
-/**
- * Superviseur Vite résilient — branche POC `poc/frontend-child`.
- *
- * Garanties :
- *  - Idempotent : appels concurrents à `start()` partagent la même promesse.
- *  - Auto-restart : crash inattendu → restart avec backoff exponentiel borné.
- *  - Port conflict : retry sur port+1 jusqu'au plafond `portRetryAttempts`.
- *  - Health check : ping périodique, kill+restart sur N échecs consécutifs.
- *  - Cleanup strict : listeners + timers tracés et libérés au `stop()`.
- *
- * Tous les listeners sur `child` sont supprimés explicitement avant qu'on
- * laisse le child mourir (évite memory leak entre restarts).
+ * Vite tourne dans un HÔTE (`viteHost.ts`) qui le pilote par son API : « prêt »
+ * et le port réel arrivent par le canal `nf-held`, jamais en lisant la sortie de
+ * Vite. Lancement, recul de relance, preuve de vie, arrêt de l'arbre et attente
+ * de sa mort sont ceux du teneur — SEULE implémentation de ce cycle.
  */
 export class ViteProcessSupervisor implements IViteSupervisor {
-  private readonly opts: ViteSupervisorOptions;
-  private readonly cfg: ResolvedOptions;
-  private readonly generator = new ViteConfigGenerator();
-
-  private child: ChildProcess | null = null;
-  private state: ViteSupervisorState = "idle";
-  private resolvedPort: number | null = null;
-  /** Origine publique du spawn courant (source unique des URLs — cf status). */
-  private resolvedOrigin: string | null = null;
-  private lastError: string | null = null;
-  private entries: ReadonlyArray<IResolvedFrontendEntry> = [];
-  private configFilePath: string | null = null;
-  private restartCount = 0;
-  private healthFailures = 0;
-  private healthCheckTimer: NodeJS.Timeout | null = null;
-  private restartTimer: NodeJS.Timeout | null = null;
-  private startPromise: Promise<void> | null = null;
-  private stopPromise: Promise<void> | null = null;
-  private willingShutdown = false;
-  /** Kill VOULU par le health check (recovery) : le prochain exit doit relancer. */
-  private expectRestartKill = false;
+  readonly #family: ViteFamily;
+  #held: HostHolder | null = null;
+  #startPromise: Promise<void> | null = null;
   /**
-   * Signal d'arrêt reçu par NOTRE process (Ctrl+C au groupe foreground, SIGTERM
-   * d'un orchestrateur) → tout exit de Vite est un ARRÊT, jamais un crash.
-   * Indispensable : Vite intercepte SIGINT et sort `code=130, signal=null` —
-   * indiscernable d'un crash côté exit event, et `willingShutdown` (posé par le
-   * stop du kernel) arrive APRÈS la mort de Vite (race sans IPC, vécu Ctrl+C :
-   * « vite restart #1 failed » en ERROR sur un arrêt normal).
+   * Époque : avancée par `stop()`. Un démarrage qui reprend après un `await`
+   * sous une époque passée s'interrompt — sinon un hôte naissait APRÈS
+   * l'arrêt, que plus personne ne tenait.
    */
-  private readonly markShutdown = (): void => {
-    this.willingShutdown = true;
-  };
-  /**
-   * Listeners attachés au child courant — drainés à chaque mort du child.
-   * Sans ça, le child gardé en référence (avant GC) accumule des handlers
-   * entre restarts → MaxListenersExceededWarning + leak.
-   */
-  private childListeners: Array<{
-    target: NodeJS.EventEmitter;
-    event: string;
-    // oxlint-disable-next-line typescript/no-explicit-any -- registre d'écouteurs hétérogènes — chaque handler a sa propre signature
-    fn: (...args: any[]) => void;
-  }> = [];
+  #epoch = 0;
 
   constructor(opts: ViteSupervisorOptions) {
-    this.opts = opts;
-    this.cfg = {
-      autoRestart: opts.autoRestart ?? DEFAULTS.autoRestart,
-      maxRestarts: opts.maxRestarts ?? DEFAULTS.maxRestarts,
-      restartBackoffBaseMs:
-        opts.restartBackoffBaseMs ?? DEFAULTS.restartBackoffBaseMs,
-      restartBackoffMaxMs:
-        opts.restartBackoffMaxMs ?? DEFAULTS.restartBackoffMaxMs,
-      healthCheckIntervalMs:
-        opts.healthCheckIntervalMs ?? DEFAULTS.healthCheckIntervalMs,
-      healthCheckFailureThreshold:
-        opts.healthCheckFailureThreshold ??
-        DEFAULTS.healthCheckFailureThreshold,
-      healthCheckTimeoutMs:
-        opts.healthCheckTimeoutMs ?? DEFAULTS.healthCheckTimeoutMs,
-      portRetryAttempts: opts.portRetryAttempts ?? DEFAULTS.portRetryAttempts,
-    };
+    this.#family = new ViteFamily(opts);
   }
 
-  async start(
+  /**
+   * Démarre l'hôte et attend Vite prêt. Idempotent : prêt → rien ; démarrage en
+   * cours → la même promesse.
+   *
+   * @throws FrontendSupervisorStartError si Vite n'a pas pu démarrer.
+   */
+  start(
     entries: ReadonlyArray<IResolvedFrontendEntry>,
     _viteConfigUnused: Record<string, unknown>,
   ): Promise<void> {
-    // Idempotence : si déjà ready, no-op. Si starting/restarting, partage la promesse.
-    if (this.state === "ready") return;
-    if (this.startPromise) return this.startPromise;
-    if (this.state === "stopping") {
-      throw new FrontendSupervisorStartError("cannot start while stopping");
+    const state = this.#family.status().state;
+    if (state === "ready") return Promise.resolve();
+    if (this.#startPromise) return this.#startPromise;
+    if (state === "stopping") {
+      return Promise.reject(
+        new FrontendSupervisorStartError("cannot start while stopping"),
+      );
     }
     if (entries.length === 0) {
-      throw new FrontendSupervisorStartError("no entries");
+      return Promise.reject(new FrontendSupervisorStartError("no entries"));
     }
-
-    this.entries = entries;
-    this.willingShutdown = false;
-    this.restartCount = 0;
-    this.lastError = null;
-    // `once` + retrait explicite au stop (règle listeners) : premier signal
-    // d'arrêt du process serveur → willingShutdown immédiat (cf markShutdown).
-    process.once("SIGINT", this.markShutdown);
-    process.once("SIGTERM", this.markShutdown);
-    this.startPromise = this.spawnWithPortRetry();
-    try {
-      await this.startPromise;
-      this.startHealthCheck();
-    } finally {
-      this.startPromise = null;
-    }
+    this.#startPromise = this.#start(entries).finally(() => {
+      this.#startPromise = null;
+    });
+    return this.#startPromise;
   }
 
+  /**
+   * Arrête l'hôte et attend la mort de son arbre. Idempotent. Un démarrage en
+   * vol est interrompu, et attendu : quand `stop()` rend la main, aucun hôte
+   * ne naîtra plus.
+   */
   async stop(): Promise<void> {
-    if (this.state === "idle" || this.state === "stopped") return;
-    if (this.stopPromise) return this.stopPromise;
-    this.stopPromise = this.doStop();
-    try {
-      await this.stopPromise;
-    } finally {
-      this.stopPromise = null;
+    this.#epoch++;
+    const pending = this.#startPromise;
+    const held = this.#held;
+    const state = held?.status().state;
+    if (held !== null && state !== "idle" && state !== "stopped") {
+      await held.stop();
     }
+    // Le démarrage reprend sous une époque passée et s'interrompt — ou a
+    // déjà échoué : son rejet appartient à l'appelant de `start()`.
+    if (pending !== null) await pending.catch(() => {});
   }
 
+  /** L'instantané courant — lecture de champ, sans allocation (ADR-0030 §D5). */
   status(): IViteSupervisorStatus {
-    return {
-      state: this.state,
-      host: this.opts.devHost,
-      origin: this.resolvedOrigin,
-      ...(this.opts.devBase ? { base: this.opts.devBase } : {}),
-      // 🔴 Le port RÉSOLU, jamais le port DEMANDÉ. Le repli `?? devPort` rendait
-      // un port qu'on ESPÈRE pour un port qui SERT — et le contrat annonce
-      // pourtant `number | null`. La conséquence est exactement le symptôme
-      // qu'on cherchait : une 2ᵉ application dont le port n'a pas été résolu
-      // annonçait `devPort`, c'est-à-dire le port de la PREMIÈRE, et le HTML
-      // envoyait le navigateur chercher ses modules chez la voisine.
-      // Un consommateur avait déjà dû s'en défendre (`FrontendService.cspPorts`
-      // testait l'état parce que le port mentait) : la règle se corrige ICI,
-      // à sa source, pas dans chaque lecteur.
-      port: this.resolvedPort,
-      pid: this.child?.pid ?? null,
-      lastError: this.lastError,
-      entries: this.entries,
-      https: !!this.opts.https,
-      restartCount: this.restartCount,
-      healthFailures: this.healthFailures,
-      portRetries: this.portRetries,
-    };
+    return this.#family.status();
   }
 
-  // ───────────────────────────────────────────────────────────────────────
-  // Internals
-  // ───────────────────────────────────────────────────────────────────────
-
-  /**
-   * Essaie de spawn Vite en variant le port si EADDRINUSE. Le port résolu
-   * est stocké dans `resolvedPort` (utilisé par status() + TemplateHelper).
-   */
-  private async spawnWithPortRetry(): Promise<void> {
-    const maxAttempts = this.cfg.portRetryAttempts;
-    let lastErr: Error | null = null;
-    // Remis à zéro à chaque démarrage : le compteur décrit CE démarrage, pas
-    // l'histoire du superviseur — un cumul ne dirait plus rien du dernier.
-    this.portRetries = 0;
-    // Même raison, et même conséquence si on l'oublie : un port résolu par un
-    // démarrage PRÉCÉDENT survivrait à un démarrage qui échoue, et `status()`
-    // annoncerait comme servi un port où plus rien n'écoute.
-    this.resolvedPort = null;
-    for (let i = 0; i <= maxAttempts; i++) {
-      const port = this.opts.devPort + i;
-      try {
-        await this.attemptSpawn(port);
-        return;
-      } catch (e) {
-        lastErr = e instanceof Error ? e : new Error(String(e));
-        if (this.isPortInUseError(lastErr) && i < maxAttempts) {
-          this.opts.logger.info(
-            `port ${port} déjà occupé — Vite relancé sur ${port + 1}`,
-          );
-          this.portRetries += 1;
-          continue;
-        }
-        throw lastErr;
-      }
-    }
-    throw lastErr ?? new FrontendSupervisorStartError("port retry exhausted");
-  }
-
-  /** Replis de port du DERNIER démarrage — cf `IViteSupervisorStatus.portRetries`. */
-  private portRetries = 0;
-
-  private isPortInUseError(e: Error): boolean {
-    return isPortInUseMessage(e.message);
-  }
-
-  /** Spawn Vite sur un port donné et attend le ready. */
-  private async attemptSpawn(port: number): Promise<void> {
-    this.state = "starting";
-    // Drain des écouteurs d'une tentative PRÉCÉDENTE (retry de port : le child
-    // mort de l'essai N-1 laissait ses handlers dans le registre — bornés mais
-    // inutiles, et un `removeListener` tardif sur le mauvais child est un piège).
-    this.cleanupChildListeners();
-
-    // 1. Génère + écrit `vite.config.generated.mjs` à côté de l'index.html.
-    // `start()` refuse une liste vide : ce repli ne sert qu'au type.
-    const [first] = this.entries;
-    if (first === undefined) {
-      throw new FrontendSupervisorStartError("no entries");
-    }
-    const moduleRoot = first.root;
-    this.configFilePath = path.resolve(moduleRoot, GENERATED_VITE_CONFIG_FILE);
-    const scheme = this.opts.https ? "https" : "http";
-    // Origine LOCALE de cette tentative (port réel, retries compris) : la
-    // cible du proxy inverse. Le navigateur ne la voit jamais (#528).
-    const viteOrigin = `${scheme}://${browserReachableHost(this.opts.devHost)}:${port}`;
-    this.resolvedOrigin = viteOrigin;
-    const content = this.generator.toMjs(this.entries, "development", {
-      devBase: this.opts.devBase,
-      https: this.opts.https,
-    });
-    writeFileSync(this.configFilePath, content, "utf8");
-    this.opts.logger.debug?.(`vite config written: ${this.configFilePath}`);
-
-    // 2. Spawn.
-    const args = [
-      "vite",
-      "--config",
-      this.configFilePath,
-      "--host",
-      this.opts.devHost,
-      "--port",
-      String(port),
-      ...(this.opts.nodeEnv ? ["--mode", this.opts.nodeEnv] : []),
-    ];
-
-    // Spawn DIRECT du vrai Vite (résilient : fallback `npx` si non résolu). `detached:
-    // false` = Vite reste dans le groupe de process du serveur → un Ctrl+C terminal
-    // (SIGINT au groupe foreground) l'atteint AUSSI directement (kill propre, 0 orphelin).
-    const viteBin = resolveViteBin();
-    // Windows : le fallback `npx` est un `.cmd` — le spawn sans shell le refuse
-    // (EINVAL, durcissement Node CVE-2024-27980) et `shell:true` réintroduit le
-    // quoting cmd.exe sur des chemins à espaces. Pas de demi-mesure : on ÉNONCE
-    // le verdict (axiome 6 — pas de masque) au lieu de laisser un EINVAL cryptique.
-    if (!viteBin && process.platform === "win32") {
-      this.state = "errored";
-      this.lastError = "vite binary unresolved (win32)";
-      throw new FrontendSupervisorStartError(
-        "binaire vite irrésoluble et fallback npx non portable sous Windows — " +
-          "installer vite en devDependency de l'application",
-      );
-    }
-    const spawnCmd = viteBin ? process.execPath : "npx";
-    const spawnArgs = viteBin ? [viteBin, ...args.slice(1)] : args;
-    // Titre lisible dans `ps` : sinon `node …/vite/bin/vite.js --config <long path>`,
-    // impossible de distinguer les familles d'un coup d'œil. `argv0` = argv[0] du child
-    // (cosmétique : node lance quand même `viteBin` via argv[1]).
-    const psLabel = `nodefony-vite[${this.entries
-      .map((e) => e.entryName)
-      .join("+")}]`;
-    this.opts.logger.debug?.(
-      viteBin
-        ? `vite spawn direct (node ${viteBin})`
-        : "vite spawn via npx (fallback — résolution directe indisponible)",
-    );
+  async #start(entries: ReadonlyArray<IResolvedFrontendEntry>): Promise<void> {
+    const epoch = this.#epoch;
+    const family = this.#family;
+    family.begin(entries);
+    let configFile: string;
     try {
-      this.child = spawn(spawnCmd, spawnArgs, {
-        cwd: this.opts.cwd,
-        argv0: psLabel,
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: false,
-        env: {
-          ...process.env,
-          ...(this.opts.nodeEnv ? { NODE_ENV: this.opts.nodeEnv } : {}),
-          ...this.opts.extraEnv,
-          FORCE_COLOR: "0",
-          NO_COLOR: "1",
-        },
-      });
-    } catch (e) {
-      this.state = "errored";
-      this.lastError = e instanceof Error ? e.message : String(e);
-      throw new FrontendSupervisorStartError("spawn failed", e);
+      configFile = await family.writeConfig(entries);
+    } catch (error) {
+      // Le contrat promet une `FrontendSupervisorStartError` : un ENOENT brut
+      // ne disait pas QUI avait échoué.
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new FrontendSupervisorStartError(reason, error);
     }
-
-    // 3. Attendre "Local:" dans stdout — marker "ready" de Vite.
-    await this.waitReady(port);
-    this.opts.logger.debug?.(`vite ready on port ${port}`);
-  }
-
-  private async waitReady(_expectedPort: number): Promise<void> {
-    await new Promise<void>((resolve, reject) => {
-      const child = this.child;
-      if (!child) {
-        reject(new FrontendSupervisorStartError("no child"));
-        return;
-      }
-      let resolved = false;
-      const timeout = setTimeout(() => {
-        if (resolved) return;
-        resolved = true;
-        this.state = "errored";
-        flushStderr();
-        // Le child est peut-être VIVANT (boot interminable, pas mort) : sans ce
-        // kill il devenait un ORPHELIN hors machine à états — aucun handler
-        // runtime attaché, aucun restart, un Vite fantôme qui squatte le port
-        // jusqu'à l'arrêt du kernel. On emporte l'arbre entier (esbuild inclus).
-        if (child.exitCode === null && child.signalCode === null) {
-          this.signalTree(child, "SIGKILL");
-        }
-        // Ce que vite a DIT prime sur la façon dont on a cessé de l'attendre :
-        // un port occupé annoncé puis un boot pendu doit rester rattrapable par
-        // le retry de port (cf startupTimeoutMessage).
-        const msg = startupTimeoutMessage(this.opts.startupTimeoutMs, buffer);
-        this.lastError = msg;
-        reject(new FrontendSupervisorStartError(msg));
-      }, this.opts.startupTimeoutMs);
-
-      const localRe = /Local:\s+https?:\/\/([^:\s]+):(\d+)/;
-      const ansiRe = /\x1b\[[0-9;]*m/g;
-      const viteOwnPrefixRe = /^\d{1,2}:\d{2}:\d{2}\s+\[vite\]\s*|^\[vite\]\s*/;
-      let buffer = "";
-      // La sortie d'ERREUR du démarrage est RETENUE jusqu'au verdict. Relayée au
-      // fil de l'eau, un conflit de port que `spawnWithPortRetry` rattrape sur le
-      // port suivant laissait 7 lignes ERROR (la trace de Vite) dans un démarrage
-      // RÉUSSI — et le résumé de boot annonçait « 7 ERROR ». Vécu sur une 2ᵉ
-      // application lancée à côté d'une première qui tenait 5173.
-      let heldStderr = "";
-      const flushStderr = (): void => {
-        if (heldStderr !== "") pipeClean(heldStderr, "error");
-        heldStderr = "";
-      };
-
-      const pipeClean = (raw: string, level: "info" | "error") => {
-        if (!this.opts.pipeLogs) return;
-        for (const line of raw.split(/\r?\n/)) {
-          const stripped = line
-            .replace(ansiRe, "")
-            .replace(viteOwnPrefixRe, "")
-            .trim();
-          if (!stripped) continue;
-          const logger = this.opts.logger;
-          if (level === "info") logger.info(`[vite] ${stripped}`);
-          else if (!isViteNonFatalWarning(stripped))
-            logger.error(`[vite] ${stripped}`);
-          else if (logger.warn) logger.warn(`[vite] ${stripped}`);
-          else logger.info(`[vite] ${stripped}`);
-        }
-      };
-
-      const onStdout = (chunk: Buffer | string) => {
-        const txt = chunk.toString();
-        pipeClean(txt, "info");
-        if (resolved) return;
-        buffer += txt.replace(ansiRe, "");
-        const [, , port] = buffer.match(localRe) ?? [];
-        if (port !== undefined) {
-          this.resolvedPort = parseInt(port, 10);
-          this.state = "ready";
-          this.healthFailures = 0;
-          resolved = true;
-          buffer = "";
-          // Démarré : ce que Vite a écrit en erreur avant n'était pas fatal,
-          // mais il l'a écrit — relayé, jamais tu.
-          flushStderr();
-          clearTimeout(timeout);
-          resolve();
-        }
-      };
-
-      const onStderr = (chunk: Buffer | string) => {
-        const txt = chunk.toString();
-        if (resolved) {
-          pipeClean(txt, "error");
-          return;
-        }
-        heldStderr += txt;
-        // 🐛 Le conflit de port arrive par ICI, pas par stdout. `onExit` décide de
-        // retenter en cherchant « Port X is in use » dans `buffer` — que seul
-        // `onStdout` alimentait. Résultat : `buffer` vide, aucun retry, et la
-        // famille Vite de la 2ᵉ app mourait alors que `spawnWithPortRetry` était
-        // là, prêt à décaler le port. On alimente donc le MÊME buffer.
-        buffer += txt.replace(ansiRe, "");
-        // Vite en `strictPort: false` se décale tout seul et annonce la nouvelle
-        // URL : si elle sort ici, on la prend (même lecture que sur stdout).
-        const [, , port] = buffer.match(localRe) ?? [];
-        if (port !== undefined) {
-          this.resolvedPort = parseInt(port, 10);
-          this.state = "ready";
-          this.healthFailures = 0;
-          resolved = true;
-          buffer = "";
-          flushStderr();
-          clearTimeout(timeout);
-          resolve();
-        }
-      };
-
-      const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
-        if (!resolved) {
-          resolved = true;
-          clearTimeout(timeout);
-          // Arrêt DEMANDÉ pendant le boot (stop() ou signal process) : ce n'est
-          // pas une panne — l'état et le message le disent, sinon le shutdown
-          // normal se journalise en « family failed to start » (bruit trompeur).
-          if (this.willingShutdown) {
-            heldStderr = "";
-            this.state = "stopped";
-            this.lastError = null;
-            reject(
-              new FrontendSupervisorStartError(
-                "arrêt demandé pendant le boot de vite (shutdown, pas une panne)",
-              ),
-            );
-            return;
-          }
-          // Conflit de port → `spawnWithPortRetry` réessaiera sur port+1. MÊME
-          // détecteur que `isPortInUseError` (une 2ᵉ regex divergeait : celle-ci
-          // cherchait « Port X is in use » quand Vite écrit « Port X is ALREADY
-          // in use » → elle ne matchait jamais, et la famille Vite mourait).
-          const msg = exitBeforeReadyMessage(code, signal, buffer);
-          this.state = "errored";
-          this.lastError = msg;
-          if (isPortInUseMessage(buffer)) {
-            // Rattrapable : `spawnWithPortRetry` relance sur le port suivant et
-            // l'annonce. La trace de Vite n'est PAS relayée — si les replis
-            // s'épuisent, l'erreur finale en porte la fin (`exitBeforeReadyMessage`).
-            heldStderr = "";
-            reject(new FrontendSupervisorStartError("EADDRINUSE: " + msg));
-          } else {
-            flushStderr();
-            reject(new FrontendSupervisorStartError(msg));
-          }
-        }
-      };
-
-      const onError = (err: Error) => {
-        if (resolved) return;
-        resolved = true;
-        flushStderr();
-        clearTimeout(timeout);
-        this.state = "errored";
-        this.lastError = err.message;
-        reject(new FrontendSupervisorStartError(err.message, err));
-      };
-
-      // `stdio: pipe` : les deux flux existent toujours — la garde ne sert
-      // qu'au typage (`Readable | null` dans `ChildProcess`).
-      if (child.stdout) this.trackListener(child.stdout, "data", onStdout);
-      if (child.stderr) this.trackListener(child.stderr, "data", onStderr);
-      this.trackListener(child, "exit", onExit);
-      this.trackListener(child, "error", onError);
+    // Un teneur par démarrage : sa spécification (config, titre) en dépend. Le
+    // précédent (démarrage raté, relances épuisées) n'a plus d'hôte vivant —
+    // l'arrêter ne coûte rien et ne laisse rien derrière.
+    await this.#held?.stop();
+    // Un `stop()` est passé pendant ces attentes : aucun hôte ne doit naître.
+    if (epoch !== this.#epoch) {
+      throw new FrontendSupervisorStartError("stopped before ready");
+    }
+    const held = new HostHolder({
+      key: family.key,
+      module: VITE_HOST_MODULE,
+      spec: family.hostSpec(entries, configFile),
+      cwd: family.options.cwd,
+      env: { ...process.env, ...family.addedEnv() },
+      ...family.tuning(),
+      // Sans lecteur, le teneur FERME les sorties de l'hôte (un tube jamais lu
+      // se remplit et bloque l'écrivain) : rien n'est lu pour rien.
+      ...(family.options.pipeLogs ? { onOutput: family.relay } : {}),
+      onStatus: (status) => family.onStatus(status),
     });
-    // Une fois ready : remplace `onExit` initial par le handler runtime
-    // (auto-restart sur crash). Le précédent onExit ne sert qu'au boot.
-    this.attachRuntimeExitHandler();
-  }
-
-  /**
-   * Après que Vite est ready, on attache un handler qui distingue :
-   *  - shutdown volontaire (willingShutdown=true → state=stopped, no restart)
-   *  - crash inattendu (state=ready au moment du exit → scheduleRestart)
-   */
-  private attachRuntimeExitHandler(): void {
-    if (!this.child) return;
-    const onRuntimeExit = (
-      code: number | null,
-      signal: NodeJS.Signals | null,
-    ) => {
-      this.cleanupChildListeners();
-      this.opts.logger.info(`[vite] exited (code=${code}, signal=${signal})`);
-      if (this.willingShutdown) {
-        this.state = "stopped";
-        this.child = null;
-        return;
-      }
-      // Kill VOULU (health check → recovery) : relancer, c'est le but.
-      if (this.expectRestartKill) {
-        this.expectRestartKill = false;
-      } else if (
-        signal === "SIGINT" ||
-        signal === "SIGTERM" ||
-        signal === "SIGHUP"
-      ) {
-        // Mort par SIGNAL D'ARRÊT non voulu par nous : Ctrl+C au groupe
-        // foreground, group-kill du DevSupervisor, kill externe. JAMAIS un
-        // crash : relancer pendant un shutdown spawnait un Vite qui mourait
-        // aussitôt → « vite restart #1 failed » en ERROR sur un arrêt NORMAL
-        // (vécu Ctrl+C). Le cas Vite-intercepte-SIGINT (`code=130,
-        // signal=null`) est couvert par les hooks signaux (cf markShutdown).
-        this.state = "stopped";
-        this.child = null;
-        this.opts.logger.info(
-          `[vite] arrêté (${signal} — signal d'arrêt) : pas de relance`,
-        );
-        return;
-      }
-      this.state = "crashed";
-      this.lastError = `crashed (code=${code}, signal=${signal})`;
-      this.child = null;
-      if (this.cfg.autoRestart) {
-        this.scheduleRestart();
-      } else {
-        this.state = "errored";
-      }
-    };
-    this.trackListener(this.child, "exit", onRuntimeExit);
-  }
-
-  private scheduleRestart(): void {
-    if (this.restartCount >= this.cfg.maxRestarts) {
-      this.state = "errored";
-      this.lastError = `max restarts (${this.cfg.maxRestarts}) reached`;
-      this.opts.logger.error(this.lastError);
-      this.stopHealthCheck();
-      return;
+    this.#held = held;
+    try {
+      await held.start();
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new FrontendSupervisorStartError(reason, error);
     }
-    const delay = Math.min(
-      this.cfg.restartBackoffBaseMs * 2 ** this.restartCount,
-      this.cfg.restartBackoffMaxMs,
-    );
-    this.restartCount++;
-    this.state = "restarting";
-    this.opts.logger.info(
-      `vite restart #${this.restartCount}/${this.cfg.maxRestarts} in ${delay}ms`,
-    );
-    this.stopHealthCheck();
-    this.restartTimer = setTimeout(() => {
-      this.restartTimer = null;
-      if (this.willingShutdown) return;
-      this.spawnWithPortRetry()
-        .then(() => {
-          this.opts.logger.info(`vite restart #${this.restartCount} succeeded`);
-          this.startHealthCheck();
-        })
-        .catch((e: unknown) => {
-          this.opts.logger.error(
-            `vite restart #${this.restartCount} failed: ${e instanceof Error ? e.message : String(e)}`,
-          );
-          // Tentative suivante (récursif, jusqu'à maxRestarts).
-          this.state = "crashed";
-          this.scheduleRestart();
-        });
-    }, delay);
-  }
-
-  // ───────────────────────────────────────────────────────────────────────
-  // Health check
-  // ───────────────────────────────────────────────────────────────────────
-
-  private startHealthCheck(): void {
-    if (this.cfg.healthCheckIntervalMs <= 0) return;
-    this.stopHealthCheck();
-    this.healthFailures = 0;
-    this.healthCheckTimer = setInterval(() => {
-      this.pingVite()
-        .then(() => {
-          if (this.healthFailures > 0) {
-            this.opts.logger.info(
-              `vite healthcheck recovered after ${this.healthFailures} failure(s)`,
-            );
-          }
-          this.healthFailures = 0;
-          // Stabilité PROUVÉE (un ping réussi = un intervalle complet vécu) →
-          // budget de restarts rendu. Sans ça, 5 crashs ÉPARS sur une longue
-          // session de dev épuisaient `maxRestarts` et condamnaient le frontend
-          // en `errored` définitif — le plafond ne doit compter que les crashs
-          // en RAFALE (boucle), pas la vie entière du superviseur.
-          if (this.restartCount > 0 && this.state === "ready") {
-            this.opts.logger.info(
-              `vite stable après restart — budget de restarts réarmé (était ${this.restartCount}/${this.cfg.maxRestarts})`,
-            );
-            this.restartCount = 0;
-          }
-        })
-        .catch((e: unknown) => {
-          this.healthFailures++;
-          this.opts.logger.error(
-            `vite healthcheck failed (${this.healthFailures}/${this.cfg.healthCheckFailureThreshold}): ${e instanceof Error ? e.message : String(e)}`,
-          );
-          if (
-            this.healthFailures >= this.cfg.healthCheckFailureThreshold &&
-            this.state === "ready"
-          ) {
-            this.opts.logger.error(
-              `vite unhealthy — killing child to trigger restart`,
-            );
-            // Kill de RECOVERY : marquer l'intention AVANT le SIGTERM, sinon
-            // l'exit handler le lirait comme un signal d'arrêt (pas de relance).
-            this.expectRestartKill = true;
-            this.killChild();
-            // L'exit handler enchaîne sur scheduleRestart.
-          }
-        });
-    }, this.cfg.healthCheckIntervalMs);
-  }
-
-  private stopHealthCheck(): void {
-    if (this.healthCheckTimer) {
-      clearInterval(this.healthCheckTimer);
-      this.healthCheckTimer = null;
-    }
-  }
-
-  /**
-   * Ping HTTP(S) GET sur la racine de Vite. Considère réussi si réception de
-   * headers (même 4xx — Vite ne renvoie pas forcément 200 à `/`).
-   */
-  private pingVite(): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      // Sans port RÉSOLU, il n'y a rien à sonder — et sonder `devPort` serait
-      // pire que ne rien faire : sur un poste qui fait tourner deux
-      // applications, c'est le serveur de la PREMIÈRE qui répondrait, et ce
-      // superviseur se déclarerait en bonne santé grâce au voisin.
-      const port = this.resolvedPort;
-      if (port === null) {
-        reject(new Error("aucun port résolu — rien à sonder"));
-        return;
-      }
-      const scheme = this.opts.https ? https : http;
-      const req = scheme.request(
-        {
-          // `0.0.0.0`/`::` sont des adresses d'ÉCOUTE : s'y CONNECTER échoue
-          // sous Windows (axiome 4 — la capacité se constate). Le superviseur
-          // ping depuis la même machine → loopback toujours correct.
-          hostname: browserReachableHost(this.opts.devHost),
-          port,
-          path: "/",
-          method: "GET",
-          // Même raison qu'au lanceur détaché : sonde de disponibilité vers un
-          // Vite de DÉVELOPPEMENT lancé par ce superviseur, sur l'hôte local,
-          // avec un certificat auto-signé. On demande « écoutes-tu ? », pas
-          // « qui es-tu ? » — et la réponse lue est un code de statut.
-          rejectUnauthorized: false,
-          timeout: this.cfg.healthCheckTimeoutMs,
-        },
-        (res) => {
-          res.resume();
-          resolve();
-        },
-      );
-      req.on("error", (e) => reject(e));
-      req.on("timeout", () => {
-        req.destroy();
-        reject(new Error("healthcheck timeout"));
-      });
-      req.end();
-    });
-  }
-
-  // ───────────────────────────────────────────────────────────────────────
-  // Lifecycle helpers
-  // ───────────────────────────────────────────────────────────────────────
-
-  /** Stop volontaire — n'enclenche PAS l'auto-restart. */
-  private async doStop(): Promise<void> {
-    this.willingShutdown = true;
-    // Les hooks signaux de start() ne servent plus (retrait explicite — pas de
-    // listener process accumulé entre les cycles start/stop).
-    process.removeListener("SIGINT", this.markShutdown);
-    process.removeListener("SIGTERM", this.markShutdown);
-    this.state = "stopping";
-    if (this.restartTimer) {
-      clearTimeout(this.restartTimer);
-      this.restartTimer = null;
-    }
-    this.stopHealthCheck();
-
-    const child = this.child;
-    if (!child) {
-      this.state = "stopped";
-      return;
-    }
-    // Process DÉJÀ sorti — un démarrage en échec laisse `child` sur lui : son
-    // `exit` est émis, aucun autre ne viendra. Le constater sur le process, pas
-    // sur le verdict du signal : sous Windows, `taskkill` rend 128 sur un PID
-    // mort, lu comme « arbre traité », et l'arrêt attendait sans fin. Et ne
-    // rien signaler : un PID mort peut être recyclé par un process étranger.
-    if (child.exitCode !== null || child.signalCode !== null) {
-      this.cleanupChildListeners();
-      this.child = null;
-      this.state = "stopped";
-      return;
-    }
-    return new Promise<void>((resolve) => {
-      // `sigKillTimer` est déclaré AVANT `done` : le `catch` du kill appelle
-      // `done()` avant l'affectation, et un `const` posé plus bas serait alors
-      // lu dans sa zone morte (ReferenceError, pas un `undefined` filtrable).
-      let sigKillTimer: NodeJS.Timeout | null = null;
-      let settled = false;
-      const done = () => {
-        // `exit` peut survenir après un `done()` déclenché par un kill en échec.
-        if (settled) return;
-        settled = true;
-        child.removeListener("exit", done);
-        this.cleanupChildListeners();
-        this.child = null;
-        this.state = "stopped";
-        if (sigKillTimer) clearTimeout(sigKillTimer);
-        resolve();
-      };
-      child.once("exit", done);
-      // Rien à tuer → aucun `exit` ne viendra : conclure ICI, sinon l'arrêt du kernel
-      // attend un événement qui n'existera jamais.
-      if (this.signalTree(child, "SIGINT") === "gone") {
-        done();
-        return;
-      }
-      sigKillTimer = setTimeout(() => {
-        const c = this.child;
-        // `killed` ne dit que « un signal a été envoyé PAR cet objet » — il resterait
-        // faux ici puisqu'on passe par l'arbre. La question est « ce process vit-il
-        // encore ? », et ce sont les codes de sortie qui y répondent.
-        if (c?.exitCode === null && c.signalCode === null) {
-          this.signalTree(c, "SIGKILL");
-        }
-      }, 3_000);
-    });
-  }
-
-  /** Force kill du child (pour les health checks failing). Le exit handler gère le restart. */
-  private killChild(): void {
-    if (!this.child) return;
-    this.signalTree(this.child, "SIGTERM");
-  }
-
-  /**
-   * Envoie un signal à l'ARBRE de Vite — lui et ses propres enfants, à commencer par
-   * le service esbuild que Vite lance pour la pré-optimisation des dépendances.
-   *
-   * `child.kill()` n'atteint que Vite. Sous POSIX cela suffit en pratique : Vite n'est
-   * pas leader de son groupe (`detached: false`, voulu — un Ctrl+C terminal doit
-   * l'atteindre), donc le comportement ici est inchangé, et l'arbre est de toute façon
-   * emporté par le groupe du superviseur de développement. Sous Windows il n'y a pas de
-   * groupe du tout : les descendants survivaient à chaque arrêt, et `stopDev()` laissait
-   * un service esbuild derrière lui.
-   *
-   * Une seule implémentation dans le dépôt ({@link signalProcessGroup}, cœur) : groupe
-   * POSIX ou `taskkill /T` selon la plateforme. La recopier ici aurait fait réapparaître
-   * l'angle mort qu'on venait de fermer dans le superviseur de développement.
-   *
-   * @returns ce qui a pu être atteint. `gone` = plus rien à tuer, donc plus aucun `exit`
-   *   à attendre : c'est un VERDICT, là où l'arrêt reposait jusqu'ici sur une exception
-   *   remontée par `child.kill()`. Une exception dit qu'un appel a échoué, pas ce qu'il
-   *   est advenu du process — et elle disparaît dès qu'un intermédiaire la rattrape.
-   */
-  private signalTree(
-    child: ChildProcess,
-    signal: NodeJS.Signals,
-  ): TreeSignalOutcome {
-    if (typeof child.pid !== "number") {
-      try {
-        child.kill(signal); // pas de pid : rien d'autre à tenter
-        return "single";
-      } catch {
-        return "gone"; // process déjà disparu (ESRCH)
-      }
-    }
-    return signalProcessGroup(child.pid, signal);
-  }
-
-  // ───────────────────────────────────────────────────────────────────────
-  // Listener tracking — évite memory leak entre restarts
-  // ───────────────────────────────────────────────────────────────────────
-
-  private trackListener(
-    target: NodeJS.EventEmitter,
-    event: string,
-    // oxlint-disable-next-line typescript/no-explicit-any -- registre d'écouteurs hétérogènes — chaque handler a sa propre signature
-    fn: (...args: any[]) => void,
-  ): void {
-    target.on(event, fn);
-    this.childListeners.push({ target, event, fn });
-  }
-
-  private cleanupChildListeners(): void {
-    for (const { target, event, fn } of this.childListeners) {
-      try {
-        target.removeListener(event, fn);
-      } catch {
-        /* target peut-être déjà GC */
-      }
-    }
-    this.childListeners = [];
   }
 }
 

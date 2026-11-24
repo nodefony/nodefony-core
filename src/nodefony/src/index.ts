@@ -1061,6 +1061,10 @@ export {
   // hors du cœur (Vite et son service esbuild) : la recopier ailleurs ferait
   // réapparaître, dans le paquet suivant, l'angle mort qu'on vient de fermer ici.
   signalProcessGroup,
+  // Préfixe du titre des hôtes Vite : `nodefony status`/`stop` le reconnaissent
+  // en tête de ligne `ps`. Exposé pour que `@nodefony/frontend` compose le titre
+  // sur LA constante, jamais sur une copie du littéral.
+  DEV_VITE_PREFIX,
   // Sonde « quelqu'un écoute-t-il ici ? » — une connexion en boucle locale, donc
   // AUCUN outil système. Exposée pour la même raison que le kill d'arbre : hors du
   // cœur, la question se repose (un banc qui attend un serveur, une app qui vérifie
@@ -1084,6 +1088,42 @@ export type {
   SupervisorLock,
   TreeSignalOutcome,
 } from "./service/dev/devProcess";
+// Services de longue durée tenus par un process (ADR-0030) : le TENEUR (lancer,
+// prouver la vie, relancer, tuer l'arbre) et le canal qu'un module hôte sert.
+// Exposés parce que les hôtes vivent hors du cœur (Vite dans @nodefony/frontend,
+// demain un backend d'inférence) — chacun RÉUTILISE ce cycle, ne le recopie pas.
+export { HostHolder } from "./service/dev/HostHolder";
+export type {
+  HeldHostState,
+  IHostHolderOptions,
+  IHeldHostStatus,
+  IHostTuning,
+} from "./service/dev/HostHolder";
+// Le plan qu'un serveur déclare à son superviseur pour lui faire PORTER ses
+// services (ADR-0030 §D3-§D5) — envoyé par `kernel.supervisorLink`.
+export { DEV_CHANNEL, heldPlanProblem } from "./service/dev/devChannel";
+export type {
+  IDevHeldOwners,
+  IDevHeldPlan,
+  IDevHeldPlanAck,
+  IDevHeldState,
+  IHeldServiceDeclaration,
+} from "./service/dev/devChannel";
+// Le client qu'un module obtient par `kernel.supervisorLink.heldServices(owner)`.
+export { HELD_PLAN_ACK_TIMEOUT_MS } from "./kernel/heldServicesClient";
+export type { IHeldServicesClient } from "./kernel/heldServicesClient";
+export {
+  HELD_CHANNEL,
+  isHeldHostMessage,
+  serveHeldService,
+  serveHeldServiceIfMain,
+} from "./service/dev/heldChannel";
+export type {
+  HeldJson,
+  HeldJsonObject,
+  IHeldServiceImpl,
+  ProcessOutputStream,
+} from "./service/dev/heldChannel";
 
 // ─── Scaffold (création app/module/…) : spec déclarative + moteur PUR ─────────
 // Trois fronts, UN moteur : CLI rapide (argv), CLI interactif (readline) et le

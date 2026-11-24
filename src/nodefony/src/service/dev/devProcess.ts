@@ -1,4 +1,4 @@
-import { execFile, spawnSync } from "node:child_process";
+import { execFile, spawnSync, type ChildProcess } from "node:child_process";
 import { readlink } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import {
@@ -29,6 +29,14 @@ export const DEV_SUPERVISOR_TITLE = "nodefony-dev-supervisor";
 export const DEV_SERVER_TITLE = "nodefony-dev-server";
 /** Préfixe de titre des process Vite (`ViteProcessSupervisor`, via `argv0`). */
 export const DEV_VITE_PREFIX = "nodefony-vite";
+
+/**
+ * Préfixe de titre d'un hôte de service porté (`nodefony-held[<clé>]`). Même
+ * valeur que `heldChannel.ts#HELD_HOST_TITLE_PREFIX`, qui le POSE — recopiée,
+ * pas importée : ce fichier est chargé tel quel par Node (`scripts/repo/turbo.mjs`),
+ * où un import relatif sans extension ne se résout pas. Un test compare les deux.
+ */
+export const DEV_HELD_PREFIX = "nodefony-held";
 /**
  * Titre du serveur prod **mono-process** (`production` ou `cluster` avec `workers:1`,
  * posé par `Prod`/`ClusterCommand.generate`). Espace (≠ tiret de `nodefony-dev-server`)
@@ -51,10 +59,11 @@ export type RuntimeMode = "dev" | "prod" | "cluster";
 /**
  * Rôle d'un process dans la topologie runtime Nodefony (dev OU prod OU cluster).
  * `supervisor`/`master` = superviseurs (0 HTTP) ; `server`/`worker` = servent le HTTP ;
- * `vite` = enfant dev (bundler).
+ * `vite` = enfant dev (bundler) ; `held` = hôte d'un service porté par le
+ * superviseur (ADR-0030), quel que soit le service.
  */
 export type DevProcessRole =
-  "supervisor" | "server" | "vite" | "master" | "worker";
+  "supervisor" | "server" | "vite" | "held" | "master" | "worker";
 
 /** Rôles « principaux » (tiennent les ports ou supervisent) — Vite exclu (enfant jetable). */
 const PRIMARY_ROLES: ReadonlySet<DevProcessRole> = new Set<DevProcessRole>([
@@ -1040,6 +1049,25 @@ function defaultRunTreeKill(cmd: { file: string; args: string[] }): boolean {
 }
 
 /**
+ * Un process qu'on lance doit-il devenir LEADER de son groupe ?
+ *
+ * POSIX : oui — `kill(-pid)` emporte alors l'arbre entier, et un redémarrage
+ * du lanceur n'atteint plus ce groupe. Windows : non — il n'y a pas de
+ * groupes, `detached` y ouvre une console à part et coupe la FILIATION, seul
+ * chemin que `taskkill /T` suit pour atteindre les descendants.
+ * SEULE implémentation de la règle (lancement de l'enfant de développement,
+ * des hôtes de services, des serveurs de test).
+ *
+ * @param platform - la plateforme ; `process.platform` par défaut.
+ * @returns la valeur à donner à l'option `detached` de `spawn`/`fork`.
+ */
+export function spawnsAsGroupLeader(
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  return platform !== "win32";
+}
+
+/**
  * Envoie `signal` à l'ARBRE de `pid` — enfant serveur ET ses Vite — et dit ce qu'il a
  * pu atteindre. No-op silencieux si le process n'existe plus.
  *
@@ -1135,14 +1163,123 @@ export function processSubtree(
 
 /**
  * Racines d'un ensemble de process : ceux dont le parent n'est PAS lui-même dans
- * l'ensemble. Tuer le GROUPE d'une racine suffit à emporter ses descendants présents
- * (le superviseur emporte enfant serveur + Vite ; un orphelin est sa propre racine).
+ * l'ensemble, plus les hôtes de service, qui dirigent leur propre groupe. Tuer le
+ * GROUPE d'une racine emporte ses descendants restés dans ce groupe (le
+ * superviseur emporte l'enfant serveur ; un orphelin est sa propre racine).
  */
 export function rootProcesses(
   procs: readonly DevProcessInfo[],
 ): DevProcessInfo[] {
   const pids = new Set(procs.map((p) => p.pid));
+  return procs.filter((p) => !pids.has(p.ppid) || leadsOwnGroup(p.role));
+}
+
+/**
+ * Racines à qui l'arrêt GRACIEUX s'adresse en premier : les racines, moins les
+ * hôtes de service dont le TENEUR est dans l'ensemble. Un hôte appartient à
+ * son teneur (superviseur, ou serveur hors superviseur) : c'est lui qui
+ * l'arrête par son canal. Signalé en même temps, l'hôte mourait avant que le
+ * teneur ait appris l'arrêt — faux « plantage », relance armée, et parfois un
+ * hôte neuf forké pendant l'arrêt, inconnu du relevé. Un hôte ORPHELIN (teneur
+ * absent de l'ensemble) reste une racine : personne d'autre ne l'arrêtera.
+ * Les hôtes tenus qui survivent sont emportés par le balayage forcé.
+ *
+ * @param procs - les process à arrêter.
+ * @returns les racines à signaler d'abord.
+ */
+export function gracefulRoots(
+  procs: readonly DevProcessInfo[],
+): DevProcessInfo[] {
+  const pids = new Set(procs.map((p) => p.pid));
   return procs.filter((p) => !pids.has(p.ppid));
+}
+
+/**
+ * Un hôte de service (Vite, service porté) est lancé DÉTACHÉ par son teneur
+ * (`HostHolder`) : il dirige son propre groupe, que le groupe de son parent
+ * n'emporte pas. Il est donc une racine à lui seul — sinon un hôte figé, qui
+ * ne sort plus à la perte de son canal, survivait à `nodefony stop`.
+ */
+function leadsOwnGroup(role: DevProcessRole): boolean {
+  return role === "vite" || role === "held";
+}
+
+/** Ce qu'a atteint {@link signalExitedGroup}. */
+export type ExitedGroupOutcome = "group" | "gone" | "unsupported";
+
+/**
+ * Signale le GROUPE d'un process DÉJÀ SORTI — les descendants qu'il a laissés
+ * derrière lui (POSIX). Jamais de repli sur le PID lui-même : rendu au
+ * système, il peut désigner un étranger. Le numéro de groupe, lui, ne peut pas
+ * être réattribué tant qu'un membre du groupe vit (POSIX `setpgid`) : le
+ * signaler ne touche que l'arbre du défunt.
+ *
+ * Sous Windows, il n'y a pas de groupe, et `taskkill /T` ne part que d'un PID
+ * VIVANT : l'arbre d'un process sorti y est inatteignable. Le verdict
+ * `unsupported` l'énonce — au service hôte de tuer ses propres enfants.
+ *
+ * @param pid - le PID du défunt, leader de son groupe (`detached`).
+ * @param signal - le signal à envoyer au groupe.
+ * @param platform - la plateforme ; `process.platform` par défaut.
+ * @param killGroup - le geste, injectable pour l'éprouver.
+ * @returns `group` si le groupe a été atteint, `gone` s'il était vide.
+ */
+export function signalExitedGroup(
+  pid: number,
+  signal: NodeJS.Signals,
+  platform: NodeJS.Platform = process.platform,
+  killGroup: (pid: number, signal: NodeJS.Signals) => void = (p, s) => {
+    process.kill(-p, s);
+  },
+): ExitedGroupOutcome {
+  if (!spawnsAsGroupLeader(platform)) return "unsupported";
+  try {
+    killGroup(pid, signal);
+    return "group";
+  } catch {
+    return "gone";
+  }
+}
+
+/**
+ * Après la sortie d'un process, délai max d'attente de la fin de ses flux
+ * (`close`) avant de rendre le verdict : un petit-enfant qui garderait le tube
+ * ouvert ne doit pas le taire.
+ */
+const CLOSE_GRACE_MS = 1000;
+
+/**
+ * Appelle `onEnded` UNE fois, quand le process est fini — process ET flux.
+ *
+ * Armé sur `close`, pas sur `exit` : sous tube, les dernières lignes d'un
+ * process (la pile d'un crash au démarrage, la cause d'un hôte mort avant
+ * `ready`) arrivent APRÈS `exit`, et le verdict les précédait (ADR-0013 §9).
+ * Un petit-enfant qui garderait le tube ouvert ne doit pas taire le verdict :
+ * passé `graceMs` après `exit`, il part quand même. Seule implémentation —
+ * le superviseur l'emploie pour le serveur, le teneur pour ses hôtes.
+ *
+ * @param child - le process.
+ * @param onEnded - le verdict, avec le code et le signal de sortie.
+ * @param graceMs - attente max des flux après `exit`.
+ */
+export function onProcessEnded(
+  child: ChildProcess,
+  onEnded: (code: number | null, signal: NodeJS.Signals | null) => void,
+  graceMs = CLOSE_GRACE_MS,
+): void {
+  let settled = false;
+  let grace: ReturnType<typeof setTimeout> | null = null;
+  const settle = (code: number | null, signal: NodeJS.Signals | null) => {
+    if (settled) return;
+    settled = true;
+    if (grace) clearTimeout(grace);
+    onEnded(code, signal);
+  };
+  child.once("exit", (code, signal) => {
+    grace = setTimeout(() => settle(code, signal), graceMs);
+    grace.unref();
+  });
+  child.once("close", (code, signal) => settle(code, signal));
 }
 
 /** Attend que tous les `pids` soient morts (poll), renvoie ceux encore vivants à l'échéance. */
@@ -1225,7 +1362,9 @@ export interface TerminateOptions {
 
 /**
  * Arrête un ensemble de process dev par GROUPE — SIGTERM (arrêt gracieux) sur les
- * racines puis SIGKILL des récalcitrants (groupes racines + PID restants un à un).
+ * racines (hôtes tenus exceptés : leur teneur les arrête, cf {@link gracefulRoots})
+ * puis SIGKILL des récalcitrants (groupes racines, hôtes compris, + PID restants
+ * un à un).
  * Renvoie les PID encore vivants à la fin (vide = arrêt complet).
  *
  * OBSERVATION EXTERNE pure (signaux POSIX, aucun IPC). Logique PARTAGÉE entre
@@ -1241,7 +1380,7 @@ export async function terminateDevProcesses(
   const termWaitMs = opts.termWaitMs ?? 4000;
   const killWaitMs = opts.killWaitMs ?? 1500;
   const roots = rootProcesses(procs);
-  for (const r of roots) signalProcessGroup(r.pid, "SIGTERM");
+  for (const r of gracefulRoots(procs)) signalProcessGroup(r.pid, "SIGTERM");
   let alive = await waitAllDead(
     procs.map((p) => p.pid),
     termWaitMs,
@@ -1437,7 +1576,8 @@ export function splitByProject(
     const belongs =
       resolved !== null &&
       (resolved === root ||
-        (p.role === "vite" && resolved.startsWith(root + path.sep)));
+        ((p.role === "vite" || p.role === "held") &&
+          resolved.startsWith(root + path.sep)));
     if (belongs) {
       mine.push(p);
     } else {
@@ -1843,6 +1983,11 @@ function classify(command: string): {
     return { mode: "dev", role: "supervisor", label: "supervisor" };
   if (cmd.startsWith(DEV_SERVER_TITLE))
     return { mode: "dev", role: "server", label: "server" };
+  if (cmd.startsWith(DEV_HELD_PREFIX)) {
+    // `nodefony-held[<clé>]` : la clé en détail, hors colonne.
+    const key = /^nodefony-held\[([^\]]*)\]/.exec(cmd)?.[1];
+    return { mode: "dev", role: "held", label: "held", detail: key };
+  }
   if (cmd.startsWith(DEV_VITE_PREFIX)) {
     // Rôle court en colonne (`vite`) ; les bundles vont en `detail` (hors colonne)
     // pour ne pas faire déborder l'alignement quand ils sont nombreux/longs.
@@ -2020,6 +2165,7 @@ const ROLE_ORDER: Readonly<Record<DevProcessRole, number>> = {
   server: 1,
   worker: 1,
   vite: 2,
+  held: 2,
 };
 
 /**

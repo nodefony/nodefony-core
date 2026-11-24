@@ -5,6 +5,7 @@ import {
   extend,
   injectable,
   FRONTEND_CHOICES,
+  type IHeldServicesClient,
 } from "nodefony";
 import type {
   IFrontendService,
@@ -20,6 +21,8 @@ import type {
 } from "../interfaces/IViteSupervisor";
 import ViteBuilder from "../src/builders/ViteBuilder";
 import ViteProcessSupervisor from "./ViteProcessSupervisor";
+import HeldViteSupervisor from "./HeldViteSupervisor";
+import { viteServiceKey, type ViteSupervisorOptions } from "./viteFamily";
 import TemplateHelper from "../src/template/TemplateHelper";
 import {
   FrontendNoEntriesError,
@@ -85,6 +88,12 @@ interface IReverseProxyService {
 }
 
 /**
+ * Le propriétaire des services Vite dans le plan envoyé au superviseur de
+ * développement (ADR-0030 §D3).
+ */
+const HELD_OWNER = "frontend";
+
+/**
  * Normalise un préfixe public : garantit un `/` en tête et en queue.
  * `"_assets/x"` → `"/_assets/x/"`, `"/"` → `"/"`.
  */
@@ -100,12 +109,14 @@ const normalizePublicPath = (p: string): string => {
  *
  * Cycle de vie :
  *  1. construction : merge options par défaut + surcharge app (`module-frontend`).
- *  2. `onKernelReady` : si dev + `autoStartInDevelopment` → start superviseur.
- *  3. modules consommateurs appellent `registerEntry(...)` dans leur init.
- *  4. terminate kernel : `stop()` superviseur.
- *
- * Branche POC `poc/frontend-child` : utilise `ViteProcessSupervisor` (spawn).
- * Branche POC `poc/frontend-single` : remplacera par `ViteInProcSupervisor`.
+ *  2. modules consommateurs appellent `registerEntry(...)` dans leur init.
+ *  3. `onServersReady` : si dev + `autoStartInDevelopment` → une instance Vite
+ *     par famille. Sous `nodefony development`, son hôte est PORTÉ par le
+ *     superviseur (`HeldViteSupervisor`, ADR-0030) et survit aux redémarrages
+ *     du serveur ; sans superviseur (`--no-watch`, `frontend:dev`), le serveur
+ *     le tient lui-même (`ViteProcessSupervisor`).
+ *  4. terminate kernel : `stopDev()` — arrête les hôtes tenus par le serveur,
+ *     laisse au superviseur ceux qu'il porte.
  */
 @injectable()
 class FrontendService extends Service implements IFrontendService {
@@ -122,6 +133,13 @@ class FrontendService extends Service implements IFrontendService {
   private readonly entryFamily = new Map<string, string>();
   /** Helper prod unique (lit les manifests) — `null` tant qu'on n'est pas en prod. */
   private prodHelper: TemplateHelper | null = null;
+  /**
+   * Le client des services portés par le superviseur de développement —
+   * `null` sans superviseur : le serveur tient alors Vite lui-même. Résolu à
+   * `onServersReady`, AVANT tout `await` : l'appel déclare le propriétaire,
+   * qui doit l'être avant `onPostReady` (sinon ses hôtes sont balayés).
+   */
+  #held: IHeldServicesClient | null = null;
   constructor(module: Module) {
     // Sans config déclarée, le module peut n'avoir reçu aucune section.
     const options = module.options as object | undefined;
@@ -196,6 +214,8 @@ class FrontendService extends Service implements IFrontendService {
         // ci-dessous → donc avant `onPostReady`) ; `onFrontendReady` en `finally`
         // débloque toujours le récap (succès comme échec). Dev-only (autre env →
         // branche prod). Aucun listener (boot direct/prod) → `fire` no-op.
+        // Mode porté ou non — décidé ICI, avant le premier `await` (cf `#held`).
+        this.#held = this.kernel?.heldServices(HELD_OWNER) ?? null;
         const names = this.entries.map((e) => e.entryName);
         this.kernel?.fire("onFrontendStart", { bundles: names.length });
         try {
@@ -364,6 +384,11 @@ class FrontendService extends Service implements IFrontendService {
     // par l'origine de la page (#528).
     this.#registerCsp();
 
+    // Mode porté : le plan part COMPLET, une fois chaque famille déclarée ou
+    // retirée — envoyé par morceaux, chaque plan partiel arrêterait les
+    // familles que le suivant redemande.
+    this.#held?.expect(families.map(viteServiceKey));
+
     this.fire("frontend:starting", { entries: this.entries });
 
     // Progression pour la barre de boot (core `BootReporter`). La jauge compte les
@@ -381,10 +406,17 @@ class FrontendService extends Service implements IFrontendService {
         return this.startFamily(family, familyEntries, port, {
           nodeEnv,
           extraEnv,
-        }).finally(() => {
-          done += famSize;
-          this.kernel?.fire("onFrontendProgress", { ready: done, total });
-        });
+        })
+          .catch((error: unknown) => {
+            // Échouée AVANT sa déclaration : le plan ne l'attend plus (sans
+            // effet si elle était déjà déclarée).
+            this.#held?.withdraw(viteServiceKey(family));
+            throw error;
+          })
+          .finally(() => {
+            done += famSize;
+            this.kernel?.fire("onFrontendProgress", { ready: done, total });
+          });
       }),
     );
 
@@ -446,9 +478,10 @@ class FrontendService extends Service implements IFrontendService {
     if (first === undefined) throw new FrontendNoEntriesError();
     const r = this.cfg.resilience;
     const devBase = devBasePath(family);
-    const supervisor = new ViteProcessSupervisor({
+    const options: ViteSupervisorOptions = {
       devHost: this.cfg.devHost,
       devPort: port,
+      family,
       devBase,
       startupTimeoutMs: this.cfg.startupTimeoutMs,
       pipeLogs: this.cfg.pipeViteLogs,
@@ -469,7 +502,10 @@ class FrontendService extends Service implements IFrontendService {
         warn: (m) => this.log(`[${family}] ${m}`, "WARNING"),
         debug: (m) => this.log(`[${family}] ${m}`, "DEBUG"),
       },
-    });
+    };
+    const supervisor = this.#held
+      ? new HeldViteSupervisor(options, this.#held)
+      : new ViteProcessSupervisor(options);
     this.supervisors.set(family, supervisor);
     const helper = new TemplateHelper(supervisor, "development");
     this.templateHelpers.set(family, helper);
@@ -614,11 +650,13 @@ class FrontendService extends Service implements IFrontendService {
 
   async stopDev(): Promise<void> {
     if (this.supervisors.size === 0) return;
-    // allSettled : une instance qui throw au stop n'empêche pas de tuer les
-    // autres (chaque supervisor fait SIGINT → SIGKILL timeout, 0 orphelin).
+    // allSettled : une instance qui throw au stop n'empêche pas d'arrêter
+    // les autres. Un hôte PORTÉ n'est pas arrêté ici : son superviseur le
+    // garde pour le serveur suivant (`HeldViteSupervisor.stop` cesse d'écouter).
     await Promise.allSettled(
       [...this.supervisors.values()].map((s) => s.stop()),
     );
+    this.#held?.close();
     // Proxy : plus de Vite derrière — le préfixe redevient une URL ordinaire.
     const proxy = this.container?.get("reverse-proxy") as
       IReverseProxyService | undefined;

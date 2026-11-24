@@ -374,6 +374,22 @@ describe("SupervisorLink — sans superviseur : 0 listener, 0 envoi", () => {
     assert.doesNotThrow(link.listen(() => {}));
     assert.strictEqual(listeners.size, 0);
   });
+
+  it("supervisé mais sans canal : PAS de mode porté — le module tient ses services lui-même", () => {
+    // Le plan partirait dans le vide (« no channel to the supervisor ») et
+    // aucun Vite ne démarrerait, faute de repli sur le mode tenu (audit #692, M5).
+    const { endpoint } = mkEndpoint(false);
+    const link = mkLink({ supervised: true, endpoint });
+    assert.strictEqual(link.heldServices("frontend"), null);
+  });
+
+  it("supervisé AVEC canal : le client des services portés, le même à chaque appel", () => {
+    const { endpoint } = mkEndpoint(true);
+    const link = mkLink({ supervised: true, endpoint });
+    const client = link.heldServices("frontend");
+    assert.notStrictEqual(client, null);
+    assert.strictEqual(link.heldServices("frontend"), client);
+  });
 });
 
 describe("SupervisorLink — supervisé : la couture unique", () => {
@@ -553,5 +569,72 @@ describe("SupervisorLink — rendu, bannière et écran de démarrage", () => {
     assert.deepStrictEqual(s.writes, []);
     assert.strictEqual(s.deferred, false);
     assert.strictEqual(s.owned, false);
+  });
+});
+
+describe("SupervisorLink — services portés (ADR-0030)", () => {
+  it("sans superviseur : pas de client (le module tient ses services), et aucune liste ne part", () => {
+    const { endpoint, sent } = mkEndpoint(true);
+    const link = mkLink({ supervised: false, endpoint });
+    assert.strictEqual(link.heldServices("frontend"), null);
+    link.reportHeldOwners();
+    assert.deepStrictEqual(sent, []);
+  });
+
+  it("supervisé : un client par propriétaire, le même à chaque appel", () => {
+    const link = mkLink({
+      supervised: true,
+      endpoint: mkEndpoint(true).endpoint,
+    });
+    const a = link.heldServices("frontend");
+    assert.ok(a !== null);
+    assert.strictEqual(a.owner, "frontend");
+    assert.strictEqual(link.heldServices("frontend"), a);
+    assert.notStrictEqual(link.heldServices("ai"), a);
+  });
+
+  it("reportHeldOwners : la liste des propriétaires déclarés part UNE fois, vide comprise", () => {
+    const { endpoint, sent } = mkEndpoint(true);
+    const link = mkLink({ supervised: true, endpoint });
+    link.heldServices("frontend");
+    link.heldServices("ai");
+    link.reportHeldOwners();
+    link.reportHeldOwners();
+    assert.deepStrictEqual(sent, [
+      { channel: "nf-dev", type: "held-owners", owners: ["frontend", "ai"] },
+    ]);
+    assert.ok(isDevChannelMessage(sent[0]), "conforme au garde du canal");
+
+    const empty = mkEndpoint(true);
+    const bare = mkLink({ supervised: true, endpoint: empty.endpoint });
+    bare.reportHeldOwners();
+    assert.deepStrictEqual(empty.sent, [
+      { channel: "nf-dev", type: "held-owners", owners: [] },
+    ]);
+  });
+});
+
+describe("Kernel — la liste des propriétaires de services portés part AVANT onPostReady", () => {
+  it("reportHeldOwners est appelé une fois, avant que le premier écouteur de onPostReady ne tourne", async () => {
+    const k = mkKernel();
+    const order: string[] = [];
+    const report = vi
+      .spyOn(k.supervisorLink, "reportHeldOwners")
+      .mockImplementation(() => {
+        order.push("held-owners");
+      });
+    // Ni serveur ni fichier de bilan : seul l'enchaînement est observé.
+    const stubs = k as unknown as {
+      initServers: () => Promise<unknown[]>;
+      writeBootSummary: () => void;
+    };
+    stubs.initServers = async () => [];
+    stubs.writeBootSummary = () => {};
+    k.once("onPostReady", () => {
+      order.push("onPostReady");
+    });
+    await k.onReady();
+    assert.deepStrictEqual(order, ["held-owners", "onPostReady"]);
+    assert.strictEqual(report.mock.calls.length, 1);
   });
 });

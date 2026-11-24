@@ -81,6 +81,11 @@
       "default": "./dist/node/client/cbor/index.js"
     },
     "./debugbar.js": "./dist/client/debugbar.standalone.js",
+    "./held": {
+      "types": "./dist/types/service/dev/heldChannel.d.ts",
+      "import": "./dist/node/service/dev/heldChannel.js",
+      "default": "./dist/node/service/dev/heldChannel.js"
+    },
     "./login.js": "./dist/login/login.js",
     "./assets/nodefony-logo.svg": "./assets/nodefony-logo.svg",
     "./login.css": "./assets/login.css",

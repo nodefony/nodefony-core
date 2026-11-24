@@ -94,7 +94,7 @@
       "src/packages/@nodefony/frontend/nodefony/tests/unit/ViteBuilder.test.ts",
       "src/packages/@nodefony/frontend/nodefony/tests/unit/ViteConfigGenerator.test.ts",
       "src/packages/@nodefony/frontend/nodefony/tests/unit/isolationGroups.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/vitePortInUse.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/viteHost.test.ts",
       "src/packages/@nodefony/http/nodefony/tests/unit/collectAssets.test.ts",
       "src/packages/@nodefony/http/nodefony/tests/unit/prebuiltUi.test.ts",
       "src/nodefony/src/tests/command/Builder.test.ts",
@@ -324,7 +324,7 @@
       "src/packages/@nodefony/frontend/nodefony/tests/unit/templateHelperOrigin.test.ts",
       "src/packages/@nodefony/frontend/nodefony/tests/unit/cspBeforeVite.test.ts",
       "src/packages/@nodefony/frontend/nodefony/tests/unit/devAssetRelay.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/viteSupervisorStop.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/heldVite.test.ts",
       "src/packages/@nodefony/frontend/nodefony/tests/unit/pidFromNetstat.test.ts"
     ],
     "integration": [

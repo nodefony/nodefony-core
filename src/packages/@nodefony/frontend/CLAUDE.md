@@ -7,9 +7,17 @@
 - [`../http/CLAUDE.md`](../http/CLAUDE.md) — module HTTP (le controller backend rend l'index.html)
 - [`../framework/CLAUDE.md`](../framework/CLAUDE.md) — Controller pour le rendu HTML
 
-> **Branche POC `poc/frontend-child`** : le superviseur Vite est `ViteProcessSupervisor` (spawn child_process).
-> **Branche POC `poc/frontend-single`** : le superviseur sera `ViteInProcSupervisor` (in-proc).
-> SEUL `ViteProcessSupervisor.ts` diffère entre les deux branches.
+> **Vite tourne dans un HÔTE par famille** (`nodefony/service/viteHost.ts`, ADR-0030) : un process
+> Node lancé par `fork`, qui pilote Vite par son API (`createServer`/`listen`/`close`) et rapporte
+> son état par le canal `nf-held` (`nodefony/held`). `ViteProcessSupervisor` n'est plus qu'un
+> adaptateur `IViteSupervisor` sur le teneur `HostHolder` du cœur. **Aucune sortie de Vite n'est lue
+> pour deviner un état.**
+>
+> **Qui tient l'hôte** : sous `nodefony development`, le SUPERVISEUR (`HeldViteSupervisor`, plan
+> `frontend` envoyé par `kernel.heldServices("frontend")`) — Vite survit aux redémarrages du
+> serveur et n'est relancé que si son empreinte change (`viteFingerprint.ts`). Sans superviseur
+> (`--no-watch`, `frontend:dev`), le SERVEUR (`ViteProcessSupervisor`). Les deux partagent
+> `ViteFamily` : ne jamais recopier une règle de famille dans l'un des deux.
 
 ## Rôle du module
 
@@ -22,7 +30,7 @@ Pilote Vite pour transpiler les frontends déclarés par chaque module :
 
 **Approche hybride découplée** (validée par audit perf) :
 
-- Vite tourne en process séparé (child_process.spawn) → zéro impact event-loop backend
+- Vite tourne dans un process séparé (l'hôte `viteHost.ts`, lancé par `fork`) → zéro impact event-loop backend
 - Nodefony rend l'index.html lui-même via son moteur de templates
 - Le HTML inclut `<script src="/_vite/<famille>/...">` (RELATIF) → Nodefony relaie à Vite, resté sur la boucle locale ; le navigateur ne joint jamais Vite en direct
 - En prod : `nodefony frontend:build` → Vite compile → `manifest.json` lu par le template helper
@@ -44,7 +52,8 @@ src/packages/@nodefony/frontend/
     ├── interfaces/                     ← IFrontPreset, IFrontBuilder, IViteSupervisor, IFrontendService
     ├── service/
     │   ├── FrontendService.ts          ← orchestrateur DI — @injectable
-    │   ├── ViteProcessSupervisor.ts    ← spawn Vite (cette branche)
+    │   ├── ViteProcessSupervisor.ts    ← adaptateur IViteSupervisor sur HostHolder (cœur)
+    │   ├── viteHost.ts                 ← HÔTE forké : pilote Vite par son API (module FEUILLE)
     │   └── ViteConfigGenerator.ts      ← écrit `vite.config.generated.mjs`
     └── src/
         ├── builders/ViteBuilder.ts     ← config Vite programmatique (mode build)
@@ -67,10 +76,12 @@ Kernel onReady (env=development + autoStart=true)
   └─ FrontendService.startDev()
         ├─ ViteConfigGenerator.toMjs(entries, "development") → string
         ├─ writeFileSync(`${moduleRoot}/vite.config.generated.mjs`, str)
-        └─ ViteProcessSupervisor.start()
-              ├─ spawn("npx", ["vite", "--config", "...", "--port", "5173"])
-              ├─ pipe stdout/stderr → syslog Nodefony
-              └─ parse "Local: http://..." → state = "ready"
+        └─ ViteProcessSupervisor.start()   (écrit le .mjs SEULEMENT s'il change)
+              └─ HostHolder.start() → fork(viteHost) → spec par le canal nf-held
+                    ├─ sonde le port (node:net), repli sur le suivant
+                    ├─ createServer({ configFile, clearScreen:false, forwardConsole:false, customLogger })
+                    ├─ listen(port) → report ready { port de la socket, portRetries }
+                    └─ customLogger → lignes `[vite:<famille>] [WARN |ERROR ]…` → tubes → syslog
 
 Browser GET / (HTTPS 5152)
   └─ Controller render index.html
@@ -84,7 +95,8 @@ Browser parses HTML → GET /_vite/<famille>/… (origine de la page)
 
 Kernel onTerminate
   └─ FrontendService.stopDev()
-        └─ child.kill("SIGINT") (puis SIGKILL si timeout)
+        ├─ tenu par le serveur : HostHolder.stop() : `stop` par le canal → server.close(), arbre tué au-delà de 3 s, mort attendue
+        └─ porté par le superviseur : cesse d'écouter — l'hôte reste vivant pour le serveur suivant
 ```
 
 ## Décisions techniques figées
@@ -93,11 +105,12 @@ Kernel onTerminate
 | Sujet | Décision |
 | --- | --- |
 | Builder | **Vite** — ESM natif, HMR rapide, cohérence rolldown backend (même moteur oxc) |
-| Supervisor (cette branche) | `child_process.spawn("npx vite ...")` — process système isolé |
+| Supervisor | Un HÔTE par famille (`viteHost.ts`, `fork`) qui pilote Vite par son API, tenu par `HostHolder` (cœur, ADR-0030 §D2 : une seule implémentation du cycle lancer/relancer/sonder/arrêter). Jamais la ligne de commande : sa sortie se devinait par expressions, et Vite 8.4 y ajoute un verrou (vitejs/vite#23624) que l'API ne pose pas. |
+| L'hôte | Module FEUILLE : `node:*`, `nodefony/held` (le protocole seul, ~1 ms ; `nodefony` entier ~330 ms) et `vite`. Aucun import relatif (lancé en source `.ts` sous les tests). `nodefony/held` est déclaré `external` dans `rolldown.config.ts` — sinon le protocole serait recopié dans le `dist`. |
 | Config Vite | Fichier `.mjs` GÉNÉRÉ au boot dans `${root}/vite.config.generated.mjs` |
 | Plugins | Décrits en DONNÉES par chaque preset (`IFrontPreset.vitePlugins` → `IVitePluginSpec` : paquet, export, options JSON). `composePresets` (`compose.ts#composePresets`) est la source UNIQUE : le build les charge (`loadVitePlugins`), le générateur les écrit dans le `.mjs`. Plugins, `optimizeDeps` et `resolve.dedupe` ne se décident QUE dans le preset — un test importe le `.mjs` généré et compare ses plugins à ceux du build. |
-| Logs | `child.stdout.pipe → syslog Nodefony` (pas de sérialisation JSON) |
-| Cleanup | `SIGINT` puis `SIGKILL` timeout 3s — évite zombies bloquant 5173 |
+| Logs | `customLogger` de l'hôte → tubes (jamais l'IPC) → syslog. Niveau porté par la ligne (`parseViteHostLine`, seule lecture de `formatViteHostLog`) ; une ligne sans marque prend le niveau de son flux. |
+| Cleanup | `HostHolder.stop` : `stop` par le canal, arbre tué au-delà de 3 s (`signalProcessGroup`), mort attendue (`waitAllDead`). Teneur mort → l'hôte perd son canal et sort : aucun orphelin. |
 | Multi-bundles | **Une seule instance Vite multi-entry** (rolldown-style `input` map) |
 | Une origine en dev (#528) | Vite écoute sur la boucle locale ; Nodefony le relaie sur l'origine de la page (`/_vite/<famille>/`, service `reverse-proxy` de `@nodefony/http`, HTTP + upgrade WS du HMR). Balises RELATIVES — aucun contenu mixte, un certificat, contexte sécurisé depuis un téléphone / un conteneur / Codespaces. `publicOrigin`, `https` et `requestHost` : RETIRÉS (clé restée = boot refusé, nommée). |
 | Assets en dev | `base` Vite = **chemin réservé par famille** `/_vite/<famille>/` (`devBasePath`), monté sur le proxy inverse par `FrontendService.mountDevProxy` (résolu par nom), consulté AVANT le routage. Cible = `TemplateHelper.devTarget()` (origine LOCALE de Vite). Jamais `server.origin` (fige une origine, ignoré en mode bundlé). |
@@ -150,7 +163,10 @@ dérive ici — l'audit `nodefony-check-externals` doit lire ce paragraphe avant
 ## Gotchas
 
 - **`vite.config.generated.mjs` overwrite** : régénéré à CHAQUE `startDev()`. Ne JAMAIS éditer manuellement.
-- **Port Vite réel ≠ port configuré** : le config généré porte `strictPort: true`, donc Vite ne se décale PAS seul — si 5173 est occupé il meurt, et `spawnWithPortRetry` le relance sur le port suivant (`portRetryAttempts`). Le superviseur parse `Local:` pour récupérer le port réel. La sortie d'erreur du démarrage est RETENUE jusqu'au verdict : un conflit rattrapé ne laisse qu'une ligne d'information, jamais la trace de Vite en ERROR (qui gonflait le compte ERROR du résumé de boot).
+- **Port Vite réel ≠ port configuré** : `strictPort: true` est imposé par l'hôte, Vite ne se décale donc jamais seul. L'hôte SONDE le port (`probePort`, `node:net` : `EADDRINUSE`, et `EACCES` sous Windows) AVANT `createServer`, et prend le suivant du bloc (`portRetryAttempts`). Pourquoi sonder nous-mêmes : avec `strictPort`, Vite rejette par `Error("Port N is already in use")` — un texte sans code. Port pris entre sonde et écoute → nouvelle sonde, `listen(port+1)` sur le MÊME serveur. Le port rapporté est celui de la SOCKET (`httpServer.address()`).
+- **`vite.config.generated.mjs` n'est réécrit que s'il CHANGE** : Vite surveille son fichier de config et redémarre à toute écriture, même identique — réécrire à chaque démarrage relancerait le Vite qu'on garde chaud (#692).
+- **Titre `nodefony-vite[…]`** : posé par l'hôte (`process.title`, `fork` n'a pas d'`argv0`), composé côté adaptateur sur `DEV_VITE_PREFIX` (cœur) — `nodefony status`/`stop` le reconnaissent en tête de ligne `ps`.
+- **L'hôte ignore `SIGINT`**, et il s'identifie `nodefony-held[<clé>]` avant d'affiner son titre : c'est `serveHeldService` (cœur) qui le fait pour TOUT hôte. Entrée par `serveHeldServiceIfMain(import.meta, …)` — jamais `argv[1]` comparé à l'URL du module, qui échoue par un lien symbolique.
 - **`@vitejs/plugin-react` paresseux** : chargé via `await import()` dans le preset → pas d'erreur si pas installé tant qu'aucun module ne déclare `type: "react19"`.
 - **PathRoot vs entryFile** : `entryFile` est relatif au root du module (ex: `./frontend/src/main.tsx`), `root` est la racine front (ex: `./frontend`). L'URL de l'entrée suit la règle de Vite (`TemplateHelper.ts#devEntryUrl`) : relative (`/src/main.tsx`) sous la racine Vite — celle de la PREMIÈRE entrée de la famille (`ViteConfigGenerator.ts#viteDevRoot`) —, `/@fs/<absolu>` hors d'elle. Une entrée posée en `/@fs` sous la racine existait sous deux URL, donc en deux instances.
 - **`experimentalDecorators` requis** : Service injectable via `@injectable()` — sans lui les décorateurs ne compilent pas. `emitDecoratorMetadata` reste à `false` : une dépendance se nomme par `@Inject("nom")` (ADR-0018).
@@ -162,7 +178,8 @@ dérive ici — l'audit `nodefony-check-externals` doit lire ce paragraphe avant
 - Redéclarer `vite` ou ses plugins en `dependencies` **ou en `peerDependencies`** (cf § ci-dessous — une peer suffit à les faire voyager en production)
 - Ajouter un framework front (`vue`, `react`…) aux `dependencies` : ce module est un BUILDER, il n'en importe aucun
 - Importer `@nodefony/framework` ou `@nodefony/http` (cycles potentiels via app config)
-- Remplacer `child_process.spawn` par `worker_threads` (testé/rejeté — sérialisation logs explose)
+- Faire tourner Vite dans le process serveur ou dans un `worker_threads` (testé/rejeté — sérialisation logs explose ; un greffon qui plante emporterait le serveur)
+- Lire la sortie de Vite pour en déduire un état (« prêt », « port pris ») : l'hôte le RAPPORTE par le canal
 
 ## Surface réelle
 

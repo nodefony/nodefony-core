@@ -63,12 +63,13 @@ import {
 } from "./terminalCapability";
 import {
   DevTranscript,
+  laneKey,
   sanitizeTerminalText,
   type IDevTranscriptOptions,
   type ITranscriptEntry,
   type TranscriptSource,
-  type TranscriptStream,
 } from "./devTranscript";
+import type { ProcessOutputStream } from "./heldChannel";
 import { CLEAR_SCREEN } from "./outputMode";
 import {
   renderStatusBar,
@@ -463,15 +464,19 @@ export class DevTerminal {
    * @param stream - sur quel flux.
    * @param chunk - le paquet, octets bruts ou texte.
    * @param run - l'exécution que ces lignes accompagnent, s'il y en a une.
+   * @param lane - l'écrivain, quand une source en compte plusieurs (la clé
+   *   d'un service porté) : chacun garde son reste de séquence et sa ligne en
+   *   cours, sans quoi la fin coupée de l'un se collerait à la ligne de l'autre.
    */
   ingest(
     source: TranscriptSource,
-    stream: TranscriptStream,
+    stream: ProcessOutputStream,
     chunk: Buffer | Uint8Array | string,
     run?: number,
+    lane?: string,
   ): void {
     if (this.#closed) return;
-    const state = this.#echoOf(source, stream);
+    const state = this.#echoOf(source, stream, lane);
     let text =
       state.carry +
       (typeof chunk === "string"
@@ -490,15 +495,23 @@ export class DevTerminal {
     if (text.length === 0) return;
     text = text.replace(COLUMN_ONE, "\r");
     const target = stream === "err" ? this.#stderr : this.#stdout;
+    // Seul le SERVEUR tourne la page (ADR-0030 §D6) : un service porté, une
+    // commande lancée, n'effacent pas ce que le développeur est en train de
+    // lire — la séquence est retirée, jamais exécutée ni recopiée.
+    if (source !== "server") {
+      if (text.includes(CLEAR)) text = text.replaceAll(CLEAR, "");
+      this.#show(source, stream, target, text, run, lane);
+      return;
+    }
     let start = 0;
     let clear = text.indexOf(CLEAR);
     while (clear !== -1) {
-      this.#show(source, stream, target, text.slice(start, clear), run);
+      this.#show(source, stream, target, text.slice(start, clear), run, lane);
       this.clear();
       start = clear + CLEAR.length;
       clear = text.indexOf(CLEAR, start);
     }
-    this.#show(source, stream, target, text.slice(start), run);
+    this.#show(source, stream, target, text.slice(start), run, lane);
   }
 
   /**
@@ -746,13 +759,14 @@ export class DevTerminal {
   /** Inscrit et affiche un segment sans `ESC[2J`. */
   #show(
     source: TranscriptSource,
-    stream: TranscriptStream,
+    stream: ProcessOutputStream,
     target: IDevTerminalStream,
     segment: string,
     run: number | undefined,
+    lane: string | undefined,
   ): void {
     if (segment.length === 0) return;
-    this.#transcript.ingest(source, stream, segment, run);
+    this.#transcript.ingest(source, stream, segment, run, lane);
     if (this.#full) {
       this.#scheduleFrame();
       return;
@@ -1316,9 +1330,13 @@ export class DevTerminal {
     this.#stdout.write(out);
   }
 
-  /** L'état d'affichage d'un couple, créé au premier paquet. */
-  #echoOf(source: TranscriptSource, stream: TranscriptStream): IEchoState {
-    const key = `${source}:${stream}`;
+  /** L'état d'affichage d'un couple (et de son écrivain), créé au premier paquet. */
+  #echoOf(
+    source: TranscriptSource,
+    stream: ProcessOutputStream,
+    lane: string | undefined,
+  ): IEchoState {
+    const key = laneKey(source, stream, lane);
     let state = this.#echo[key];
     if (state === undefined) {
       state = { decoder: new StringDecoder("utf8"), carry: "" };

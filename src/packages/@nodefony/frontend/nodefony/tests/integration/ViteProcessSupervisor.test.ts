@@ -3,6 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import http from "node:http";
 import net from "node:net";
+import { statSync } from "node:fs";
+import { GENERATED_VITE_CONFIG_FILE } from "nodefony";
 import { pidListeningOn } from "../helpers/pidListening.js";
 import { ViteProcessSupervisor } from "../../service/ViteProcessSupervisor.js";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
@@ -156,6 +158,73 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
     }
     expect(sup.status().state).to.equal("stopped");
     expect(sup.status().pid).to.equal(null);
+  });
+
+  it("stop() pendant la préparation du démarrage : start() rejette, AUCUN hôte ne naît après l'arrêt (audit #692, I1)", async () => {
+    const port = await freePort();
+    const sup = new ViteProcessSupervisor({
+      devHost: "127.0.0.1",
+      devPort: port,
+      startupTimeoutMs: 20_000,
+      pipeLogs: false,
+      cwd: FIXTURE_ROOT,
+      logger: silentLogger,
+      healthCheckIntervalMs: 0,
+      autoRestart: false,
+    });
+    // `start()` s'arrête à son premier `await` (écriture de la config) :
+    // l'arrêt du serveur tombe là, comme un SIGTERM pendant le boot.
+    const started = sup.start([makeEntry()], {}).then(
+      () => "résolu",
+      (e: unknown) => (e as Error).message,
+    );
+    await sup.stop();
+    expect(await started).to.match(/stopped before ready$/);
+    // Témoin, au-delà du temps qu'il faudrait à un hôte pour naître et écouter.
+    await new Promise((r) => setTimeout(r, 1_500));
+    expect(sup.status().pid).to.equal(null);
+    expect(sup.status().state).not.to.equal("ready");
+    const probe = await httpPing("127.0.0.1", port).then(
+      () => "écoute",
+      (e: unknown) => (e as NodeJS.ErrnoException).code,
+    );
+    expect(probe).to.equal("ECONNREFUSED");
+  });
+
+  it("config inchangée → fichier NON réécrit (Vite redémarre à toute écriture de sa config)", async () => {
+    // Vite surveille `vite.config.generated.mjs` : une écriture, même d'un
+    // texte identique, le fait redémarrer. Un serveur qui redémarre et réécrit
+    // la config relancerait donc le Vite qu'on cherche à garder chaud (#692).
+    const opts = {
+      devHost: "127.0.0.1",
+      startupTimeoutMs: 20_000,
+      pipeLogs: false,
+      cwd: FIXTURE_ROOT,
+      logger: silentLogger,
+      healthCheckIntervalMs: 0,
+      autoRestart: false,
+    };
+    const configFile = path.join(FIXTURE_ROOT, GENERATED_VITE_CONFIG_FILE);
+    const first = new ViteProcessSupervisor({
+      ...opts,
+      devPort: await freePort(),
+    });
+    try {
+      await first.start([makeEntry()], {});
+    } finally {
+      await first.stop();
+    }
+    const before = statSync(configFile).mtimeMs;
+    const second = new ViteProcessSupervisor({
+      ...opts,
+      devPort: await freePort(),
+    });
+    try {
+      await second.start([makeEntry()], {});
+    } finally {
+      await second.stop();
+    }
+    expect(statSync(configFile).mtimeMs).to.equal(before);
   });
 
   it("idempotence start : 2e appel ne re-spawn pas", async () => {
@@ -443,6 +512,67 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
   // page refusée dès qu'on quitte la boucle locale.
   // Face B : le Host que pose le proxy (`127.0.0.1:<port>`, l'origine du
   // status) passe, et cette origine suit le port RÉEL du spawn.
+  it.skipIf(process.platform === "win32")(
+    "healthFailures = preuves de vie manquées : hôte figé (SIGSTOP) → monte ; relâché (SIGCONT) → 0, même hôte",
+    async () => {
+      const port = await freePort();
+      const sup = new ViteProcessSupervisor({
+        devHost: "127.0.0.1",
+        devPort: port,
+        startupTimeoutMs: 20_000,
+        pipeLogs: false,
+        cwd: FIXTURE_ROOT,
+        logger: silentLogger,
+        // Plafond loin devant : on observe le compte, pas la mise à mort.
+        healthCheckIntervalMs: 100,
+        healthCheckTimeoutMs: 50,
+        healthCheckFailureThreshold: 1_000,
+        autoRestart: false,
+      });
+      const until = async (
+        predicate: () => boolean,
+        what: string,
+      ): Promise<void> => {
+        const deadline = Date.now() + 10_000;
+        while (!predicate()) {
+          if (Date.now() > deadline)
+            throw new Error(
+              `${what} — dernier état ${JSON.stringify(sup.status())}`,
+            );
+          await new Promise((r) => setTimeout(r, 25));
+        }
+      };
+      let pid: number | null = null;
+      try {
+        await sup.start([makeEntry()], {});
+        pid = sup.status().pid;
+        expect(pid).to.be.a("number");
+        expect(sup.status().healthFailures).to.equal(0);
+        process.kill(pid!, "SIGSTOP");
+        await until(
+          () => sup.status().healthFailures >= 2,
+          "le compte ne monte pas sous un hôte figé",
+        );
+        process.kill(pid!, "SIGCONT");
+        await until(
+          () => sup.status().healthFailures === 0,
+          "le compte ne retombe pas une fois l'hôte relâché",
+        );
+        expect(sup.status().state).to.equal("ready");
+        expect(sup.status().pid).to.equal(pid);
+      } finally {
+        if (pid !== null) {
+          try {
+            process.kill(pid, "SIGCONT");
+          } catch {
+            /* déjà mort */
+          }
+        }
+        await sup.stop();
+      }
+    },
+  );
+
   it("Host étranger refusé SANS allowedHosts (témoin — la barrière existe)", async () => {
     const port = await freePort();
     const sup = new ViteProcessSupervisor({

@@ -1,0 +1,485 @@
+/**
+ * Le canal TENEUR ⇄ HÔTE d'un service de longue durée (ADR-0030).
+ *
+ * Un hôte est un process Node, lancé par `fork`, qui pilote UN service par son
+ * API (Vite par `createServer`, demain un serveur d'inférence) et en rapporte
+ * l'état à celui qui le tient : le superviseur de développement en mode porté,
+ * le serveur lui-même ailleurs. Ce fichier est le SEUL contrat entre les deux.
+ *
+ * Choix figés :
+ * - **Module FEUILLE, sans import** : l'hôte le charge à son démarrage ; il ne
+ *   doit tirer ni le noyau ni le superviseur (même règle que `devChannelBase.ts`).
+ * - **Un discriminant propre** (`nf-held`), distinct de `nf-dev` : un hôte n'est
+ *   pas un serveur, et ne doit jamais être pris pour lui.
+ * - **L'hôte RAPPORTE, il ne commande jamais** : rien de ce qu'il envoie ne
+ *   déclenche une action chez le teneur, hormis la lecture de son état.
+ * - **Formes bornées** : tout message hors canal, de type inconnu ou démesuré
+ *   est ignoré — jamais interprété (ADR-0030 §D6).
+ */
+
+/** Le discriminant du canal. */
+export const HELD_CHANNEL = "nf-held";
+
+/** Une valeur JSON — ce que l'IPC transporte sans perte. */
+export type HeldJson =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly HeldJson[]
+  | { readonly [key: string]: HeldJson };
+
+/** Un objet JSON — la forme d'une spécification ou d'une donnée d'état. */
+export type HeldJsonObject = { readonly [key: string]: HeldJson };
+
+/** L'état d'un hôte, vu par son teneur. */
+export type HeldHostState =
+  | "idle"
+  | "starting"
+  | "ready"
+  | "restarting"
+  | "crashed"
+  | "errored"
+  | "stopping"
+  | "stopped";
+
+/** Les états connus — la seule liste que les gardes consultent. */
+export const HELD_HOST_STATES: ReadonlySet<string> = new Set<HeldHostState>([
+  "idle",
+  "starting",
+  "ready",
+  "restarting",
+  "crashed",
+  "errored",
+  "stopping",
+  "stopped",
+]);
+
+/**
+ * Instantané de l'état d'un hôte — figé, remplacé en bloc à chaque changement :
+ * le lire ne coûte ni allocation ni appel (ADR-0030 §D5). Il traverse tel quel
+ * le canal `nf-dev` quand le superviseur tient l'hôte.
+ */
+export interface IHeldHostStatus {
+  readonly key: string;
+  readonly state: HeldHostState;
+  readonly pid: number | null;
+  /** La donnée rapportée par l'hôte prêt (adresse, port…), sinon `null`. */
+  readonly data: HeldJsonObject | null;
+  readonly lastError: string | null;
+  readonly restartCount: number;
+  /**
+   * Preuves de vie manquées D'AFFILÉE (ping sans pong à l'heure) — `0` quand
+   * l'hôte répond. Au plafond (`livenessMissedLimit`), l'hôte est tué.
+   */
+  readonly missedPongs: number;
+}
+
+/**
+ * Le réglage du cycle d'un hôte — délais, relances, preuve de vie. Partagé
+ * tel quel par le plan qu'un serveur déclare à son superviseur
+ * ({@link IHeldServiceDeclaration}) : une seule liste de réglages.
+ * Les durées sont en millisecondes.
+ */
+export interface IHostTuning {
+  /** Délai pour que l'hôte rapporte `ready` (défaut 30 000). */
+  readonly startupTimeoutMs?: number;
+  /**
+   * Relances après des plantages EN RAFALE, au-delà → `errored` (défaut 5). Le
+   * compte revient à zéro dès qu'une preuve de vie arrive à l'heure sur un
+   * hôte prêt — sans preuve de vie (`livenessIntervalMs: 0`), il ne revient pas.
+   */
+  readonly maxRestarts?: number;
+  /** Recul de relance exponentiel : base et plafond (défauts 500 / 8 000). */
+  readonly restartBackoffBaseMs?: number;
+  readonly restartBackoffMaxMs?: number;
+  /** Période de la preuve de vie ; `0` la coupe (défaut 30 000). */
+  readonly livenessIntervalMs?: number;
+  /** Une réponse plus tardive compte comme manquée (défaut 5 000). */
+  readonly livenessTimeoutMs?: number;
+  /** Preuves manquées d'affilée avant de tuer l'hôte (défaut 3). */
+  readonly livenessMissedLimit?: number;
+  /** Délai laissé à l'hôte pour sortir après `stop`, puis l'arbre est tué (défaut 3 000). */
+  readonly stopGraceMs?: number;
+}
+
+/**
+ * Un service de longue durée que le serveur demande à son superviseur de
+ * PORTER (ADR-0030 §D3) : Vite aujourd'hui, un serveur d'inférence demain.
+ * Le superviseur n'en connaît que cette description — il ne nomme aucun
+ * service, n'importe aucun paquet, et ne lit pas `spec`.
+ */
+export interface IHeldServiceDeclaration {
+  /** Identifiant stable, unique pour toute la session (`vite:default`). */
+  readonly key: string;
+  /** Chemin ABSOLU du module hôte, lancé par `fork`. */
+  readonly module: string;
+  /**
+   * Empreinte de tout ce qui exige un NOUVEL hôte (ADR-0030 §D4), calculée
+   * par le serveur. Le superviseur compare deux chaînes, rien de plus :
+   * identique → l'hôte vivant est gardé ; différente → il est remplacé.
+   */
+  readonly fingerprint: string;
+  /** Ce que l'hôte reçoit à son démarrage (`IHeldStart.spec`). */
+  readonly spec: HeldJsonObject;
+  /** Répertoire de travail de l'hôte (absolu). */
+  readonly cwd: string;
+  /**
+   * Variables AJOUTÉES à l'environnement du superviseur — jamais un
+   * environnement complet : le serveur ne recopie pas le sien sur le canal.
+   */
+  readonly env: Readonly<Record<string, string>>;
+  /** Réglage du cycle de l'hôte ; défauts du teneur pour ce qui manque. */
+  readonly tuning?: IHostTuning;
+}
+
+/** Au-delà, une clé de service n'est plus un identifiant. */
+export const MAX_HELD_KEY_LENGTH = 128;
+
+/**
+ * Préfixe du titre de process d'un hôte porté : ce que `nodefony status` et
+ * `nodefony stop` reconnaissent, quel que soit le service (Vite, inférence…).
+ * Sans lui, un hôte bloqué d'un service neuf leur restait invisible.
+ */
+export const HELD_HOST_TITLE_PREFIX = "nodefony-held";
+
+/**
+ * Le titre de process d'un hôte porté : `nodefony-held[<clé>]`, la clé
+ * réduite à l'ASCII imprimable — elle part dans la table des process.
+ *
+ * @param key - la clé du service.
+ * @returns le titre.
+ */
+export function heldHostTitle(key: string): string {
+  return `${HELD_HOST_TITLE_PREFIX}[${key.replace(/[^ -~]/g, "?")}]`;
+}
+
+/**
+ * Rappel d'envoi PARTAGÉ. Sans rappel, un envoi qui échoue (pair déjà sorti)
+ * émet `'error'` sur le process — sans écouteur, c'est une exception non
+ * rattrapée (doc `child_process`, `subprocess.send`). Une seule fonction pour
+ * tous les envois : rien n'est alloué par message.
+ */
+export const IGNORE_SEND_ERROR = (): void => {};
+
+/** Teneur → hôte : démarre le service décrit par `spec` (une seule fois). */
+export interface IHeldStart {
+  channel: typeof HELD_CHANNEL;
+  type: "start";
+  /** La clé du service — l'hôte en fait son titre de process. */
+  key: string;
+  spec: HeldJsonObject;
+}
+
+/** Teneur → hôte : arrête le service, puis sors. */
+export interface IHeldStop {
+  channel: typeof HELD_CHANNEL;
+  type: "stop";
+}
+
+/**
+ * Teneur → hôte : preuve de vie demandée. Une boucle d'évènements gelée ne
+ * répond pas — c'est ce qu'aucun code de sortie ne dit.
+ */
+export interface IHeldPing {
+  channel: typeof HELD_CHANNEL;
+  type: "ping";
+  seq: number;
+}
+
+/** Hôte → teneur : le service est prêt (`data`), ou n'a pas pu l'être (`reason`). */
+export interface IHeldReport {
+  channel: typeof HELD_CHANNEL;
+  type: "report";
+  state: "ready" | "failed";
+  data: HeldJsonObject | null;
+  reason: string | null;
+}
+
+/** Hôte → teneur : réponse à un {@link IHeldPing}. */
+export interface IHeldPong {
+  channel: typeof HELD_CHANNEL;
+  type: "pong";
+  seq: number;
+}
+
+/** Ce que le teneur envoie. */
+export type HeldHolderMessage = IHeldStart | IHeldStop | IHeldPing;
+
+/** Ce que l'hôte envoie. */
+export type HeldHostMessage = IHeldReport | IHeldPong;
+
+/** Au-delà, une raison d'échec n'est plus un message mais un déversement. */
+export const MAX_HELD_REASON_LENGTH = 4096;
+
+/**
+ * Au-delà (en caractères JSON), la donnée d'un hôte prêt n'est plus un état
+ * (adresse, port) mais un déversement — et elle repartirait telle quelle vers
+ * le serveur à chaque rejeu (`held-state`).
+ */
+export const MAX_HELD_DATA_LENGTH = 16 * 1024;
+
+/**
+ * La donnée d'un hôte prêt tient-elle dans sa borne ? Hors chemin chaud : un
+ * hôte ne rapporte `ready` qu'une fois par démarrage.
+ *
+ * @param data - la donnée rapportée.
+ * @returns `true` si sa forme JSON tient dans {@link MAX_HELD_DATA_LENGTH}.
+ */
+export function isHeldDataBounded(data: HeldJsonObject): boolean {
+  return JSON.stringify(data).length <= MAX_HELD_DATA_LENGTH;
+}
+
+/**
+ * Un entier sûr, positif ou nul — numéro de séquence, compteur ou PID reçu.
+ *
+ * @param value - la valeur reçue.
+ * @returns `true` si exploitable.
+ */
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+/**
+ * Un objet JSON simple (ni tableau, ni `null`).
+ *
+ * @param value - la valeur reçue.
+ * @returns `true` si c'est un objet au sens JSON.
+ */
+export function isJsonObject(value: unknown): value is HeldJsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Un instantané d'état bien formé — ce que le superviseur pousse à l'enfant.
+ *
+ * @param value - la valeur reçue.
+ * @returns `true` si c'est un {@link IHeldHostStatus} exploitable.
+ */
+export function isHeldHostStatus(value: unknown): value is IHeldHostStatus {
+  if (!isJsonObject(value)) return false;
+  const { key, state, pid, data, lastError, restartCount, missedPongs } = value;
+  return (
+    typeof key === "string" &&
+    key.length > 0 &&
+    key.length <= MAX_HELD_KEY_LENGTH &&
+    typeof state === "string" &&
+    HELD_HOST_STATES.has(state) &&
+    (pid === null || (isNonNegativeSafeInteger(pid) && pid > 0)) &&
+    (data === null || (isJsonObject(data) && isHeldDataBounded(data))) &&
+    (lastError === null ||
+      (typeof lastError === "string" &&
+        lastError.length <= MAX_HELD_REASON_LENGTH)) &&
+    isNonNegativeSafeInteger(restartCount) &&
+    isNonNegativeSafeInteger(missedPongs)
+  );
+}
+
+/**
+ * Ce message vient-il du canal, avec une forme que le teneur peut LIRE ?
+ *
+ * @param message - ce que l'IPC a livré, depuis l'hôte.
+ * @returns `true` si c'est un {@link HeldHostMessage} exploitable.
+ */
+export function isHeldHostMessage(
+  message: unknown,
+): message is HeldHostMessage {
+  if (!isJsonObject(message) || message.channel !== HELD_CHANNEL) return false;
+  if (message.type === "pong") return isNonNegativeSafeInteger(message.seq);
+  if (message.type !== "report") return false;
+  const { state, data, reason } = message;
+  if (state !== "ready" && state !== "failed") return false;
+  if (data !== null && !(isJsonObject(data) && isHeldDataBounded(data)))
+    return false;
+  if (reason === null) return true;
+  return typeof reason === "string" && reason.length <= MAX_HELD_REASON_LENGTH;
+}
+
+/**
+ * Ce message vient-il du teneur, avec une forme que l'hôte peut exécuter ?
+ *
+ * @param message - ce que l'IPC a livré, depuis le teneur.
+ * @returns `true` si c'est un {@link HeldHolderMessage} exploitable.
+ */
+export function isHeldHolderMessage(
+  message: unknown,
+): message is HeldHolderMessage {
+  if (!isJsonObject(message) || message.channel !== HELD_CHANNEL) return false;
+  if (message.type === "stop") return true;
+  if (message.type === "ping") return isNonNegativeSafeInteger(message.seq);
+  return (
+    message.type === "start" &&
+    typeof message.key === "string" &&
+    message.key.length > 0 &&
+    message.key.length <= MAX_HELD_KEY_LENGTH &&
+    isJsonObject(message.spec)
+  );
+}
+
+/**
+ * Ce qu'un module hôte implémente : démarrer le service, l'arrêter.
+ * Un échec APRÈS `ready` se signale en sortant (`process.exit(1)`) : le teneur
+ * voit la sortie et relance avec recul.
+ */
+export interface IHeldServiceImpl {
+  /**
+   * Démarre le service décrit par `spec`.
+   *
+   * @returns la donnée d'état rapportée au teneur (adresse, port…).
+   * @throws si le service n'a pas pu démarrer — la raison part au teneur.
+   */
+  start(spec: HeldJsonObject): Promise<HeldJsonObject>;
+  /**
+   * Arrête le service ; borné par le teneur, qui tue l'arbre au-delà. Un
+   * service qui lance ses propres process (serveur d'inférence) les arrête
+   * ICI : sous Windows, l'arbre d'un hôte déjà sorti est inatteignable.
+   */
+  stop(): Promise<void>;
+}
+
+/**
+ * Ce que l'hôte touche de son process — injectable pour l'éprouver sans
+ * `fork`. `process` le satisfait structurellement.
+ */
+export interface IHeldHostEndpoint {
+  readonly connected?: boolean;
+  /** Le titre de process (`process.title`). */
+  title?: string;
+  send?(
+    message: HeldHostMessage,
+    callback?: (error: Error | null) => void,
+  ): boolean;
+  on(event: "message", listener: (message: unknown) => void): unknown;
+  on(event: "disconnect", listener: () => void): unknown;
+  on(event: "SIGINT", listener: () => void): unknown;
+  exit(code?: number): never | void;
+}
+
+/** Délai laissé au service pour s'arrêter après une demande ou une déconnexion. */
+const HOST_STOP_GRACE_MS = 5_000;
+
+/**
+ * Côté HÔTE : sert le protocole autour d'une implémentation.
+ *
+ * - `start` (une seule fois) → `report` `ready` + donnée, ou `failed` + raison ;
+ * - `ping` → `pong`, sans délai : la réponse prouve la boucle d'évènements ;
+ * - `stop` OU perte du canal (teneur mort, même tué net) → arrêt borné du
+ *   service, puis sortie. C'est ce qui interdit l'orphelin (ADR-0030 §D6).
+ *
+ * @param impl - le service.
+ * @param endpoint - le process porteur du canal ; `process` par défaut.
+ */
+export function serveHeldService(
+  impl: IHeldServiceImpl,
+  endpoint: IHeldHostEndpoint = process,
+): void {
+  let started = false;
+  let leaving = false;
+  // La vie de l'hôte appartient à son teneur — qui l'arrête par le canal, ou
+  // dont la mort ferme le canal. Sous Windows, sans groupes de process, un
+  // Ctrl-C au terminal atteint AUSSI l'hôte : il mourrait avant que le teneur
+  // ne l'arrête, lu comme un plantage puis relancé.
+  endpoint.on("SIGINT", () => undefined);
+  endpoint.title = HELD_HOST_TITLE_PREFIX;
+  const send = (message: HeldHostMessage): void => {
+    if (typeof endpoint.send !== "function" || endpoint.connected === false)
+      return;
+    try {
+      endpoint.send(message, IGNORE_SEND_ERROR);
+    } catch {
+      // canal en cours de fermeture : la déconnexion suivra
+    }
+  };
+  const leave = (code: number): void => {
+    if (leaving) return;
+    leaving = true;
+    const grace = setTimeout(() => endpoint.exit(code), HOST_STOP_GRACE_MS);
+    grace.unref();
+    impl.stop().then(
+      () => endpoint.exit(code),
+      () => endpoint.exit(code),
+    );
+  };
+  endpoint.on("message", (message: unknown) => {
+    if (!isHeldHolderMessage(message)) return;
+    if (message.type === "ping") {
+      send({ channel: HELD_CHANNEL, type: "pong", seq: message.seq });
+      return;
+    }
+    if (message.type === "stop") {
+      leave(0);
+      return;
+    }
+    if (started) return;
+    started = true;
+    // Avant le service : il peut affiner le titre (`nodefony-vite[…]`).
+    endpoint.title = heldHostTitle(message.key);
+    const failed = (text: string): void => {
+      send({
+        channel: HELD_CHANNEL,
+        type: "report",
+        state: "failed",
+        data: null,
+        reason: text.slice(0, MAX_HELD_REASON_LENGTH),
+      });
+      leave(1);
+    };
+    impl.start(message.spec).then(
+      (data) => {
+        // Arrêt demandé pendant le démarrage : le service part, il n'est pas prêt.
+        if (leaving) return;
+        // Une donnée démesurée serait ignorée par le teneur, qui conclurait
+        // au silence après son délai : la cause se nomme ici.
+        if (!isHeldDataBounded(data)) {
+          failed(`ready data exceeds ${MAX_HELD_DATA_LENGTH} JSON characters`);
+          return;
+        }
+        send({
+          channel: HELD_CHANNEL,
+          type: "report",
+          state: "ready",
+          data,
+          reason: null,
+        });
+      },
+      (error: unknown) => {
+        if (leaving) return;
+        failed(error instanceof Error ? error.message : String(error));
+      },
+    );
+  });
+  endpoint.on("disconnect", () => leave(0));
+}
+
+/**
+ * Point d'entrée d'un module hôte : sert le service SEULEMENT si ce module
+ * est le point d'entrée du process ET qu'un teneur l'a lancé (canal IPC
+ * présent). Importé pour ses fonctions pures, il ne fait rien.
+ *
+ * `import.meta.main` répond sans comparer de chemins : la comparaison
+ * `process.argv[1] === fileURLToPath(import.meta.url)` échoue dès que les deux
+ * formes divergent — lien symbolique (Node réalise l'URL du module, pas
+ * `argv[1]`), casse d'un lecteur Windows — et l'hôte restait muet jusqu'au
+ * délai du teneur, sans cause.
+ *
+ * @param meta - l'`import.meta` du module hôte.
+ * @param createImpl - fabrique du service, appelée seulement si l'on sert.
+ * @param endpoint - le process porteur du canal ; `process` par défaut.
+ * @returns `true` si le module sert.
+ */
+export function serveHeldServiceIfMain(
+  meta: { readonly main?: boolean },
+  createImpl: () => IHeldServiceImpl,
+  endpoint: IHeldHostEndpoint = process,
+): boolean {
+  if (meta.main !== true || typeof endpoint.send !== "function") return false;
+  serveHeldService(createImpl(), endpoint);
+  return true;
+}
+
+/**
+ * Le flux de sortie d'un process : `out` pour la sortie standard, `err` pour
+ * l'erreur. Seule définition — historique du terminal, teneur d'hôte et hôte
+ * Vite la partagent.
+ */
+export type ProcessOutputStream = "out" | "err";

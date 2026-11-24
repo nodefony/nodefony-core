@@ -41,11 +41,17 @@ import {
   type StartupOutputMode,
 } from "../service/dev/outputMode";
 import {
+  DEV_CHANNEL,
   listenToSupervisor,
+  hasSupervisorChannel,
   sendToSupervisor,
   type DevChannelMessage,
   type IDevChannelEndpoint,
 } from "../service/dev/devChannel";
+import {
+  HeldServicesClient,
+  type IHeldServicesClient,
+} from "./heldServicesClient";
 import type { EnvironmentType } from "../types/globals";
 import type { ClusterType } from "./kernelCluster";
 
@@ -109,6 +115,9 @@ export class SupervisorLink {
   private readonly host: ISupervisorHost;
   private readonly env: Readonly<Record<string, string | undefined>>;
   private readonly endpoint: IDevChannelEndpoint;
+  /** Les clients de services portés, par propriétaire — alloué au premier. */
+  #heldClients: Map<string, HeldServicesClient> | null = null;
+  #heldOwnersReported = false;
 
   /**
    * @param host - le noyau, lu à chaque appel.
@@ -153,6 +162,52 @@ export class SupervisorLink {
   listen(handler: (message: DevChannelMessage) => void): () => void {
     if (!this.supervised) return noop;
     return listenToSupervisor(handler, this.endpoint);
+  }
+
+  /**
+   * Le client des services PORTÉS par le superviseur pour `owner`
+   * (ADR-0030) — ou `null` sans superviseur : le module tient alors ses
+   * services lui-même (`--no-watch`, `start`, production). C'est LE verdict
+   * « mode porté », rendu ici une fois.
+   *
+   * L'appel vaut déclaration : `owner` figurera dans la liste que
+   * {@link reportHeldOwners} envoie juste avant `onPostReady`, et ses
+   * services survivront au balayage. Appelé APRÈS ce moment, le propriétaire
+   * a déjà été balayé — ses services seront relancés par son plan.
+   *
+   * @param owner - le propriétaire (`frontend`, `ai`).
+   * @returns le client, le même à chaque appel pour un propriétaire donné.
+   */
+  heldServices(owner: string): IHeldServicesClient | null {
+    // Le canal, pas la seule variable : héritée sans canal, elle ferait choisir
+    // le mode porté — le plan échouerait, et aucun Vite ne démarrerait, sans
+    // repli sur le mode tenu par le serveur.
+    if (!this.supervised || !hasSupervisorChannel(this.endpoint)) return null;
+    this.#heldClients ??= new Map();
+    let client = this.#heldClients.get(owner);
+    if (client === undefined) {
+      client = new HeldServicesClient(owner, this);
+      this.#heldClients.set(owner, client);
+    }
+    return client;
+  }
+
+  /**
+   * Envoie au superviseur, UNE fois par démarrage, la liste des propriétaires
+   * qui ont déclaré des services portés ({@link heldServices}) — vide
+   * comprise. Le superviseur arrête les services de tout autre propriétaire :
+   * un module retiré de la configuration n'envoie plus de plan, et ses hôtes
+   * vivraient sinon toute la session. Appelé par le Kernel juste avant
+   * `onPostReady`. Sans superviseur, rien ne part.
+   */
+  reportHeldOwners(): void {
+    if (!this.supervised || this.#heldOwnersReported) return;
+    this.#heldOwnersReported = true;
+    this.send({
+      channel: DEV_CHANNEL,
+      type: "held-owners",
+      owners: this.#heldClients === null ? [] : [...this.#heldClients.keys()],
+    });
   }
 
   /**

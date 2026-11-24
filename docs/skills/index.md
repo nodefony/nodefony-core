@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-11-23
+updated: 2026-11-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -64,7 +64,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v2.4.0 · 📎 12 réf" },
   { "icon": "🎨", "title": "frontend-dev", "href": "nodefony-frontend-dev.md",
     "desc": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`NodefonySocket`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), connexion sans interface…",
-    "meta": "🟢 conforme v1.3.0 · 📎 6 réf" },
+    "meta": "🟢 conforme v1.3.1 · 📎 6 réf" },
   { "icon": "🖥️", "title": "studio-dev", "href": "nodefony-studio-dev.md",
     "desc": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart,…",
     "meta": "🟢 conforme v2.1.0 · 📎 6 réf" }
@@ -214,7 +214,7 @@ source: "docs/skills/index.md"
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 164 | 0 | 1 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.2.0 | 486 | 2 | 20 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.4.0 | 412 | 12 | 0 | ✅ |
-| [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.3.0 | 116 | 6 | 0 | ✅ |
+| [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.3.1 | 116 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 368 | 3 | 9 | ✅ |
 | [`nodefony-identifiers`](nodefony-identifiers.md) | 1.0.0 | 219 | 0 | 7 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.1.0 | 322 | 0 | 2 | ✅ |

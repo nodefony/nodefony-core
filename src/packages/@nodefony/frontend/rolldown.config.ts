@@ -4,6 +4,7 @@ export default defineNodefonyRolldownConfig({
   cleanDir: true,
   external: [
     "nodefony",
+    "nodefony/held",
     "@nodefony/http",
     "@nodefony/framework",
     "vite",

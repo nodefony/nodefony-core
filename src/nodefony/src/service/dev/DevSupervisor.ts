@@ -50,7 +50,11 @@ import {
   DEV_CHILD_ENV,
   listenToServer,
   sendToServer,
+  type DevChannelMessage,
+  type IDevHeldPlan,
+  type IDevHeldPlanAck,
 } from "./devChannel";
+import { HeldServiceRegistry } from "./heldServices";
 import {
   DevTerminal,
   probeTerminal,
@@ -78,9 +82,11 @@ import {
   identifyProcess,
   isPidAlive,
   signalProcessGroup,
+  spawnsAsGroupLeader,
   waitGroupDead,
   terminateDevProcesses,
   waitPortsFree,
+  onProcessEnded,
 } from "./devProcess";
 import { installShutdownSignals } from "./shutdownSignals";
 import { RestartCycle } from "./restartCycle";
@@ -106,8 +112,8 @@ export interface DevSupervisorOptions {
    * Ports serveur à attendre **libres** avant de relancer l'enfant (évite
    * `EADDRINUSE` au restart). Défaut : `[5151, 5152]` (HTTP/HTTPS Nodefony) ou
    * `NF_DEV_PORTS` (liste séparée par des virgules). Les ports Vite ne sont
-   * pas listés : l'arrêt emporte l'arbre (Vite compris) et chaque instance a son
-   * propre port-retry au redémarrage.
+   * pas listés : chaque hôte Vite s'arrête avec le serveur qui le tient, et
+   * chaque instance a son propre port-retry au redémarrage.
    */
   readonly ports?: readonly number[];
 }
@@ -656,12 +662,6 @@ const SUSPENSION_RECHECK_MS = 1000;
 
 /** Au-delà de cette durée de vie, un crash n'est plus considéré « rapide ». */
 const FAST_CRASH_MS = 3000;
-/**
- * Après la sortie du serveur, délai max d'attente de la fin de ses flux
- * (`close`) avant de rendre le verdict : un petit-enfant qui garderait le tube
- * ouvert ne doit pas le taire.
- */
-const CLOSE_GRACE_MS = 1000;
 /** Nombre maximal de redémarrages auto après un crash rapide (anti-boucle). */
 const MAX_SPAWN_RETRIES = 3;
 /** Pause avant un redémarrage après crash rapide (laisse les ports se libérer). */
@@ -988,7 +988,7 @@ export function runCapturedCommand(
     const p = spawn(run.file, run.args, {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
-      detached: options.detached === true && process.platform !== "win32",
+      detached: options.detached === true && spawnsAsGroupLeader(),
       windowsVerbatimArguments: run.windowsVerbatimArguments,
     });
     options.onSpawn?.(p);
@@ -1085,36 +1085,67 @@ export function runCapturedCommand(
   });
 }
 
+/** Ce que l'aiguillage des messages du serveur sait atteindre — injecté, donc éprouvable. */
+export interface IServerMessageRoutes {
+  /** Le serveur émetteur est-il encore le serveur COURANT ? */
+  isCurrent: () => boolean;
+  /** Applique un plan de services portés et rend son acquittement. */
+  applyHeldPlan: (plan: IDevHeldPlan) => IDevHeldPlanAck;
+  /**
+   * Arrête les services portés de tout propriétaire absent de `owners`
+   * (`held-owners`, une fois par démarrage du serveur).
+   */
+  retainHeldOwners: (owners: readonly string[]) => void;
+  /** Renvoie l'acquittement au serveur ÉMETTEUR. */
+  reply: (ack: IDevHeldPlanAck) => void;
+  /** Le terminal en rendu humain, `null` ailleurs (`plain`, `json`, `--debug`). */
+  terminal: Pick<
+    DevTerminal,
+    "setStatus" | "setRuntime" | "setActivity"
+  > | null;
+}
+
 /**
- * Appelle `onEnded` UNE fois, quand le serveur est fini — processus ET flux.
+ * Aiguille les messages d'UN serveur enfant : le plan de services portés est
+ * appliqué et acquitté dans TOUS les rendus — il n'a rien à voir avec le
+ * terminal, et le serveur attend son acquittement — ; le reste nourrit la
+ * barre d'état quand il y en a une. Un serveur remplacé n'est plus écouté :
+ * son plan arriverait après celui de son successeur et le défairait.
  *
- * Armé sur `close`, pas sur `exit` : sous tube, la pile d'un crash au
- * démarrage arrive APRÈS `exit`, et le verdict la précédait (ADR-0013 §9).
- * Un petit-enfant qui garderait le tube ouvert ne doit pas taire le verdict :
- * passé `graceMs` après `exit`, il part quand même.
- *
- * @param child - le serveur.
- * @param onEnded - le verdict, avec le code et le signal de sortie.
- * @param graceMs - attente max des flux après `exit`.
+ * @param routes - ce que l'aiguillage peut atteindre.
+ * @returns le gestionnaire à brancher sur le canal du serveur.
  */
-export function onServerEnded(
-  child: ChildProcess,
-  onEnded: (code: number | null, signal: NodeJS.Signals | null) => void,
-  graceMs = CLOSE_GRACE_MS,
-): void {
-  let settled = false;
-  let grace: ReturnType<typeof setTimeout> | null = null;
-  const settle = (code: number | null, signal: NodeJS.Signals | null) => {
-    if (settled) return;
-    settled = true;
-    if (grace) clearTimeout(grace);
-    onEnded(code, signal);
+export function routeServerMessages(
+  routes: IServerMessageRoutes,
+): (message: DevChannelMessage) => void {
+  return (message) => {
+    if (!routes.isCurrent()) return;
+    if (message.type === "held-plan") {
+      routes.reply(routes.applyHeldPlan(message));
+      return;
+    }
+    if (message.type === "held-owners") {
+      routes.retainHeldOwners(message.owners);
+      return;
+    }
+    const terminal = routes.terminal;
+    if (terminal === null) return;
+    if (message.type === "status-view") {
+      terminal.setStatus(message.view, message.context, "ready");
+    } else if (message.type === "runtime") {
+      terminal.setRuntime({
+        rssBytes: message.rssBytes,
+        cpuPercent: message.cpuPercent,
+        eluPercent: message.eluPercent,
+      });
+    } else if (message.type === "boot-step") {
+      // Le cycle du noyau, suivi en direct dans la barre.
+      terminal.setActivity(message.step, {
+        done: message.done,
+        total: message.total,
+      });
+    }
   };
-  child.once("exit", (code, signal) => {
-    grace = setTimeout(() => settle(code, signal), graceMs);
-    grace.unref();
-  });
-  child.once("close", (code, signal) => settle(code, signal));
 }
 
 /**
@@ -1126,15 +1157,21 @@ export function onServerEnded(
  * `NF_DEV_CHILD=1`), surveille les sources **backend** et, à chaque
  * changement, rebuild puis **redémarre l'enfant**.
  *
- * Le restart doit emporter l'**arbre** de l'enfant — lui et les instances Vite du
- * `ViteProcessSupervisor` — sans quoi chaque sauvegarde laisse un Vite orphelin
- * retenant son port. Deux grammaires y mènent, une par famille de système, et une
- * seule implémentation les porte (`signalProcessGroup`) : en POSIX l'enfant est
- * spawné **detached**, donc leader d'un groupe que `process.kill(-pid, …)` emporte
- * d'un coup ; sous Windows, où les groupes POSIX n'existent pas, il est au contraire
- * **rattaché** pour que `taskkill /T` puisse descendre la filiation. Avant chaque
- * relance, le superviseur attend que les ports serveur soient libres
- * (anti-`EADDRINUSE`) et retente de façon bornée si l'enfant crashe immédiatement.
+ * Le restart doit emporter l'**arbre** de l'enfant, sans quoi chaque sauvegarde
+ * laisse un orphelin retenant son port. Deux grammaires y mènent, une par
+ * famille de système, et une seule implémentation les porte
+ * (`signalProcessGroup`) : en POSIX l'enfant est spawné **detached**, donc
+ * leader d'un groupe que `process.kill(-pid, …)` emporte d'un coup ; sous
+ * Windows, où les groupes POSIX n'existent pas, il est au contraire
+ * **rattaché** pour que `taskkill /T` puisse descendre la filiation. Avant
+ * chaque relance, le superviseur attend que les ports serveur soient libres
+ * (anti-`EADDRINUSE`) et retente de façon bornée si l'enfant crashe
+ * immédiatement.
+ *
+ * Les services de longue durée que l'enfant demande (Vite, demain un serveur
+ * d'inférence) ne sont PAS dans cet arbre : le superviseur les PORTE
+ * (`HeldServiceRegistry`, ADR-0030) — ils survivent au redémarrage de
+ * l'enfant, et ne sont relancés que si leur empreinte change.
  *
  * Pourquoi pas de HMR backend : Node ne décharge pas un module ESM déjà importé →
  * un re-bundle du `dist/` ne rechargerait rien. Le restart de process est le seul
@@ -1168,6 +1205,12 @@ export class DevSupervisor {
    * de terminal) : le serveur hérite alors du terminal, comme avant.
    */
   #terminal: DevTerminal | null = null;
+  /**
+   * Les services de longue durée que le serveur demande de PORTER (Vite,
+   * demain un serveur d'inférence — ADR-0030) : ils survivent à ses
+   * redémarrages. `null` tant qu'aucun plan n'est arrivé.
+   */
+  #held: HeldServiceRegistry | null = null;
   /**
    * Le serveur tourne-t-il en `--debug` ? Alors il ne rend pas de bilan, et le
    * superviseur annonce lui-même qu'il est prêt.
@@ -2167,6 +2210,36 @@ export class DevSupervisor {
     await delay(200);
   }
 
+  /**
+   * Le registre des services portés, créé au premier plan. Ses états vont
+   * au serveur COURANT, sa sortie au terminal (source `held`), ou telle
+   * quelle sur la sortie du superviseur hors rendu humain — là où le serveur,
+   * qui hérite alors du terminal, l'aurait écrite.
+   *
+   * @returns le registre.
+   */
+  #heldServices(): HeldServiceRegistry {
+    this.#held ??= new HeldServiceRegistry({
+      baseEnv: process.env,
+      onState: (owner, status) => {
+        sendToServer(this.#child, {
+          channel: DEV_CHANNEL,
+          type: "held-state",
+          owner,
+          status,
+        });
+      },
+      onOutput: (key, stream, lines) => {
+        const terminal = this.#terminal;
+        // Un couloir par service : la fin coupée d'un hôte (ligne trop longue,
+        // sortie à sa mort) ne se colle jamais à la ligne d'un autre.
+        if (terminal) terminal.ingest("held", stream, lines, undefined, key);
+        else (stream === "err" ? process.stderr : process.stdout).write(lines);
+      },
+    });
+    return this.#held;
+  }
+
   /** (Re)lance le serveur enfant — même commande + flag enfant, en leader de groupe. */
   #spawnChild(reload = false): void {
     this.#childSpawnedAt = Date.now();
@@ -2211,35 +2284,29 @@ export class DevSupervisor {
         stdio: terminal
           ? ["ignore", "pipe", "pipe", "ipc"]
           : ["inherit", "inherit", "inherit", "ipc"],
-        // POSIX : leader de groupe → `kill(-pid)` emporte le groupe entier (Vite
-        // inclus) au restart. Windows : pas de groupes, et le rattachement est ce
-        // qui rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher
-        // y couperait le lien de parenté, seul chemin vers les Vite.
-        detached: process.platform !== "win32",
+        // POSIX : leader de groupe → `kill(-pid)` emporte le groupe du serveur au
+        // restart. Les hôtes Vite n'en sont pas : portés par CE process (registre
+        // des services portés), ils survivent au restart (ADR-0030 §D7). Windows :
+        // pas de groupes, et le rattachement est ce qui
+        // rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher y
+        // couperait le lien de parenté, seul chemin vers les Vite.
+        detached: spawnsAsGroupLeader(),
       },
     );
     this.#child = child;
-    if (terminal) {
-      relayServerOutput(child, terminal);
-      listenToServer(child, (message) => {
-        if (message.type === "status-view" && this.#child === child) {
-          terminal.setStatus(message.view, message.context, "ready");
-        } else if (message.type === "runtime" && this.#child === child) {
-          terminal.setRuntime({
-            rssBytes: message.rssBytes,
-            cpuPercent: message.cpuPercent,
-            eluPercent: message.eluPercent,
-          });
-        } else if (message.type === "boot-step" && this.#child === child) {
-          // Le cycle du noyau, suivi en direct dans la barre.
-          terminal.setActivity(message.step, {
-            done: message.done,
-            total: message.total,
-          });
-        }
-      });
-    }
-    onServerEnded(child, (code, signal) => {
+    if (terminal) relayServerOutput(child, terminal);
+    listenToServer(
+      child,
+      routeServerMessages({
+        isCurrent: () => this.#child === child,
+        applyHeldPlan: (plan) => this.#heldServices().apply(plan),
+        // Sans registre, aucun service à balayer : ne pas le créer pour rien.
+        retainHeldOwners: (owners) => void this.#held?.retainOwners(owners),
+        reply: (ack) => sendToServer(child, ack),
+        terminal,
+      }),
+    );
+    onProcessEnded(child, (code, signal) => {
       terminal?.flush("server");
       // Restart sollicité : `#killChild` a déjà mis `#child` à null avant l'exit.
       if (this.#child !== child) return;
@@ -2248,9 +2315,9 @@ export class DevSupervisor {
       terminal?.setPhase("crashed");
       this.#onChildCrash(code, signal);
     });
-    // Confirme « framework ready » par OBSERVATION EXTERNE (sonde de ports), JAMAIS
-    // par IPC (choix acté : le superviseur n'a aucun canal vers l'enfant — il
-    // l'observe via le code de sortie + l'écoute des ports). Non bloquant.
+    // Confirme « framework ready » par OBSERVATION EXTERNE (sonde de ports),
+    // jamais sur la parole du serveur : un serveur qui se dit prêt sans écouter
+    // ne l'est pas. Non bloquant.
     void this.#reportReady(child);
   }
 
@@ -2768,7 +2835,7 @@ export class DevSupervisor {
 
   /**
    * Tue le groupe de l'enfant (SIGTERM, puis SIGKILL après 4 s) et attend sa
-   * FIN — processus et flux (cf {@link onServerEnded}) : ses dernières lignes
+   * FIN — processus et flux (cf {@link onProcessEnded}) : ses dernières lignes
    * (arrêt de Vite, `terminate`) passent par le terminal du superviseur, qui
    * ne doit ni se fermer ni relancer un serveur avant de les avoir reçues.
    */
@@ -2779,7 +2846,7 @@ export class DevSupervisor {
       if (c?.exitCode !== null || c.signalCode !== null) return resolve();
       this.#dyingChild = c;
       const kill9 = setTimeout(() => this.#signalGroup(c, "SIGKILL"), 4000);
-      onServerEnded(c, () => {
+      onProcessEnded(c, () => {
         clearTimeout(kill9);
         if (this.#dyingChild === c) this.#dyingChild = null;
         resolve();
@@ -2847,8 +2914,14 @@ export class DevSupervisor {
     this.#cycle.cancel();
     this.#watcher?.close();
     this.#terminal?.setPhase("restarting");
+    // Les services portés s'arrêtent DÈS l'arrêt décidé, sans attendre la fin
+    // d'un build : leur registre est clos sur-le-champ, et un hôte abattu de
+    // l'extérieur pendant l'attente n'est plus vu planté ni relancé.
+    const heldStopped = this.#held?.stopAll();
     await this.#killBuild();
-    await this.#killChild();
+    // Le serveur et les services portés s'arrêtent ensemble : ce sont des
+    // arbres distincts, et chacun attend la mort effective du sien.
+    await Promise.all([this.#killChild(), heldStopped]);
     this.#terminal?.close();
     this.#releaseLock();
     process.exit(0);
@@ -2882,6 +2955,7 @@ export class DevSupervisor {
     if (this.#buildChild !== null) {
       this.#signalGroup(this.#buildChild, "SIGKILL");
     }
+    this.#held?.killAll();
     this.#terminal?.close();
     this.#releaseLock();
     process.exit(130);
