@@ -341,14 +341,23 @@ describe("serveur de dev à la mort du superviseur (#908) — linux · macOS · 
       expect(await portFree(bench.port), "port jamais occupé").to.equal(false);
       bench.supervisor.kill("SIGKILL");
       await bench.exited;
+      // Comment le serveur est mort (fixture `supervisor.mjs`) : sans lui, un
+      // rouge de la forge ne disait que « pas de témoin ».
+      const diagnosis = (): string => {
+        const file = `${bench.lossWitness}.trace`;
+        const trace = existsSync(file)
+          ? readFileSync(file, "utf8").trim()
+          : "(aucune trace)";
+        return `journal du serveur :\n${trace}\n— sortie du banc :\n${bench.output()}`;
+      };
       expect(
         await deadWithin(serverPid, 5_000),
-        `serveur orphelin — sortie :\n${bench.output()}`,
+        `serveur orphelin — ${diagnosis()}`,
       ).to.equal(true);
       if (spawnsAsGroupLeader()) {
         expect(
           existsSync(bench.lossWitness),
-          "arrêt propre jamais allé au bout",
+          `arrêt propre jamais allé au bout — ${diagnosis()}`,
         ).to.equal(true);
         expect(readFileSync(bench.lossWitness, "utf8")).to.equal("0");
       }
