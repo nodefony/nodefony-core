@@ -7,6 +7,7 @@
  * demande au système.
  */
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { isPlainObject } from "../runtime/isPlainObject";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -297,12 +298,19 @@ describe("runUpgradeCommand --to / --check — la commande, système injecté", 
 
   it("--to une AUTRE version : installe, puis passe la main au nodefony installé", async () => {
     const d = decor();
+    // #874 : `allowScripts` complété AVANT l'installation — c'est elle qui
+    // avertirait, et la passe relancée vient après.
+    let vuALInstallation: unknown = null;
     capturer();
-    const code = await runUpgradeCommand(
-      argv(d.racine, "--to", "99.0.0"),
-      d.io,
-    );
+    const code = await runUpgradeCommand(argv(d.racine, "--to", "99.0.0"), {
+      ...d.io,
+      install: (root, manager, quiet) => {
+        vuALInstallation = d.manifeste().allowScripts;
+        return d.io.install(root, manager, quiet);
+      },
+    });
     expect(code).toBe(7);
+    expect(vuALInstallation).toEqual({ esbuild: false, fsevents: false });
     expect(d.installs).toEqual(["npm"]);
     expect(d.relances).toEqual([
       ["upgrade", "--to", "99.0.0", "--after-install"],
@@ -395,15 +403,24 @@ describe("runUpgradeCommand --to / --check — la commande, système injecté", 
     expect(sortie).toMatch(/nodefony upgrade --to 99\.0\.0/u);
   });
 
-  it("sans --to, rien ne change : ni manifeste, ni installation", async () => {
+  // #874 : sans --to, la seule écriture au manifeste est `allowScripts`.
+  it("sans --to, aucune plage ne bouge et rien ne s'installe — seul allowScripts se complète", async () => {
     const d = decor();
-    const avant = readFileSync(path.join(d.racine, "package.json"), "utf8");
+    const lire = (): Record<string, unknown> => {
+      const v: unknown = JSON.parse(
+        readFileSync(path.join(d.racine, "package.json"), "utf8"),
+      );
+      if (!isPlainObject(v)) throw new Error("package.json : pas un objet");
+      return v;
+    };
+    const avant = lire();
     capturer();
     const code = await runUpgradeCommand(argv(d.racine), d.io);
     expect(code).toBe(0);
-    expect(readFileSync(path.join(d.racine, "package.json"), "utf8")).toBe(
-      avant,
-    );
+    expect(lire()).toEqual({
+      ...avant,
+      allowScripts: { esbuild: false, fsevents: false },
+    });
     expect(d.installs).toEqual([]);
     expect(d.relances).toEqual([]);
   });

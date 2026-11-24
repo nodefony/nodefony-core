@@ -224,6 +224,7 @@ describe("isUpgradePending — ce que `--check` compte", () => {
     envExample: { status: "synced", variables: 3, unreadable: [] },
     ranges: [],
     tooling: [],
+    allowScripts: [],
     target: null,
     newer: null,
   };
@@ -247,6 +248,20 @@ describe("isUpgradePending — ce que `--check` compte", () => {
         agents: { status: "updated", file: "AGENTS.md" },
       }),
       true,
+    );
+  });
+  // #874 : une application née avant une entrée garderait l'avertissement d'npm.
+  it("entrée allowScripts manquante : en retard ; hors npm (null) : rien à compter", () => {
+    assert.strictEqual(
+      isUpgradePending({
+        ...base,
+        allowScripts: [{ name: "esbuild", allow: false }],
+      }),
+      true,
+    );
+    assert.strictEqual(
+      isUpgradePending({ ...base, allowScripts: null }),
+      false,
     );
   });
   it("copie intacte à rafraîchir : en retard", () => {

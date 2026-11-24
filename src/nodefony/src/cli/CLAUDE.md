@@ -582,7 +582,10 @@ version, les quatre gestes que `npm install` ne fait pas, chacun par SON implém
 que `create module`, et un `AGENTS.md` ABSENT n'est pas recréé), `syncSkillPointers` (`ai:sync`),
 `runAppContributions(root, dry, true)` (`scaffold:sync --update`), `syncEnvExample` (`env
 --example` — le modèle dérive AUSSI des raccourcis des modules installés : une montée le
-désynchronise, et `verify` tombait sur `env:check`). `--check` = simulation, sort
+désynchronise, et `verify` tombait sur `env:check`). Plus, sous npm, `allowScripts` complété des
+entrées du gabarit absentes (`scaffold/allowScripts.ts#missingAllowScripts`, la règle que rend le
+gabarit ; une entrée présente n'est jamais touchée) — seule écriture au `package.json` sans `--to`,
+et faite AVANT l'installation avec `--to`. `--check` = simulation, sort
 en 1 si `isUpgradePending` (copie retouchée, absence, orphelin n'y comptent pas : rien ne se
 tranche sans humain). `doctor` réutilise le même jugement (`checkAgentsGuide`, famille
 « Fraîcheur du build ») — une règle, une implémentation. Le bloc se juge sur son RENDU, jamais sur

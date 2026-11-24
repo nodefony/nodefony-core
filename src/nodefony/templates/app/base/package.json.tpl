@@ -11,10 +11,8 @@
     "node": "^24.16.0 || >=26.0.0"
   },
 <% if (it.packageManager === "npm") { %>  "allowScripts": {
-<% if (it.complete && ((!it.mongo && it.dialect === "sqlite") || it.demo)) { %>    "better-sqlite3": false,
-<% } %>    "esbuild": false,
-    "fsevents": false
-  },
+<% it.allowScripts.forEach((entry, i) => { %>    "<%= entry.name %>": <%= entry.allow %><%= i < it.allowScripts.length - 1 ? "," : "" %>
+<% }) %>  },
 <% } %>  "scripts": {
     "prepare": "node --eval \"const f=require('node:fs');if(f.existsSync('.githooks'))try{require('node:child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",
     "dev": "nodefony development",

@@ -26,6 +26,10 @@ import {
 } from "./scaffold/packageManifest";
 import { SCAFFOLD_VERSIONS } from "./scaffold/versions";
 import {
+  missingAllowScripts,
+  type IAllowScriptEntry,
+} from "./scaffold/allowScripts";
+import {
   frameworkRangeChanges,
   toolingRangeChanges,
   type IRangeChange,
@@ -86,9 +90,11 @@ export function upgradeUsage(frameworkVersion: string): IUsagePage {
           "touché), les pointeurs des skills d'agent (`ai:sync`, nouveaux " +
           "skills compris), les copies livrées par les paquets restées " +
           "intactes (`scaffold:sync --update` ; une copie retouchée est gardée " +
-          "et nommée), et `.env.example` (`env --example`). Elle ne démarre " +
-          "pas l'application ; sans `--to`, elle n'installe rien et ne " +
-          "touche pas au `package.json`.",
+          "et nommée), et `.env.example` (`env --example`). Elle complète " +
+          "aussi le bloc `allowScripts` (npm) des entrées que le gabarit " +
+          "déclare et qui manquent — une entrée présente n'est jamais " +
+          "modifiée. Elle ne démarre pas l'application ; sans `--to`, elle " +
+          "n'installe rien, et c'est sa seule écriture au `package.json`.",
       },
       {
         title: "FICHIERS POSÉS",
@@ -110,7 +116,8 @@ export function upgradeUsage(frameworkVersion: string): IUsagePage {
         term: "--check",
         text:
           "dit ce qui est en retard sans rien écrire — gestes, plages du " +
-          "framework, outillage sous son plancher — et annonce une version " +
+          "framework, outillage sous son plancher, entrées `allowScripts` " +
+          "manquantes — et annonce une version " +
           "publiée plus récente ; sort en 1 si quelque chose est en retard",
       },
       { term: "--dry-run", text: "le plan, sans rien écrire (sort en 0)" },
@@ -169,6 +176,12 @@ export interface IUpgradeReport {
   ranges: IRangeChange[];
   /** Outillage du gabarit déclaré sous son plancher — relevé avec `--to`. */
   tooling: IRangeChange[];
+  /**
+   * Entrées `allowScripts` du gabarit absentes du manifeste — ajoutées hors
+   * simulation ; `null` : application qui n'installe pas par npm, seul à lire
+   * ce champ.
+   */
+  allowScripts: IAllowScriptEntry[] | null;
   /** `--to` : la version visée ; `null` sans `--to`. */
   target: string | null;
   /** Version publiée plus récente (`--check`) ; `null` hors ligne, coupé ou à jour. */
@@ -216,6 +229,40 @@ function rangeDrift(projectRoot: string): {
 }
 
 /**
+ * Complète le bloc `allowScripts` d'une application npm des entrées que le
+ * gabarit déclare et qui manquent — sans jamais modifier une entrée présente.
+ *
+ * Sans lui, une application née avant qu'une entrée existe garde à chaque
+ * installation l'avertissement d'npm sur des scripts bloqués.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param dryRun - `true` : juger sans rien écrire.
+ * @returns les entrées manquantes (ou ajoutées) ; `null` hors npm. Un
+ *   manifeste absent ou illisible ne manque de rien : `npm` le dira mieux.
+ */
+function completeAllowScripts(
+  projectRoot: string,
+  dryRun: boolean,
+): IAllowScriptEntry[] | null {
+  if (managerOf(projectRoot) !== "npm") return null;
+  let manifest: IPackageManifest | null;
+  try {
+    manifest = readAppManifest(projectRoot);
+  } catch {
+    return [];
+  }
+  if (manifest === null) return [];
+  const missing = missingAllowScripts(manifest.data, !dryRun);
+  if (!dryRun && missing.length > 0) {
+    fs.writeFileSync(
+      manifest.file,
+      `${JSON.stringify(manifest.data, null, 2)}\n`,
+    );
+  }
+  return missing;
+}
+
+/**
  * L'application est-elle en retard sur les paquets installés ?
  *
  * Une copie RETOUCHÉE (`modified`) ou un pointeur orphelin ne comptent pas :
@@ -232,6 +279,7 @@ export function isUpgradePending(report: IUpgradeReport): boolean {
     report.envExample.status === "wrote" ||
     report.ranges.length > 0 ||
     report.tooling.length > 0 ||
+    (report.allowScripts?.length ?? 0) > 0 ||
     report.skills.skills.some((s) => s.action !== "inchange") ||
     report.contributions.some(
       (c) =>
@@ -250,6 +298,9 @@ export function isUpgradePending(report: IUpgradeReport): boolean {
  * `scaffold:sync --update` pour les copies, d'`env --example` pour le modèle.
  *
  * @param projectRoot - racine de l'application.
+ * Elle complète aussi le bloc `allowScripts` d'une application npm
+ * (`completeAllowScripts`), seule écriture au `package.json` sans `--to`.
+ *
  * @param dryRun - `true` : juger sans rien écrire.
  * @returns le rapport des quatre gestes.
  */
@@ -260,6 +311,7 @@ export async function runUpgrade(
   return {
     version,
     dryRun,
+    allowScripts: completeAllowScripts(projectRoot, dryRun),
     agents: refreshAgentsGuide(projectRoot, version, dryRun),
     skills: syncSkillPointers(projectRoot, dryRun),
     contributions: await runAppContributions(projectRoot, dryRun, true),
@@ -323,6 +375,17 @@ function renderRanges(report: IUpgradeReport): string[] {
   if (target !== null && target !== report.version && report.dryRun) {
     lines.push(
       `    (une fois installée, la ${target} relève l'outillage à SON gabarit)`,
+    );
+  }
+  // Hors npm, le champ n'est lu par personne : la ligne mentirait.
+  const allow = report.allowScripts;
+  if (allow !== null) {
+    lines.push(
+      `  ${"allowScripts".padEnd(16)} ` +
+        (allow.length === 0
+          ? "à jour"
+          : `${allow.length} entrée(s) ${report.dryRun ? "à ajouter" : "ajoutée(s)"}`),
+      ...allow.map((e) => `    + ${e.name} : ${String(e.allow)}`),
     );
   }
   return lines;
@@ -650,6 +713,13 @@ function managerOf(projectRoot: string): PackageManagerName {
   );
 }
 
+/** Ce que `alignManifest` a réécrit (ou réécrirait) dans le manifeste. */
+interface IAlignedManifest {
+  ranges: IRangeChange[];
+  tooling: IRangeChange[];
+  allowScripts: IAllowScriptEntry[] | null;
+}
+
 /**
  * Aligne le manifeste sur `target`, installe, et passe la main à la version
  * installée quand ce n'est pas celle qui tourne.
@@ -668,7 +738,7 @@ function alignManifest(
   target: string,
   options: { dryRun: boolean; json: boolean; afterInstall: boolean },
   io: IUpgradeIo,
-): { ranges: IRangeChange[]; tooling: IRangeChange[] } | number {
+): IAlignedManifest | number {
   if (options.afterInstall && version !== target) {
     process.stderr.write(
       `upgrade: l'installation n'a pas posé nodefony ${target} — ` +
@@ -690,11 +760,17 @@ function alignManifest(
     return SysExit.NOINPUT;
   }
   const apply = !options.dryRun;
+  const manager = managerOf(projectRoot);
   const ranges = frameworkRangeChanges(manifest.data, target, apply);
   const tooling = toolingRangeChanges(manifest.data, SCAFFOLD_VERSIONS, apply);
-  if (options.dryRun) return { ranges, tooling };
-  const changed = ranges.length + tooling.length > 0;
-  if (!changed && version === target) return { ranges, tooling };
+  // Complété AVANT l'installation : c'est elle qui avertirait.
+  const allowScripts =
+    manager === "npm" ? missingAllowScripts(manifest.data, apply) : null;
+  const aligned: IAlignedManifest = { ranges, tooling, allowScripts };
+  if (options.dryRun) return aligned;
+  const added = allowScripts?.length ?? 0;
+  const changed = ranges.length + tooling.length + added > 0;
+  if (!changed && version === target) return aligned;
   if (changed) {
     fs.writeFileSync(
       manifest.file,
@@ -702,10 +778,11 @@ function alignManifest(
     );
     process.stderr.write(
       `package.json : ${ranges.length} plage(s) du framework → ${target}, ` +
-        `${tooling.length} outil(s) relevé(s).\n`,
+        `${tooling.length} outil(s) relevé(s)` +
+        (added > 0 ? `, ${added} entrée(s) allowScripts ajoutée(s)` : "") +
+        ".\n",
     );
   }
-  const manager = managerOf(projectRoot);
   if (!io.install(projectRoot, manager, options.json)) {
     process.stderr.write(
       `upgrade: \`${manager} install\` en échec — package.json est réécrit ; ` +
@@ -713,7 +790,7 @@ function alignManifest(
     );
     return 1;
   }
-  if (version === target) return { ranges, tooling };
+  if (version === target) return aligned;
   return io.handOff(projectRoot, manager, [
     "upgrade",
     "--to",
@@ -757,8 +834,7 @@ export async function runUpgradeCommand(
   const newer = parsed.check
     ? findNewerRelease(version, io.env, io.fetchImpl)
     : Promise.resolve(null);
-  let aligned: { ranges: IRangeChange[]; tooling: IRangeChange[] } | null =
-    null;
+  let aligned: IAlignedManifest | null = null;
   let target: string | null = null;
   if (parsed.to !== null) {
     const resolved = await resolveUpgradeTarget(parsed.to, version, () =>
