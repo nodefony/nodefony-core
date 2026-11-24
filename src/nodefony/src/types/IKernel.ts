@@ -13,6 +13,7 @@ import type { EnvironmentType, DebugType } from "./globals";
 import type { ICliKernel } from "./ICliKernel";
 import type { IInfra, IStoreResolution } from "../config/infra";
 import type { ICommand } from "./ICommand";
+import type { IHeldServicesClient } from "./IHeldServicesClient";
 
 // Redéfini localement — import circulaire impossible (Kernel.ts → Service.ts → IService.ts → IKernel.ts).
 // Le profil d'exécution, lui, vient de `kernel/runProfile.ts` (module feuille : aucun cycle).
@@ -185,4 +186,11 @@ export interface IKernel extends IService {
   clearReadiness(name: string): void;
   /** État de chaque contributeur — pour un diagnostic, jamais pour la sonde. */
   readinessReport(): IReadinessContributor[];
+  /**
+   * Le client des services PORTÉS par le superviseur de développement pour
+   * `owner` (ADR-0030), ou `null` sans superviseur — le module tient alors
+   * ses services lui-même. L'appel vaut déclaration du propriétaire : à faire
+   * avant `onPostReady`, sinon ses services sont balayés puis relancés.
+   */
+  heldServices(owner: string): IHeldServicesClient | null;
 }

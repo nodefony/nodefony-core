@@ -1104,11 +1104,15 @@ export type {
 // services (ADR-0030 §D3-§D5) — envoyé par `kernel.supervisorLink`.
 export { DEV_CHANNEL, heldPlanProblem } from "./service/dev/devChannel";
 export type {
+  IDevHeldOwners,
   IDevHeldPlan,
   IDevHeldPlanAck,
   IDevHeldState,
   IHeldServiceDeclaration,
 } from "./service/dev/devChannel";
+// Le client qu'un module obtient par `kernel.supervisorLink.heldServices(owner)`.
+export { HELD_PLAN_ACK_TIMEOUT_MS } from "./kernel/heldServicesClient";
+export type { IHeldServicesClient } from "./kernel/heldServicesClient";
 export {
   HELD_CHANNEL,
   isHeldHostMessage,

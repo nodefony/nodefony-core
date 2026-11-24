@@ -118,6 +118,7 @@ import type { IReadinessContributor } from "./readinessRegistry";
 import { KernelReadinessPublisher } from "./kernelReadiness";
 import { KernelLogSetup } from "./kernelLog";
 import { SupervisorLink } from "./supervisorLink";
+import type { IHeldServicesClient } from "./heldServicesClient";
 import { KernelCluster, type ClusterType } from "./kernelCluster";
 
 // Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
@@ -1317,6 +1318,10 @@ class Kernel extends Service implements IKernel {
           } else {
             this.memoryUsage("MEMORY POST READY ");
           }
+          // Les propriétaires de services portés se sont déclarés pendant
+          // `onServersReady` : le superviseur balaie maintenant ceux des
+          // autres (ADR-0030 §D3). Sans superviseur, rien ne part.
+          this.supervisorLink.reportHeldOwners();
           return this.fireLifecycle("onPostReady", this)
             .then(() => {
               this.postReady = true;
@@ -2957,6 +2962,17 @@ class Kernel extends Service implements IKernel {
   /** Imprime la bannière de développement ({@link devHeader}) en tête du boot. */
   printDevHeader(): void {
     this.supervisorLink.printDevHeader();
+  }
+
+  /**
+   * Le client des services portés par le superviseur pour `owner`, ou `null`
+   * sans superviseur — délégué au lien ({@link SupervisorLink.heldServices}).
+   *
+   * @param owner - le propriétaire (`frontend`, `ai`).
+   * @returns le client, ou `null`.
+   */
+  heldServices(owner: string): IHeldServicesClient | null {
+    return this.supervisorLink.heldServices(owner);
   }
 
   /**

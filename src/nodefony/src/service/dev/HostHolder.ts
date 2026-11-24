@@ -14,40 +14,13 @@ import {
   type HeldHostState,
   type HeldJsonObject,
   type IHeldHostStatus,
+  type IHostTuning,
 } from "./heldChannel";
 
-export type { HeldHostState, IHeldHostStatus };
+export type { HeldHostState, IHeldHostStatus, IHostTuning };
 
 /** Le flux d'origine d'une sortie d'hôte. */
 export type HeldOutputStream = "out" | "err";
-
-/**
- * Le réglage du cycle d'un hôte — délais, relances, preuve de vie. Partagé
- * tel quel par le plan qu'un serveur déclare à son superviseur
- * (`devChannel.ts#IHeldServiceDeclaration`) : une seule liste de réglages.
- * Les durées sont en millisecondes.
- */
-export interface IHostTuning {
-  /** Délai pour que l'hôte rapporte `ready` (défaut 30 000). */
-  readonly startupTimeoutMs?: number;
-  /**
-   * Relances après des plantages EN RAFALE, au-delà → `errored` (défaut 5). Le
-   * compte revient à zéro dès qu'une preuve de vie arrive à l'heure sur un
-   * hôte prêt — sans preuve de vie (`livenessIntervalMs: 0`), il ne revient pas.
-   */
-  readonly maxRestarts?: number;
-  /** Recul de relance exponentiel : base et plafond (défauts 500 / 8 000). */
-  readonly restartBackoffBaseMs?: number;
-  readonly restartBackoffMaxMs?: number;
-  /** Période de la preuve de vie ; `0` la coupe (défaut 30 000). */
-  readonly livenessIntervalMs?: number;
-  /** Une réponse plus tardive compte comme manquée (défaut 5 000). */
-  readonly livenessTimeoutMs?: number;
-  /** Preuves manquées d'affilée avant de tuer l'hôte (défaut 3). */
-  readonly livenessMissedLimit?: number;
-  /** Délai laissé à l'hôte pour sortir après `stop`, puis l'arbre est tué (défaut 3 000). */
-  readonly stopGraceMs?: number;
-}
 
 /** Options d'un {@link HostHolder}. */
 export interface IHostHolderOptions extends IHostTuning {

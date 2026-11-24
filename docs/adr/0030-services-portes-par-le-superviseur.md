@@ -102,6 +102,21 @@ AJOUTÉES à l'environnement du superviseur : l'enfant ne recopie pas le sien su
 tenue par un autre propriétaire est refusée. Le registre qui réconcilie :
 `heldServices.ts#HeldServiceRegistry` ; il ne nomme aucun service et ne lit aucune `spec`.
 
+Le plan part COMPLET, en un message : un propriétaire dont les services se préparent chacun de
+son côté (une config Vite par famille, écrite de façon asynchrone) annonce d'abord ses clés
+(`expect`), chaque service s'y déclare ou s'en retire, et le plan part quand plus aucune clé
+n'est attendue (`heldServicesClient.ts#HeldServicesClient`). Envoyé par morceaux, chaque plan
+partiel arrêterait les services que le suivant redemande.
+
+Un propriétaire qui DISPARAÎT (module retiré de la configuration, front sans entrée) n'envoie
+plus jamais de plan : rien ne lui ferait arrêter ses hôtes. Le serveur envoie donc, une fois par
+démarrage et juste avant `onPostReady`, la liste des propriétaires qui se sont déclarés
+(`held-owners`, `supervisorLink.ts#SupervisorLink.reportHeldOwners`) ; le superviseur arrête les
+services de tout autre propriétaire (`HeldServiceRegistry.retainOwners`). Se déclarer, c'est
+obtenir son client (`kernel.heldServices(owner)`) — de façon SYNCHRONE pendant
+`onServersReady`, avant tout `await`. La liste ne démarre rien et ne touche pas aux services
+d'un propriétaire qu'elle nomme : son plan peut arriver après elle.
+
 ### D4 — La relance se décide sur une EMPREINTE émise par l'enfant
 
 `crypto.hash("sha256", …)` de ce qui exige un NOUVEL hôte : le module hôte, la `spec` (chemin
@@ -192,11 +207,15 @@ Le second Ctrl-C (sortie d'urgence) passe par `HostHolder.kill`, synchrone : le 
 process VIVANT que le teneur tient, jamais le PID d'un instantané — rendu au système, celui-ci
 peut désigner un étranger.
 
-Tant que Vite est tenu par le SERVEUR (avant l'étape 3, et toujours en `--no-watch`), son hôte
-est détaché lui aussi (POSIX) : le `kill(-pid)` du groupe du serveur au redémarrage ne l'emporte
-pas. Il s'arrête avec le serveur — par son teneur, ou à la perte du canal. Un hôte Vite FIGÉ à
-ce moment-là survit au redémarrage ; `nodefony stop` et le balayage de démarrage du superviseur
-le visent, puisqu'il est une racine. Porté par le superviseur (étape 3), il relève de son registre.
+Sous `nodefony development`, l'hôte Vite est PORTÉ par le superviseur
+(`HeldViteSupervisor.ts#HeldViteSupervisor`, choisi quand `kernel.heldServices("frontend")` rend
+un client) : il relève de son registre, de sa preuve de vie et de cette fin de session. Un hôte
+figé est tué par la preuve de vie, quel que soit l'état du serveur.
+
+Tenu par le SERVEUR (`--no-watch`, `frontend:dev`, tout lancement sans superviseur :
+`ViteProcessSupervisor.ts#ViteProcessSupervisor`), son hôte est détaché lui aussi (POSIX) :
+il s'arrête avec le serveur — par son teneur, ou à la perte du canal. Un hôte FIGÉ à ce
+moment-là survit au serveur ; `nodefony stop` le vise, puisqu'il est une racine.
 
 ### D8 — Journaux : par les tubes, jamais par l'IPC
 
@@ -217,15 +236,15 @@ configuration change. Rien du cœur n'est à ajouter.
 
 ## Types natifs et performance
 
-| Structure                  | Type retenu                                                     | Pourquoi                                                                                       | Mesuré                                                              |
-| -------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Hôtes tenus (parent)       | `Map<string, HeldEntry>` (teneur + propriétaire + empreinte)    | clé texte, ajouts ET retraits au fil des plans (`delete` fait passer un objet en dictionnaire) | non — hors chemin chaud                                             |
-| `HostHolder`               | classe à champs déclarés au constructeur                        | forme stable                                                                                   | —                                                                   |
-| Plans en vol               | `Map<number, …>`, `id` entier croissant (smi)                   | retrait à chaque acquittement                                                                  | —                                                                   |
-| Instantané d'état (enfant) | objet figé remplacé en bloc                                     | lecture O(1) sans allocation sur le relais                                                     | **A/B relais** : l'actuel `status()` alloue un objet à chaque appel |
-| Empreinte                  | `crypto.hash` en un coup, une fois par famille et par démarrage | hors chemin chaud                                                                              | non                                                                 |
-| Démarrage de Vite          | API JavaScript au lieu de la ligne de commande                  | ni analyse d'arguments ni lecture ligne à ligne de la sortie                                   | **A/B** démarrage à froid, médiane de 7                             |
-| Premier chargement         | `server.warmup.clientFiles` = les fichiers d'entrée déclarés    | transformés d'avance, sans cascade                                                             | **A/B** premier chargement ; retenu seulement s'il gagne            |
+| Structure                  | Type retenu                                                     | Pourquoi                                                                                       | Mesuré                                                         |
+| -------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Hôtes tenus (parent)       | `Map<string, HeldEntry>` (teneur + propriétaire + empreinte)    | clé texte, ajouts ET retraits au fil des plans (`delete` fait passer un objet en dictionnaire) | non — hors chemin chaud                                        |
+| `HostHolder`               | classe à champs déclarés au constructeur                        | forme stable                                                                                   | —                                                              |
+| Plans en vol               | `Map<number, …>`, `id` entier croissant (smi)                   | retrait à chaque acquittement                                                                  | —                                                              |
+| Instantané d'état (enfant) | objet figé remplacé en bloc                                     | lecture O(1) sans allocation sur le relais                                                     | non — `status()` rend le même objet entre deux états (éprouvé) |
+| Empreinte                  | `crypto.hash` en un coup, une fois par famille et par démarrage | hors chemin chaud                                                                              | non                                                            |
+| Démarrage de Vite          | API JavaScript au lieu de la ligne de commande                  | ni analyse d'arguments ni lecture ligne à ligne de la sortie                                   | **A/B** démarrage à froid, médiane de 7                        |
+| Premier chargement         | `server.warmup.clientFiles` = les fichiers d'entrée déclarés    | transformés d'avance, sans cascade                                                             | **A/B** premier chargement ; retenu seulement s'il gagne       |
 
 ## Hors périmètre
 

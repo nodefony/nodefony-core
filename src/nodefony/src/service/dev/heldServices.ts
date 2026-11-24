@@ -134,6 +134,30 @@ export class HeldServiceRegistry {
   }
 
   /**
+   * Arrête les services de tout propriétaire ABSENT de `owners` — la liste
+   * qu'un serveur envoie une fois par démarrage (`held-owners`). Un
+   * propriétaire qui ne déclare plus rien (module retiré de la configuration)
+   * n'envoie plus de plan : sans ce balayage, ses hôtes vivraient toute la
+   * session. Les propriétaires nommés ne sont pas touchés : leur plan peut
+   * arriver après la liste, et c'est lui qui décide.
+   *
+   * @param owners - les propriétaires du serveur courant.
+   * @returns le nombre de services arrêtés.
+   */
+  retainOwners(owners: readonly string[]): number {
+    if (this.#closing) return 0;
+    let retired = 0;
+    for (const [key, entry] of this.#held) {
+      if (owners.includes(entry.owner)) continue;
+      this.#held.delete(key);
+      // Suivie dans `#retiring`, jamais rejetée : `stopAll` l'attend.
+      void this.#retire(entry);
+      retired += 1;
+    }
+    return retired;
+  }
+
+  /**
    * Arrête tous les services et attend leur mort EFFECTIVE (ADR-0030 §D7) :
    * un dossier ne se libère pas avant, sous Windows. Tout plan reçu ensuite
    * est refusé.

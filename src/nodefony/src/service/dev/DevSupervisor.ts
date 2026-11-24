@@ -1122,37 +1122,17 @@ export function onServerEnded(
   child.once("close", (code, signal) => settle(code, signal));
 }
 
-/**
- * Superviseur de développement « auto-restart » (modèle nodemon, cloud-native :
- * le process serveur est jetable).
- *
- * Topologie : ce process **parent** ne boote PAS le kernel applicatif — il
- * `spawn` le serveur dans un process **enfant** (même commande + variable d'env
- * `NF_DEV_CHILD=1`), surveille les sources **backend** et, à chaque
- * changement, rebuild puis **redémarre l'enfant**.
- *
- * Le restart doit emporter l'**arbre** de l'enfant — lui et les instances Vite du
- * `ViteProcessSupervisor` — sans quoi chaque sauvegarde laisse un Vite orphelin
- * retenant son port. Deux grammaires y mènent, une par famille de système, et une
- * seule implémentation les porte (`signalProcessGroup`) : en POSIX l'enfant est
- * spawné **detached**, donc leader d'un groupe que `process.kill(-pid, …)` emporte
- * d'un coup ; sous Windows, où les groupes POSIX n'existent pas, il est au contraire
- * **rattaché** pour que `taskkill /T` puisse descendre la filiation. Avant chaque
- * relance, le superviseur attend que les ports serveur soient libres
- * (anti-`EADDRINUSE`) et retente de façon bornée si l'enfant crashe immédiatement.
- *
- * Pourquoi pas de HMR backend : Node ne décharge pas un module ESM déjà importé →
- * un re-bundle du `dist/` ne rechargerait rien. Le restart de process est le seul
- * rechargement backend fiable. Le **frontend** (Vite) garde son HMR : le dossier
- * `frontend/` est exclu de la surveillance → une modif front ne redémarre pas le
- * serveur.
- */
 /** Ce que l'aiguillage des messages du serveur sait atteindre — injecté, donc éprouvable. */
 export interface IServerMessageRoutes {
   /** Le serveur émetteur est-il encore le serveur COURANT ? */
   isCurrent: () => boolean;
   /** Applique un plan de services portés et rend son acquittement. */
   applyHeldPlan: (plan: IDevHeldPlan) => IDevHeldPlanAck;
+  /**
+   * Arrête les services portés de tout propriétaire absent de `owners`
+   * (`held-owners`, une fois par démarrage du serveur).
+   */
+  retainHeldOwners: (owners: readonly string[]) => void;
   /** Renvoie l'acquittement au serveur ÉMETTEUR. */
   reply: (ack: IDevHeldPlanAck) => void;
   /** Le terminal en rendu humain, `null` ailleurs (`plain`, `json`, `--debug`). */
@@ -1181,6 +1161,10 @@ export function routeServerMessages(
       routes.reply(routes.applyHeldPlan(message));
       return;
     }
+    if (message.type === "held-owners") {
+      routes.retainHeldOwners(message.owners);
+      return;
+    }
     const terminal = routes.terminal;
     if (terminal === null) return;
     if (message.type === "status-view") {
@@ -1201,6 +1185,37 @@ export function routeServerMessages(
   };
 }
 
+/**
+ * Superviseur de développement « auto-restart » (modèle nodemon, cloud-native :
+ * le process serveur est jetable).
+ *
+ * Topologie : ce process **parent** ne boote PAS le kernel applicatif — il
+ * `spawn` le serveur dans un process **enfant** (même commande + variable d'env
+ * `NF_DEV_CHILD=1`), surveille les sources **backend** et, à chaque
+ * changement, rebuild puis **redémarre l'enfant**.
+ *
+ * Le restart doit emporter l'**arbre** de l'enfant, sans quoi chaque sauvegarde
+ * laisse un orphelin retenant son port. Deux grammaires y mènent, une par
+ * famille de système, et une seule implémentation les porte
+ * (`signalProcessGroup`) : en POSIX l'enfant est spawné **detached**, donc
+ * leader d'un groupe que `process.kill(-pid, …)` emporte d'un coup ; sous
+ * Windows, où les groupes POSIX n'existent pas, il est au contraire
+ * **rattaché** pour que `taskkill /T` puisse descendre la filiation. Avant
+ * chaque relance, le superviseur attend que les ports serveur soient libres
+ * (anti-`EADDRINUSE`) et retente de façon bornée si l'enfant crashe
+ * immédiatement.
+ *
+ * Les services de longue durée que l'enfant demande (Vite, demain un serveur
+ * d'inférence) ne sont PAS dans cet arbre : le superviseur les PORTE
+ * (`HeldServiceRegistry`, ADR-0030) — ils survivent au redémarrage de
+ * l'enfant, et ne sont relancés que si leur empreinte change.
+ *
+ * Pourquoi pas de HMR backend : Node ne décharge pas un module ESM déjà importé →
+ * un re-bundle du `dist/` ne rechargerait rien. Le restart de process est le seul
+ * rechargement backend fiable. Le **frontend** (Vite) garde son HMR : le dossier
+ * `frontend/` est exclu de la surveillance → une modif front ne redémarre pas le
+ * serveur.
+ */
 export class DevSupervisor {
   readonly #cwd: string;
   /** Un échec de régénération du graphe symbolique n'est dit qu'une fois. */
@@ -2305,9 +2320,9 @@ export class DevSupervisor {
           ? ["ignore", "pipe", "pipe", "ipc"]
           : ["inherit", "inherit", "inherit", "ipc"],
         // POSIX : leader de groupe → `kill(-pid)` emporte le groupe du serveur au
-        // restart. Ses hôtes Vite, détachés par leur teneur (`HostHolder`), n'en
-        // sont pas : ils s'arrêtent avec le serveur, par le canal ou à sa perte
-        // (ADR-0030 §D7). Windows : pas de groupes, et le rattachement est ce qui
+        // restart. Les hôtes Vite n'en sont pas : portés par CE process (registre
+        // des services portés), ils survivent au restart (ADR-0030 §D7). Windows :
+        // pas de groupes, et le rattachement est ce qui
         // rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher y
         // couperait le lien de parenté, seul chemin vers les Vite.
         detached: leadsOwnProcessGroup(),
@@ -2320,6 +2335,8 @@ export class DevSupervisor {
       routeServerMessages({
         isCurrent: () => this.#child === child,
         applyHeldPlan: (plan) => this.#heldServices().apply(plan),
+        // Sans registre, aucun service à balayer : ne pas le créer pour rien.
+        retainHeldOwners: (owners) => void this.#held?.retainOwners(owners),
         reply: (ack) => sendToServer(child, ack),
         terminal,
       }),

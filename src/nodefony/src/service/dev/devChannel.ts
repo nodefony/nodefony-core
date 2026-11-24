@@ -24,7 +24,6 @@
 import type { ChildProcess } from "node:child_process";
 import { isAbsolute } from "node:path";
 import type { IStartupView, IStatusContext } from "./startupScreen";
-import type { IHostTuning } from "./HostHolder";
 import {
   IGNORE_SEND_ERROR,
   isHeldHostStatus,
@@ -33,6 +32,8 @@ import {
   MAX_HELD_REASON_LENGTH,
   type HeldJsonObject,
   type IHeldHostStatus,
+  type IHeldServiceDeclaration,
+  type IHostTuning,
 } from "./heldChannel";
 import {
   DEV_CHANNEL,
@@ -42,7 +43,13 @@ import {
   type IDevResize,
 } from "./devChannelBase";
 
-export { DEV_CHANNEL, DEV_CHILD_ENV, isTerminalDimension, type IDevResize };
+export {
+  DEV_CHANNEL,
+  DEV_CHILD_ENV,
+  isTerminalDimension,
+  type IDevResize,
+  type IHeldServiceDeclaration,
+};
 
 /**
  * Serveur → superviseur : le bilan du serveur prêt, de quoi dessiner la barre
@@ -88,36 +95,6 @@ export interface IDevRuntime {
 }
 
 /**
- * Un service de longue durée que le serveur demande à son superviseur de
- * PORTER (ADR-0030 §D3) : Vite aujourd'hui, un serveur d'inférence demain.
- * Le superviseur n'en connaît que cette description — il ne nomme aucun
- * service, n'importe aucun paquet, et ne lit pas `spec`.
- */
-export interface IHeldServiceDeclaration {
-  /** Identifiant stable, unique pour toute la session (`vite:default`). */
-  readonly key: string;
-  /** Chemin ABSOLU du module hôte, lancé par `fork`. */
-  readonly module: string;
-  /**
-   * Empreinte de tout ce qui exige un NOUVEL hôte (ADR-0030 §D4), calculée
-   * par le serveur. Le superviseur compare deux chaînes, rien de plus :
-   * identique → l'hôte vivant est gardé ; différente → il est remplacé.
-   */
-  readonly fingerprint: string;
-  /** Ce que l'hôte reçoit à son démarrage (`IHeldStart.spec`). */
-  readonly spec: HeldJsonObject;
-  /** Répertoire de travail de l'hôte (absolu). */
-  readonly cwd: string;
-  /**
-   * Variables AJOUTÉES à l'environnement du superviseur — jamais un
-   * environnement complet : le serveur ne recopie pas le sien sur le canal.
-   */
-  readonly env: Readonly<Record<string, string>>;
-  /** Réglage du cycle de l'hôte ; défauts du teneur pour ce qui manque. */
-  readonly tuning?: IHostTuning;
-}
-
-/**
  * Serveur → superviseur : l'état VOULU des services d'un propriétaire
  * (`frontend`, demain `ai`), liste COMPLÈTE (ADR-0030 §D3). Clé neuve →
  * démarrée ; empreinte changée → remplacée ; identique → gardée ; absente →
@@ -154,6 +131,22 @@ export interface IDevHeldState {
   status: IHeldHostStatus;
 }
 
+/**
+ * Serveur → superviseur, UNE fois par démarrage, juste avant `onPostReady` :
+ * les propriétaires qui ont déclaré, pendant ce démarrage, vouloir des
+ * services portés — liste COMPLÈTE, vide comprise. Le superviseur arrête les
+ * services de tout autre propriétaire (ADR-0030 §D3) : un module retiré de la
+ * configuration n'envoie plus jamais de plan, et ses hôtes vivraient sinon
+ * toute la session. Ce n'est pas un plan : il ne démarre rien, et ne touche
+ * pas aux services d'un propriétaire qu'il nomme, dont le plan peut arriver
+ * après lui.
+ */
+export interface IDevHeldOwners {
+  channel: typeof DEV_CHANNEL;
+  type: "held-owners";
+  owners: readonly string[];
+}
+
 /** Tout ce qui peut transiter sur le canal. */
 export type DevChannelMessage =
   | IDevStatusView
@@ -162,10 +155,13 @@ export type DevChannelMessage =
   | IDevRuntime
   | IDevHeldPlan
   | IDevHeldPlanAck
-  | IDevHeldState;
+  | IDevHeldState
+  | IDevHeldOwners;
 
 /** Au-delà, un plan n'est plus une déclaration mais un déversement. */
 export const MAX_HELD_SERVICES = 32;
+/** Au-delà, une liste de propriétaires n'est plus une liste mais un déversement. */
+export const MAX_HELD_OWNERS = 32;
 /** Longueur maximale d'un nom de propriétaire. */
 const MAX_HELD_OWNER_LENGTH = 64;
 /** Longueur maximale d'une empreinte (un SHA-512 en hexadécimal tient en 128). */
@@ -350,6 +346,16 @@ function isHeldState(m: HeldJsonObject): boolean {
   );
 }
 
+/** Un `held-owners` bien formé : liste bornée d'identifiants. */
+function isHeldOwners(m: HeldJsonObject): boolean {
+  const { owners } = m;
+  return (
+    Array.isArray(owners) &&
+    owners.length <= MAX_HELD_OWNERS &&
+    owners.every((owner) => isHeldIdentifier(owner, MAX_HELD_OWNER_LENGTH))
+  );
+}
+
 /**
  * Un `runtime` bien formé : trois nombres finis, positifs, bornés.
  *
@@ -402,6 +408,7 @@ const KNOWN_TYPES: ReadonlySet<string> = new Set<DevChannelMessage["type"]>([
   "held-plan",
   "held-plan-ack",
   "held-state",
+  "held-owners",
 ]);
 
 /**
@@ -432,6 +439,7 @@ export function isDevChannelMessage(
     if (!isJsonObject(message)) return false;
     if (m.type === "held-plan") return isHeldPlan(message);
     if (m.type === "held-plan-ack") return isHeldPlanAck(message);
+    if (m.type === "held-owners") return isHeldOwners(message);
     return isHeldState(message);
   }
   return true;

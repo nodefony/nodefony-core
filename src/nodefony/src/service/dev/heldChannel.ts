@@ -75,6 +75,64 @@ export interface IHeldHostStatus {
   readonly missedPongs: number;
 }
 
+/**
+ * Le réglage du cycle d'un hôte — délais, relances, preuve de vie. Partagé
+ * tel quel par le plan qu'un serveur déclare à son superviseur
+ * ({@link IHeldServiceDeclaration}) : une seule liste de réglages.
+ * Les durées sont en millisecondes.
+ */
+export interface IHostTuning {
+  /** Délai pour que l'hôte rapporte `ready` (défaut 30 000). */
+  readonly startupTimeoutMs?: number;
+  /**
+   * Relances après des plantages EN RAFALE, au-delà → `errored` (défaut 5). Le
+   * compte revient à zéro dès qu'une preuve de vie arrive à l'heure sur un
+   * hôte prêt — sans preuve de vie (`livenessIntervalMs: 0`), il ne revient pas.
+   */
+  readonly maxRestarts?: number;
+  /** Recul de relance exponentiel : base et plafond (défauts 500 / 8 000). */
+  readonly restartBackoffBaseMs?: number;
+  readonly restartBackoffMaxMs?: number;
+  /** Période de la preuve de vie ; `0` la coupe (défaut 30 000). */
+  readonly livenessIntervalMs?: number;
+  /** Une réponse plus tardive compte comme manquée (défaut 5 000). */
+  readonly livenessTimeoutMs?: number;
+  /** Preuves manquées d'affilée avant de tuer l'hôte (défaut 3). */
+  readonly livenessMissedLimit?: number;
+  /** Délai laissé à l'hôte pour sortir après `stop`, puis l'arbre est tué (défaut 3 000). */
+  readonly stopGraceMs?: number;
+}
+
+/**
+ * Un service de longue durée que le serveur demande à son superviseur de
+ * PORTER (ADR-0030 §D3) : Vite aujourd'hui, un serveur d'inférence demain.
+ * Le superviseur n'en connaît que cette description — il ne nomme aucun
+ * service, n'importe aucun paquet, et ne lit pas `spec`.
+ */
+export interface IHeldServiceDeclaration {
+  /** Identifiant stable, unique pour toute la session (`vite:default`). */
+  readonly key: string;
+  /** Chemin ABSOLU du module hôte, lancé par `fork`. */
+  readonly module: string;
+  /**
+   * Empreinte de tout ce qui exige un NOUVEL hôte (ADR-0030 §D4), calculée
+   * par le serveur. Le superviseur compare deux chaînes, rien de plus :
+   * identique → l'hôte vivant est gardé ; différente → il est remplacé.
+   */
+  readonly fingerprint: string;
+  /** Ce que l'hôte reçoit à son démarrage (`IHeldStart.spec`). */
+  readonly spec: HeldJsonObject;
+  /** Répertoire de travail de l'hôte (absolu). */
+  readonly cwd: string;
+  /**
+   * Variables AJOUTÉES à l'environnement du superviseur — jamais un
+   * environnement complet : le serveur ne recopie pas le sien sur le canal.
+   */
+  readonly env: Readonly<Record<string, string>>;
+  /** Réglage du cycle de l'hôte ; défauts du teneur pour ce qui manque. */
+  readonly tuning?: IHostTuning;
+}
+
 /** Au-delà, une clé de service n'est plus un identifiant. */
 export const MAX_HELD_KEY_LENGTH = 128;
 

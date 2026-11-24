@@ -87,13 +87,20 @@ function makeRegistry(): {
   return { registry, seen };
 }
 
-/** Lance un faux serveur qui enverra `heldPlan` ; collecte ses acquittements. */
-function spawnServer(heldPlan: IDevHeldPlan): {
+/**
+ * Lance un faux serveur qui enverra `heldPlan`, puis `after` dans l'ordre ;
+ * collecte ses acquittements.
+ */
+function spawnServer(
+  heldPlan: IDevHeldPlan,
+  after: readonly DevChannelMessage[] = [],
+): {
   child: ChildProcess;
   acks: IDevHeldPlanAck[];
   firstAck: Promise<IDevHeldPlanAck>;
 } {
-  const child = fork(SERVER, [JSON.stringify(heldPlan)], {
+  const args = [heldPlan, ...after].map((m) => JSON.stringify(m));
+  const child = fork(SERVER, args, {
     stdio: ["ignore", "pipe", "inherit", "ipc"],
     execArgv: [],
   });
@@ -149,10 +156,35 @@ function wire(
     routeServerMessages({
       isCurrent,
       applyHeldPlan: (p) => registry.apply(p),
+      retainHeldOwners: (owners) => void registry.retainOwners(owners),
       reply: (ack) => sendToServer(child, ack),
       terminal,
     }),
   );
+}
+
+/** Attend que la clé atteigne `ready` ; rend son PID. */
+async function readyPid(
+  seen: Map<string, IHeldHostStatus>,
+  key: string,
+): Promise<number> {
+  const deadline = Date.now() + 8_000;
+  while (Date.now() < deadline) {
+    const s = seen.get(key);
+    if (s?.state === "ready" && s.pid !== null) return s.pid;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  throw new Error(`${key} jamais prêt en 8 s`);
+}
+
+/** Attend la mort d'un PID (borné). */
+async function waitDead(pid: number): Promise<boolean> {
+  const deadline = Date.now() + 8_000;
+  while (Date.now() < deadline) {
+    if (!isPidAlive(pid)) return true;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  return false;
 }
 
 describe("superviseur — câblage des services portés (vrais process)", () => {
@@ -219,6 +251,39 @@ describe("superviseur — câblage des services portés (vrais process)", () => 
     await registry.stopAll();
     expect(isPidAlive(pid as number)).to.equal(false);
   });
+
+  it("held-owners : le propriétaire ABSENT de la liste perd ses hôtes, le propriétaire nommé garde les siens (même PID)", async () => {
+    const { registry, seen } = makeRegistry();
+    registry.apply(plan("vite:front", "frontend"));
+    registry.apply(plan("llm:gone", "ai"));
+    const frontPid = await readyPid(seen, "vite:front");
+    const gonePid = await readyPid(seen, "llm:gone");
+    // Un nouveau serveur, sans module `ai` : il ne nomme que `frontend`.
+    const server = spawnServer(plan("vite:front", "frontend"), [
+      { channel: DEV_CHANNEL, type: "held-owners", owners: ["frontend"] },
+    ]);
+    wire(server.child, registry, () => true);
+    await server.firstAck;
+    expect(await waitDead(gonePid)).to.equal(true);
+    expect(isPidAlive(frontPid)).to.equal(true);
+    expect(seen.get("vite:front")?.pid).to.equal(frontPid);
+  });
+
+  it("held-owners vide : tous les hôtes sont arrêtés", async () => {
+    const { registry, seen } = makeRegistry();
+    registry.apply(plan("vite:only", "frontend"));
+    const pid = await readyPid(seen, "vite:only");
+    expect(registry.retainOwners([])).to.equal(1);
+    expect(await waitDead(pid)).to.equal(true);
+  });
+
+  it("sortie d'urgence (killAll) : un balayage tardif ne touche plus à rien", async () => {
+    const { registry, seen } = makeRegistry();
+    registry.apply(plan("vite:urgent", "frontend"));
+    await readyPid(seen, "vite:urgent");
+    registry.killAll();
+    expect(registry.retainOwners([])).to.equal(0);
+  });
 });
 
 describe("superviseur — aiguillage des messages (unité)", () => {
@@ -272,6 +337,9 @@ describe("superviseur — aiguillage des messages (unité)", () => {
         accepted: true,
         reason: null,
       }),
+      retainHeldOwners: () => {
+        throw new Error("jamais appelé");
+      },
       reply: (a) => replies.push(a),
       terminal,
     });
@@ -293,6 +361,9 @@ describe("superviseur — aiguillage des messages (unité)", () => {
     const route = routeServerMessages({
       isCurrent: () => true,
       applyHeldPlan: () => {
+        throw new Error("jamais appelé");
+      },
+      retainHeldOwners: () => {
         throw new Error("jamais appelé");
       },
       reply: (a) => replies.push(a),
@@ -322,13 +393,37 @@ describe("superviseur — aiguillage des messages (unité)", () => {
           reason: null,
         };
       },
+      retainHeldOwners: () => {
+        throw new Error("jamais appelé");
+      },
       reply: () => {},
       terminal,
     });
     route(statusView);
     route(bootStep);
     route(plan("vite:x"));
+    // Le balayage d'un serveur remplacé défairait les services du courant.
+    route({ channel: DEV_CHANNEL, type: "held-owners", owners: [] });
     expect(calls).to.deep.equal([]);
     expect(applied).to.equal(0);
+  });
+
+  it("held-owners du serveur courant : la liste atteint le balayage, sans acquittement ni barre", () => {
+    const { calls, terminal } = recorder();
+    const retained: (readonly string[])[] = [];
+    const replies: unknown[] = [];
+    const route = routeServerMessages({
+      isCurrent: () => true,
+      applyHeldPlan: () => {
+        throw new Error("jamais appelé");
+      },
+      retainHeldOwners: (owners) => retained.push(owners),
+      reply: (a) => replies.push(a),
+      terminal,
+    });
+    route({ channel: DEV_CHANNEL, type: "held-owners", owners: ["frontend"] });
+    expect(retained).to.deep.equal([["frontend"]]);
+    expect(replies).to.deep.equal([]);
+    expect(calls).to.deep.equal([]);
   });
 });
