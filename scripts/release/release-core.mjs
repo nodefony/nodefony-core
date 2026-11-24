@@ -618,6 +618,28 @@ export function paquetsNonEstampilles(paquets, version) {
     .map((p) => `${p.nom}@${p.pkg?.version ?? "(version absente)"}`);
 }
 
+/** Nom du module que rolldown émet pour un `import … from "./package.json"`. */
+export const MODULE_PACKAGE_JSON = "package.json.js";
+
+/**
+ * La version que le bundler a FIGÉE dans un `package.json.js` émis, ou `null`.
+ *
+ * ## Pourquoi
+ *
+ * Un paquet qui importe son `package.json` (le cœur : `nodefony --version`,
+ * `nodefony upgrade`) en porte une COPIE dans son `dist`, figée au build.
+ * Estampiller sans rebâtir donne un tarball `x@10.0.3` qui annonce « 10.0.2
+ * installé » — vécu sur une répétition `--write --pack`. Le `package.json`
+ * du tarball dit vrai, le code qui le lit ment.
+ *
+ * @param texte - contenu du module émis.
+ * @returns la version lue, ou `null` si le module n'en fige aucune.
+ */
+export function versionFigee(texte) {
+  const m = /\bvar version(?:\$\d+)?\s*=\s*"([^"]+)"/u.exec(texte);
+  return m ? m[1] : null;
+}
+
 /**
  * Pont Conventional Commits → catégories **Common Changelog**.
  *
