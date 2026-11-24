@@ -29,6 +29,7 @@ import {
 } from "../../service/viteFamily";
 import { FrontendSupervisorStartError } from "../../src/errors/FrontendError";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder";
+import type { FrontPresetType } from "../../interfaces/IFrontPreset";
 
 const dirs: string[] = [];
 function tmp(): string {
@@ -40,7 +41,10 @@ afterAll(() => {
   for (const d of dirs) rmSync(d, { recursive: true, force: true });
 });
 
-function entry(root: string, type = "vanilla"): IResolvedFrontendEntry {
+function entry(
+  root: string,
+  type: FrontPresetType = "vanilla",
+): IResolvedFrontendEntry {
   return {
     moduleName: "fixture",
     entryName: "fixture",
@@ -309,8 +313,8 @@ describe("FrontendService — le mode se décide sur la présence du superviseur
       "watch:vite:default",
       "submit:vite:default",
     ]);
-    const [{ status: s }] = booted.service.statusAll();
-    expect(s.state).to.equal("ready");
+    const [first] = booted.service.statusAll();
+    expect(first?.status.state).to.equal("ready");
     const sups = (
       booted.service as unknown as { supervisors: Map<string, unknown> }
     ).supervisors;
