@@ -4,7 +4,13 @@
  */
 import { describe, it, expect, afterAll, afterEach } from "vitest";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  existsSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -92,7 +98,9 @@ describe("long-run-lock", () => {
       // Création EXCLUSIVE (`wx`) plutôt que « existe ? puis écrire » : entre
       // les deux, une vraie passe pouvait prendre le verrou, et le test
       // l'écrasait. Verrou déjà tenu → une vraie passe tourne : ne pas la
-      // piétiner.
+      // piétiner. Le dossier se crée d'abord : dans un arbre neuf (worktree,
+      // clone), `tmp/` n'existe pas, et seul l'ordre des tests le créait.
+      mkdirSync(path.dirname(LOCK_FILE), { recursive: true });
       try {
         writeFileSync(
           LOCK_FILE,
