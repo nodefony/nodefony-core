@@ -121,9 +121,16 @@ Le tout est orchestré par `runUpgrade()` (`upgrade.ts#runUpgrade`). Ce que la c
 une copie retouchée, un skill écrit à la main, un pointeur orphelin — est **nommé** sous
 « À trancher à la main », jamais tu.
 
-Elle ne démarre pas l'application ; sans `--to`, elle n'installe rien et ne touche pas au
-`package.json` : elle sert précisément au moment où le `dist/` n'a pas encore été reconstruit
-sur les nouveaux paquets.
+Elle complète aussi, pour une application installée par npm, le bloc `allowScripts` du
+`package.json` : les entrées que le gabarit déclare et qui manquent y sont ajoutées avec la valeur
+du gabarit — `missingAllowScripts()` (`allowScripts.ts#missingAllowScripts`), la règle même que
+`create app` rend. Une application née avant qu'une entrée existe gardait sinon, à chaque
+installation, l'avertissement d'npm sur des scripts bloqués. Une entrée **présente** n'est jamais
+modifiée : sa valeur est la décision de l'application.
+
+Elle ne démarre pas l'application ; sans `--to`, elle n'installe rien, et `allowScripts` est sa
+seule écriture au `package.json` : elle sert précisément au moment où le `dist/` n'a pas encore
+été reconstruit sur les nouveaux paquets.
 
 ### 4. Reconstruire et vérifier
 
@@ -136,8 +143,8 @@ changement de schéma, appliquez ensuite les migrations (`nodefony orm:migrate`)
 ## En intégration continue
 
 `nodefony upgrade --check` n'écrit rien et sort en **1** si un des quatre gestes reste à faire,
-si une plage du framework vise une autre version que l'installée, ou si l'outillage est sous son
-plancher —
+si une plage du framework vise une autre version que l'installée, si l'outillage est sous son
+plancher, ou si une entrée `allowScripts` du gabarit manque —
 `isUpgradePending()` (`upgrade.ts#isUpgradePending`) en décide. Placé dans la CI, il refuse une branche qui a
 monté ses paquets sans remettre l'application au niveau :
 

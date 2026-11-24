@@ -11,7 +11,7 @@ description: >
   version", "upgrade nodefony", "npm update nodefony", "une nouvelle version est sortie", "mes paquets
   nodefony sont en retard", "après la mise à jour plus rien ne compile", "AGENTS.md est périmé".
 metadata:
-  version: 1.3.0
+  version: 1.3.1
 ---
 
 # nodefony-upgrade — les paquets, puis l'application, puis la preuve
@@ -75,7 +75,8 @@ paquet déclaré (⚠️ sans version, `npm install nodefony` suit le canal `lat
 
 Elle réécrit le bloc framework d'`AGENTS.md` (le texte hors des marqueurs `<!-- nodefony:start -->`
 / `<!-- nodefony:end -->` ne bouge pas), pose les pointeurs des skills apparus, rafraîchit les
-copies livrées restées intactes. Ce qu'elle ne tranche pas est listé sous « À trancher à la main » :
+copies livrées restées intactes et, sous npm, ajoute au bloc `allowScripts` du `package.json` les
+entrées que le gabarit déclare et qui manquent — une entrée présente garde sa valeur. Ce qu'elle ne tranche pas est listé sous « À trancher à la main » :
 une copie que l'application a retouchée, un `SKILL.md` écrit à la main, un skill que plus aucun
 paquet ne livre. **Lis cette liste** : chaque ligne est une décision qui t'appartient.
 
