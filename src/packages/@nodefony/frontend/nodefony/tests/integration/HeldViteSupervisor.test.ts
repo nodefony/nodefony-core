@@ -179,13 +179,18 @@ describe("HeldViteSupervisor — Vite porté par le superviseur (vraie Vite, vra
     const port = await freePort();
     const first = await bootServer(newServer, options(port));
     const pid = first.status().pid;
+    // Le port EFFECTIF de l'hôte, pas celui demandé : entre la sonde de
+    // `freePort` et l'écoute de Vite, un autre fichier de la passe peut avoir
+    // pris le port, et Vite passe alors au suivant (vu sur la forge : 37902
+    // pour 37901). L'invariant est que l'hôte RETROUVÉ garde le sien.
+    const hostPort = first.status().port;
     // Le serveur s'arrête : son adaptateur cesse d'écouter, sans arrêter Vite.
     await first.stop();
     expect(isPidAlive(pid as number)).to.equal(true);
     const second = await bootServer(newServer, options(port));
     expect(second.status().state).to.equal("ready");
     expect(second.status().pid).to.equal(pid);
-    expect(second.status().port).to.equal(port);
+    expect(second.status().port).to.equal(hostPort);
   });
 
   it("empreinte changée (réglage du teneur) : l'hôte est REMPLACÉ — PID neuf, l'ancien mort", async () => {

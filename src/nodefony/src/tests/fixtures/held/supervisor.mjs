@@ -4,10 +4,12 @@
 // NF_DEV_CHILD=1, il joue le serveur enfant. Lancé sous `--import tsx/esm`,
 // que le superviseur transmet à son enfant.
 //
-// argv[2] = { cwd, ports, plan, crashOnce? } — `crashOnce` : chemin d'un
-// témoin ; le PREMIER serveur plante (code 1) dès son plan acquitté, et le
-// superviseur le relance (crash rapide), comme après un serveur tombé.
-import { existsSync, writeFileSync } from "node:fs";
+// argv[2] = { cwd, ports, plan, crashOnce?, lossWitness? } — `crashOnce` :
+// chemin d'un témoin ; le PREMIER serveur plante (code 1) dès son plan
+// acquitté, et le superviseur le relance (crash rapide), comme après un
+// serveur tombé. `lossWitness` : chemin du témoin d'arrêt à la perte du
+// superviseur (#908) — le serveur écoute alors `ports[0]`.
+import { appendFileSync, existsSync, writeFileSync } from "node:fs";
 
 const config = JSON.parse(process.argv[2]);
 
@@ -31,6 +33,62 @@ if (process.env.NF_DEV_CHILD === "1") {
       process.exit(1);
     }
   });
+  if (typeof config.lossWitness === "string") {
+    // #908 : le serveur s'arrête à la perte de son superviseur, par la VRAIE
+    // fonction du noyau. Il écoute un port, comme un serveur ; son arrêt
+    // écrit d'abord (des journaux), attend que l'écriture ait abouti — sur un
+    // tube dont le lecteur est mort, c'est là que tombe `EPIPE` —, puis ferme
+    // son port et laisse un témoin : la preuve que l'arrêt est allé au bout.
+    // Journal de bord : COMMENT ce serveur meurt, pour qu'un rouge de la forge
+    // nomme sa cause (vu sur macOS : mort en 0,4 s sans témoin, jamais en
+    // local). Chaque trace observe sans changer le comportement — une sortie
+    // reste une sortie, un signal reste mortel, une exception reste fatale.
+    const trace = (line) => {
+      try {
+        appendFileSync(`${config.lossWitness}.trace`, `${line}\n`);
+      } catch {
+        /* le dossier a pu partir : rien à dire de plus */
+      }
+    };
+    process.on("exit", (code) => trace(`exit ${code}`));
+    process.on("uncaughtExceptionMonitor", (error, origin) =>
+      trace(`${origin} ${error?.stack ?? String(error)}`),
+    );
+    // Pas SIGPIPE : Node l'ignore, et un écouteur retiré le rendrait mortel.
+    for (const signal of ["SIGTERM", "SIGHUP", "SIGINT"]) {
+      process.once(signal, () => {
+        trace(`signal ${signal}`);
+        // Rendre au signal son effet par défaut : la mort, par lui.
+        process.kill(process.pid, signal);
+      });
+    }
+    process.once("disconnect", () => trace("disconnect"));
+    const { createServer } = await import("node:net");
+    const { terminateOnSupervisorLoss } =
+      await import("../../../service/dev/devChannel.ts");
+    const server = createServer();
+    await new Promise((resolve) =>
+      server.listen(config.ports[0], "127.0.0.1", resolve),
+    );
+    let terminating = false;
+    terminateOnSupervisorLoss({
+      get isTerminating() {
+        return terminating;
+      },
+      async terminate(code) {
+        terminating = true;
+        trace("terminate");
+        for (let i = 0; i < 32; i++) process.stdout.write(`arrêt ${i}\n`);
+        await new Promise((resolve) => process.stdout.write("fin\n", resolve));
+        trace("écrit");
+        await new Promise((resolve) => setImmediate(resolve));
+        await new Promise((resolve) => server.close(resolve));
+        trace("fermé");
+        writeFileSync(config.lossWitness, String(code));
+        process.exit(code);
+      },
+    });
+  }
   report({ type: "server", pid: process.pid });
   process.send(config.plan);
   setInterval(() => {}, 1_000);

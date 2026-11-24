@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { afterEach, beforeAll, afterAll, describe, it, vi } from "vitest";
 import Kernel from "../kernel/Kernel";
 import { Nodefony } from "../Nodefony";
@@ -7,6 +8,7 @@ import {
   DEV_CHANNEL,
   DEV_CHILD_ENV,
   isDevChannelMessage,
+  terminateOnSupervisorLoss,
   type DevChannelMessage,
   type IDevChannelEndpoint,
 } from "../service/dev/devChannel";
@@ -636,5 +638,140 @@ describe("Kernel — la liste des propriétaires de services portés part AVANT 
     await k.onReady();
     assert.deepStrictEqual(order, ["held-owners", "onPostReady"]);
     assert.strictEqual(report.mock.calls.length, 1);
+  });
+});
+
+/** Canal fictif qui se ferme : `disconnect` émis à la demande. */
+function mkClosingEndpoint(): EventEmitter & IDevChannelEndpoint {
+  return Object.assign(new EventEmitter(), {
+    connected: true,
+    send: (): boolean => true,
+  });
+}
+
+/** Ce qui s'arrête : compte les arrêts demandés. */
+function mkTarget(opts: { terminating?: boolean; rejects?: boolean } = {}): {
+  readonly isTerminating: boolean;
+  terminate: (code?: number) => Promise<unknown>;
+  calls: (number | undefined)[];
+} {
+  const calls: (number | undefined)[] = [];
+  return {
+    isTerminating: opts.terminating ?? false,
+    terminate: (code?: number) => {
+      calls.push(code);
+      return opts.rejects
+        ? Promise.reject(new Error("échec"))
+        : Promise.resolve();
+    },
+    calls,
+  };
+}
+
+/** Un flux de sortie : compte les écouteurs d'erreur posés. */
+function mkOutput(): {
+  on: (event: "error", l: (error: Error) => void) => void;
+  errors: () => number;
+} {
+  let errors = 0;
+  return {
+    on: () => {
+      errors += 1;
+    },
+    errors: () => errors,
+  };
+}
+
+describe("serveur de dev — perte du superviseur (#908)", () => {
+  it("canal fermé : arrêt propre demandé UNE fois, code 0, et les sorties cessent de lever EPIPE", () => {
+    const endpoint = mkClosingEndpoint();
+    const target = mkTarget();
+    const out = mkOutput();
+    const err = mkOutput();
+    assert.strictEqual(
+      terminateOnSupervisorLoss(target, endpoint, [out, err], () => {}),
+      true,
+    );
+    assert.strictEqual(endpoint.listenerCount("disconnect"), 1);
+    endpoint.emit("disconnect");
+    endpoint.emit("disconnect");
+    assert.deepStrictEqual(target.calls, [0]);
+    assert.strictEqual(out.errors(), 1);
+    assert.strictEqual(err.errors(), 1);
+    assert.strictEqual(
+      endpoint.listenerCount("disconnect"),
+      0,
+      "écouteur posé une fois",
+    );
+  });
+
+  it("arrêt DÉJÀ en cours (signal du superviseur) : pas de second arrêt, sorties muettes quand même", () => {
+    const endpoint = mkClosingEndpoint();
+    const target = mkTarget({ terminating: true });
+    const out = mkOutput();
+    terminateOnSupervisorLoss(target, endpoint, [out], () => {});
+    endpoint.emit("disconnect");
+    assert.deepStrictEqual(target.calls, []);
+    assert.strictEqual(out.errors(), 1);
+  });
+
+  it("arrêt propre en échec : sortie forcée en 1, jamais d'orphelin", async () => {
+    const endpoint = mkClosingEndpoint();
+    const exits: number[] = [];
+    terminateOnSupervisorLoss(
+      mkTarget({ rejects: true }),
+      endpoint,
+      [],
+      (code) => {
+        exits.push(code);
+      },
+    );
+    endpoint.emit("disconnect");
+    await new Promise((r) => setImmediate(r));
+    assert.deepStrictEqual(exits, [1]);
+  });
+
+  it("sans canal IPC : rien n'est posé", () => {
+    const { endpoint } = mkEndpoint(false);
+    assert.strictEqual(
+      terminateOnSupervisorLoss(mkTarget(), endpoint, [], () => {}),
+      false,
+    );
+  });
+
+  it("lien : supervisé → posé sur le canal ; pas supervisé → rien, même avec un canal", () => {
+    const supervisedEndpoint = mkClosingEndpoint();
+    const target = mkTarget();
+    assert.strictEqual(
+      mkLink({
+        supervised: true,
+        endpoint: supervisedEndpoint,
+      }).stopOnSupervisorLoss(target),
+      true,
+    );
+    assert.strictEqual(supervisedEndpoint.listenerCount("disconnect"), 1);
+    const loose = mkClosingEndpoint();
+    assert.strictEqual(
+      mkLink({ supervised: false, endpoint: loose }).stopOnSupervisorLoss(
+        target,
+      ),
+      false,
+    );
+    assert.strictEqual(loose.listenerCount("disconnect"), 0);
+    supervisedEndpoint.removeAllListeners("disconnect");
+  });
+
+  it("le noyau se branche dès le début du démarrage, sur lui-même", async () => {
+    const k = mkKernel();
+    const sentinel = new Error("arrêt du démarrage après le branchement");
+    const watch = vi
+      .spyOn(k.supervisorLink, "stopOnSupervisorLoss")
+      .mockImplementation(() => {
+        throw sentinel;
+      });
+    const boot = k as unknown as { startBoot: () => Promise<unknown> };
+    await assert.rejects(boot.startBoot(), sentinel);
+    assert.strictEqual(watch.mock.calls.length, 1);
+    assert.strictEqual(watch.mock.calls[0]?.[0], k);
   });
 });

@@ -75,9 +75,11 @@ Les faits qui contraignent la solution, au code :
 - `src/nodefony/src/runtime/isTerminal.ts#isTerminal` (`isTerminal`, qui lit `isTTY`) — la porte unique où le code constate « suis-je dans
   un terminal ? ». Quatorze lectures directes de `process.stdout.columns` la contournent encore,
   dans sept fichiers.
-- Vite n'est PAS concerné : le serveur le lance déjà en tube, sans couleur
-  (`src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts#ViteProcessSupervisor.attemptSpawn`,
-  `FORCE_COLOR: "0"`) ; il ne touche jamais le terminal et n'efface jamais l'écran.
+- Vite n'est PAS concerné : son hôte tourne en tube, sans couleur
+  (`src/packages/@nodefony/frontend/nodefony/service/viteFamily.ts#ViteFamily.addedEnv`,
+  `FORCE_COLOR: "0"`), et `clearScreen: false` lui est imposé
+  (`src/packages/@nodefony/frontend/nodefony/service/viteHost.ts#viteHostInlineConfig`) ; il ne
+  touche jamais le terminal et n'efface jamais l'écran.
   L'amendement #903 n'y change rien : quand le superviseur portera Vite (#692), sa sortie aura
   un canal à elle (§11), et n'écrira toujours pas dans le terminal.
 
@@ -595,7 +597,7 @@ render? }`, calqué sur le résultat de `inspect`) : ni sortie standard, ni `ter
   `uncaughtException`, `exit` — par le protocole unique (§5). Seul `kill -9` laisse un terminal à
   `reset` : c'est la raison d'être de la surface `inline`.
 - Le verdict de crash du serveur s'arme sur l'évènement `close` de l'enfant (émis après la fin de
-  ses flux), plus sur `exit` (`onServerEnded`, `DevSupervisor.ts#onServerEnded`) : sinon la pile d'un crash
+  ses flux), plus sur `exit` (`onProcessEnded`, `devProcess.ts#onProcessEnded`, partagé avec les hôtes portés) : sinon la pile d'un crash
   au démarrage arrive après le message, ou se perd.
 
 **Amendement #903 (D2, D6) — différencier par segment, défiler par le terminal, sauter une
