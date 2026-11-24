@@ -947,7 +947,9 @@ troisième source des fournisseurs, `kernel`, à côté de `client` et `url`. La
 dans `kernel.get("realtime")`, et **son cycle reste au noyau** : le fournisseur ne l'ouvre ni ne la
 ferme. La précédence `kernel` > `client` > `url` s'écrit une fois, dans `connectShared()`
 (`client/realtime/observe.ts#connectShared`) ; un noyau composé sans socket (`realtime: false`) cède la place
-à `client`, puis à `url`.
+à `client`, puis à `url`. Sans l'un ni l'autre, le fournisseur sert le noyau **seul**
+(`client/realtime/observe.ts#kernelWithoutSocket`) : les lectures du noyau ci-dessous marchent, et seul
+l'accès à la socket (`useNodefony()`, `injectNodefony()`, `nodefony()`) lève, en nommant la cause.
 
 | Front   | Fournir                              | Lire le noyau            | Son état                         | Son identité                        |
 | ------- | ------------------------------------ | ------------------------ | -------------------------------- | ----------------------------------- |

@@ -84,6 +84,8 @@ import type {
 import {
   adaptiveRebindKey,
   connectShared,
+  kernelWithoutSocket,
+  KERNEL_WITHOUT_SOCKET,
   observeChannel,
   observePresence,
   observeChannelStats,
@@ -208,7 +210,11 @@ export interface NodefonyVueOptions {
  * à un composant, et `disconnect()` tranche les requêtes en vol des autres
  * consommateurs de la même socket partagée.
  *
- * @throws si aucune socket ne se résout — ni noyau qui en porte une, ni
+ * Un noyau sans temps réel (`realtime: false`) est servi seul : les
+ * composables du noyau le lisent, et {@link useNodefony} lève en nommant la
+ * cause.
+ *
+ * @throws si aucune socket ne se résout et qu'aucun noyau n'est fourni — ni
  *   `client`, ni `url` : l'adresse dépend de l'application, et le
  *   framework n'en devine aucune (règle du socle : une adresse devinée
  *   marche en développement et se trompe en production).
@@ -220,6 +226,12 @@ export interface NodefonyVueOptions {
  */
 export const nodefonyVue: Plugin<[NodefonyVueOptions]> = {
   install(app: App, options: NodefonyVueOptions): void {
+    // Noyau sans temps réel : servi seul. Ses composables n'ont pas besoin de
+    // socket ; `useNodefony()` lève en nommant la cause.
+    if (options.kernel && kernelWithoutSocket(options)) {
+      app.provide(nodefonyKernelKey, markRaw(options.kernel));
+      return;
+    }
     const connection = connectShared(options);
     // `markRaw` : le client est un objet à état, avec des `Map` internes et des
     // comparaisons d'identité. Enveloppé dans un proxy réactif, il perdrait ses
@@ -239,7 +251,8 @@ export const nodefonyVue: Plugin<[NodefonyVueOptions]> = {
  * gondole et échappatoire pour les cas avancés ; pour de l'état réactif,
  * prendre les composables dédiés ci-dessous.
  *
- * @throws si le plugin n'est pas installé. Le socle REFUSE de deviner une
+ * @throws si le plugin n'est pas installé, ou l'a été avec un noyau sans
+ *   temps réel (`realtime: false`). Le socle REFUSE de deviner une
  *   adresse : retomber ici sur une socket partagée fabriquée à la volée
  *   donnerait une page qui marche en développement et parle au mauvais hôte
  *   en production — mieux vaut une erreur au premier rendu.
@@ -256,6 +269,9 @@ export function useNodefony(): NodefonySocket {
 function injectedSocket(): NodefonySocket {
   const client = inject(nodefonyClientKey, null);
   if (!client) {
+    if (inject(nodefonyKernelKey, null)) {
+      throw new Error(`useNodefony() : ${KERNEL_WITHOUT_SOCKET}`);
+    }
     throw new Error(
       "useNodefony() : le plugin n'est pas installé — " +
         'app.use(nodefonyVue, { url: "/api/live/realtime" }).',

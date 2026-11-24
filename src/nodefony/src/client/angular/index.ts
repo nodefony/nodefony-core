@@ -104,6 +104,8 @@ import type {
 import {
   adaptiveRebindKey,
   connectShared,
+  kernelWithoutSocket,
+  KERNEL_WITHOUT_SOCKET,
   observeChannel,
   observePresence,
   observeChannelStats,
@@ -235,7 +237,11 @@ export interface NodefonyAngularOptions {
  * refusée à la construction des providers, pas à la première injection) ; la
  * connexion, elle, n'est ouverte qu'au premier `inject`, et hors zone.
  *
- * @throws si aucune socket ne se résout — ni noyau qui en porte une, ni
+ * Un noyau sans temps réel (`realtime: false`) est servi seul : les
+ * fonctions d'injection du noyau le lisent, et {@link injectNodefony} lève en
+ * nommant la cause.
+ *
+ * @throws si aucune socket ne se résout et qu'aucun noyau n'est fourni — ni
  *   `client`, ni `url` : l'adresse dépend de l'application, et le
  *   framework n'en devine aucune (règle du socle : une adresse devinée
  *   marche en développement et se trompe en production).
@@ -256,24 +262,32 @@ export function provideNodefony(
   // Résolue ICI, pas dans la fabrique : le refus d'une adresse absente doit
   // tomber là où l'erreur se lit (la composition des providers), pas au premier
   // rendu d'un composant. La règle du refus elle-même vit dans le socle.
-  const connection = connectShared(options);
+  // Noyau sans temps réel : servi seul. Ses fonctions d'injection n'ont pas
+  // besoin de socket ; `injectNodefony()` lève en nommant la cause.
+  const connection = kernelWithoutSocket(options)
+    ? null
+    : connectShared(options);
   return makeEnvironmentProviders([
-    {
-      provide: NODEFONY_CLIENT,
-      useFactory: (): NodefonySocket => {
-        // Hors zone : c'est `connect()` qui fabrique le transport, donc c'est
-        // ici que `zone.js` accrocherait la socket à la détection de
-        // changements. La reconnexion automatique hérite de la même zone.
-        // `NgZone` est fourni dans les deux mondes — sans `zone.js`, c'est une
-        // implémentation inerte, et l'appel ne coûte rien.
-        inject(NgZone).runOutsideAngular(() => {
-          // Idempotent, rejet avalé, et sans effet sur le cycle d'une socket
-          // fournie — les trois règles vivent dans le socle, pas ici.
-          connection.start();
-        });
-        return connection.socket;
-      },
-    },
+    ...(connection
+      ? [
+          {
+            provide: NODEFONY_CLIENT,
+            useFactory: (): NodefonySocket => {
+              // Hors zone : c'est `connect()` qui fabrique le transport, donc c'est
+              // ici que `zone.js` accrocherait la socket à la détection de
+              // changements. La reconnexion automatique hérite de la même zone.
+              // `NgZone` est fourni dans les deux mondes — sans `zone.js`, c'est une
+              // implémentation inerte, et l'appel ne coûte rien.
+              inject(NgZone).runOutsideAngular(() => {
+                // Idempotent, rejet avalé, et sans effet sur le cycle d'une socket
+                // fournie — les trois règles vivent dans le socle, pas ici.
+                connection.start();
+              });
+              return connection.socket;
+            },
+          },
+        ]
+      : []),
     ...(options.kernel
       ? [{ provide: NODEFONY_KERNEL, useValue: options.kernel }]
       : []),
@@ -285,7 +299,8 @@ export function provideNodefony(
  * gondole et échappatoire pour les cas avancés ; pour de l'état réactif, prendre
  * les fonctions dédiées ci-dessous.
  *
- * @throws si {@link provideNodefony} n'est pas dans les `providers`. Le socle
+ * @throws si {@link provideNodefony} n'est pas dans les `providers`, ou y
+ *   est avec un noyau sans temps réel (`realtime: false`). Le socle
  *   REFUSE de deviner une adresse : retomber ici sur une socket partagée
  *   fabriquée à la volée donnerait une page qui marche en développement et parle
  *   au mauvais hôte en production — mieux vaut une erreur au premier rendu.
@@ -294,6 +309,9 @@ export function injectNodefony(): NodefonySocket {
   assertInInjectionContext(injectNodefony);
   const client = inject(NODEFONY_CLIENT, { optional: true });
   if (!client) {
+    if (inject(NODEFONY_KERNEL, { optional: true })) {
+      throw new Error(`injectNodefony() : ${KERNEL_WITHOUT_SOCKET}`);
+    }
     throw new Error(
       "injectNodefony() : provideNodefony() n'est pas dans les providers — " +
         'bootstrapApplication(App, { providers: [provideNodefony({ url: "/api/live/realtime" })] }).',
