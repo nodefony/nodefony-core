@@ -73,7 +73,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // développement et MEURT en production — `Cannot find package
   // '@node-rs/argon2'`, échec critique du boot, sur le chemin par défaut.
   "@node-rs/argon2": "^2.2.2",
-  "@types/node": "^26.6.6",
+  "@types/node": "^26.6.7",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
   oxlint: "^1.95.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
@@ -105,7 +105,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   react: "^19.3.1",
   "react-dom": "^19.3.1",
   "@vitejs/plugin-react": "^6.3.0",
-  "@types/react": "^19.3.0",
+  "@types/react": "^19.3.1",
   "@types/react-dom": "^19.3.0",
   // La scène 3D du jeu Prisme de la démo (`create app --demo`) : chargée à la
   // demande sur sa seule page, jamais par le framework.
@@ -139,7 +139,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@angular/core": "~22.3.0",
   "@angular/common": "~22.3.0",
   "@angular/platform-browser": "~22.3.0",
-  "@analogjs/vite-plugin-angular": "^2.9.8",
+  "@analogjs/vite-plugin-angular": "^3.0.0",
   "@angular/build": "~22.3.0",
   "@angular/compiler-cli": "~22.3.0",
 };
