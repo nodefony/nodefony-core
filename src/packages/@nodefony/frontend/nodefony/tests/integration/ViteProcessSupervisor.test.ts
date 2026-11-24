@@ -481,6 +481,67 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
   // page refusée dès qu'on quitte la boucle locale.
   // Face B : le Host que pose le proxy (`127.0.0.1:<port>`, l'origine du
   // status) passe, et cette origine suit le port RÉEL du spawn.
+  it.skipIf(process.platform === "win32")(
+    "healthFailures = preuves de vie manquées : hôte figé (SIGSTOP) → monte ; relâché (SIGCONT) → 0, même hôte",
+    async () => {
+      const port = await freePort();
+      const sup = new ViteProcessSupervisor({
+        devHost: "127.0.0.1",
+        devPort: port,
+        startupTimeoutMs: 20_000,
+        pipeLogs: false,
+        cwd: FIXTURE_ROOT,
+        logger: silentLogger,
+        // Plafond loin devant : on observe le compte, pas la mise à mort.
+        healthCheckIntervalMs: 100,
+        healthCheckTimeoutMs: 50,
+        healthCheckFailureThreshold: 1_000,
+        autoRestart: false,
+      });
+      const until = async (
+        predicate: () => boolean,
+        what: string,
+      ): Promise<void> => {
+        const deadline = Date.now() + 10_000;
+        while (!predicate()) {
+          if (Date.now() > deadline)
+            throw new Error(
+              `${what} — dernier état ${JSON.stringify(sup.status())}`,
+            );
+          await new Promise((r) => setTimeout(r, 25));
+        }
+      };
+      let pid: number | null = null;
+      try {
+        await sup.start([makeEntry()], {});
+        pid = sup.status().pid;
+        expect(pid).to.be.a("number");
+        expect(sup.status().healthFailures).to.equal(0);
+        process.kill(pid!, "SIGSTOP");
+        await until(
+          () => sup.status().healthFailures >= 2,
+          "le compte ne monte pas sous un hôte figé",
+        );
+        process.kill(pid!, "SIGCONT");
+        await until(
+          () => sup.status().healthFailures === 0,
+          "le compte ne retombe pas une fois l'hôte relâché",
+        );
+        expect(sup.status().state).to.equal("ready");
+        expect(sup.status().pid).to.equal(pid);
+      } finally {
+        if (pid !== null) {
+          try {
+            process.kill(pid, "SIGCONT");
+          } catch {
+            /* déjà mort */
+          }
+        }
+        await sup.stop();
+      }
+    },
+  );
+
   it("Host étranger refusé SANS allowedHosts (témoin — la barrière existe)", async () => {
     const port = await freePort();
     const sup = new ViteProcessSupervisor({

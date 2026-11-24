@@ -331,6 +331,8 @@ export class HeldHost {
    */
   #spawn(phase: "starting" | "restarting", epoch: number): Promise<void> {
     this.#data = null;
+    // Un hôte neuf n'a rien manqué : le compte de l'hôte tué ne le suit pas.
+    this.#missed = 0;
     this.#setState(phase);
     const env: NodeJS.ProcessEnv = { ...this.#opts.env };
     delete env[DEV_CHILD_ENV];
@@ -458,7 +460,7 @@ export class HeldHost {
     const late =
       performance.now() - this.#pingSentAt >
       (this.#opts.livenessTimeoutMs ?? 5_000);
-    this.#missed = late ? this.#missed + 1 : 0;
+    this.#setMissed(late ? this.#missed + 1 : 0);
     // Une preuve de vie à l'heure, hôte prêt : un intervalle entier a été
     // VÉCU depuis la relance. Le budget de relances est rendu — il ne doit
     // compter que les plantages en RAFALE (une boucle), jamais la vie
@@ -536,7 +538,7 @@ export class HeldHost {
   #tickLiveness(): void {
     const child = this.#child;
     if (child === null) return;
-    if (this.#awaitedSeq !== -1) this.#missed++;
+    if (this.#awaitedSeq !== -1) this.#setMissed(this.#missed + 1);
     if (this.#missed >= (this.#opts.livenessMissedLimit ?? 3)) {
       // La sortie qui suit passe par `#onExit` → relance avec recul, et c'est
       // cette cause qu'elle publie. La preuve de vie reste armée : si le
@@ -599,7 +601,18 @@ export class HeldHost {
       data: this.#data,
       lastError: this.#lastError,
       restartCount: this.#restartCount,
+      missedPongs: this.#missed,
     });
+  }
+
+  /**
+   * Fixe le compte de preuves de vie manquées, et le publie s'il change : il
+   * ne bouge que quand l'hôte va mal, ou qu'il se rétablit.
+   */
+  #setMissed(count: number): void {
+    if (count === this.#missed) return;
+    this.#missed = count;
+    this.#publish();
   }
 }
 

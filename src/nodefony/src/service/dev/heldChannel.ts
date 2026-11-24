@@ -68,6 +68,11 @@ export interface IHeldHostStatus {
   readonly data: HeldJsonObject | null;
   readonly lastError: string | null;
   readonly restartCount: number;
+  /**
+   * Preuves de vie manquées D'AFFILÉE (ping sans pong à l'heure) — `0` quand
+   * l'hôte répond. Au plafond (`livenessMissedLimit`), l'hôte est tué.
+   */
+  readonly missedPongs: number;
 }
 
 /** Au-delà, une clé de service n'est plus un identifiant. */
@@ -195,7 +200,7 @@ export function isJsonObject(value: unknown): value is HeldJsonObject {
  */
 export function isHeldHostStatus(value: unknown): value is IHeldHostStatus {
   if (!isJsonObject(value)) return false;
-  const { key, state, pid, data, lastError, restartCount } = value;
+  const { key, state, pid, data, lastError, restartCount, missedPongs } = value;
   return (
     typeof key === "string" &&
     key.length > 0 &&
@@ -207,7 +212,8 @@ export function isHeldHostStatus(value: unknown): value is IHeldHostStatus {
     (lastError === null ||
       (typeof lastError === "string" &&
         lastError.length <= MAX_HELD_REASON_LENGTH)) &&
-    isSeq(restartCount)
+    isSeq(restartCount) &&
+    isSeq(missedPongs)
   );
 }
 

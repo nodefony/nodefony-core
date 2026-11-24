@@ -335,7 +335,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       entries: this.#entries,
       https: !!this.#opts.https,
       restartCount: status?.restartCount ?? 0,
-      healthFailures: 0,
+      healthFailures: status?.missedPongs ?? 0,
       portRetries: this.#portRetries,
     });
   }

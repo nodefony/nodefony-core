@@ -302,6 +302,7 @@ describe("canal nf-dev — messages held-*", () => {
     data: { port: 5173 },
     lastError: null,
     restartCount: 0,
+    missedPongs: 0,
   };
 
   it("accepte les formes valides", () => {
@@ -366,6 +367,13 @@ describe("canal nf-dev — messages held-*", () => {
         owner: "f",
         status: { ...status, key: "" },
       },
+      // Compte de preuves de vie : entier positif sûr, toujours présent.
+      ...[-1, 1.5, "2", null, undefined].map((missedPongs) => ({
+        channel: DEV_CHANNEL,
+        type: "held-state",
+        owner: "f",
+        status: { ...status, missedPongs },
+      })),
     ];
     for (const message of bad) expect(isDevChannelMessage(message)).toBe(false);
   });
