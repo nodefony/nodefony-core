@@ -222,6 +222,10 @@ describe("isUpgradePending — ce que `--check` compte", () => {
     },
     contributions: [],
     envExample: { status: "synced", variables: 3, unreadable: [] },
+    ranges: [],
+    tooling: [],
+    target: null,
+    newer: null,
   };
   const contribution = {
     packageName: "@nodefony/security",
@@ -347,6 +351,7 @@ describe("upgradeUsage — l'aide se calcule depuis la version", () => {
     assert.ok(!aide.includes("@beta"), aide);
     assert.ok(!aide.includes("latest"), aide);
     assert.ok(aide.includes("npm install nodefony @nodefony/http"), aide);
+    assert.ok(aide.includes("nodefony upgrade --to <version>"), aide);
   });
 
   it("nomme le canal d'une préversion, dans l'exemple comme dans le texte", () => {
@@ -356,5 +361,6 @@ describe("upgradeUsage — l'aide se calcule depuis la version", () => {
       aide,
     );
     assert.ok(aide.includes("le canal `beta`"), aide);
+    assert.ok(aide.includes("nodefony upgrade --to beta"), aide);
   });
 });

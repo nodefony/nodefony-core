@@ -11,7 +11,7 @@ description: >
   version", "upgrade nodefony", "npm update nodefony", "une nouvelle version est sortie", "mes paquets
   nodefony sont en retard", "après la mise à jour plus rien ne compile", "AGENTS.md est périmé".
 metadata:
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # nodefony-upgrade — les paquets, puis l'application, puis la preuve
@@ -56,23 +56,22 @@ npx nodefony outdated
 
 `outdated` liste les paquets en retard, regroupés. Note la version cible.
 
-**Monter TOUS les paquets Nodefony, ensemble, sous le bon canal.** Ils sortent verrouillés : même
-version pour `nodefony` et chaque `@nodefony/*`, devDependencies comprises (`@nodefony/devkit`
-porte les skills). Nomme chacun de ceux que ton `package.json` déclare :
+**Monter TOUS les paquets Nodefony, ensemble, puis remettre l'application au niveau — un seul
+geste** :
 
 ```bash
-npm install nodefony @nodefony/http @nodefony/framework @nodefony/security
-npm install -D @nodefony/devkit
+npx nodefony upgrade --to <version>     # ou un canal : --to beta
 ```
 
-⚠️ `npm install nodefony` suit le canal `latest`. Pour viser une version précise, l'écrire
-(`nodefony@<version>`) — la même sur TOUS les paquets de l'application.
+Les paquets sortent verrouillés : même version pour `nodefony` et chaque `@nodefony/*`.
+`--to` réécrit chaque plage du `package.json` — `devDependencies` (`@nodefony/devkit` porte les
+skills) et surcharges (`overrides`, `resolutions`) comprises —, relève l'outillage du gabarit
+resté sous son plancher, installe avec le gestionnaire de l'application, puis la version
+installée rejoue la remise au niveau. Plan sans rien écrire : ajouter `--dry-run`.
 
-**Remettre l'application au niveau des paquets** :
-
-```bash
-npx nodefony upgrade
-```
+À la main, c'est `npm install nodefony@<version> @nodefony/<paquet>@<version>…` pour chaque
+paquet déclaré (⚠️ sans version, `npm install nodefony` suit le canal `latest`), puis
+`npx nodefony upgrade`, qui remet l'application au niveau sans rien installer.
 
 Elle réécrit le bloc framework d'`AGENTS.md` (le texte hors des marqueurs `<!-- nodefony:start -->`
 / `<!-- nodefony:end -->` ne bouge pas), pose les pointeurs des skills apparus, rafraîchit les
