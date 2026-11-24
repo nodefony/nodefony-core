@@ -87,13 +87,11 @@ describe("svelteConfigFile — quel fichier le plugin Svelte doit lire", () => {
 });
 
 describe("preset svelte5 — `configFile` dans la description du plugin", () => {
-  const getPreset = (type: string) => getBuiltinPreset(type);
-
   it("famille partagée, Svelte en second : `configFile` absolu, séparé par /", () => {
     const withConfig = root({ text: CONFIG });
     const { plugins } = composePresets(
       [entry(root(), "vanilla"), entry(withConfig)],
-      getPreset,
+      getBuiltinPreset,
     );
     const svelte = plugins.find(
       (p) => p.specifier === "@sveltejs/vite-plugin-svelte",
@@ -104,7 +102,7 @@ describe("preset svelte5 — `configFile` dans la description du plugin", () => 
   });
 
   it("sans configuration : aucune option — un `configFile` absent ferait échouer le plugin", () => {
-    const { plugins } = composePresets([entry(root())], getPreset);
+    const { plugins } = composePresets([entry(root())], getBuiltinPreset);
     expect(plugins[0]?.options).to.equal(undefined);
   });
 });

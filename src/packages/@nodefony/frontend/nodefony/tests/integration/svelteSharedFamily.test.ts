@@ -10,6 +10,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Plugin } from "vite";
 import { afterAll, describe, expect, it } from "vitest";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
 import type { IVitePluginSpec } from "../../interfaces/IFrontPreset.js";
@@ -27,6 +28,11 @@ const FIXTURE = path.resolve(
 const HOST = path.join(FIXTURE, "host");
 const MODULE = path.join(FIXTURE, "module");
 const MISSING = "__NF_PREPROCESSOR_MISSING__";
+
+/** Un greffon Vite : un objet nommé — ce que rendent les fabriques chargées. */
+function isPlugin(value: unknown): value is Plugin {
+  return typeof value === "object" && value !== null && "name" in value;
+}
 
 const cacheDir = mkdtempSync(path.join(os.tmpdir(), "nf-svelte-family-"));
 afterAll(() => rmSync(cacheDir, { recursive: true, force: true }));
@@ -58,7 +64,7 @@ async function servedProbe(
     cacheDir,
     logLevel: "silent",
     appType: "custom",
-    plugins: await loadVitePlugins(specs),
+    plugins: (await loadVitePlugins(specs)).flat().filter(isPlugin),
     optimizeDeps: { noDiscovery: true, include: [] },
     server: { middlewareMode: true, watch: null },
   });
