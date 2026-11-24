@@ -36,6 +36,7 @@ import {
   type IHeldHostStatus,
 } from "../service/dev/HostHolder";
 import { HeldServiceRegistry } from "../service/dev/heldServices";
+import { HELD_HOST_CWD } from "./fixtures/held/hostCwd";
 
 const FIXTURES = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -87,7 +88,7 @@ function makeHost(
     key: `limits:${typeof spec.mode === "string" ? spec.mode : "?"}`,
     module: HOST,
     spec,
-    cwd: FIXTURES,
+    cwd: HELD_HOST_CWD,
     env: { ...process.env },
     startupTimeoutMs: 5_000,
     restartBackoffBaseMs: 10,
@@ -161,7 +162,7 @@ describe("L2 — un arrêt qui croise un démarrage ou une relance (audit I1)", 
       key: "limits:rogue",
       module: ROGUE,
       spec: { mode: "ready-after-stop", readyMs: 250 },
-      cwd: FIXTURES,
+      cwd: HELD_HOST_CWD,
       env: { ...process.env },
       startupTimeoutMs: 5_000,
       restartBackoffBaseMs: 10,
@@ -341,7 +342,7 @@ describe("L7 — rapports forgés, démesurés, répétés (rempart D6)", () => 
       key: "limits:forged",
       module: ROGUE,
       spec: { mode: "forged", hugeSize: MAX_HELD_DATA_LENGTH + 1 },
-      cwd: FIXTURES,
+      cwd: HELD_HOST_CWD,
       env: { ...process.env },
       startupTimeoutMs: 5_000,
       livenessIntervalMs: 0,
@@ -433,7 +434,7 @@ function declaration(
     module: HOST,
     fingerprint,
     spec: { mode: "ok", tag: fingerprint },
-    cwd: FIXTURES,
+    cwd: HELD_HOST_CWD,
     env: {},
     tuning: { startupTimeoutMs: 5_000, maxRestarts: 0 },
   };
@@ -527,10 +528,19 @@ describe("L10b — plans espacés : on remplace des instances en démarrage ET d
     );
     expect(all.size).toBe(10);
     for (const pid of all) if (pid !== finalPid) strays.push(pid);
-    await until(
-      () => [...all].every((p) => p === finalPid || !isPidAlive(p)),
-      10_000,
-    );
+    // La mort des remplacées est PROUVÉE par l'ordre du registre : une
+    // instance ne démarre qu'après l'`exit` constaté de la précédente (L1) —
+    // la finale prête, les neuf autres sont mortes. La sonde par PID n'en est
+    // qu'un témoin extérieur, et sous Windows elle ment : un PID libéré y est
+    // réattribué aussitôt, et `isPidAlive` répond pour un autre process (vécu
+    // sur la forge). Elle ne tourne donc que là où un PID ne se recycle pas
+    // dans la seconde.
+    if (process.platform !== "win32") {
+      await until(
+        () => [...all].every((p) => p === finalPid || !isPidAlive(p)),
+        10_000,
+      );
+    }
     expect(isPidAlive(finalPid)).toBe(true);
   });
 });

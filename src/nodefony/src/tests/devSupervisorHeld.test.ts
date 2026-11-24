@@ -34,6 +34,7 @@ import {
 } from "../service/dev/devChannel";
 import { isPidAlive } from "../service/dev/devProcess";
 import { DUPLICATE_SIGNAL_WINDOW_MS } from "../service/dev/shutdownSignals";
+import { HELD_HOST_CWD } from "./fixtures/held/hostCwd";
 
 const HELD_DIR = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -103,7 +104,7 @@ function plan(
     module: HOST,
     fingerprint: "f1",
     spec: { mode, pidFile },
-    cwd: HELD_DIR,
+    cwd: HELD_HOST_CWD,
     env: {},
     tuning: { startupTimeoutMs: 10_000, maxRestarts: 0, stopGraceMs },
   };

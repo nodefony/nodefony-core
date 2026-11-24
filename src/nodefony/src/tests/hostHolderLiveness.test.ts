@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { HostHolder, type IHostHolderOptions } from "../service/dev/HostHolder";
 import type { IHeldHostStatus } from "../service/dev/heldChannel";
+import { HELD_HOST_CWD } from "./fixtures/held/hostCwd";
 
 const HOST = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -29,7 +30,7 @@ function makeHost(mode: string, extra: Partial<IHostHolderOptions> = {}) {
     key: `liveness:${mode}`,
     module: HOST,
     spec: { mode },
-    cwd: path.dirname(HOST),
+    cwd: HELD_HOST_CWD,
     env: { ...process.env },
     startupTimeoutMs: 5_000,
     restartBackoffBaseMs: 10,

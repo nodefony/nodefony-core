@@ -32,6 +32,7 @@ import {
   type DevProcessInfo,
 } from "../service/dev/devProcess";
 import { hostProjects } from "../service/dev/devStop";
+import { HELD_HOST_CWD } from "./fixtures/held/hostCwd";
 
 const HELD_DIR = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -52,7 +53,7 @@ function makeHost(key: string, module: string, startupTimeoutMs = 5_000) {
     key,
     module,
     spec: { mode: "ok" },
-    cwd: HELD_DIR,
+    cwd: HELD_HOST_CWD,
     env: { ...process.env },
     startupTimeoutMs,
     maxRestarts: 0,

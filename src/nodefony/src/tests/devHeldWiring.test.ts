@@ -29,6 +29,7 @@ import type {
   IStartupView,
   IStatusContext,
 } from "../service/dev/startupScreen";
+import { HELD_HOST_CWD } from "./fixtures/held/hostCwd";
 
 const HELD_DIR = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -57,7 +58,7 @@ function plan(key: string, owner = "frontend"): IDevHeldPlan {
     module: HOST,
     fingerprint: "f1",
     spec: { mode: "ok" },
-    cwd: HELD_DIR,
+    cwd: HELD_HOST_CWD,
     env: {},
     tuning: { startupTimeoutMs: 5_000, maxRestarts: 0 },
   };

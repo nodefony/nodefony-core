@@ -20,6 +20,7 @@ import {
   isHeldHolderMessage,
   isHeldHostMessage,
 } from "../service/dev/heldChannel";
+import { HELD_HOST_CWD } from "./fixtures/held/hostCwd";
 
 const HOST = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -43,7 +44,7 @@ function makeHost(
     key: `test:${mode}`,
     module: HOST,
     spec: { mode },
-    cwd: path.dirname(HOST),
+    cwd: HELD_HOST_CWD,
     env: { ...process.env, NF_DEV_CHILD: "1" },
     startupTimeoutMs: 5_000,
     restartBackoffBaseMs: 10,

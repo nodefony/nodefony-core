@@ -20,6 +20,7 @@ import { isPidAlive } from "../service/dev/devProcess";
 import { HeldServiceRegistry } from "../service/dev/heldServices";
 import type { IHeldHostStatus } from "../service/dev/HostHolder";
 import type { ChildProcess } from "node:child_process";
+import { HELD_HOST_CWD } from "./fixtures/held/hostCwd";
 
 const HOST = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -69,7 +70,7 @@ function service(
     module: HOST,
     fingerprint,
     spec,
-    cwd: path.dirname(HOST),
+    cwd: HELD_HOST_CWD,
     env: { NF_HELD_TEST: "1" },
     tuning: {
       startupTimeoutMs: 5_000,
