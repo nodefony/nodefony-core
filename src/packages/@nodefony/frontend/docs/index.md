@@ -601,6 +601,15 @@ garde le port habituel (`PRIMARY_FAMILY`, `isolationGroups.ts#PRIMARY_FAMILY`).
 démarrage n'échoue que si **aucune** famille n'a pu démarrer (`FrontendService.startDev()`,
 `FrontendService.ts#FrontendService.startDev`).
 
+**La configuration Svelte d'un module est lue, même en famille partagée.** La racine d'une instance
+est le dossier front de sa PREMIÈRE entrée (`ViteConfigGenerator.ts#viteDevRoot`) : laissé à
+lui-même, le greffon Svelte y chercherait `svelte.config.js` — dans le dossier d'un autre module.
+Le preset Svelte lui désigne donc le fichier du module (`configFile`,
+`svelte5-vite.ts#svelteConfigFile`), le même que le build lit à la racine de l'entrée. Une famille
+ne charge qu'un greffon Svelte, donc qu'une configuration : plusieurs modules Svelte peuvent porter
+des `svelte.config.*` identiques ; s'ils diffèrent, le démarrage de la famille échoue sur
+`FrontendSvelteConfigConflictError`, qui nomme les deux fichiers — jamais un choix silencieux.
+
 ### Résilience — ce qui se passe quand Vite tombe
 
 Le superviseur est écrit pour survivre à un poste de développement réel, où les ports sont occupés et
