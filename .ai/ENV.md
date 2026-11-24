@@ -187,8 +187,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:977` |
 | `NF_BENCH_ROUTE` | `src/modules/test/index.ts:122` |
 | `NF_BIND_ALL` | `scripts/test/test-all.ts:845` |
-| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3067` |
-| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3079` |
+| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3070` |
+| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3082` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
 | `NF_BROWSER_ACTION_PARAMS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:44` |
 | `NF_BROWSER_ACTIONS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:106` |
@@ -231,7 +231,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2685` |
 | `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:86` |
 | `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:84` |
-| `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:138` |
+| `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:142` |
 | `NF_DEV_PORTS` | `src/nodefony/src/tests/devProcess.test.ts:383` |
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:277` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:276` |

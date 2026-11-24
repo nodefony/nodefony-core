@@ -12,7 +12,8 @@
  * Le `BootReporter` émet par {@link SupervisorLink.send}, et un
  * futur lot d'historique à la demande (ADR-0013 §6) s'aiguillera dans
  * {@link SupervisorLink.listen} — un seul endroit, que le compilateur désigne
- * dès qu'un membre de l'union n'y est pas traité. Le verdict « lancé par le
+ * dès qu'un membre de l'union n'y est pas traité. La perte du canal (superviseur
+ * mort) arrête le serveur : {@link SupervisorLink.stopOnSupervisorLoss}. Le verdict « lancé par le
  * superviseur » se CONSTATE ici une fois, à la construction, sur
  * `DEV_CHILD_ENV` (`service/dev/devChannelBase.ts`) : plus de lecture éparpillée de la variable.
  *
@@ -45,8 +46,10 @@ import {
   listenToSupervisor,
   hasSupervisorChannel,
   sendToSupervisor,
+  terminateOnSupervisorLoss,
   type DevChannelMessage,
   type IDevChannelEndpoint,
+  type ISupervisorLossTarget,
 } from "../service/dev/devChannel";
 import {
   HeldServicesClient,
@@ -162,6 +165,20 @@ export class SupervisorLink {
   listen(handler: (message: DevChannelMessage) => void): () => void {
     if (!this.supervised) return noop;
     return listenToSupervisor(handler, this.endpoint);
+  }
+
+  /**
+   * Arrête `target` quand le superviseur disparaît, même tué net : sans
+   * superviseur pour le relancer ni pour lire sa sortie, un serveur qui
+   * survivrait garderait ses ports pour personne (`terminateOnSupervisorLoss`).
+   * Hors superviseur, ou sans canal IPC, rien n'est posé.
+   *
+   * @param target - ce qui s'arrête ; le noyau.
+   * @returns `true` si l'écouteur est posé.
+   */
+  stopOnSupervisorLoss(target: ISupervisorLossTarget): boolean {
+    if (!this.supervised) return false;
+    return terminateOnSupervisorLoss(target, this.endpoint);
   }
 
   /**
