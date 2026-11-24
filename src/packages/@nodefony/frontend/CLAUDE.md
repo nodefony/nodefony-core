@@ -12,6 +12,12 @@
 > son état par le canal `nf-held` (`nodefony/held`). `ViteProcessSupervisor` n'est plus qu'un
 > adaptateur `IViteSupervisor` sur le teneur `HostHolder` du cœur. **Aucune sortie de Vite n'est lue
 > pour deviner un état.**
+>
+> **Qui tient l'hôte** : sous `nodefony development`, le SUPERVISEUR (`HeldViteSupervisor`, plan
+> `frontend` envoyé par `kernel.heldServices("frontend")`) — Vite survit aux redémarrages du
+> serveur et n'est relancé que si son empreinte change (`viteFingerprint.ts`). Sans superviseur
+> (`--no-watch`, `frontend:dev`), le SERVEUR (`ViteProcessSupervisor`). Les deux partagent
+> `ViteFamily` : ne jamais recopier une règle de famille dans l'un des deux.
 
 ## Rôle du module
 
@@ -89,7 +95,8 @@ Browser parses HTML → GET /_vite/<famille>/… (origine de la page)
 
 Kernel onTerminate
   └─ FrontendService.stopDev()
-        └─ HostHolder.stop() : `stop` par le canal → server.close(), arbre tué au-delà de 3 s, mort attendue
+        ├─ tenu par le serveur : HostHolder.stop() : `stop` par le canal → server.close(), arbre tué au-delà de 3 s, mort attendue
+        └─ porté par le superviseur : cesse d'écouter — l'hôte reste vivant pour le serveur suivant
 ```
 
 ## Décisions techniques figées

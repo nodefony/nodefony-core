@@ -47,6 +47,8 @@ function moduleFactice(options: object = {}) {
     reportBootLine: noop,
     setBootLines: noop,
     reportBootNotice: noop,
+    // Sans superviseur de développement : le serveur tient Vite lui-même.
+    heldServices: () => null,
   });
   const module = {
     kernel: container.get("kernel"),
