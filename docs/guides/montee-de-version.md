@@ -121,6 +121,14 @@ Le tout est orchestré par `runUpgrade()` (`upgrade.ts#runUpgrade`). Ce que la c
 une copie retouchée, un skill écrit à la main, un pointeur orphelin — est **nommé** sous
 « À trancher à la main », jamais tu.
 
+Une copie retouchée dont la livraison a changé reçoit la nouvelle version **à côté**, sous
+`<fichier>.nodefony-new`, sans que l'original soit touché — le geste de `.rpmnew` (rpm) et de
+`.dpkg-dist` (dpkg). On compare, on reporte ce que l'application garde, puis on supprime le
+`.nodefony-new`. Il n'entre pas dans `scaffold.lock.json`, le `.gitignore` du gabarit l'ignore,
+et une passe suivante le réécrit à l'identique tant que la retouche demeure
+(`contributions.ts#PROPOSED_SUFFIX`). Si la livraison n'a pas changé depuis la retouche, rien
+n'est posé.
+
 Elle complète aussi, pour une application installée par npm, le bloc `allowScripts` du
 `package.json` : les entrées que le gabarit déclare et qui manquent y sont ajoutées avec la valeur
 du gabarit — `missingAllowScripts()` (`allowScripts.ts#missingAllowScripts`), la règle même que

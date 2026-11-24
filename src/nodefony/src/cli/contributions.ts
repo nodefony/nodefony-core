@@ -107,6 +107,12 @@ export type TAppContributor = (
   context: IAppContributionContext,
 ) => void | Promise<void>;
 
+/**
+ * Suffixe de la nouvelle version d'une copie retouchée, posée à côté d'elle.
+ * Jamais inscrite au registre : c'est un brouillon à comparer, puis à supprimer.
+ */
+export const PROPOSED_SUFFIX = ".nodefony-new";
+
 /** Ce qu'une contribution a fait — une entrée par paquet contributeur. */
 export interface IAppContributionReport {
   /** Le paquet (ou module local) qui contribue. */
@@ -128,6 +134,14 @@ export interface IAppContributionReport {
    * remplacés. Sous-ensemble de `kept`.
    */
   readonly modified: readonly string[];
+  /**
+   * Copies RETOUCHÉES dont la livraison a changé depuis la dernière version
+   * inscrite : avec `--update`, la nouvelle est posée À CÔTÉ, sous
+   * `<fichier>${PROPOSED_SUFFIX}`, l'original jamais touché — le geste de
+   * `.rpmnew` (rpm) et `.dpkg-dist` (dpkg). Chemins des ORIGINAUX ; en
+   * simulation, nommés sans être écrits. Sous-ensemble de `modified`.
+   */
+  readonly proposed: readonly string[];
   /** Raison de l'échec, ou `null`. */
   readonly error: string | null;
 }
@@ -294,6 +308,7 @@ export function createAppContributionContext(
   updated: string[];
   outdated: string[];
   modified: string[];
+  proposed: string[];
   files: Record<string, string>;
 } {
   const appName = options.appName ?? readAppName(appRoot);
@@ -305,6 +320,7 @@ export function createAppContributionContext(
   const updated: string[] = [];
   const outdated: string[] = [];
   const modified: string[] = [];
+  const proposed: string[] = [];
   const files: Record<string, string> = {};
   const put = (target: string, content: string | Uint8Array): void => {
     if (dryRun) return;
@@ -360,6 +376,14 @@ export function createAppContributionContext(
     if (previous !== undefined) files[relative] = previous;
     modified.push(relative);
     kept.push(relative);
+    // La livraison a changé depuis la dernière version inscrite (ou n'a jamais
+    // été inscrite) : sa nouvelle version est posée À CÔTÉ, jamais par-dessus.
+    // Le registre ne bouge pas — un rejeu la réécrit à l'identique, et revenir
+    // sur la retouche rend toujours le fichier rafraîchissable.
+    if (update && previous !== delivered) {
+      put(resolveInside(appRoot, `${relative}${PROPOSED_SUFFIX}`), content);
+      proposed.push(relative);
+    }
     return false;
   };
   const copyTree = (sourceDir: string, relative: string): void => {
@@ -383,7 +407,16 @@ export function createAppContributionContext(
     write,
     copyTree,
   };
-  return { context, written, kept, updated, outdated, modified, files };
+  return {
+    context,
+    written,
+    kept,
+    updated,
+    outdated,
+    modified,
+    proposed,
+    files,
+  };
 }
 
 /**
@@ -447,6 +480,7 @@ export async function runAppContributions(
       updated: run.updated,
       outdated: run.outdated,
       modified: run.modified,
+      proposed: run.proposed,
       error,
     });
   }
@@ -529,6 +563,8 @@ export function renderScaffoldSync(
   const lines: string[] = [];
   let outdated = 0;
   let modified = 0;
+  let proposed = 0;
+  const besides = mode.dryRun ? "à poser à côté" : "posée à côté";
   for (const r of reports) {
     lines.push(r.packageName);
     if (r.error !== null) lines.push(`  ✗ ${r.error}`);
@@ -538,14 +574,17 @@ export function renderScaffoldSync(
       lines.push(`  ~ ${f} (en retard sur le paquet)`);
     for (const f of r.modified) {
       lines.push(
-        `  ! ${f} (diffère du paquet — retouché ou d'origine inconnue, gardé)`,
+        r.proposed.includes(f)
+          ? `  ! ${f} (retouché ou d'origine inconnue, gardé — version du paquet ${besides} : ${f}${PROPOSED_SUFFIX})`
+          : `  ! ${f} (diffère du paquet — retouché ou d'origine inconnue, gardé)`,
       );
     }
     const flagged = new Set([...r.outdated, ...r.modified]);
     const plain = r.kept.filter((f) => !flagged.has(f)).length;
     if (plain > 0) lines.push(`  = ${String(plain)} déjà là, gardé(s)`);
     outdated += r.outdated.length;
-    modified += r.modified.length;
+    modified += r.modified.length - r.proposed.length;
+    proposed += r.proposed.length;
   }
   if (outdated > 0) {
     lines.push(
@@ -553,10 +592,18 @@ export function renderScaffoldSync(
       `${String(outdated)} copie(s) intacte(s) en retard : \`nodefony scaffold:sync --update\` les rafraîchit.`,
     );
   }
+  if (proposed > 0) {
+    lines.push(
+      "",
+      `${String(proposed)} version(s) du paquet ${besides} (\`<fichier>${PROPOSED_SUFFIX}\`) : compare-la à ta copie, reporte ce que tu gardes, puis supprime-la.`,
+    );
+  }
   if (modified > 0) {
     lines.push(
       "",
-      `${String(modified)} copie(s) gardée(s) car différente(s) du paquet : pour reprendre sa version, supprime le fichier puis relance.`,
+      mode.update
+        ? `${String(modified)} copie(s) retouchée(s) gardée(s) : la livraison n'a pas changé depuis, rien à reporter.`
+        : `${String(modified)} copie(s) gardée(s) car différente(s) du paquet : \`nodefony scaffold:sync --update\` pose la version du paquet à côté (\`<fichier>${PROPOSED_SUFFIX}\`), sans toucher la tienne.`,
     );
   }
   return `${lines.join("\n")}\n`;
@@ -584,8 +631,9 @@ export const SCAFFOLD_SYNC_USAGE: IUsagePage = {
         `dans ${SCAFFOLD_LOCK_FILE}, à versionner. Une copie dont l'empreinte ` +
         "correspond est INTACTE : --update la remplace par la version du paquet. " +
         "Une copie qui diffère — retouchée, ou posée avant le registre — est à " +
-        "l'application : gardée et signalée, jamais écrasée. Pour reprendre la " +
-        "version du paquet, supprime-la puis relance. Les fichiers générés pour " +
+        "l'application : gardée et signalée, jamais écrasée. Si la livraison a " +
+        "changé, --update pose sa version À CÔTÉ (<fichier>.nodefony-new) : " +
+        "compare, reporte ce que tu gardes, puis supprime-la. Les fichiers générés pour " +
         "l'application (un realm, par exemple) ne sont jamais remplacés.",
     },
   ],

@@ -39,6 +39,7 @@ import { syncSkillPointers } from "./aiSync";
 import { syncEnvExample, type IEnvExampleSync } from "./env";
 import type { IAiSyncPlan } from "./aiSyncReport";
 import {
+  PROPOSED_SUFFIX,
   runAppContributions,
   type IAppContributionReport,
 } from "./contributions";
@@ -267,7 +268,9 @@ function completeAllowScripts(
  *
  * Une copie RETOUCHÉE (`modified`) ou un pointeur orphelin ne comptent pas :
  * aucun des deux ne se rafraîchit sans décision humaine, et un `--check` qui
- * rougirait pour eux ne passerait plus jamais.
+ * rougirait pour eux ne passerait plus jamais. Même règle pour la version
+ * posée à côté d'une copie retouchée (`proposed`) : elle se repose à chaque
+ * passe tant que la retouche demeure.
  *
  * @param report - le rapport d'une passe `nodefony upgrade`.
  * @returns `true` si un des quatre gestes a (ou aurait) écrit quelque chose.
@@ -497,8 +500,13 @@ export function renderUpgrade(report: IUpgradeReport): string {
     0
   ) {
     lines.push("", "À trancher à la main :");
+    const besides = new Set(report.contributions.flatMap((c) => c.proposed));
     for (const f of kept) {
-      lines.push(`  ${f} — retouché par l'application, gardé tel quel`);
+      lines.push(
+        besides.has(f)
+          ? `  ${f} — retouché par l'application, gardé ; nouvelle version ${report.dryRun ? "à poser" : "posée"} à côté : ${f}${PROPOSED_SUFFIX}`
+          : `  ${f} — retouché par l'application, gardé tel quel`,
+      );
     }
     for (const f of report.skills.preserves) {
       lines.push(`  ${f} — écrit à la main, pas remplacé par un pointeur`);
