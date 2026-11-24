@@ -168,6 +168,31 @@ export async function fetchDistTags(
 }
 
 /**
+ * Cherche une version de `nodefony` publiée plus récente que `self` — `null`
+ * si le contrôle est coupé, hors ligne, ou s'il n'y en a pas.
+ *
+ * La règle unique du contrôle de fraîcheur : `create app` et `upgrade --check`
+ * l'appellent telle quelle, coupure et délai compris.
+ *
+ * @param self - version qui tourne.
+ * @param env - environnement (désactivation, registre configuré par npm).
+ * @param fetchImpl - `fetch` injectable (tests).
+ * @returns la version retenue et son tag, ou `null`.
+ */
+export async function findNewerRelease(
+  self: string,
+  env: Readonly<Record<string, string | undefined>>,
+  fetchImpl?: typeof fetch,
+): Promise<INewerRelease | null> {
+  if (freshnessCheckDisabled(env)) return null;
+  const tags = await fetchDistTags("nodefony", {
+    registry: env.npm_config_registry,
+    ...(fetchImpl ? { fetchImpl } : {}),
+  });
+  return tags ? newerPublishedRelease(self, tags) : null;
+}
+
+/**
  * Lance la vérification de fraîcheur du CLI et rend la promesse de son annonce.
  *
  * Partie AVANT la génération, attendue après : la requête court pendant
@@ -179,18 +204,12 @@ export async function fetchDistTags(
  * @param context - lanceur et nom d'application, qui choisissent le geste.
  * @returns l'annonce à écrire, ou `null`.
  */
-export function startFreshnessCheck(
+export async function startFreshnessCheck(
   self: string,
   env: Readonly<Record<string, string | undefined>>,
   fetchImpl?: typeof fetch,
   context: IStaleNoticeContext | null = null,
 ): Promise<string | null> {
-  if (freshnessCheckDisabled(env)) return Promise.resolve(null);
-  return fetchDistTags("nodefony", {
-    registry: env.npm_config_registry,
-    ...(fetchImpl ? { fetchImpl } : {}),
-  }).then((tags) => {
-    const newer = tags ? newerPublishedRelease(self, tags) : null;
-    return newer ? renderStaleCliNotice(self, newer, context) : null;
-  });
+  const newer = await findNewerRelease(self, env, fetchImpl);
+  return newer ? renderStaleCliNotice(self, newer, context) : null;
 }
