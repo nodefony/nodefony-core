@@ -314,7 +314,7 @@ Vite sert lui-même la page, ce qui n'est pas le cas ici.
 # La page vient de Nodefony ; ses balises sont RELATIVES, sous /_vite/<famille>/
 curl -sk https://localhost:5152/shop | grep -o 'src="[^"]*"'
 # src="/_vite/default/@vite/client"
-# src="/_vite/default/@fs/…/shop/frontend/src/main.tsx"
+# src="/_vite/default/src/main.tsx"
 
 # Le module est relayé par Nodefony : même origine que la page
 curl -sk -o /dev/null -w '%{http_code}\n' https://localhost:5152/_vite/default/@vite/client
@@ -680,8 +680,10 @@ Ce qui est injecté en développement (`TemplateHelper.renderDevTags()`, `Templa
 1. le **préambule React Fast Refresh** pour les entrées `react19` — sans lui, `@vitejs/plugin-react`
    refuse de démarrer ;
 2. le client Vite (`@vite/client`) qui ouvre la connexion de rechargement à chaud ;
-3. ton entrée, servie par son **chemin absolu** (`/@fs/…`) plutôt que relatif — c'est ce qui permet à
-   deux modules d'avoir chacun leur `frontend/src/main.tsx` sans collision ;
+3. ton entrée, à l'URL même que Vite donne à ses imports (`TemplateHelper.ts#devEntryUrl`) :
+   relative à la racine Vite (`/src/main.tsx`) quand elle est dessous, par son **chemin absolu**
+   (`/@fs/…`) sinon — deux modules ont ainsi chacun leur `frontend/src/main.tsx` sans collision,
+   et aucun module n'existe sous deux URL (deux instances d'un singleton) ;
 4. un pont qui relaie les événements de rechargement vers la barre de débogage, **sans ouvrir de
    seconde connexion** (`hmrBridgeTag()`, `TemplateHelper.ts#TemplateHelper.hmrBridgeTag`) ;
 5. la barre de débogage elle-même, résolue une fois et servie via Vite (`debugBarTag()`,
@@ -751,9 +753,15 @@ et son manifeste — c'est ce qui rend le multi-modules possible et ce qui isole
 
 Quatre comportements à connaître :
 
-- **Idempotent.** Une entrée dont le manifeste est plus récent que ses sources est ignorée
-  (`isBuildFresh()`, `FrontendService.ts#FrontendService.isBuildFresh`) — le scan est borné au dossier front et saute
-  `node_modules`. Relancer un déploiement ne recompile pas tout.
+- **Idempotent.** Une entrée est ignorée quand son manifeste est plus récent que ses sources
+  ET que les versions de ce qui construit le bundle n'ont pas bougé depuis ce build
+  (`buildFingerprint.ts#judgeBuildFreshness`). Ces versions sont celles du cœur, de
+  `@nodefony/frontend`, de `vite` et des paquets déclarés par l'application. Elles sont
+  écrites au build dans `.vite/nodefony-build.json`, à côté du manifeste. Le scan des
+  sources est borné au dossier front et saute `node_modules`.
+  Après une montée du framework, l'entrée est donc reconstruite, et la commande dit
+  pourquoi (« framework passé de 10.0.2 à 10.0.3 »). Relancer un déploiement sans
+  changement ne recompile rien.
 - **Les échecs sont collectés, pas propagés.** Un bundle en échec n'arrête pas les autres ; la
   commande passe le code de sortie à `1` s'il en reste un — de quoi casser un pipeline sans masquer
   les autres résultats.
@@ -923,7 +931,7 @@ apparaisse avant le « prêt ».
 | L'entrée n'apparaît pas dans le superviseur | `registerEntry` appelé après `onKernelReady` | enregistrer dans `onKernelBoot`, jamais plus tard |
 | `@vitejs/plugin-react can't detect preamble` | le préambule React n'est pas dans la page | rendre via `renderTags`/`renderDocument`, qui l'injectent |
 | Page blanche + « Invalid hook call » | deux copies de React dans la page (deux `node_modules`) | comportement couvert par `resolve.dedupe` ; purger le pré-empaquetage de Vite |
-| Deux modules affichent la **même** interface | racines identiques et URL relatives | comportement couvert : l'entrée est servie par chemin absolu `/@fs/…` |
+| Deux modules affichent la **même** interface | racines identiques et URL relatives | comportement couvert : hors de la racine Vite, l'entrée est servie par chemin absolu `/@fs/…` |
 | Vite écoute sur un autre port que `devPort` | port occupé ⇒ reprise sur le suivant | lire le port **réel** dans `frontend:status`, jamais la configuration |
 | `no frontend entries declared` au démarrage | aucun module n'a appelé `registerEntry` | normal si tu n'as pas d'interface ; sinon voir les deux lignes ci-dessus |
 | `max restarts reached` | Vite plante en boucle | lire les lignes `[vite]` du journal — l'erreur est dans ton code front |

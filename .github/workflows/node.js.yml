@@ -781,7 +781,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: ["24.x", "26.x"]
-    timeout-minutes: 15
+    # macOS prend d'habitude 4 à 13,5 min ; un runner lent a franchi 15 min sur
+    # une suite VERTE (annulation, donc rouge sans faute). 20 laisse la marge
+    # sans désarmer le garde-fou contre un blocage.
+    timeout-minutes: 20
 
     steps:
       - name: Checkout

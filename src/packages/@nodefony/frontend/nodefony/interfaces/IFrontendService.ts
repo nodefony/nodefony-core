@@ -5,8 +5,16 @@ import type { IViteSupervisorStatus } from "./IViteSupervisor";
 export interface IFrontendBuildResult {
   /** Bundles effectivement (re)buildés. */
   built: string[];
-  /** Bundles ignorés car déjà à jour (manifest plus récent que les sources). */
+  /**
+   * Bundles ignorés car déjà à jour : manifeste plus récent que les sources, et
+   * versions de ce qui construit le bundle inchangées depuis ce build.
+   */
   skipped: string[];
+  /**
+   * Motif lisible du verdict, par entrée construite ou ignorée (« framework
+   * passé de 10.0.2 à 10.0.3 », « sources et versions inchangées »…).
+   */
+  reasons?: Record<string, string>;
   /** Bundles en échec (`entryName` + message Vite). */
   failures: { entryName: string; message: string }[];
 }

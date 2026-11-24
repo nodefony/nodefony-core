@@ -621,10 +621,10 @@ dont elle dépend.** Un service qui ne résout son store qu'à `onBoot` inscrit 
 ```typescript
 constructor(module: Module) {
   super("audit", module.container, module.notificationsCenter, module.options);
-  this.kernel?.once("onBoot", () => {
+  module.hookKernel("onBoot", () => {
     this.#store = openStore(); // dépend du connecteur de base, inscrit avant
     // Inscrite APRÈS : l'arrêt la passe AVANT la fermeture du connecteur.
-    this.kernel?.once("onTerminate", () => this.#flush());
+    module.hookKernel("onTerminate", () => this.#flush());
   });
 }
 ```

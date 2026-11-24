@@ -1668,8 +1668,12 @@ export function estJalonDeCorrectif(titre) {
  * @param {Array<{ nom: string, fusionnee: boolean, nonPublies: number }>} etat.maintenance -
  *   par `origin/release/*` : contenue dans HEAD ?, et nombre de commits PUBLIABLES absents de `main`
  * @param {string | null} [etat.version] - la version à publier (absente : motif 3 non jugé)
- * @param {Array<{ titre: string, ouverts: number }> | null} [etat.lots] - jalons OUVERTS
- *   et leurs tickets ouverts (`null` : non lus)
+ * @param {Array<{ titre: string, ouverts: number }> | null | (() => Array<{ titre: string, ouverts: number }> | null)} [etat.lots] -
+ *   jalons OUVERTS et leurs tickets ouverts (`null` : non lus). Une FONCTION n'est
+ *   appelée que si le motif 3 est jugé : lire les jalons coûte un appel à GitHub,
+ *   et sur une tête détachée (le tag, dans le job de publication, sans jeton) ou
+ *   une branche de maintenance la garde n'en a pas besoin — la lecture y échouait
+ *   pour rien et faisait douter du job (#856).
  * @returns le texte du refus, ou `null` s'il n'y a rien à refuser
  */
 export function refusDeMaintenance({
@@ -1699,7 +1703,9 @@ export function refusDeMaintenance({
       );
     }
   }
-  for (const lot of lots ?? []) {
+  const lotsLus =
+    typeof lots === "function" ? (version === null ? null : lots()) : lots;
+  for (const lot of lotsLus ?? []) {
     if (
       lot.ouverts > 0 &&
       estJalonDeCorrectif(lot.titre) &&

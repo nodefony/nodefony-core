@@ -820,7 +820,7 @@ présence, mais n'arrête pas ce bus. Branche le même appel à l'arrêt du modu
 import { getRealtimeHub, shutdownRealtime } from "@nodefony/realtime";
 
 // Dans le module qui a construit `bus` et l'a déclaré comme `realtimeBackplane`.
-this.kernel?.once("onTerminate", async () => {
+this.hookKernel("onTerminate", async () => {
   const stopped = await shutdownRealtime(getRealtimeHub(), bus);
   if (!stopped)
     this.log("bus temps réel : arrêt non terminé dans le délai", "WARNING");

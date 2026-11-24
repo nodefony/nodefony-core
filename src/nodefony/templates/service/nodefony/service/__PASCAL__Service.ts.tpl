@@ -54,6 +54,7 @@ class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Servic
   }
 <% } %>
 
+  /** Exemple de lecture d'état — à remplacer ou retirer, comme `greet()`. */
   status(): { ready: boolean } {
     return { ready: true };
   }

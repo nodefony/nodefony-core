@@ -7,6 +7,7 @@ import { ApiKeyError } from "../../nodefony/errors/ApiKeyError";
 import { MemoryTokenStore } from "../../nodefony/src/token/MemoryTokenStore";
 import { hashApiKey } from "../../nodefony/src/apikey/apiKeyFormat";
 import type { IAccessTokenRecord } from "../../nodefony/contracts/ITokenStore";
+import type { IUser, IUserProvider } from "@nodefony/user";
 
 /**
  * Service de gestion des clés API (PAT) — émission/listing/révocation sur un VRAI
@@ -20,6 +21,7 @@ function buildService(
   apiKeys: Record<string, unknown>,
   withStore = true,
   withUsers = true,
+  users: IUserProvider = accountDirectory(),
 ): { svc: ApiKeyService; store: MemoryTokenStore } {
   const container = new Container();
   const handlers: Record<string, (...a: unknown[]) => void> = {};
@@ -30,7 +32,7 @@ function buildService(
     },
   };
   container.set("kernel", kernel);
-  if (withUsers) container.set("users", accountDirectory());
+  if (withUsers) container.set("users", users);
   const store = new MemoryTokenStore();
   if (withStore) container.set("tokenStore", store);
   const module = {
@@ -246,5 +248,65 @@ describe("ApiKeyService — révocation (isolation par porteur)", () => {
     const first = (await store.findById(k.id))!.revokedAt;
     assert.equal(await svc.revokeForSubject("alice", k.id), true);
     assert.equal((await store.findById(k.id))!.revokedAt, first);
+  });
+});
+
+/** Pause d'une milliseconde au moins : deux horodatages successifs diffèrent. */
+const tic = (): Promise<void> => new Promise((r) => setTimeout(r, 2));
+
+describe("ApiKeyService — clés tuées par la révocation en masse (#856)", () => {
+  it("plafond : une clé émise avant le seuil du porteur ne compte plus", async () => {
+    const { svc, store } = buildService({ enabled: true, maxPerSubject: 2 });
+    await svc.createForSubject("a", "user", { name: "1" });
+    await svc.createForSubject("a", "user", { name: "2" });
+    await tic();
+    await store.revokeAllForSubject("a", Date.now()); // cascade d'un compte
+    await tic();
+    // Aucune des deux ne fonctionne plus : la création ne doit pas rendre 409.
+    await svc.createForSubject("a", "user", { name: "3" });
+  });
+
+  it("liste : une clé tuée par le seuil est rendue révoquée, datée du seuil", async () => {
+    const { svc, store } = buildService({ enabled: true });
+    await svc.createForSubject("a", "user", { name: "avant" });
+    await tic();
+    const seuil = Date.now();
+    await store.revokeAllForSubject("a", seuil);
+    await tic();
+    await svc.createForSubject("a", "user", { name: "après" });
+
+    const keys = await svc.listForSubject("a");
+    assert.equal(keys.length, 2);
+    assert.equal(keys.find((k) => k.name === "avant")?.revokedAt, seuil);
+    assert.equal(keys.find((k) => k.name === "après")?.revokedAt, null);
+  });
+
+  it("compte recréé sous le même identifiant : rien de l'ancien titulaire, ni à lister ni à révoquer", async () => {
+    let generation = 1;
+    const annuaire = {
+      loadUserByIdentifier: (identifier: string): Promise<IUser> =>
+        Promise.resolve({
+          id: `u-${identifier}-${generation}`,
+          identifier,
+          roles: [],
+          hasRole: () => false,
+          isActive: () => true,
+          isLocked: () => false,
+        } as unknown as IUser),
+    } as unknown as IUserProvider;
+    const { svc, store } = buildService(
+      { enabled: true },
+      true,
+      true,
+      annuaire,
+    );
+    const ancienne = await svc.createForSubject("bob", "user", {
+      name: "ancien",
+    });
+
+    generation = 2; // supprimé puis recréé : même identifiant, autre compte
+    assert.deepEqual(await svc.listForSubject("bob"), []);
+    assert.equal(await svc.revokeForSubject("bob", ancienne.id), false);
+    assert.equal((await store.findById(ancienne.id))?.revokedAt, null);
   });
 });

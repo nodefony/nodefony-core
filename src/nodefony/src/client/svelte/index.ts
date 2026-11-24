@@ -206,8 +206,15 @@ let pageSocket: NodefonySocket | null = null;
 let pageKernel: INodefonyKernel | null = null;
 
 /**
- * Installe la politique temps réel de l'application — à appeler UNE fois, dans
- * le point d'entrée, avant `mount()`.
+ * Installe la politique temps réel de l'application — dans le point d'entrée,
+ * avant `mount()`.
+ *
+ * **Plusieurs écrans, plusieurs sockets** : la fonction se RAPPELLE. Chaque appel
+ * change la socket de la page pour les liaisons créées ENSUITE — appeler donc
+ * avant de monter l'écran suivant. Les liaisons déjà créées gardent la leur, et
+ * l'ancienne connexion n'est pas coupée (elle reste partagée par son adresse).
+ * Pour qu'un composant ne dépende pas de l'ordre des appels, lui passer la
+ * socket en premier argument : `nodefonyChannel(socket, "canal", onMessage)`.
  *
  * Svelte n'a pas de contexte applicatif comparable à React : `setContext` ne se
  * pose qu'à l'initialisation d'un composant, et ne couvrirait donc pas les
@@ -226,6 +233,15 @@ let pageKernel: INodefonyKernel | null = null;
  * @example
  * ```ts
  * configureNodefony({ url: "/api/live/realtime" });
+ * ```
+ *
+ * @example Navigation entre deux écrans, chacun sa socket :
+ * ```ts
+ * function showScreen(Screen: Component, url: string): void {
+ *   if (current) unmount(current);
+ *   configureNodefony({ url }); // AVANT le montage : ses liaisons liront celle-ci
+ *   current = mount(Screen, { target });
+ * }
  * ```
  */
 export function configureNodefony(options: NodefonySvelteOptions): void {

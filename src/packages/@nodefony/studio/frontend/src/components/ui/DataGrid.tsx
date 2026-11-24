@@ -619,6 +619,14 @@ function FilterCell<T extends RowData>({
 // `T extends RowData` : la v9 exige que la donnée d'une ligne soit un objet ou
 // un tableau — plus de `unknown`. Les dix-sept écrans passent déjà des objets.
 export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
+  // Un changement de mode (client ⇄ serveur) est un AUTRE jeu de données : la
+  // clé remonte une grille neuve. Sans elle, la table gardait le total serveur
+  // de l'onglet précédent (options fusionnées) — 119 pages pour 2 268 lignes.
+  return <DataGridView key={props.mode} {...props} />;
+}
+
+/** Corps de {@link DataGrid}, monté une fois par mode. */
+function DataGridView<T extends RowData>(props: DataGridProps<T>) {
   const {
     columns,
     getRowId,
@@ -859,6 +867,9 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
     manualPagination: isServer,
     manualSorting: isServer,
     manualFiltering: isServer,
+    // ⚠️ La table FUSIONNE ses options d'un rendu à l'autre (`{...prev, ...options}`) :
+    // absente en mode client, cette clé y garderait le total serveur. C'est
+    // pourquoi `DataGrid` remonte une grille neuve à chaque changement de mode.
     ...(isServer && { rowCount: serverTotal }),
   });
 

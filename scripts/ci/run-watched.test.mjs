@@ -11,10 +11,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import {
   parseElapsed,
   parseProcessTable,
+  runWatched,
   selectSuspects,
 } from "./run-watched.mjs";
 
@@ -234,6 +235,33 @@ describe("runWatched — le mécanisme réel", () => {
     expect(err).toContain("aucune sortie depuis 1 s");
     expect(err).toMatch(/pid \d+ ← \d+ : .*setTimeout/u);
   }, 30000);
+
+  it("la commande finit PENDANT la lecture de la table : la raison et l'inventaire sont écrits quand même", async () => {
+    // La table met plus de temps à venir que la commande à finir — le cas d'une
+    // machine Windows froide, où `Get-CimInstance` prend plusieurs secondes.
+    const readTable = () =>
+      new Promise((resolve) => setTimeout(() => resolve({ rows: [] }), 1500));
+    const written = [];
+    const spy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((chunk) => {
+        written.push(String(chunk));
+        return true;
+      });
+    let code;
+    try {
+      code = await runWatched(
+        ["node", "-e", JSON.stringify("setTimeout(() => {}, 600)")],
+        { idleSeconds: 0.1, pollMs: 50, readTable },
+      );
+    } finally {
+      spy.mockRestore();
+    }
+    const err = written.join("");
+    expect(code).toBe(0);
+    expect(err).toContain("aucune sortie depuis 0.1 s");
+    expect(err).toContain("aucun descendant ni process détaché");
+  }, 20000);
 
   it("transmet le code de sortie d'une commande en échec", async () => {
     const code = await new Promise((resolve) => {

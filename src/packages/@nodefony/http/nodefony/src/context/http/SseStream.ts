@@ -233,9 +233,12 @@ export class SseStream<Events extends EventsMap = DefaultEventsMap> {
    * @param data - texte envoyé tel quel, ou valeur sérialisée en JSON ; un
    *   texte de plusieurs lignes part en autant de champs `data:`.
    * @param options - type (`event`) et identifiant (`id`) de l'événement.
-   * @returns rien quand l'écriture est acceptée ; une promesse réglée au
-   *   `drain` quand le client lit moins vite qu'on écrit — l'attendre borne la
-   *   mémoire du serveur. Sans effet une fois le flux fermé.
+   * @returns `undefined` quand l'écriture est acceptée (ou le flux fermé) ;
+   *   une promesse réglée au `drain` quand le client lit moins vite qu'on
+   *   écrit — l'attendre borne la mémoire du serveur. Cette promesse n'est
+   *   JAMAIS rejetée : un envoi « tire et oublie » s'écrit `void sse.send(d)`,
+   *   sans `.catch`. La différence entre les deux est le signal de
+   *   contre-pression (`if (sse.send(d)) …` : le client est en retard).
    * @throws TypeError quand `event` ou `id` contient une fin de ligne, ou
    *   quand `data` est fait d'octets (`Uint8Array`, `Buffer`, `ArrayBuffer`) :
    *   un flux SSE ne porte que du texte, les encoder soi-même (base64).
