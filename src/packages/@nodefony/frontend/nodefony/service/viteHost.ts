@@ -13,20 +13,57 @@
  * directement. L'adaptateur côté serveur importe ce fichier pour ses fonctions
  * pures — la garde en pied de fichier n'y sert donc aucun service.
  */
-import { createServer as createNetServer } from "node:net";
+import { createServer as createNetServer, type AddressInfo } from "node:net";
 import {
   serveHeldServiceIfMain,
   type HeldJsonObject,
   type IHeldServiceImpl,
   type ProcessOutputStream,
 } from "nodefony/held";
-import type {
-  InlineConfig,
-  LogErrorOptions,
-  Logger,
-  LogOptions,
-  ViteDevServer,
-} from "vite";
+// Aucun type exporté ne nomme `vite`, que ce paquet ne déclare pas — sinon ses
+// types publiés l'importeraient (garde `dts-deps`). Les formes de Vite dont
+// l'hôte a besoin sont décrites ci-dessous ; `DEFAULT_DEPS` (non exportée) les
+// confronte au vrai `createServer` à la compilation.
+
+/** Options d'une ligne de journal, telles que Vite les passe (`LogOptions`). */
+export interface IViteHostLogOptions {
+  readonly clear?: boolean;
+  readonly timestamp?: boolean;
+  readonly environment?: string;
+}
+
+/** Options d'une ligne d'erreur (`LogErrorOptions` de Vite). */
+export interface IViteHostLogErrorOptions extends IViteHostLogOptions {
+  readonly error?: object | null;
+}
+
+/**
+ * Le journal que l'hôte donne à Vite (`customLogger`) — la forme du `Logger`
+ * de Vite, décrite ici pour que les types publiés n'importent pas `vite`.
+ */
+export interface IViteHostLogger {
+  hasWarned: boolean;
+  info(message: string, options?: IViteHostLogOptions): void;
+  warn(message: string, options?: IViteHostLogOptions): void;
+  warnOnce(message: string, options?: IViteHostLogOptions): void;
+  error(message: string, options?: IViteHostLogErrorOptions): void;
+  clearScreen(type?: string): void;
+  hasErrorLogged(error: object): boolean;
+}
+
+/** La config que l'hôte passe à `createServer` — un sous-ensemble d'`InlineConfig`. */
+export interface IViteHostInlineConfig {
+  readonly configFile: string;
+  readonly mode?: string;
+  readonly clearScreen: false;
+  readonly customLogger: IViteHostLogger;
+  readonly server: {
+    readonly host: string;
+    readonly port: number;
+    readonly strictPort: true;
+    readonly forwardConsole: false;
+  };
+}
 
 /** Ce que l'hôte reçoit de son teneur (`IHeldStart.spec`), une fois lu. */
 export interface IViteHostSpec {
@@ -207,13 +244,13 @@ export function parseViteHostLine(line: string): IViteHostLine | null {
 export function createViteHostLogger(
   family: string,
   write: (stream: ProcessOutputStream, text: string) => void,
-): Logger {
+): IViteHostLogger {
   const loggedErrors = new WeakSet<object>();
   const warned = new Set<string>();
   const emit = (
     level: ViteHostLogLevel,
     message: string,
-    options: LogOptions | undefined,
+    options: IViteHostLogOptions | undefined,
   ): void => {
     // Comme Vite : l'environnement (`(client)`, `(ssr)`) ne précède que les
     // messages horodatés.
@@ -224,22 +261,22 @@ export function createViteHostLogger(
     const text = formatViteHostLog(family, level, env + message);
     if (text !== "") write(level === "info" ? "out" : "err", text);
   };
-  const logger: Logger = {
+  const logger: IViteHostLogger = {
     hasWarned: false,
-    info(message: string, options?: LogOptions): void {
+    info(message: string, options?: IViteHostLogOptions): void {
       emit("info", message, options);
     },
-    warn(message: string, options?: LogOptions): void {
+    warn(message: string, options?: IViteHostLogOptions): void {
       logger.hasWarned = true;
       emit("warn", message, options);
     },
-    warnOnce(message: string, options?: LogOptions): void {
+    warnOnce(message: string, options?: IViteHostLogOptions): void {
       if (warned.has(message)) return;
       warned.add(message);
       logger.hasWarned = true;
       emit("warn", message, options);
     },
-    error(message: string, options?: LogErrorOptions): void {
+    error(message: string, options?: IViteHostLogErrorOptions): void {
       logger.hasWarned = true;
       if (options?.error) loggedErrors.add(options.error);
       emit("error", message, options);
@@ -295,17 +332,22 @@ export function probePort(host: string, port: number): Promise<PortProbe> {
 export interface IViteHostServer {
   listen(port?: number): Promise<unknown>;
   close(): Promise<void>;
-  readonly httpServer: Pick<
-    NonNullable<ViteDevServer["httpServer"]>,
-    "address"
-  > | null;
+  readonly httpServer: {
+    address(): AddressInfo | string | null;
+  } | null;
 }
 
 /** Ce dont l'hôte a besoin du monde — injectable pour l'éprouver sans Vite. */
 export interface IViteHostDeps {
-  /** Charge `createServer` de Vite. */
+  /**
+   * Charge `createServer` de Vite. En PROPRIÉTÉ fléchée, pas en méthode : le
+   * paramètre se contrôle alors strictement — si `IViteHostInlineConfig` cesse
+   * d'être une `InlineConfig`, l'affectation de `DEFAULT_DEPS` ne compile plus.
+   */
   readonly loadVite: () => Promise<{
-    createServer(config: InlineConfig): Promise<IViteHostServer>;
+    readonly createServer: (
+      config: IViteHostInlineConfig,
+    ) => Promise<IViteHostServer>;
   }>;
   readonly probePort: (host: string, port: number) => Promise<PortProbe>;
   readonly write: (stream: ProcessOutputStream, text: string) => void;
@@ -342,8 +384,8 @@ const DEFAULT_DEPS: IViteHostDeps = {
 export function viteHostInlineConfig(
   spec: IViteHostSpec,
   port: number,
-  logger: Logger,
-): InlineConfig {
+  logger: IViteHostLogger,
+): IViteHostInlineConfig {
   return {
     configFile: spec.configFile,
     ...(spec.mode === null ? {} : { mode: spec.mode }),
