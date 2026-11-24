@@ -74,6 +74,24 @@ export interface IHeldHostStatus {
 export const MAX_HELD_KEY_LENGTH = 128;
 
 /**
+ * Préfixe du titre de process d'un hôte porté : ce que `nodefony status` et
+ * `nodefony stop` reconnaissent, quel que soit le service (Vite, inférence…).
+ * Sans lui, un hôte bloqué d'un service neuf leur restait invisible.
+ */
+export const HELD_HOST_TITLE_PREFIX = "nodefony-held";
+
+/**
+ * Le titre de process d'un hôte porté : `nodefony-held[<clé>]`, la clé
+ * réduite à l'ASCII imprimable — elle part dans la table des process.
+ *
+ * @param key - la clé du service.
+ * @returns le titre.
+ */
+export function heldHostTitle(key: string): string {
+  return `${HELD_HOST_TITLE_PREFIX}[${key.replace(/[^ -~]/g, "?")}]`;
+}
+
+/**
  * Rappel d'envoi PARTAGÉ. Sans rappel, un envoi qui échoue (pair déjà sorti)
  * émet `'error'` sur le process — sans écouteur, c'est une exception non
  * rattrapée (doc `child_process`, `subprocess.send`). Une seule fonction pour
@@ -85,6 +103,8 @@ export const IGNORE_SEND_ERROR = (): void => {};
 export interface IHeldStart {
   channel: typeof HELD_CHANNEL;
   type: "start";
+  /** La clé du service — l'hôte en fait son titre de process. */
+  key: string;
   spec: HeldJsonObject;
 }
 
@@ -223,7 +243,13 @@ export function isHeldHolderMessage(
   if (!isJsonObject(message) || message.channel !== HELD_CHANNEL) return false;
   if (message.type === "stop") return true;
   if (message.type === "ping") return isSeq(message.seq);
-  return message.type === "start" && isJsonObject(message.spec);
+  return (
+    message.type === "start" &&
+    typeof message.key === "string" &&
+    message.key.length > 0 &&
+    message.key.length <= MAX_HELD_KEY_LENGTH &&
+    isJsonObject(message.spec)
+  );
 }
 
 /**
@@ -253,12 +279,15 @@ export interface IHeldServiceImpl {
  */
 export interface IHeldHostEndpoint {
   readonly connected?: boolean;
+  /** Le titre de process (`process.title`). */
+  title?: string;
   send?(
     message: HeldHostMessage,
     callback?: (error: Error | null) => void,
   ): boolean;
   on(event: "message", listener: (message: unknown) => void): unknown;
   on(event: "disconnect", listener: () => void): unknown;
+  on(event: "SIGINT", listener: () => void): unknown;
   exit(code?: number): never | void;
 }
 
@@ -282,6 +311,12 @@ export function serveHeldService(
 ): void {
   let started = false;
   let leaving = false;
+  // La vie de l'hôte appartient à son teneur — qui l'arrête par le canal, ou
+  // dont la mort ferme le canal. Sous Windows, sans groupes de process, un
+  // Ctrl-C au terminal atteint AUSSI l'hôte : il mourrait avant que le teneur
+  // ne l'arrête, lu comme un plantage puis relancé.
+  endpoint.on("SIGINT", () => undefined);
+  endpoint.title = HELD_HOST_TITLE_PREFIX;
   const send = (message: HeldHostMessage): void => {
     if (typeof endpoint.send !== "function" || endpoint.connected === false)
       return;
@@ -313,6 +348,8 @@ export function serveHeldService(
     }
     if (started) return;
     started = true;
+    // Avant le service : il peut affiner le titre (`nodefony-vite[…]`).
+    endpoint.title = heldHostTitle(message.key);
     const failed = (text: string): void => {
       send({
         channel: HELD_CHANNEL,
@@ -348,4 +385,30 @@ export function serveHeldService(
     );
   });
   endpoint.on("disconnect", () => leave(0));
+}
+
+/**
+ * Point d'entrée d'un module hôte : sert le service SEULEMENT si ce module
+ * est le point d'entrée du process ET qu'un teneur l'a lancé (canal IPC
+ * présent). Importé pour ses fonctions pures, il ne fait rien.
+ *
+ * `import.meta.main` répond sans comparer de chemins : la comparaison
+ * `process.argv[1] === fileURLToPath(import.meta.url)` échoue dès que les deux
+ * formes divergent — lien symbolique (Node réalise l'URL du module, pas
+ * `argv[1]`), casse d'un lecteur Windows — et l'hôte restait muet jusqu'au
+ * délai du teneur, sans cause.
+ *
+ * @param meta - l'`import.meta` du module hôte.
+ * @param createImpl - fabrique du service, appelée seulement si l'on sert.
+ * @param endpoint - le process porteur du canal ; `process` par défaut.
+ * @returns `true` si le module sert.
+ */
+export function serveHeldServiceIfMain(
+  meta: { readonly main?: boolean },
+  createImpl: () => IHeldServiceImpl,
+  endpoint: IHeldHostEndpoint = process,
+): boolean {
+  if (meta.main !== true || typeof endpoint.send !== "function") return false;
+  serveHeldService(createImpl(), endpoint);
+  return true;
 }

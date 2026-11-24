@@ -214,7 +214,7 @@ describe("L2 — un arrêt qui croise un démarrage ou une relance (audit I1)", 
     const deliver = (m: unknown): void => {
       for (const l of listeners) l(m);
     };
-    deliver({ channel: HELD_CHANNEL, type: "start", spec: {} });
+    deliver({ channel: HELD_CHANNEL, type: "start", key: "t:a", spec: {} });
     deliver({ channel: HELD_CHANNEL, type: "stop" });
     release({ port: 1 });
     await until(() => exited);

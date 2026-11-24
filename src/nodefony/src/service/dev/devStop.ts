@@ -43,9 +43,10 @@ import {
  * sait où aller les arrêter). `--all` = comportement trans-projets explicite.
  *
  * Stratégie : vérité = `ps` (pas le seul pidfile). On tue les GROUPES « racines » (un
- * process dont le parent n'est pas dans la liste) — group-kill du superviseur/master
- * emporte déjà ses enfants (serveur + Vite, ou workers) ; un orphelin (pidfile périmé)
- * est sa propre racine et tombe aussi. SIGTERM (arrêt gracieux — déclenche le graceful
+ * process dont le parent n'est pas dans la liste, ou un hôte de service, qui dirige
+ * son propre groupe) — group-kill du superviseur/master emporte déjà les enfants de
+ * son groupe (serveur, ou workers) ; un orphelin (pidfile périmé) est sa propre racine
+ * et tombe aussi. SIGTERM (arrêt gracieux — déclenche le graceful
  * shutdown du ClusterManager pour un master) puis SIGKILL des récalcitrants un à un.
  */
 
@@ -157,8 +158,9 @@ export function scopeAllToNodefonyProjects(
  * rapport concluait « ✓ arrêté proprement » sans avoir regardé les trois quarts
  * des ports qu'il venait de libérer.
  *
- * Fonction PURE (lecture du cwd injectable). Les rôles Vite sont ignorés : ils
- * travaillent parfois dans un sous-dossier, et leur parent porte déjà la racine.
+ * Fonction PURE (lecture du cwd injectable). Les hôtes (Vite, services portés)
+ * sont ignorés : ils travaillent parfois dans un sous-dossier, et leur parent
+ * porte déjà la racine.
  *
  * @param procs - runtimes sur le point d'être arrêtés.
  * @param getCwd - lecture du répertoire courant d'un pid.
@@ -170,7 +172,7 @@ export function hostProjects(
 ): string[] {
   const roots = new Set<string>();
   for (const p of procs) {
-    if (p.role === "vite") continue;
+    if (p.role === "vite" || p.role === "held") continue;
     const cwd = getCwd(p.pid);
     if (cwd) roots.add(path.resolve(cwd));
   }

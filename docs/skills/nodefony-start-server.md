@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-04
+updated: 2026-11-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-start-server/SKILL.md"
 ---
@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-start-server/SKILL.md"
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
 | Corps | 270 lignes |
-| Coût d'activation | ~4 566 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~4 590 tokens (le corps est chargé à l'invocation) |
 | Description | 525 / 1024 caractères |
 | Déclencheurs | 5 |
 | Ressources `references/` | 0 page(s) |

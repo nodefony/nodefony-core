@@ -111,8 +111,8 @@ export interface DevSupervisorOptions {
    * Ports serveur à attendre **libres** avant de relancer l'enfant (évite
    * `EADDRINUSE` au restart). Défaut : `[5151, 5152]` (HTTP/HTTPS Nodefony) ou
    * `NF_DEV_PORTS` (liste séparée par des virgules). Les ports Vite ne sont
-   * pas listés : l'arrêt emporte l'arbre (Vite compris) et chaque instance a son
-   * propre port-retry au redémarrage.
+   * pas listés : chaque hôte Vite s'arrête avec le serveur qui le tient, et
+   * chaque instance a son propre port-retry au redémarrage.
    */
   readonly ports?: readonly number[];
 }
@@ -2304,10 +2304,12 @@ export class DevSupervisor {
         stdio: terminal
           ? ["ignore", "pipe", "pipe", "ipc"]
           : ["inherit", "inherit", "inherit", "ipc"],
-        // POSIX : leader de groupe → `kill(-pid)` emporte le groupe entier (Vite
-        // inclus) au restart. Windows : pas de groupes, et le rattachement est ce
-        // qui rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher
-        // y couperait le lien de parenté, seul chemin vers les Vite.
+        // POSIX : leader de groupe → `kill(-pid)` emporte le groupe du serveur au
+        // restart. Ses hôtes Vite, détachés par leur teneur (`HeldHost`), n'en
+        // sont pas : ils s'arrêtent avec le serveur, par le canal ou à sa perte
+        // (ADR-0030 §D7). Windows : pas de groupes, et le rattachement est ce qui
+        // rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher y
+        // couperait le lien de parenté, seul chemin vers les Vite.
         detached: leadsOwnProcessGroup(),
       },
     );

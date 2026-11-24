@@ -446,6 +446,7 @@ export class HeldHost {
       this.#send(child, {
         channel: HELD_CHANNEL,
         type: "start",
+        key: this.key,
         spec: this.#opts.spec,
       });
     });

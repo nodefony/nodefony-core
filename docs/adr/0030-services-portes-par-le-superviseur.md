@@ -174,6 +174,9 @@ Ce que l'IPC de Node impose (doc et source `lib/internal/child_process.js`, Node
 | Boucle d'évènements gelée dans l'hôte                                   | preuve de vie par `ping`/`pong` sur l'IPC (elle prouve la boucle, pas le service) → arbre tué, relance ; le kill est renvoyé tant que l'hôte ne sort pas                                                                                                                               |
 | Superviseur tué net (`kill -9`)                                         | l'hôte écoute `disconnect` de son IPC → ferme Vite et sort : aucun orphelin. Limite : un hôte dont la boucle est GELÉE ne voit pas la perte du canal                                                                                                                                   |
 | Héritage d'environnement                                                | l'hôte ne reçoit pas `NF_DEV_CHILD` (il se croirait l'enfant du superviseur)                                                                                                                                                                                                           |
+| Ctrl-C au terminal qui atteint l'hôte (Windows, sans groupes)           | `serveHeldService` ignore `SIGINT` pour TOUT hôte : sa vie appartient au teneur, qui l'arrête par le canal                                                                                                                                                                             |
+| Hôte invisible à `nodefony status` / `stop`                             | titre `nodefony-held[<clé>]` posé par `serveHeldService` au `start` (la clé voyage dans le message), affinable par le service (`nodefony-vite[…]`) ; rôle `held` ; tout hôte, détaché par son teneur, est une RACINE à l'arrêt (`devProcess.ts#rootProcesses`)                         |
+| Hôte muet faute de se reconnaître point d'entrée                        | `serveHeldServiceIfMain(import.meta, …)` lit `import.meta.main`, jamais `argv[1]` comparé à l'URL du module — par un lien symbolique, cette comparaison échouait et l'hôte sortait sans servir ni rien dire                                                                            |
 
 ### D7 — Fin de session : le teneur tue SES arbres et attend leur mort
 
@@ -188,6 +191,12 @@ c'est au service hôte de tuer ses propres enfants (`IHeldServiceImpl.stop`).
 Le second Ctrl-C (sortie d'urgence) passe par `HeldHost.kill`, synchrone : le signal vise le
 process VIVANT que le teneur tient, jamais le PID d'un instantané — rendu au système, celui-ci
 peut désigner un étranger.
+
+Tant que Vite est tenu par le SERVEUR (avant l'étape 3, et toujours en `--no-watch`), son hôte
+est détaché lui aussi (POSIX) : le `kill(-pid)` du groupe du serveur au redémarrage ne l'emporte
+pas. Il s'arrête avec le serveur — par son teneur, ou à la perte du canal. Un hôte Vite FIGÉ à
+ce moment-là survit au redémarrage ; `nodefony stop` et le balayage de démarrage du superviseur
+le visent, puisqu'il est une racine. Porté par le superviseur (étape 3), il relève de son registre.
 
 ### D8 — Journaux : par les tubes, jamais par l'IPC
 

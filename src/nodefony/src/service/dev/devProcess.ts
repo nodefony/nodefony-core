@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import net from "node:net";
 import path from "node:path";
+import { HELD_HOST_TITLE_PREFIX } from "./heldChannel";
 
 /**
  * Helpers d'INTROSPECTION des process de développement Nodefony — source de vérité
@@ -51,10 +52,11 @@ export type RuntimeMode = "dev" | "prod" | "cluster";
 /**
  * Rôle d'un process dans la topologie runtime Nodefony (dev OU prod OU cluster).
  * `supervisor`/`master` = superviseurs (0 HTTP) ; `server`/`worker` = servent le HTTP ;
- * `vite` = enfant dev (bundler).
+ * `vite` = enfant dev (bundler) ; `held` = hôte d'un service porté par le
+ * superviseur (ADR-0030), quel que soit le service.
  */
 export type DevProcessRole =
-  "supervisor" | "server" | "vite" | "master" | "worker";
+  "supervisor" | "server" | "vite" | "held" | "master" | "worker";
 
 /** Rôles « principaux » (tiennent les ports ou supervisent) — Vite exclu (enfant jetable). */
 const PRIMARY_ROLES: ReadonlySet<DevProcessRole> = new Set<DevProcessRole>([
@@ -1154,14 +1156,25 @@ export function processSubtree(
 
 /**
  * Racines d'un ensemble de process : ceux dont le parent n'est PAS lui-même dans
- * l'ensemble. Tuer le GROUPE d'une racine suffit à emporter ses descendants présents
- * (le superviseur emporte enfant serveur + Vite ; un orphelin est sa propre racine).
+ * l'ensemble, plus les hôtes de service, qui dirigent leur propre groupe. Tuer le
+ * GROUPE d'une racine emporte ses descendants restés dans ce groupe (le
+ * superviseur emporte l'enfant serveur ; un orphelin est sa propre racine).
  */
 export function rootProcesses(
   procs: readonly DevProcessInfo[],
 ): DevProcessInfo[] {
   const pids = new Set(procs.map((p) => p.pid));
-  return procs.filter((p) => !pids.has(p.ppid));
+  return procs.filter((p) => !pids.has(p.ppid) || leadsOwnGroup(p.role));
+}
+
+/**
+ * Un hôte de service (Vite, service porté) est lancé DÉTACHÉ par son teneur
+ * (`HeldHost`) : il dirige son propre groupe, que le groupe de son parent
+ * n'emporte pas. Il est donc une racine à lui seul — sinon un hôte figé, qui
+ * ne sort plus à la perte de son canal, survivait à `nodefony stop`.
+ */
+function leadsOwnGroup(role: DevProcessRole): boolean {
+  return role === "vite" || role === "held";
 }
 
 /** Ce qu'a atteint {@link signalExitedGroup}. */
@@ -1493,7 +1506,8 @@ export function splitByProject(
     const belongs =
       resolved !== null &&
       (resolved === root ||
-        (p.role === "vite" && resolved.startsWith(root + path.sep)));
+        ((p.role === "vite" || p.role === "held") &&
+          resolved.startsWith(root + path.sep)));
     if (belongs) {
       mine.push(p);
     } else {
@@ -1899,6 +1913,11 @@ function classify(command: string): {
     return { mode: "dev", role: "supervisor", label: "supervisor" };
   if (cmd.startsWith(DEV_SERVER_TITLE))
     return { mode: "dev", role: "server", label: "server" };
+  if (cmd.startsWith(HELD_HOST_TITLE_PREFIX)) {
+    // `nodefony-held[<clé>]` : la clé en détail, hors colonne.
+    const key = /^nodefony-held\[([^\]]*)\]/.exec(cmd)?.[1];
+    return { mode: "dev", role: "held", label: "held", detail: key };
+  }
   if (cmd.startsWith(DEV_VITE_PREFIX)) {
     // Rôle court en colonne (`vite`) ; les bundles vont en `detail` (hors colonne)
     // pour ne pas faire déborder l'alignement quand ils sont nombreux/longs.
@@ -2076,6 +2095,7 @@ const ROLE_ORDER: Readonly<Record<DevProcessRole, number>> = {
   server: 1,
   worker: 1,
   vite: 2,
+  held: 2,
 };
 
 /**

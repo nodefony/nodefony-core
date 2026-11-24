@@ -20,7 +20,7 @@ host.on("message", (message) => {
   }
 });
 host.send(
-  { channel: "nf-held", type: "start", spec: { mode: "ok" } },
+  { channel: "nf-held", type: "start", key: "holder:ok", spec: { mode: "ok" } },
   () => {},
 );
 setInterval(() => {}, 1_000);

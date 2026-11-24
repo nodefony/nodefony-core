@@ -214,7 +214,12 @@ describe("hôte — jamais d'orphelin", () => {
     const ready = new Promise<void>((resolve) =>
       child.on("message", () => resolve()),
     );
-    child.send({ channel: HELD_CHANNEL, type: "start", spec: { mode: "ok" } });
+    child.send({
+      channel: HELD_CHANNEL,
+      type: "start",
+      key: "test:orphan",
+      spec: { mode: "ok" },
+    });
     await ready;
     const exited = new Promise<number | null>((resolve) =>
       child.once("exit", (code) => resolve(code)),

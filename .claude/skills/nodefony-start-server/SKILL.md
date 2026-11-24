@@ -52,8 +52,8 @@ node node_modules/nodefony/bin/nodefony stop      # arrêt PROPRE du mode dev (g
 - `status` = diagnostic « ne plus être perdu » : **vérité = `ps`** (pas le pidfile). Signale
   les états incohérents (pidfile périmé, process orphelins, empilement). Idempotent : aucune
   instance → « aucune instance en cours ».
-- `stop` group-kill les **racines** (superviseur → emporte enfant + Vite ; orphelins = leur propre
-  racine) SIGTERM→SIGKILL + attente ports libres + nettoyage pidfile. Couvre les Vite
+- `stop` group-kill les **racines** (superviseur → emporte l'enfant ; chaque hôte Vite ou
+  service porté, détaché, est sa propre racine ; orphelins = leur propre racine) SIGTERM→SIGKILL + attente ports libres + nettoyage pidfile. Couvre les Vite
   `nodefony-vite[...]` qu'aucun `pkill` ne matchait. Idempotent.
 - `stop.sh` **délègue à `nodefony stop`** pour le mode dev, PUIS garde sa rafale `pkill` comme
   **filet** pour les modes non couverts : cluster (master/worker), server/production.
@@ -179,7 +179,7 @@ Ce qu'il fait :
   silencieux) ; `#rootDistStale` rebuild le root (`rolldown -c`) si une source racine a bougé.
 - **Auto-restart backend** : watch chokidar des sources backend (`frontend/`, `dist/`, `tests/`
   exclus) → rebuild **ciblé** (`turbo --filter` + `rolldown -c` root si touché) → **group-kill** de
-  l'enfant (`process.kill(-pid)` emporte les Vite → 0 orphelin) → attente ports libres
+  l'enfant (`process.kill(-pid)` ; ses hôtes Vite, détachés, s'arrêtent avec lui par leur canal) → attente ports libres
   (anti-`EADDRINUSE`) → respawn. Pas de HMR backend : Node ne décharge pas un module ESM importé.
 - **HMR frontend préservé** : `frontend/` exclu du watch → une modif front passe en HMR Vite (0 restart).
 - **framework-ready** par **sonde de ports** (0 IPC, observation externe) : `✓ serveur prêt en Xms`,

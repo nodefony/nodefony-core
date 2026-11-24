@@ -1113,6 +1113,7 @@ export {
   HELD_CHANNEL,
   isHeldHostMessage,
   serveHeldService,
+  serveHeldServiceIfMain,
 } from "./service/dev/heldChannel";
 export type {
   HeldJson,

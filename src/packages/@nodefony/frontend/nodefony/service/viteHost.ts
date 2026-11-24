@@ -14,9 +14,8 @@
  * pures — la garde en pied de fichier n'y sert donc aucun service.
  */
 import { createServer as createNetServer } from "node:net";
-import { fileURLToPath } from "node:url";
 import {
-  serveHeldService,
+  serveHeldServiceIfMain,
   type HeldJsonObject,
   type IHeldServiceImpl,
 } from "nodefony/held";
@@ -438,19 +437,6 @@ export function createViteHostService(
   };
 }
 
-/**
- * Lancé par un teneur (`fork`, canal IPC présent) ET comme module principal :
- * servir. Importé par l'adaptateur pour ses fonctions pures : rien.
- *
- * `SIGINT` est ignoré : la vie de l'hôte appartient à son teneur — qui l'arrête
- * par le canal, ou dont la mort ferme le canal. Sous Windows, sans groupes de
- * process, un Ctrl-C au terminal atteint AUSSI l'hôte : il mourrait avant que
- * le teneur ne l'arrête, lu comme un plantage puis relancé.
- */
-if (
-  typeof process.send === "function" &&
-  process.argv[1] === fileURLToPath(import.meta.url)
-) {
-  process.on("SIGINT", () => undefined);
-  serveHeldService(createViteHostService());
-}
+// Lancé par un teneur comme point d'entrée : servir. Importé par l'adaptateur
+// pour ses fonctions pures : rien. (`SIGINT` et titre : `serveHeldService`.)
+serveHeldServiceIfMain(import.meta, createViteHostService);
