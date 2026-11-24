@@ -263,6 +263,27 @@ describe("Identité realtime — mode JETON PORTEUR (JWT / clé API, agent M2M)"
     assert.equal(await token.isValid?.(NOW), false);
   });
 
+  it("🔴 un jeton SANS `iat` ne survit pas à la révocation EN MASSE — même règle qu'en HTTP (#865)", async () => {
+    const auth = new FirewallRealtimeAuthenticator(() => ({
+      isJtiDenied: async () => false,
+      getInvalidBefore: async () => NOW,
+    }));
+    const token = await inScope(
+      {
+        user: alice,
+        // `jti` présent : la socket n'est pas fermée d'office (fail-closed),
+        // c'est bien le seuil qui doit trancher.
+        token: bearerToken(
+          "jwt",
+          { exp: SEC(NOW) + 3600, sub: "alice" },
+          "jti-sans-iat",
+        ),
+      },
+      () => auth.authenticate(HANDSHAKE),
+    );
+    assert.equal(await token.isValid?.(NOW), false);
+  });
+
   it("survit à un store INDISPONIBLE tant que le jeton n'a pas expiré", async () => {
     // Fail-soft de DISPONIBILITÉ, pas de sécurité : la borne `exp` reste vérifiée
     // sans personne. Couper toutes les sockets agent parce qu'un store est en

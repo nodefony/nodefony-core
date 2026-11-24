@@ -25,6 +25,7 @@ import {
   Typography,
   rem,
   useMantineColorScheme,
+  useMantineTheme,
 } from "@mantine/core";
 import {
   IconAlertCircle,
@@ -46,6 +47,21 @@ import {
 } from "../../realtime/socket/liveGraphs";
 import { valueText } from "./json/jsonFormat";
 import { adoptStylesOnce } from "../../utils/adoptStylesOnce";
+import { adoptStyles } from "nodefony/client";
+import {
+  diagramThemeVariables,
+  fromStyleTemplate,
+  releaseStyles,
+  splitSvgStyles,
+  toStyleTemplate,
+} from "./mermaidStyles";
+
+/**
+ * Patron de la feuille mermaid par thème (`default` / `dark`), rempli au premier
+ * schéma rendu : les suivants adoptent leur feuille AVANT `mermaid.render` et ne
+ * sont rendus qu'une fois.
+ */
+const MERMAID_STYLE_TEMPLATES = new Map<string, string>();
 
 /** Texte plat d'un nœud React (pour calculer l'ancre `id` d'un titre). */
 function nodeText(node: ReactNode): string {
@@ -345,6 +361,7 @@ function parseAdmonition(
 /** Rend un block ```mermaid``` en SVG vectoriel (lazy, theme-aware). */
 export function MermaidDiagram({ code }: { code: string }) {
   const { colorScheme } = useMantineColorScheme();
+  const mantine = useMantineTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const baseId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [error, setError] = useState<string | null>(null);
@@ -354,27 +371,61 @@ export function MermaidDiagram({ code }: { code: string }) {
   const [svgHtml, setSvgHtml] = useState("");
   useEffect(() => {
     let cancelled = false;
+    // Feuille du schéma, adoptée hors du SVG : la politique CSP bloque le
+    // `<style>` que mermaid y embarque (cf `mermaidStyles.ts`). Retirée au
+    // démontage comme au changement de thème.
+    let sheet: CSSStyleSheet | HTMLStyleElement | null = null;
     // Relu hors du rétrécissement : le démontage tombe PENDANT les `await`.
     const isCancelled = (): boolean => cancelled;
     // L'IIFE capture ses propres erreurs (état `error`) : elle ne rejette jamais.
+    const adopt = (css: string): void => {
+      if (sheet !== null) releaseStyles(sheet);
+      sheet = css === "" ? null : adoptStyles(css);
+    };
     void (async () => {
       try {
         const mermaid = (await import("mermaid")).default;
+        // Le patron de feuille dépend du schéma de couleur : c'est sa clé.
+        const theme = colorScheme === "dark" ? "dark" : "light";
         mermaid.initialize({
           startOnLoad: false,
-          theme: colorScheme === "light" ? "default" : "dark",
+          theme: "base",
+          themeVariables: diagramThemeVariables(theme, {
+            brand: mantine.colors.brand ?? mantine.colors.blue,
+            gray: mantine.colors.gray,
+            dark: mantine.colors.dark,
+            black: mantine.black,
+            white: mantine.white,
+            fontFamily: mantine.fontFamily,
+          }),
           securityLevel: "strict",
-          fontFamily: "inherit",
+          // Libellés sur leurs lignes `<br/>`, sans coupure à chaque mot ;
+          // marge pour que la bordure d'un nœud ne touche pas le bord du dessin.
+          flowchart: { wrappingWidth: 320, padding: 12, diagramPadding: 16 },
         });
-        const { svg } = await mermaid.render(
-          `mermaid-${baseId}-${Date.now()}`,
-          code,
-        );
-        if (!isCancelled() && containerRef.current) {
-          containerRef.current.innerHTML = svg;
-          setSvgHtml(svg);
-          setError(null);
+        const id = `mermaid-${baseId}-${Date.now()}`;
+        // Mermaid MESURE ses libellés pendant le rendu : sa feuille doit être
+        // en place AVANT, sinon le dessin sort écrasé (cf `mermaidStyles.ts`).
+        const template = MERMAID_STYLE_TEMPLATES.get(theme);
+        if (template !== undefined) adopt(fromStyleTemplate(template, id));
+        let parts = splitSvgStyles((await mermaid.render(id, code)).svg);
+        if (template === undefined && parts.css !== "") {
+          // Premier schéma de ce thème : mesuré sans feuille. On la garde en
+          // patron, puis on le rend une seconde fois, feuille en place.
+          MERMAID_STYLE_TEMPLATES.set(theme, toStyleTemplate(parts.css, id));
+          adopt(parts.css);
+          parts = splitSvgStyles((await mermaid.render(id, code)).svg);
         }
+        // La feuille du rendu final : celle du patron n'a pas les `classDef`
+        // propres à ce schéma.
+        adopt(parts.css);
+        if (isCancelled() || !containerRef.current) {
+          adopt("");
+          return;
+        }
+        containerRef.current.innerHTML = parts.svg;
+        setSvgHtml(parts.svg);
+        setError(null);
       } catch (e) {
         if (!isCancelled())
           setError(e instanceof Error ? e.message : String(e));
@@ -382,8 +433,9 @@ export function MermaidDiagram({ code }: { code: string }) {
     })();
     return () => {
       cancelled = true;
+      if (sheet !== null) releaseStyles(sheet);
     };
-  }, [code, colorScheme, baseId]);
+  }, [code, colorScheme, baseId, mantine]);
   if (error) {
     return (
       <Alert color="orange" icon={<IconAlertTriangle size={16} />} my="md">

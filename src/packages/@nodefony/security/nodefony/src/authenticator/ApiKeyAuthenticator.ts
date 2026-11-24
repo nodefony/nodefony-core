@@ -11,6 +11,7 @@ import {
   isBoundToAccount,
 } from "../accountBinding";
 import { UserToken } from "../token/UserToken";
+import { issuedBeforeThreshold } from "../token/tokenStatus";
 import { looksLikeApiKey, parseApiKey } from "../apikey/apiKeyFormat";
 import { bearerToken } from "./bearer";
 
@@ -123,7 +124,7 @@ export class ApiKeyAuthenticator implements IAuthenticator {
     // Ban en masse du porteur (logout global) : une clé émise avant le seuil est
     // rejetée sans attendre son expiration.
     const invalidBefore = await store.getInvalidBefore(record.subjectId);
-    if (invalidBefore !== null && record.createdAt < invalidBefore) {
+    if (issuedBeforeThreshold(record.createdAt, invalidBefore)) {
       throw new AuthenticationError(INVALID_TOKEN);
     }
 

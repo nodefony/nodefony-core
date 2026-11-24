@@ -39,6 +39,11 @@ import defaultConfig, { type IFrontendConfig } from "../config/config";
 import { stripTrailingSlashes } from "nodefony";
 import path from "node:path";
 import { summarizeFrontendBoot } from "./bootSummary";
+import {
+  judgeBuildFreshness,
+  writeBuildFingerprint,
+  type IBuildFreshness,
+} from "../src/buildFingerprint";
 
 /**
  * Vue minimale du service statique de `@nodefony/http` (résolu par nom via le
@@ -723,15 +728,20 @@ class FrontendService extends Service implements IFrontendService {
     result: IFrontendBuildResult,
     opts?: { force?: boolean | undefined },
   ): Promise<IFrontendBuildResult> {
+    const reasons: Record<string, string> = {};
+    result.reasons = reasons;
     for (const entry of this.entries) {
-      if (!opts?.force && this.isBuildFresh(entry)) {
+      const verdict = await this.isBuildFresh(entry);
+      if (!opts?.force && verdict.fresh) {
         result.skipped.push(entry.entryName);
+        reasons[entry.entryName] = verdict.reason;
         this.log(
-          `build skip "${entry.entryName}" (à jour — --force pour forcer)`,
+          `build skip "${entry.entryName}" (${verdict.reason} — --force pour forcer)`,
           "INFO",
         );
         continue;
       }
+      reasons[entry.entryName] = opts?.force ? "--force" : verdict.reason;
       try {
         const cfg = await this.builder.buildViteConfig(
           [entry],
@@ -740,7 +750,23 @@ class FrontendService extends Service implements IFrontendService {
         );
         await vite.build(cfg);
         result.built.push(entry.entryName);
-        this.log(`build ok "${entry.entryName}" → ${entry.outDir}`, "INFO");
+        this.log(
+          `build ok "${entry.entryName}" → ${entry.outDir} (${reasons[entry.entryName]})`,
+          "INFO",
+        );
+        // Empreinte relevée AVANT le build : un paquet monté pendant le build
+        // laisse une empreinte périmée, donc un rebuild de plus — jamais un
+        // bundle périmé jugé frais. Son échec ne casse pas le build réussi : sans
+        // empreinte, le prochain passage reconstruit.
+        try {
+          await writeBuildFingerprint(entry.outDir, verdict.fingerprint);
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          this.log(
+            `build "${entry.entryName}" : empreinte des versions non écrite (${message}) — le prochain build reconstruira`,
+            "WARNING",
+          );
+        }
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         result.failures.push({ entryName: entry.entryName, message });
@@ -755,49 +781,15 @@ class FrontendService extends Service implements IFrontendService {
   }
 
   /**
-   * Une entrée est « fraîche » si son `manifest.json` existe ET qu'aucun fichier
-   * source (sous `root`, hors `node_modules`/`outDir`/`.vite`) n'est plus récent.
-   * Scan disque borné (dossier front petit) — évite un rebuild Vite inutile.
+   * Juge si le bundle d'une entrée est à jour, et dit pourquoi : manifeste Vite
+   * présent, versions de ce qui construit le bundle inchangées depuis ce build
+   * (empreinte `nodefony-build.json` à côté du manifeste), aucune source plus
+   * récente. Règle portée par `judgeBuildFreshness` (`src/buildFingerprint.ts`).
    */
-  private isBuildFresh(entry: IResolvedFrontendEntry): boolean {
-    let manifestMtime: number;
-    try {
-      manifestMtime = fs.statSync(
-        path.join(entry.outDir, ".vite", "manifest.json"),
-      ).mtimeMs;
-    } catch {
-      return false;
-    }
-    return this.newestSourceMtime(entry.root, entry.outDir) <= manifestMtime;
-  }
-
-  /** Mtime du fichier le plus récent sous `dir` (récursif borné). */
-  private newestSourceMtime(dir: string, outDir: string): number {
-    let newest = 0;
-    const walk = (d: string): void => {
-      let items: fs.Dirent[];
-      try {
-        items = fs.readdirSync(d, { withFileTypes: true });
-      } catch {
-        return;
-      }
-      for (const it of items) {
-        if (it.name === "node_modules" || it.name === ".vite") continue;
-        const full = path.join(d, it.name);
-        if (full === outDir) continue;
-        if (it.isDirectory()) walk(full);
-        else {
-          try {
-            const m = fs.statSync(full).mtimeMs;
-            if (m > newest) newest = m;
-          } catch {
-            /* fichier disparu entre readdir et stat — ignore */
-          }
-        }
-      }
-    };
-    walk(dir);
-    return newest;
+  private isBuildFresh(
+    entry: IResolvedFrontendEntry,
+  ): Promise<IBuildFreshness> {
+    return judgeBuildFreshness(entry.root, entry.outDir);
   }
 
   /**

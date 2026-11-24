@@ -2,7 +2,9 @@
 import path from "node:path";
 import { expect } from "vitest";
 import { RequestContext } from "nodefony";
-import TemplateHelper from "../../src/template/TemplateHelper.js";
+import TemplateHelper, {
+  devEntryUrl,
+} from "../../src/template/TemplateHelper.js";
 import type {
   IViteSupervisor,
   IViteSupervisorStatus,
@@ -53,22 +55,93 @@ function supervisorWith(
 }
 
 describe("TemplateHelper — aucune origine dans les balises", () => {
-  it("DEV : l'entry est servie via /@fs, relative à la page, quelle que soit l'origine de Vite", () => {
+  it("DEV : l'entry est relative à la page, quelle que soit l'origine de Vite", () => {
     const helper = new TemplateHelper(
-      supervisorWith({ origin: "http://127.0.0.1:5173" }),
+      supervisorWith({
+        origin: "http://127.0.0.1:5173",
+        base: "/_vite/default/",
+      }),
       "development",
     );
     const tags = helper.renderTags("studio");
-    // Axiome portabilité n°10 : l'attendu se COMPOSE, ne se littéralise pas —
-    // `path.resolve("/abs/…")` rend `/abs/…` sur Unix mais `D:\abs\…` sur
-    // Windows (lecteur du cwd ajouté), et l'URL émise devient `/@fs/D:/abs/…`.
-    const abs = path.resolve(entry.root, entry.entryFile).replace(/\\/g, "/");
-    expect(tags).to.include(
-      `src="/@fs${abs.startsWith("/") ? "" : "/"}${abs}"`,
-    );
+    expect(tags).to.include('src="/_vite/default/src/main.tsx"');
     expect(tags).to.not.include("127.0.0.1");
     // Quelle que soit la plateforme, aucune URL émise ne porte de backslash.
     expect(tags).to.not.include("\\");
+  });
+});
+
+describe("TemplateHelper — une entrée a la MÊME URL que celle que Vite donne à ses imports", () => {
+  // Vite sert un fichier sous sa racine en `/src/…` et hors de sa racine en
+  // `/@fs/…`. Une entrée posée en `/@fs` alors qu'elle est sous la racine
+  // existait sous deux URL : un module qui l'importait en recevait une seconde
+  // instance (vécu sur une application Svelte réelle, #890).
+  const second: IResolvedFrontendEntry = {
+    ...entry,
+    moduleName: "billing",
+    entryName: "billing",
+    root: "/abs/billing/frontend",
+  };
+
+  it("🔴 entrée SOUS la racine Vite (la première de la famille) → relative, jamais /@fs", () => {
+    const helper = new TemplateHelper(
+      supervisorWith({ base: "/_vite/default/", entries: [entry, second] }),
+      "development",
+    );
+    const tags = helper.renderTags("studio");
+    expect(tags).to.include('src="/_vite/default/src/main.tsx"');
+    expect(tags).to.not.include("/@fs/abs/studio");
+  });
+
+  it("entrée HORS de la racine (second front de la famille) → /@fs, qui la distingue du premier", () => {
+    const helper = new TemplateHelper(
+      supervisorWith({ base: "/_vite/default/", entries: [entry, second] }),
+      "development",
+    );
+    const tags = helper.renderTags("billing");
+    // Axiome portabilité n°10 : l'attendu se COMPOSE — `path.resolve("/abs/…")`
+    // rend `D:\abs\…` sous Windows, et l'URL émise devient `/@fs/D:/abs/…`.
+    const abs = path.resolve(second.root, second.entryFile).replace(/\\/g, "/");
+    expect(tags).to.include(
+      `src="/_vite/default/@fs${abs.startsWith("/") ? "" : "/"}${abs}"`,
+    );
+  });
+
+  it("grammaire win32 : relative sous la racine, /@fs/C:/… hors d'elle, aucun backslash", () => {
+    const winRoot = "C:\\app\\frontend";
+    expect(
+      devEntryUrl(
+        "/_vite/default",
+        winRoot,
+        { root: winRoot, entryFile: "src\\main.ts" },
+        path.win32,
+      ),
+    ).to.equal("/_vite/default/src/main.ts");
+    expect(
+      devEntryUrl(
+        "/_vite/default",
+        winRoot,
+        {
+          root: "C:\\app\\modules\\billing\\frontend",
+          entryFile: "src/main.ts",
+        },
+        path.win32,
+      ),
+    ).to.equal(
+      "/_vite/default/@fs/C:/app/modules/billing/frontend/src/main.ts",
+    );
+  });
+
+  it("un dossier VOISIN au même préfixe n'est pas « sous » la racine", () => {
+    // `/abs/front` n'est pas la racine de `/abs/frontend-admin/…`.
+    expect(
+      devEntryUrl(
+        "/_vite/default",
+        "/abs/front",
+        { root: "/abs/frontend-admin", entryFile: "src/main.ts" },
+        path.posix,
+      ),
+    ).to.equal("/_vite/default/@fs/abs/frontend-admin/src/main.ts");
   });
 });
 

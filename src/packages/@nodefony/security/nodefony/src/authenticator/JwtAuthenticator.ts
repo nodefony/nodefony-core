@@ -9,6 +9,7 @@ import type { IJwtKeystore } from "../../contracts/IJwtKeystore";
 import type { ITokenStore } from "../../contracts/ITokenStore";
 import { AuthenticationError } from "../../errors/AuthenticationError";
 import { UserToken } from "../token/UserToken";
+import { issuedBeforeThreshold } from "../token/tokenStatus";
 import { defaultAudience, type IJwtRuntime } from "../token/jwtRuntime";
 import {
   CLOCK_TOLERANCE_S,
@@ -255,11 +256,13 @@ export class JwtAuthenticator implements IAuthenticator {
       throw new AuthenticationError(INVALID_TOKEN);
     }
     const invalidBefore = await store.getInvalidBefore(sub);
-    if (invalidBefore !== null) {
-      const iatMs = typeof payload.iat === "number" ? payload.iat * 1000 : 0;
-      if (iatMs < invalidBefore) {
-        throw new AuthenticationError(INVALID_TOKEN);
-      }
+    if (
+      issuedBeforeThreshold(
+        typeof payload.iat === "number" ? payload.iat * 1000 : null,
+        invalidBefore,
+      )
+    ) {
+      throw new AuthenticationError(INVALID_TOKEN);
     }
 
     // Sujet valide à la réception (RFC 8725 §3.10) — disparu, inactif,

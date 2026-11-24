@@ -62,6 +62,13 @@ describe("Static files — serve-static (requires server)", () => {
       expect(headers["cache-control"]).to.be.a("string");
     });
 
+    // `statics.defaultOptions.maxAge` est en SECONDES : quatre jours, pas
+    // 345 s (serve-static lit des ms — #890). Montage par défaut (`addMount`).
+    it("🔴 montage par défaut : max-age de quatre jours, en secondes", async () => {
+      const { headers } = await get("/test/chico_buarque.mp3");
+      expect(headers["cache-control"]).to.equal("public, max-age=345600");
+    });
+
     it("static file includes Last-Modified or ETag", async () => {
       const { headers } = await get("/test/chico_buarque.mp3");
       const hasCache =

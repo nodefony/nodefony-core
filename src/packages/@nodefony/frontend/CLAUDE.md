@@ -87,7 +87,7 @@ Browser GET / (HTTPS 5152)
   └─ Controller render index.html
         └─ inject frontendService.renderTags("test-frontend-react")
               → `<script src="/_vite/<famille>/@vite/client">`
-              → `<script src="/_vite/<famille>/@fs/…/src/main.tsx">`
+              → `<script src="/_vite/<famille>/src/main.tsx">` (`/@fs/…` hors de la racine Vite)
 
 Browser parses HTML → GET /_vite/<famille>/… (origine de la page)
   └─ reverse-proxy (@nodefony/http) → Vite 127.0.0.1:5173 → transpiled
@@ -119,7 +119,7 @@ Kernel onTerminate
 ## Mode prod (build + renderProdTags)
 
 - **Build** : `build()` appelle `vite.build()` **par entry** (chaque bundle = son `root`/`outDir`/`base`/`manifest` → multi-module + isolation Angular). In-proc, one-shot, pas de superviseur.
-  - **Idempotent** : une entrée dont `outDir/.vite/manifest.json` est plus récent que ses sources est **ignorée** (`skipped`) → relance prod console rapide. `--force` rebuild tout.
+  - **Idempotent** : une entrée dont `outDir/.vite/manifest.json` est plus récent que ses sources ET dont l'empreinte des versions (`.vite/nodefony-build.json`, `src/buildFingerprint.ts`) est inchangée est **ignorée** (`skipped`) → relance prod console rapide. Une montée du framework, de `vite` ou d'un paquet déclaré reconstruit. `--force` rebuild tout. Fraîcheur = VERSIONS, jamais les dates de `node_modules`.
   - **Erreurs collectées** : un bundle KO n'arrête pas les autres ; `failures[]` remonté → la commande met `process.exitCode = 1` (pipeline CI).
   - Scripts racine : `npm run build:front` (= `nodefony frontend:build`) · `npm run build:all` (backend turbo + front).
   - ✅ CLI `nodefony frontend:build` fonctionne (fix dispatch commandes de module : `CliKernel` diffère le parse des commandes non-built-in à `onPreRegister`, après enregistrement par les modules — cf `project_cli_commands_broken_claude_ts`).
@@ -168,7 +168,7 @@ dérive ici — l'audit `nodefony-check-externals` doit lire ce paragraphe avant
 - **Titre `nodefony-vite[…]`** : posé par l'hôte (`process.title`, `fork` n'a pas d'`argv0`), composé côté adaptateur sur `DEV_VITE_PREFIX` (cœur) — `nodefony status`/`stop` le reconnaissent en tête de ligne `ps`.
 - **L'hôte ignore `SIGINT`**, et il s'identifie `nodefony-held[<clé>]` avant d'affiner son titre : c'est `serveHeldService` (cœur) qui le fait pour TOUT hôte. Entrée par `serveHeldServiceIfMain(import.meta, …)` — jamais `argv[1]` comparé à l'URL du module, qui échoue par un lien symbolique.
 - **`@vitejs/plugin-react` paresseux** : chargé via `await import()` dans le preset → pas d'erreur si pas installé tant qu'aucun module ne déclare `type: "react19"`.
-- **PathRoot vs entryFile** : `entryFile` est relatif au root du module (ex: `./frontend/src/main.tsx`), `root` est la racine front (ex: `./frontend`). Le TemplateHelper retire le root pour produire l'URL Vite (`/src/main.tsx`).
+- **PathRoot vs entryFile** : `entryFile` est relatif au root du module (ex: `./frontend/src/main.tsx`), `root` est la racine front (ex: `./frontend`). L'URL de l'entrée suit la règle de Vite (`TemplateHelper.ts#devEntryUrl`) : relative (`/src/main.tsx`) sous la racine Vite — celle de la PREMIÈRE entrée de la famille (`ViteConfigGenerator.ts#viteDevRoot`) —, `/@fs/<absolu>` hors d'elle. Une entrée posée en `/@fs` sous la racine existait sous deux URL, donc en deux instances.
 - **`experimentalDecorators` requis** : Service injectable via `@injectable()` — sans lui les décorateurs ne compilent pas. `emitDecoratorMetadata` reste à `false` : une dépendance se nomme par `@Inject("nom")` (ADR-0018).
 - **Pas de `@nodefony/framework` en dep dure** : framework dépend de http qui peut dépendre de frontend → on garde frontend en bout de chaîne, sans import framework.
 

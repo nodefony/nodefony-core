@@ -148,6 +148,9 @@ describe("RED-TEAM NodefonySse — serveur hostile", () => {
       else res.write("data: y\n\n");
     });
     const sse = track(new NodefonySse(decor.url));
+    // Attendre le FAIT (la première connexion), jamais une durée : sur un
+    // exécuteur lent (Windows en CI), 100 ms fixes ne la voyaient pas encore.
+    await until(() => decor.hits.length >= 1);
     await wait(100);
     // Pas de délai > 2^31-1 ms : Node le ramènerait à 1 ms (tempête), ou jamais.
     expect(decor.hits.length).to.equal(1);

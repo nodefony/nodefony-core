@@ -13075,7 +13075,7 @@
       "name": "nodefony-add-realtime-channel",
       "summary": "Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket ou d'un contrôle d'accès écrits à la main.",
       "family": "Autres",
-      "version": "3.1.0",
+      "version": "3.1.1",
       "keywords": [
         "nodefony-add-realtime-presence",
         "nodefony-add-realtime-binary"
@@ -13101,8 +13101,8 @@
       ],
       "description": "Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket ou d'un contrôle d'accès écrits à la main. Part du besoin (chat, salon privé, jeu, sondes, notification, tâche longue), mène à la ligne, à l'exemple exécuté et à son test, dit qui a le droit de LIRE et d'ÉCRIRE, et porte la production : plusieurs serveurs, reconnexion, redéploiement, révocation. À charger AVANT d'écrire un canal, un abonnement ou un flux. Qui est en ligne → `nodefony-add-realtime-presence` ; des octets → `nodefony-add-realtime-binary`. Déclencheurs : \"temps réel\", \"websocket\", \"canal\", \"push\", \"chat\", \"salon privé\", \"exclure un membre\", \"l'exclu revient\", \"réserver un canal à un rôle\", \"mon canal est public\", \"prévenir un utilisateur\", \"progression d'une tâche\", \"SSE\", \"tableau de bord en direct\", \"-32601\", \"ça marche en local, plus en cluster\", \"le canal ne répond jamais\".",
       "cost": {
-        "bodyLines": 492,
-        "approxTokens": 8208
+        "bodyLines": 496,
+        "approxTokens": 8300
       },
       "requires": [],
       "resources": {
@@ -13176,7 +13176,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "492",
+            "detail": "496",
             "advisory": true
           }
         ]
@@ -13319,8 +13319,8 @@
       ],
       "description": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@Inject` au constructeur ou `container.get` à l'usage), le choix de sa durée de vie (un exemplaire pour l'application, ou un par requête), et le défaut mesuré qu'un service écrit à la main produit : une classe qui compile, dont les tests passent, et que le conteneur ignore. À charger AVANT d'écrire une classe de service ou d'appeler un service depuis un autre. Déclencheurs : \"crée un service\", \"un service métier\", \"logique métier partagée\", \"injecter une dépendance\", \"container.get\", \"@injectable\", \"@services\", \"appeler un service depuis un autre\", \"mon service est undefined\", \"le conteneur ne trouve pas mon service\", \"un service par requête\", \"un état propre à chaque requête\", \"scope request\".",
       "cost": {
-        "bodyLines": 115,
-        "approxTokens": 1695
+        "bodyLines": 120,
+        "approxTokens": 1783
       },
       "requires": [],
       "resources": {
@@ -13389,7 +13389,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "115",
+            "detail": "120",
             "advisory": true
           }
         ]
@@ -13823,8 +13823,8 @@
       ],
       "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune, les pièges du serveur et du front, et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\", \"je touche au frontend\", \"mon composant charge des données\", \"mon écran n'affiche rien\".",
       "cost": {
-        "bodyLines": 468,
-        "approxTokens": 8158
+        "bodyLines": 474,
+        "approxTokens": 8300
       },
       "requires": [],
       "resources": {
@@ -13936,7 +13936,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "468",
+            "detail": "474",
             "advisory": true
           }
         ]

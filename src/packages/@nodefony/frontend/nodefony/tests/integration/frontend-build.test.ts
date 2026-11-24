@@ -7,6 +7,7 @@ import TemplateHelper from "../../src/template/TemplateHelper.js";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
 import { Container } from "nodefony";
 import FrontendService from "../../service/FrontendService.js";
+import { BUILD_FINGERPRINT_FILE } from "../../src/buildFingerprint.js";
 
 /**
  * P14.5 — build production + `renderProdTags`.
@@ -148,6 +149,24 @@ describe("@nodefony/frontend — prod build + renderProdTags (P14.5)", () => {
       if (avant === undefined) delete process.env.NODE_ENV;
       else process.env.NODE_ENV = avant;
     }
+  });
+
+  it("le build écrit l'empreinte des versions, et le passage suivant s'y fie pour sauter (#872)", async () => {
+    const svc = fakeService([makeEntry()]);
+    const first = await svc.build({ force: true });
+    expect(first.failures, "aucun échec de build").to.deep.equal([]);
+    expect(first.reasons?.["fixture"]).to.equal("--force");
+    expect(
+      fs.existsSync(path.join(OUT_DIR, ".vite", BUILD_FINGERPRINT_FILE)),
+      "empreinte écrite à côté du manifeste",
+    ).to.equal(true);
+
+    const second = await svc.build();
+    expect(second.built).to.deep.equal([]);
+    expect(second.skipped).to.deep.equal(["fixture"]);
+    expect(second.reasons?.["fixture"]).to.match(
+      /^sources et versions inchangées/,
+    );
   });
 
   it("renderProdTags injecte le script fingerprinté préfixé par publicPath (≠ page blanche)", () => {

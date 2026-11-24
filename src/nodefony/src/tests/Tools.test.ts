@@ -1109,12 +1109,21 @@ describe("stripTrailingSlashes", () => {
   // suivies d'autre chose). C'est mesuré : 16 000 barres coûtent ~309 ms à la
   // regex. Un plafond large — la machine de CI n'est pas celle-ci — mais qui
   // mord largement avant un retour du motif quadratique.
+  //
+  // Le MEILLEUR de cinq passages, jamais un seul : une pause du runner (ramasse-
+  // miettes, planificateur) gonfle UN passage — vécu sur Windows, 65 ms pour un
+  // calcul qui en coûte moins d'une —, jamais les cinq ; la regex quadratique,
+  // elle, paie ses ~300 ms à CHAQUE passage. Le plafond ne bouge pas.
   it("reste linéaire sur l'entrée qui fait exploser la regex", () => {
     const hostile = "/".repeat(16_000) + "x";
-    const t0 = performance.now();
-    const out = stripTrailingSlashes(hostile);
-    const ms = performance.now() - t0;
-    expect(out).to.equal(hostile);
-    expect(ms).to.be.lessThan(50, `${ms.toFixed(1)} ms`);
+    let best = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < 5; i++) {
+      const t0 = performance.now();
+      const out = stripTrailingSlashes(hostile);
+      const ms = performance.now() - t0;
+      expect(out).to.equal(hostile);
+      if (ms < best) best = ms;
+    }
+    expect(best).to.be.lessThan(50, `${best.toFixed(1)} ms`);
   });
 });
