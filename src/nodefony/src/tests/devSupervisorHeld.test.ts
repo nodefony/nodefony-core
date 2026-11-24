@@ -293,6 +293,24 @@ function portFree(port: number): Promise<boolean> {
   });
 }
 
+/**
+ * Attend que le port soit rendu, borné. Sous Windows, le système ferme les
+ * descripteurs d'un process tué APRÈS l'avoir déclaré mort : sondé dans la
+ * même milliseconde, le port est encore lié (vu sur la forge). On attend le
+ * fait, on ne suppose pas l'instant.
+ */
+async function portFreeWithin(
+  port: number,
+  timeoutMs: number,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await portFree(port)) return true;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return portFree(port);
+}
+
 // #908 — le SERVEUR de dev, pas seulement ses hôtes : à la mort brutale du
 // superviseur, il s'arrête de lui-même et rend ses ports. Deux plomberies de
 // sortie : héritée (rendu `plain`, le vrai `DevSupervisor`) et en tubes (rendu
@@ -334,7 +352,9 @@ describe("serveur de dev à la mort du superviseur (#908) — linux · macOS · 
         ).to.equal(true);
         expect(readFileSync(bench.lossWitness, "utf8")).to.equal("0");
       }
-      expect(await portFree(bench.port), "port gardé").to.equal(true);
+      expect(await portFreeWithin(bench.port, 5_000), "port gardé").to.equal(
+        true,
+      );
     }, 40_000);
   }
 });
