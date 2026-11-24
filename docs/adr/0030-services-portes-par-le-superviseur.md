@@ -28,9 +28,9 @@ met des secondes à des dizaines de secondes à démarrer. Ce qui se construit i
 « Vite dans le parent » : c'est **un service de longue durée porté par le superviseur**, dont Vite
 est la première instance.
 
-Aujourd'hui Vite est lancé par sa LIGNE DE COMMANDE, et son état se DEVINE en lisant sa sortie :
-expressions sur des libellés anglais (`ViteProcessSupervisor.ts#isPortInUseMessage`,
-`ViteProcessSupervisor.ts#ViteProcessSupervisor.waitReady`), qu'une version de Vite peut changer sans prévenir.
+Avant cette décision, Vite était lancé par sa LIGNE DE COMMANDE, et son état se DEVINAIT en lisant
+sa sortie : expressions sur des libellés anglais (« port in use », « ready in »), qu'une version de
+Vite peut changer sans prévenir.
 
 Contraintes qui tranchent :
 
@@ -61,7 +61,7 @@ Contraintes qui tranchent :
 
 Un module hôte, fourni par le paquet du service, est lancé par `fork` avec un canal IPC. Pour
 Vite : un fichier de `@nodefony/frontend` qui appelle `createServer` de la Vite DE L'APPLICATION
-(résolue depuis le `cwd`, comme `ViteProcessSupervisor.ts#resolveViteBin`), `listen()`, et annonce
+(résolue depuis le module hôte, `viteHost.ts#createViteHostService`), `listen()`, et annonce
 `ready` avec le port lu dans `resolvedUrls`. Un hôte par famille : l'isolement des familles
 (un greffon Angular qui plante n'emporte pas React) est conservé, et le nombre de process est
 INCHANGÉ — l'hôte remplace le process de la ligne de commande de Vite.
@@ -93,7 +93,7 @@ seul change le process qui le tient. `ViteProcessSupervisor` devient un adaptate
 
 À chaque démarrage, l'enfant envoie l'état voulu pour un propriétaire (`frontend`, demain `ai`) :
 la liste complète de ses services, chacun `{ key, module, fingerprint, spec, cwd, env, tuning? }`
-(`devChannel.ts#IHeldServiceDeclaration`). Clé neuve → démarrée ; empreinte changée → SEULE cette
+(`heldChannel.ts#IHeldServiceDeclaration`). Clé neuve → démarrée ; empreinte changée → SEULE cette
 instance remplacée, la nouvelle ne démarrant qu'après la mort de l'ancienne (même port) ;
 identique → gardée, et relancée si elle était `errored` ; clé absente → arrêtée. Un plan plutôt
 qu'un « assure ce service » unitaire : une famille retirée de la config resterait sinon vivante
