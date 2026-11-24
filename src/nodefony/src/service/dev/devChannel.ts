@@ -490,8 +490,76 @@ export interface IDevChannelEndpoint {
     event: "message",
     listener: (message: unknown) => void,
   ): unknown;
+  /**
+   * La fermeture du canal : le superviseur est mort, même tué net. Optionnel —
+   * une extrémité fictive qui ne l'éprouve pas n'a pas à le porter.
+   */
+  once?(event: "disconnect", listener: () => void): unknown;
   /** Le canal lui-même, pour le relâcher (`unref`). */
   readonly channel?: { unref(): void } | null;
+}
+
+/**
+ * Ce que le côté SERVEUR arrête quand son superviseur disparaît — le noyau le
+ * satisfait structurellement (`Kernel#isTerminating`, `Kernel#terminate`).
+ */
+export interface ISupervisorLossTarget {
+  /** Vrai dès qu'un arrêt est demandé, par qui que ce soit. */
+  readonly isTerminating: boolean;
+  /** Arrêt propre du serveur, puis sortie du processus. */
+  terminate(code?: number): Promise<unknown>;
+}
+
+/** Un flux de sortie du processus (`process.stdout`, `process.stderr`). */
+export interface IOutputStream {
+  on(event: "error", listener: (error: Error) => void): unknown;
+}
+
+/** Absorbe l'erreur d'écriture d'un tube dont le lecteur est mort. */
+const IGNORE_OUTPUT_ERROR = (): void => {};
+
+/**
+ * Côté SERVEUR : arrête le serveur quand le canal vers le superviseur se ferme.
+ *
+ * Un superviseur tué net (SIGKILL, `TerminateProcess`, console fermée) ne
+ * prévient personne, et le serveur naît dans son propre groupe de process :
+ * sans cet écouteur, il garderait ses ports, sans plus rien recharger ni
+ * afficher. La perte du canal est le seul signal qui lui parvient sur les
+ * trois plateformes — le patron des hôtes portés (`heldChannel.ts#serveHeldService`).
+ *
+ * À la perte :
+ * - les erreurs d'écriture de `outputs` sont absorbées : en rendu terminal, la
+ *   sortie du serveur est un tube vers le superviseur, et la première ligne
+ *   écrite après sa mort lèverait `EPIPE`, fatal sans écouteur — l'arrêt
+ *   tomberait au milieu, sans fermer ses serveurs ;
+ * - le serveur s'arrête, sauf si un arrêt est DÉJÀ en cours (signal du
+ *   superviseur, `nodefony stop`) : un second arrêt ne se lance pas.
+ *
+ * Un seul écouteur, posé une fois (`once`) : il vit jusqu'à la sortie du
+ * processus, qu'il provoque. Sans canal IPC, rien n'est posé.
+ *
+ * @param target - ce qui s'arrête ; le noyau.
+ * @param endpoint - le processus porteur du canal ; `process` par défaut.
+ * @param outputs - les flux dont le lecteur peut mourir avec le superviseur.
+ * @param exit - sortie forcée si l'arrêt propre échoue ; `process.exit` par défaut.
+ * @returns `true` si l'écouteur est posé.
+ */
+export function terminateOnSupervisorLoss(
+  target: ISupervisorLossTarget,
+  endpoint: IDevChannelEndpoint = process,
+  outputs: readonly IOutputStream[] = [process.stdout, process.stderr],
+  exit: (code: number) => void = (code) => process.exit(code),
+): boolean {
+  if (typeof endpoint.send !== "function" || endpoint.once === undefined)
+    return false;
+  endpoint.once("disconnect", () => {
+    for (const output of outputs) output.on("error", IGNORE_OUTPUT_ERROR);
+    if (target.isTerminating) return;
+    // Un arrêt qui échoue laisserait l'orphelin que cet écouteur interdit :
+    // personne ne lira la cause, la sortie est forcée.
+    target.terminate(0).catch(() => exit(1));
+  });
+  return true;
 }
 
 /**

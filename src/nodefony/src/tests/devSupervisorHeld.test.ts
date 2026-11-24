@@ -43,6 +43,8 @@ const HELD_DIR = path.join(
 );
 const HOST = path.join(HELD_DIR, "host.mjs");
 const BENCH = path.join(HELD_DIR, "supervisor.mjs");
+/** Parent en rendu terminal : la sortie du serveur passe par des tubes (#908). */
+const PIPE_PARENT = path.join(HELD_DIR, "pipe-parent.mjs");
 const TSX = pathToFileURL(
   createRequire(import.meta.url).resolve("tsx/esm"),
 ).href;
@@ -128,6 +130,10 @@ interface IBenchEvent {
 
 interface IBench {
   supervisor: ChildProcess;
+  /** Le port qu'écoute le faux serveur en mode `lossWitness`. */
+  port: number;
+  /** Le témoin écrit par le faux serveur au bout de son arrêt (#908). */
+  lossWitness: string;
   events: IBenchEvent[];
   output: () => string;
   exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
@@ -141,19 +147,23 @@ async function launch(
   stopGraceMs: number,
   crashOnce = false,
   mode?: string,
+  extra: { script?: string; lossWitness?: boolean } = {},
 ): Promise<IBench> {
   const cwd = makeProject();
+  const ports = await freePorts();
+  const lossWitness = path.join(cwd, "loss-witness");
   const config = {
     cwd,
-    ports: await freePorts(),
+    ports,
     plan: plan(stopGraceMs, path.join(cwd, "host.pid"), mode),
     ...(crashOnce ? { crashOnce: path.join(cwd, "crashed") } : {}),
+    ...(extra.lossWitness ? { lossWitness } : {}),
   };
   const env: NodeJS.ProcessEnv = { ...process.env, NF_NO_TTY: "1" };
   delete env.NF_DEV_CHILD;
   const supervisor = spawn(
     process.execPath,
-    ["--import", TSX, BENCH, JSON.stringify(config)],
+    ["--import", TSX, extra.script ?? BENCH, JSON.stringify(config)],
     { cwd, env, stdio: ["ignore", "pipe", "pipe"] },
   );
   if (supervisor.pid !== undefined) pids.add(supervisor.pid);
@@ -217,7 +227,15 @@ async function launch(
       waiters.add(listener);
       check();
     });
-  return { supervisor, events, output: () => all, exited, waitFor };
+  return {
+    supervisor,
+    port: ports[0] as number,
+    lossWitness,
+    events,
+    output: () => all,
+    exited,
+    waitFor,
+  };
 }
 
 /** Attend la mort effective de `pid`, bornée : un témoin figé ne meurt jamais seul. */
@@ -253,6 +271,52 @@ describe("superviseur réel tué net — linux · macOS · Windows", () => {
       true,
     );
   }, 40_000);
+});
+
+/** Le port se lie-t-il encore ? Constaté par une écoute éphémère. */
+function portFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = net.createServer();
+    probe.once("error", () => resolve(false));
+    probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(true)));
+  });
+}
+
+// #908 — le SERVEUR de dev, pas seulement ses hôtes : à la mort brutale du
+// superviseur, il s'arrête de lui-même et rend ses ports. Deux plomberies de
+// sortie : héritée (rendu `plain`, le vrai `DevSupervisor`) et en tubes (rendu
+// terminal, `pipe-parent.mjs`), où la première écriture après la mort du
+// lecteur lève `EPIPE`. Le témoin prouve que l'arrêt est allé AU BOUT — un
+// serveur emporté par `EPIPE` meurt aussi, mais sans fermer ses serveurs.
+describe("serveur de dev à la mort du superviseur (#908) — linux · macOS · Windows", () => {
+  const plumbings = [
+    ["sortie héritée (rendu plain, vrai superviseur)", BENCH],
+    ["sortie en tubes (rendu terminal)", PIPE_PARENT],
+  ] as const;
+  for (const [label, script] of plumbings) {
+    it(`superviseur tué net, ${label} : le serveur s'arrête de lui-même et rend son port`, async () => {
+      const bench = await launch(300, false, "ok", {
+        script,
+        lossWitness: true,
+      });
+      const server = await bench.waitFor((e) => e.type === "server");
+      const serverPid = server.pid as number;
+      expect(isPidAlive(serverPid)).to.equal(true);
+      expect(await portFree(bench.port), "port jamais occupé").to.equal(false);
+      bench.supervisor.kill("SIGKILL");
+      await bench.exited;
+      expect(
+        await deadWithin(serverPid, 5_000),
+        `serveur orphelin — sortie :\n${bench.output()}`,
+      ).to.equal(true);
+      expect(
+        existsSync(bench.lossWitness),
+        "arrêt propre jamais allé au bout",
+      ).to.equal(true);
+      expect(readFileSync(bench.lossWitness, "utf8")).to.equal("0");
+      expect(await portFree(bench.port), "port gardé").to.equal(true);
+    }, 40_000);
+  }
 });
 
 describe.skipIf(process.platform === "win32")(
