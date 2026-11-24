@@ -10,7 +10,7 @@
 > **Vite tourne dans un HÔTE par famille** (`nodefony/service/viteHost.ts`, ADR-0030) : un process
 > Node lancé par `fork`, qui pilote Vite par son API (`createServer`/`listen`/`close`) et rapporte
 > son état par le canal `nf-held` (`nodefony/held`). `ViteProcessSupervisor` n'est plus qu'un
-> adaptateur `IViteSupervisor` sur le teneur `HeldHost` du cœur. **Aucune sortie de Vite n'est lue
+> adaptateur `IViteSupervisor` sur le teneur `HostHolder` du cœur. **Aucune sortie de Vite n'est lue
 > pour deviner un état.**
 
 ## Rôle du module
@@ -46,7 +46,7 @@ src/packages/@nodefony/frontend/
     ├── interfaces/                     ← IFrontPreset, IFrontBuilder, IViteSupervisor, IFrontendService
     ├── service/
     │   ├── FrontendService.ts          ← orchestrateur DI — @injectable
-    │   ├── ViteProcessSupervisor.ts    ← adaptateur IViteSupervisor sur HeldHost (cœur)
+    │   ├── ViteProcessSupervisor.ts    ← adaptateur IViteSupervisor sur HostHolder (cœur)
     │   ├── viteHost.ts                 ← HÔTE forké : pilote Vite par son API (module FEUILLE)
     │   └── ViteConfigGenerator.ts      ← écrit `vite.config.generated.mjs`
     └── src/
@@ -71,7 +71,7 @@ Kernel onReady (env=development + autoStart=true)
         ├─ ViteConfigGenerator.toMjs(entries, "development") → string
         ├─ writeFileSync(`${moduleRoot}/vite.config.generated.mjs`, str)
         └─ ViteProcessSupervisor.start()   (écrit le .mjs SEULEMENT s'il change)
-              └─ HeldHost.start() → fork(viteHost) → spec par le canal nf-held
+              └─ HostHolder.start() → fork(viteHost) → spec par le canal nf-held
                     ├─ sonde le port (node:net), repli sur le suivant
                     ├─ createServer({ configFile, clearScreen:false, forwardConsole:false, customLogger })
                     ├─ listen(port) → report ready { port de la socket, portRetries }
@@ -89,7 +89,7 @@ Browser parses HTML → GET /_vite/<famille>/… (origine de la page)
 
 Kernel onTerminate
   └─ FrontendService.stopDev()
-        └─ HeldHost.stop() : `stop` par le canal → server.close(), arbre tué au-delà de 3 s, mort attendue
+        └─ HostHolder.stop() : `stop` par le canal → server.close(), arbre tué au-delà de 3 s, mort attendue
 ```
 
 ## Décisions techniques figées
@@ -98,12 +98,12 @@ Kernel onTerminate
 | Sujet | Décision |
 | --- | --- |
 | Builder | **Vite** — ESM natif, HMR rapide, cohérence rolldown backend (même moteur oxc) |
-| Supervisor | Un HÔTE par famille (`viteHost.ts`, `fork`) qui pilote Vite par son API, tenu par `HeldHost` (cœur, ADR-0030 §D2 : une seule implémentation du cycle lancer/relancer/sonder/arrêter). Jamais la ligne de commande : sa sortie se devinait par expressions, et Vite 8.4 y ajoute un verrou (vitejs/vite#23624) que l'API ne pose pas. |
+| Supervisor | Un HÔTE par famille (`viteHost.ts`, `fork`) qui pilote Vite par son API, tenu par `HostHolder` (cœur, ADR-0030 §D2 : une seule implémentation du cycle lancer/relancer/sonder/arrêter). Jamais la ligne de commande : sa sortie se devinait par expressions, et Vite 8.4 y ajoute un verrou (vitejs/vite#23624) que l'API ne pose pas. |
 | L'hôte | Module FEUILLE : `node:*`, `nodefony/held` (le protocole seul, ~1 ms ; `nodefony` entier ~330 ms) et `vite`. Aucun import relatif (lancé en source `.ts` sous les tests). `nodefony/held` est déclaré `external` dans `rolldown.config.ts` — sinon le protocole serait recopié dans le `dist`. |
 | Config Vite | Fichier `.mjs` GÉNÉRÉ au boot dans `${root}/vite.config.generated.mjs` |
 | Plugins | Décrits en DONNÉES par chaque preset (`IFrontPreset.vitePlugins` → `IVitePluginSpec` : paquet, export, options JSON). `composePresets` (`compose.ts#composePresets`) est la source UNIQUE : le build les charge (`loadVitePlugins`), le générateur les écrit dans le `.mjs`. Plugins, `optimizeDeps` et `resolve.dedupe` ne se décident QUE dans le preset — un test importe le `.mjs` généré et compare ses plugins à ceux du build. |
 | Logs | `customLogger` de l'hôte → tubes (jamais l'IPC) → syslog. Niveau porté par la ligne (`parseViteHostLine`, seule lecture de `formatViteHostLog`) ; une ligne sans marque prend le niveau de son flux. |
-| Cleanup | `HeldHost.stop` : `stop` par le canal, arbre tué au-delà de 3 s (`signalProcessGroup`), mort attendue (`waitAllDead`). Teneur mort → l'hôte perd son canal et sort : aucun orphelin. |
+| Cleanup | `HostHolder.stop` : `stop` par le canal, arbre tué au-delà de 3 s (`signalProcessGroup`), mort attendue (`waitAllDead`). Teneur mort → l'hôte perd son canal et sort : aucun orphelin. |
 | Multi-bundles | **Une seule instance Vite multi-entry** (rolldown-style `input` map) |
 | Une origine en dev (#528) | Vite écoute sur la boucle locale ; Nodefony le relaie sur l'origine de la page (`/_vite/<famille>/`, service `reverse-proxy` de `@nodefony/http`, HTTP + upgrade WS du HMR). Balises RELATIVES — aucun contenu mixte, un certificat, contexte sécurisé depuis un téléphone / un conteneur / Codespaces. `publicOrigin`, `https` et `requestHost` : RETIRÉS (clé restée = boot refusé, nommée). |
 | Assets en dev | `base` Vite = **chemin réservé par famille** `/_vite/<famille>/` (`devBasePath`), monté sur le proxy inverse par `FrontendService.mountDevProxy` (résolu par nom), consulté AVANT le routage. Cible = `TemplateHelper.devTarget()` (origine LOCALE de Vite). Jamais `server.origin` (fige une origine, ignoré en mode bundlé). |

@@ -188,7 +188,7 @@ le chef de groupe ; ses descendants reçoivent le signal du groupe (POSIX). Sous
 `taskkill /T` ne part que d'un PID vivant : l'arbre d'un hôte déjà sorti y est inatteignable, et
 c'est au service hôte de tuer ses propres enfants (`IHeldServiceImpl.stop`).
 
-Le second Ctrl-C (sortie d'urgence) passe par `HeldHost.kill`, synchrone : le signal vise le
+Le second Ctrl-C (sortie d'urgence) passe par `HostHolder.kill`, synchrone : le signal vise le
 process VIVANT que le teneur tient, jamais le PID d'un instantané — rendu au système, celui-ci
 peut désigner un étranger.
 
@@ -220,7 +220,7 @@ configuration change. Rien du cœur n'est à ajouter.
 | Structure                  | Type retenu                                                     | Pourquoi                                                                                       | Mesuré                                                              |
 | -------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | Hôtes tenus (parent)       | `Map<string, HeldEntry>` (teneur + propriétaire + empreinte)    | clé texte, ajouts ET retraits au fil des plans (`delete` fait passer un objet en dictionnaire) | non — hors chemin chaud                                             |
-| `HeldHost`                 | classe à champs déclarés au constructeur                        | forme stable                                                                                   | —                                                                   |
+| `HostHolder`               | classe à champs déclarés au constructeur                        | forme stable                                                                                   | —                                                                   |
 | Plans en vol               | `Map<number, …>`, `id` entier croissant (smi)                   | retrait à chaque acquittement                                                                  | —                                                                   |
 | Instantané d'état (enfant) | objet figé remplacé en bloc                                     | lecture O(1) sans allocation sur le relais                                                     | **A/B relais** : l'actuel `status()` alloue un objet à chaque appel |
 | Empreinte                  | `crypto.hash` en un coup, une fois par famille et par démarrage | hors chemin chaud                                                                              | non                                                                 |

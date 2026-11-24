@@ -7,7 +7,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { HeldHost, type IHeldHostOptions } from "../service/dev/HeldHost";
+import { HostHolder, type IHostHolderOptions } from "../service/dev/HostHolder";
 import type { IHeldHostStatus } from "../service/dev/heldChannel";
 
 const HOST = path.join(
@@ -17,15 +17,15 @@ const HOST = path.join(
   "host.mjs",
 );
 
-const hosts: HeldHost[] = [];
+const hosts: HostHolder[] = [];
 
 afterEach(async () => {
   await Promise.all(hosts.splice(0).map((h) => h.stop()));
 });
 
-function makeHost(mode: string, extra: Partial<IHeldHostOptions> = {}) {
+function makeHost(mode: string, extra: Partial<IHostHolderOptions> = {}) {
   const seen: IHeldHostStatus[] = [];
-  const host = new HeldHost({
+  const host = new HostHolder({
     key: `liveness:${mode}`,
     module: HOST,
     spec: { mode },
@@ -53,7 +53,7 @@ async function until(
   }
 }
 
-describe("HeldHost — preuves de vie manquées dans l'instantané", () => {
+describe("HostHolder — preuves de vie manquées dans l'instantané", () => {
   it("hôte gelé : le compte monte 1, 2, 3 AVANT la mise à mort ; l'hôte relancé repart de 0", async () => {
     const { host, seen } = makeHost("freeze-after-ready", {
       livenessIntervalMs: 60,

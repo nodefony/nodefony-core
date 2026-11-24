@@ -31,10 +31,10 @@ import {
   type HeldJsonObject,
 } from "../service/dev/heldChannel";
 import {
-  HeldHost,
-  type IHeldHostOptions,
+  HostHolder,
+  type IHostHolderOptions,
   type IHeldHostStatus,
-} from "../service/dev/HeldHost";
+} from "../service/dev/HostHolder";
 import { HeldServiceRegistry } from "../service/dev/heldServices";
 
 const FIXTURES = path.join(
@@ -52,7 +52,7 @@ const marker = (): string => path.join(dir, `m${++markers}`);
 /** PID à tuer en fin de test s'ils survivent (un échec ne doit rien laisser). */
 const strays: number[] = [];
 
-const hosts: HeldHost[] = [];
+const hosts: HostHolder[] = [];
 const registries: HeldServiceRegistry[] = [];
 
 afterEach(async () => {
@@ -72,18 +72,18 @@ afterAll(() => {
 });
 
 interface IObserved {
-  readonly host: HeldHost;
+  readonly host: HostHolder;
   readonly statuses: IHeldHostStatus[];
   readonly states: () => string[];
 }
 
 function makeHost(
   spec: HeldJsonObject,
-  extra: Partial<IHeldHostOptions> = {},
+  extra: Partial<IHostHolderOptions> = {},
   probe?: (status: IHeldHostStatus) => void,
 ): IObserved {
   const statuses: IHeldHostStatus[] = [];
-  const host = new HeldHost({
+  const host = new HostHolder({
     key: `limits:${typeof spec.mode === "string" ? spec.mode : "?"}`,
     module: HOST,
     spec,
@@ -157,7 +157,7 @@ describe("L1 — un hôte condamné qui tarde à sortir (audit B1)", () => {
 describe("L2 — un arrêt qui croise un démarrage ou une relance (audit I1)", () => {
   it("un `ready` arrivé PENDANT l'arrêt est refusé : start() rejeté, jamais `ready`, aucune relance", async () => {
     const statuses: IHeldHostStatus[] = [];
-    const host = new HeldHost({
+    const host = new HostHolder({
       key: "limits:rogue",
       module: ROGUE,
       spec: { mode: "ready-after-stop", readyMs: 250 },
@@ -337,7 +337,7 @@ describe("L6 — un déluge de sortie (rempart D6)", () => {
 describe("L7 — rapports forgés, démesurés, répétés (rempart D6)", () => {
   it("le teneur ne lit que le premier `ready` bien formé : un seul `ready` publié, le reste ignoré", async () => {
     const statuses: IHeldHostStatus[] = [];
-    const host = new HeldHost({
+    const host = new HostHolder({
       key: "limits:forged",
       module: ROGUE,
       spec: { mode: "forged", hugeSize: MAX_HELD_DATA_LENGTH + 1 },

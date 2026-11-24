@@ -9,10 +9,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  HeldHost,
-  type IHeldHostOptions,
+  HostHolder,
+  type IHostHolderOptions,
   type IHeldHostStatus,
-} from "../service/dev/HeldHost";
+} from "../service/dev/HostHolder";
 import { isPidAlive } from "../service/dev/devProcess";
 import {
   HELD_CHANNEL,
@@ -28,7 +28,7 @@ const HOST = path.join(
   "host.mjs",
 );
 
-const hosts: HeldHost[] = [];
+const hosts: HostHolder[] = [];
 
 afterEach(async () => {
   await Promise.all(hosts.splice(0).map((h) => h.stop()));
@@ -36,10 +36,10 @@ afterEach(async () => {
 
 function makeHost(
   mode: string,
-  extra: Partial<IHeldHostOptions> = {},
-): { host: HeldHost; states: string[] } {
+  extra: Partial<IHostHolderOptions> = {},
+): { host: HostHolder; states: string[] } {
   const states: string[] = [];
-  const host = new HeldHost({
+  const host = new HostHolder({
     key: `test:${mode}`,
     module: HOST,
     spec: { mode },
@@ -57,7 +57,7 @@ function makeHost(
 
 /** Attend qu'un état soit atteint, sans horloge à seuil : sondage borné. */
 async function until(
-  host: HeldHost,
+  host: HostHolder,
   predicate: (s: IHeldHostStatus) => boolean,
   timeoutMs = 8_000,
 ): Promise<IHeldHostStatus> {
@@ -71,7 +71,7 @@ async function until(
   }
 }
 
-describe("HeldHost — démarrer, rapporter, arrêter", () => {
+describe("HostHolder — démarrer, rapporter, arrêter", () => {
   it("démarre l'hôte, reçoit sa donnée, puis l'arrête jusqu'à sa mort effective", async () => {
     const { host, states } = makeHost("ok");
     const ready = await host.start();
@@ -130,7 +130,7 @@ describe("HeldHost — démarrer, rapporter, arrêter", () => {
   });
 });
 
-describe("HeldHost — plantages et preuve de vie", () => {
+describe("HostHolder — plantages et preuve de vie", () => {
   it("un plantage après `ready` relance l'hôte avec recul", async () => {
     const { host, states } = makeHost("crash-after-ready", { maxRestarts: 5 });
     const first = await host.start();
@@ -189,7 +189,7 @@ describe("HeldHost — plantages et preuve de vie", () => {
   });
 });
 
-describe("HeldHost — sortie de l'hôte par lignes complètes", () => {
+describe("HostHolder — sortie de l'hôte par lignes complètes", () => {
   it("ne livre jamais une ligne coupée, même écrite en plusieurs morceaux", async () => {
     const got: { stream: string; text: string }[] = [];
     const { host } = makeHost("noisy", {

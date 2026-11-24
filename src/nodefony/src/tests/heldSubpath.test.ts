@@ -44,9 +44,9 @@ describe("nodefony/held — publié, et feuille", () => {
   it("son fichier n'importe RIEN — sinon il n'est plus léger", () => {
     // Témoin : la même sonde lit bien les imports du teneur, qui en a.
     assert.isAbove(
-      specifiers(path.join(DEV, "HeldHost.ts")).length,
+      specifiers(path.join(DEV, "HostHolder.ts")).length,
       0,
-      "aucun import lu dans HeldHost.ts — la sonde est aveugle",
+      "aucun import lu dans HostHolder.ts — la sonde est aveugle",
     );
     assert.deepStrictEqual(
       specifiers(path.join(DEV, "heldChannel.ts")),

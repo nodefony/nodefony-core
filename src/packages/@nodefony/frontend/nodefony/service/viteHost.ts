@@ -1,6 +1,6 @@
 /**
  * L'HÔTE Vite d'une famille (ADR-0030 §D1) : un process Node, lancé par `fork`
- * par un teneur `HeldHost`, qui pilote Vite par son API JavaScript —
+ * par un teneur `HostHolder`, qui pilote Vite par son API JavaScript —
  * `createServer`, `listen`, `close` — et en rapporte l'état par le canal
  * `nf-held`. Il remplace le process de la ligne de commande de Vite : aucune
  * sortie n'est plus lue pour deviner « prêt » ou « port occupé ».

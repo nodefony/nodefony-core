@@ -27,7 +27,7 @@ export type HeldOutputStream = "out" | "err";
  * (`devChannel.ts#IHeldServiceDeclaration`) : une seule liste de réglages.
  * Les durées sont en millisecondes.
  */
-export interface IHeldHostTuning {
+export interface IHostTuning {
   /** Délai pour que l'hôte rapporte `ready` (défaut 30 000). */
   readonly startupTimeoutMs?: number;
   /**
@@ -49,8 +49,8 @@ export interface IHeldHostTuning {
   readonly stopGraceMs?: number;
 }
 
-/** Options d'un {@link HeldHost}. */
-export interface IHeldHostOptions extends IHeldHostTuning {
+/** Options d'un {@link HostHolder}. */
+export interface IHostHolderOptions extends IHostTuning {
   /** Identifiant stable du service (`vite:default`, `llm:mistral`). */
   readonly key: string;
   /** Chemin ABSOLU du module hôte, lancé par `fork`. */
@@ -150,9 +150,9 @@ class LineAssembler {
  * pour les services qu'il porte, le serveur lui-même ailleurs. Aucun import du
  * noyau — le superviseur peut la charger.
  */
-export class HeldHost {
+export class HostHolder {
   readonly key: string;
-  readonly #opts: IHeldHostOptions;
+  readonly #opts: IHostHolderOptions;
   #child: ChildProcess | null = null;
   #state: HeldHostState = "idle";
   #data: HeldJsonObject | null = null;
@@ -177,7 +177,7 @@ export class HeldHost {
   /** Pourquoi le teneur a tué l'hôte, lu à sa sortie (sinon la sortie l'écraserait). */
   #killReason: string | null = null;
 
-  constructor(options: IHeldHostOptions) {
+  constructor(options: IHostHolderOptions) {
     this.key = options.key;
     this.#opts = options;
     this.#snapshot = this.#freeze();

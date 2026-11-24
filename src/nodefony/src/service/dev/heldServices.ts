@@ -19,10 +19,10 @@ import {
   type IHeldServiceDeclaration,
 } from "./devChannel";
 import {
-  HeldHost,
+  HostHolder,
   type HeldOutputStream,
   type IHeldHostStatus,
-} from "./HeldHost";
+} from "./HostHolder";
 
 /** Promesse déjà tenue, partagée : un service sans prédécesseur démarre sans attendre. */
 const NO_PREDECESSOR: Promise<void> = Promise.resolve();
@@ -53,7 +53,7 @@ class HeldEntry {
   constructor(
     readonly owner: string,
     readonly fingerprint: string,
-    readonly host: HeldHost,
+    readonly host: HostHolder,
     /**
      * Tenue quand l'instance que celle-ci REMPLACE est morte. Avant, pas de
      * démarrage : les deux voudraient le même port.
@@ -166,7 +166,7 @@ export class HeldServiceRegistry {
   ): HeldEntry {
     const { key } = declaration;
     let entry: HeldEntry | null = null;
-    const host = new HeldHost({
+    const host = new HostHolder({
       key,
       module: declaration.module,
       spec: declaration.spec,

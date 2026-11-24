@@ -2305,7 +2305,7 @@ export class DevSupervisor {
           ? ["ignore", "pipe", "pipe", "ipc"]
           : ["inherit", "inherit", "inherit", "ipc"],
         // POSIX : leader de groupe → `kill(-pid)` emporte le groupe du serveur au
-        // restart. Ses hôtes Vite, détachés par leur teneur (`HeldHost`), n'en
+        // restart. Ses hôtes Vite, détachés par leur teneur (`HostHolder`), n'en
         // sont pas : ils s'arrêtent avec le serveur, par le canal ou à sa perte
         // (ADR-0030 §D7). Windows : pas de groupes, et le rattachement est ce qui
         // rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher y

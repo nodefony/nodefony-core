@@ -24,7 +24,7 @@
 import type { ChildProcess } from "node:child_process";
 import { isAbsolute } from "node:path";
 import type { IStartupView, IStatusContext } from "./startupScreen";
-import type { IHeldHostTuning } from "./HeldHost";
+import type { IHostTuning } from "./HostHolder";
 import {
   IGNORE_SEND_ERROR,
   isHeldHostStatus,
@@ -114,7 +114,7 @@ export interface IHeldServiceDeclaration {
    */
   readonly env: Readonly<Record<string, string>>;
   /** Réglage du cycle de l'hôte ; défauts du teneur pour ce qui manque. */
-  readonly tuning?: IHeldHostTuning;
+  readonly tuning?: IHostTuning;
 }
 
 /**
@@ -187,7 +187,7 @@ const HELD_IDENTIFIER = /^[A-Za-z0-9][\w:.+@-]*$/;
 
 /**
  * Bornes du réglage d'un hôte — une entrée par champ de
- * {@link IHeldHostTuning}, que le compilateur exige toutes.
+ * {@link IHostTuning}, que le compilateur exige toutes.
  */
 const HELD_TUNING_MAX = {
   startupTimeoutMs: 600_000,
@@ -198,15 +198,15 @@ const HELD_TUNING_MAX = {
   livenessTimeoutMs: 600_000,
   livenessMissedLimit: 1_000,
   stopGraceMs: 600_000,
-} as const satisfies Record<keyof IHeldHostTuning, number>;
+} as const satisfies Record<keyof IHostTuning, number>;
 
 /**
  * Un champ de réglage connu.
  *
  * @param field - le nom reçu.
- * @returns `true` si c'est un champ de {@link IHeldHostTuning}.
+ * @returns `true` si c'est un champ de {@link IHostTuning}.
  */
-function isTuningField(field: string): field is keyof IHeldHostTuning {
+function isTuningField(field: string): field is keyof IHostTuning {
   return Object.hasOwn(HELD_TUNING_MAX, field);
 }
 

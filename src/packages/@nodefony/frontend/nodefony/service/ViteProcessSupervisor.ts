@@ -5,7 +5,7 @@ import { stripVTControlCharacters } from "node:util";
 import {
   DEV_VITE_PREFIX,
   GENERATED_VITE_CONFIG_FILE,
-  HeldHost,
+  HostHolder,
   type HeldOutputStream,
   type IHeldHostStatus,
 } from "nodefony";
@@ -95,7 +95,7 @@ export interface ViteSupervisorOptions {
    */
   readonly extraEnv?: Record<string, string>;
   // ─────────────────────────────────────────────────────────────────────────
-  // Résilience — portée par le teneur `HeldHost` (cœur)
+  // Résilience — portée par le teneur `HostHolder` (cœur)
   // ─────────────────────────────────────────────────────────────────────────
   /** Relance après un plantage (défaut `true`) ; `false` = aucune relance. */
   readonly autoRestart?: boolean;
@@ -138,7 +138,7 @@ function readCount(data: IHeldHostStatus["data"], key: string): number | null {
 
 /**
  * Le superviseur Vite d'une famille — ADAPTATEUR `IViteSupervisor` sur le
- * teneur `HeldHost` du cœur (ADR-0030 §D2).
+ * teneur `HostHolder` du cœur (ADR-0030 §D2).
  *
  * Vite tourne dans un HÔTE (`viteHost.ts`) qui le pilote par son API : « prêt »
  * et le port réel arrivent par le canal `nf-held`, jamais en lisant la sortie de
@@ -151,7 +151,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   readonly #opts: ViteSupervisorOptions;
   readonly #family: string;
   readonly #generator = new ViteConfigGenerator();
-  #held: HeldHost | null = null;
+  #held: HostHolder | null = null;
   #entries: ReadonlyArray<IResolvedFrontendEntry> = [];
   #portRetries = 0;
   /** L'hôte a-t-il été prêt depuis le dernier `start()` ? (journal des pannes) */
@@ -223,7 +223,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       mode: this.#opts.nodeEnv ?? null,
       title: processTitle(entries),
     } satisfies IViteHostSpec;
-    const held = new HeldHost({
+    const held = new HostHolder({
       key: `vite:${this.#family}`,
       module: VITE_HOST_MODULE,
       spec,

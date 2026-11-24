@@ -605,18 +605,18 @@ démarrage n'échoue que si **aucune** famille n'a pu démarrer (`FrontendServic
 
 Le superviseur est écrit pour survivre à un poste de développement réel, où les ports sont occupés et
 les processus meurent. Le cycle — lancer, attendre « prêt », relancer, prouver la vie, arrêter — n'est
-pas écrit dans ce module : il appartient au **teneur** du cœur (`HeldHost`, `HeldHost.ts#HeldHost`),
+pas écrit dans ce module : il appartient au **teneur** du cœur (`HostHolder`, `HostHolder.ts#HostHolder`),
 le même qui portera demain d'autres services de longue durée.
 
-| Situation                  | Réponse                                                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Port occupé au lancement   | l'hôte constate le port et prend le suivant, jusqu'à `portRetryAttempts` (`probePort()`, `viteHost.ts#probePort`)               |
-| Vite plante                | l'hôte meurt seul ; relance avec délai exponentiel plafonné                                                                     |
-| Vite ne répond plus (gelé) | la preuve de vie reste sans réponse ; après N manques, l'hôte est tué pour être relancé                                         |
-| Deux `start()` concurrents | la promesse en cours est partagée — jamais deux processus                                                                       |
-| Ctrl+C au terminal         | l'hôte ignore le signal : c'est le serveur qui l'arrête, et l'arrêt n'est jamais lu comme un plantage                           |
-| Arrêt du kernel            | « arrête-toi » par le canal, l'arbre tué au-delà de 3 s, puis la mort attendue (`HeldHost.stop()`, `HeldHost.ts#HeldHost.stop`) |
-| Serveur tué net            | l'hôte perd son canal et s'arrête : aucun Vite orphelin ne garde le port                                                        |
+| Situation                  | Réponse                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Port occupé au lancement   | l'hôte constate le port et prend le suivant, jusqu'à `portRetryAttempts` (`probePort()`, `viteHost.ts#probePort`)                     |
+| Vite plante                | l'hôte meurt seul ; relance avec délai exponentiel plafonné                                                                           |
+| Vite ne répond plus (gelé) | la preuve de vie reste sans réponse ; après N manques, l'hôte est tué pour être relancé                                               |
+| Deux `start()` concurrents | la promesse en cours est partagée — jamais deux processus                                                                             |
+| Ctrl+C au terminal         | l'hôte ignore le signal : c'est le serveur qui l'arrête, et l'arrêt n'est jamais lu comme un plantage                                 |
+| Arrêt du kernel            | « arrête-toi » par le canal, l'arbre tué au-delà de 3 s, puis la mort attendue (`HostHolder.stop()`, `HostHolder.ts#HostHolder.stop`) |
+| Serveur tué net            | l'hôte perd son canal et s'arrête : aucun Vite orphelin ne garde le port                                                              |
 
 Trois choix expliquent des comportements qu'on pourrait croire accidentels :
 

@@ -6,7 +6,7 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 
 - `Frontend` (Module class) — declared services: [FrontendService]. Commands: frontend:{build,dev,status}.
 - `FrontendService` — @injectable, name="frontend". Container.get("frontend").
-- `ViteProcessSupervisor` — adaptateur `IViteSupervisor` sur `HeldHost` (cœur, ADR-0030). Un hôte forké par famille ; `status()` = instantané figé recomposé sur `onStatus` (0 alloc à la lecture).
+- `ViteProcessSupervisor` — adaptateur `IViteSupervisor` sur `HostHolder` (cœur, ADR-0030). Un hôte forké par famille ; `status()` = instantané figé recomposé sur `onStatus` (0 alloc à la lecture).
 - `viteHost.ts` — HÔTE forké, module FEUILLE (`node:*` + `nodefony/held` + `vite`, 0 import relatif). `serveHeldService(createViteHostService())` si lancé par un teneur. Sonde le port (`probePort`), `createServer` (inline : `clearScreen:false`, `server.forwardConsole:false`, `strictPort:true`, `customLogger`), `listen`, rapporte `{ port (socket), portRetries }`. Ignore `SIGINT`. Pose `process.title` = `spec.title`.
 - `ViteConfigGenerator` — produit `${moduleRoot}/vite.config.generated.mjs`. Hardcode imports plugins selon preset types.
 - `ViteBuilder` — config Vite in-proc pour mode build (vite.build() programmatique).
@@ -27,7 +27,7 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - `TemplateHelper.devTarget()` = `status().origin` (`http://<browserReachableHost(devHost)>:<port réel>`, `undefined` tant que `port === null`) — cible LOCALE, jamais annoncée au navigateur. `browserReachableHost` (0.0.0.0/:: → 127.0.0.1) vit dans `ViteProcessSupervisor.ts`.
 - Le proxy réécrit `Host` en `127.0.0.1:<port>` ⇒ générateur SANS `allowedHosts` NI `cors` (barrières Vite DNS-rebinding + CORS CVE-2025-24010 au plus strict) ; jamais de ligne `hmr`.
 - RETIRÉS (le relais les rend sans objet) : `frontend.publicOrigin`, `frontend.https` → schéma strict, boot refusé en nommant la clé ; paramètre `requestHost` de `renderTags`/`renderDocument` (signature `(entryName, nonce?)`).
-- Résilience = `HeldHost` (cœur) : timeout boot → arbre tué ; recul exponentiel ; preuve de vie par `ping`/`pong` sur le canal (boucle gelée de Vite = hôte muet) ; **budget de relances rendu à la 1ʳᵉ preuve de vie à l'heure** (5 crashs épars ≠ crash-loop) ; teneur mort → l'hôte perd son canal et sort. Mapping options : `healthCheckIntervalMs`→`livenessIntervalMs`, `healthCheckFailureThreshold`→`livenessMissedLimit`, `healthCheckTimeoutMs`→`livenessTimeoutMs`, `autoRestart:false`→`maxRestarts:0`. `healthFailures` = `IHeldHostStatus.missedPongs` (preuves de vie manquées d'affilée, publiées par le teneur à chaque changement ; 0 quand l'hôte répond).
+- Résilience = `HostHolder` (cœur) : timeout boot → arbre tué ; recul exponentiel ; preuve de vie par `ping`/`pong` sur le canal (boucle gelée de Vite = hôte muet) ; **budget de relances rendu à la 1ʳᵉ preuve de vie à l'heure** (5 crashs épars ≠ crash-loop) ; teneur mort → l'hôte perd son canal et sort. Mapping options : `healthCheckIntervalMs`→`livenessIntervalMs`, `healthCheckFailureThreshold`→`livenessMissedLimit`, `healthCheckTimeoutMs`→`livenessTimeoutMs`, `autoRestart:false`→`maxRestarts:0`. `healthFailures` = `IHeldHostStatus.missedPongs` (preuves de vie manquées d'affilée, publiées par le teneur à chaque changement ; 0 quand l'hôte répond).
 
 ## Assets en dev (#526)
 
@@ -43,7 +43,7 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 3. startDev → `#registerCsp()` puis par famille : `mountDevProxy(devBasePath(famille))` → generator.toMjs (`base: /_vite/<famille>/`, strictPort toujours en dev, AUCUN `server.proxy`) → écriture SEULEMENT si le texte change (Vite redémarre à toute écriture de sa config) → supervisor.start (fork de l'hôte)
 4. browser → controller rend HTML → TemplateHelper.renderTags injecte `<script>` (+ React preamble pour react19)
 5. browser → Nodefony `/_vite/<famille>/…` (HTTP ET upgrade WS du HMR) → proxy inverse → Vite `127.0.0.1:<port>`. Le navigateur ne voit jamais le port Vite.
-6. kernel.onTerminate → supervisor.stop (idempotent) → `HeldHost.stop` : `stop` par le canal, arbre tué au-delà de 3 s, mort attendue
+6. kernel.onTerminate → supervisor.stop (idempotent) → `HostHolder.stop` : `stop` par le canal, arbre tué au-delà de 3 s, mort attendue
 
 ## Config DEFAULTS
 
@@ -74,7 +74,7 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - `vite.config.generated.mjs` régénéré à chaque startDev, réécrit SEULEMENT si son texte change — ne jamais éditer.
 - Port : l'hôte SONDE (`probePort` : `EADDRINUSE`, `EACCES` win32) avant `createServer`, prend le suivant du bloc (max `portRetryAttempts`). Avec `strictPort`, Vite rejette par `Error("Port N is already in use")` SANS code → jamais lu. Course sonde/écoute → resonde, `listen(port+1)` même serveur. `status.port` = port de la SOCKET, `null` hors `ready`.
 - Démarrage borné par `startupTimeoutMs` UNE fois (replis compris, dans l'hôte) — plus de `(replis + 1) × délai`.
-- Idempotence : 2e `start()` → même promesse ; `HeldHost.start/stop` idempotents.
+- Idempotence : 2e `start()` → même promesse ; `HostHolder.start/stop` idempotents.
 - Journal : lignes `[vite:<famille>] [WARN |ERROR ]…` (`formatViteHostLog` seule écriture, `parseViteHostLine` seule lecture) ; ligne sans marque (greffon qui écrit seul) → niveau du flux (out=info, err=error). `pipeLogs:false` → sorties de l'hôte FERMÉES (jamais un tube non lu).
 - HTTPS Vite : option bas niveau `ViteProcessSupervisor({ https: { keyPath, certPath } })` → generator émet `server.https`. `FrontendService` ne la passe JAMAIS (Vite en HTTP sur la boucle locale, le chiffrement est celui de la page).
 - React preamble : TemplateHelper inline `<script type="module">` avec `RefreshRuntime.injectIntoGlobalHook` pour entries `type: "react19"`. Sans ça : `@vitejs/plugin-react can't detect preamble`.
@@ -126,7 +126,7 @@ Aucun listener (boot direct via `start.sh`, prod) → `fire` no-op, 0 coût. Ne 
 
 - Unit : `nodefony/tests/unit/ViteConfigGenerator.test.ts`. Pure function, ~10ms. Runner = **vitest** (`npm test` = `vitest run`).
 - Unit hôte : `unit/viteHost.test.ts` (spec, format de journal, logger, sonde réelle, service sur double de Vite).
-- Intégration : `nodefony/tests/integration/ViteProcessSupervisor.test.ts` — vrai hôte forké + vraie Vite (start+stop, config non réécrite, idempotence, décalage de port, relance après plantage, Host). Runner vitest (`npm run test:integration`). Le teneur lui-même : `src/nodefony/src/tests/heldHost.test.ts`.
+- Intégration : `nodefony/tests/integration/ViteProcessSupervisor.test.ts` — vrai hôte forké + vraie Vite (start+stop, config non réécrite, idempotence, décalage de port, relance après plantage, Host). Runner vitest (`npm run test:integration`). Le teneur lui-même : `src/nodefony/src/tests/hostHolder.test.ts`.
 - Fixture : `nodefony/tests/fixtures/minimal-frontend/` (index.html + src/main.ts vanilla).
 
 ## Coverage

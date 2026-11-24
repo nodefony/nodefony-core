@@ -18,7 +18,7 @@ import {
 } from "../service/dev/devChannel";
 import { isPidAlive } from "../service/dev/devProcess";
 import { HeldServiceRegistry } from "../service/dev/heldServices";
-import type { IHeldHostStatus } from "../service/dev/HeldHost";
+import type { IHeldHostStatus } from "../service/dev/HostHolder";
 import type { ChildProcess } from "node:child_process";
 
 const HOST = path.join(

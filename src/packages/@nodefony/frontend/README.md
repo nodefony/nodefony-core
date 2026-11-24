@@ -314,7 +314,7 @@ FrontendService.startDev()
 ViteProcessSupervisor.start()
    ├─ écrit vite.config.generated.mjs s'il a changé (base /_vite/<famille>/)
    ├─ monte /_vite/<famille>/ sur le proxy inverse de @nodefony/http
-   └─ HeldHost (cœur) lance l'hôte viteHost par fork
+   └─ HostHolder (cœur) lance l'hôte viteHost par fork
          ├─ sonde le port, prend le suivant s'il est pris
          ├─ createServer({ configFile, clearScreen:false, forwardConsole:false })
          ├─ listen → rapporte « prêt » + port réel par le canal → state = "ready"

@@ -1092,14 +1092,14 @@ export type {
 // prouver la vie, relancer, tuer l'arbre) et le canal qu'un module hôte sert.
 // Exposés parce que les hôtes vivent hors du cœur (Vite dans @nodefony/frontend,
 // demain un backend d'inférence) — chacun RÉUTILISE ce cycle, ne le recopie pas.
-export { HeldHost } from "./service/dev/HeldHost";
+export { HostHolder } from "./service/dev/HostHolder";
 export type {
   HeldHostState,
   HeldOutputStream,
-  IHeldHostOptions,
+  IHostHolderOptions,
   IHeldHostStatus,
-  IHeldHostTuning,
-} from "./service/dev/HeldHost";
+  IHostTuning,
+} from "./service/dev/HostHolder";
 // Le plan qu'un serveur déclare à son superviseur pour lui faire PORTER ses
 // services (ADR-0030 §D3-§D5) — envoyé par `kernel.supervisorLink`.
 export { DEV_CHANNEL, heldPlanProblem } from "./service/dev/devChannel";

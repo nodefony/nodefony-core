@@ -1176,7 +1176,7 @@ export function rootProcesses(
 
 /**
  * Un hôte de service (Vite, service porté) est lancé DÉTACHÉ par son teneur
- * (`HeldHost`) : il dirige son propre groupe, que le groupe de son parent
+ * (`HostHolder`) : il dirige son propre groupe, que le groupe de son parent
  * n'emporte pas. Il est donc une racine à lui seul — sinon un hôte figé, qui
  * ne sort plus à la perte de son canal, survivait à `nodefony stop`.
  */

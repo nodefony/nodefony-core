@@ -11,7 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { HeldHost } from "../service/dev/HeldHost";
+import { HostHolder } from "../service/dev/HostHolder";
 import {
   HELD_CHANNEL,
   HELD_HOST_TITLE_PREFIX,
@@ -39,7 +39,7 @@ const HELD_DIR = path.join(
   "held",
 );
 
-const hosts: HeldHost[] = [];
+const hosts: HostHolder[] = [];
 const dirs: string[] = [];
 
 afterEach(async () => {
@@ -48,7 +48,7 @@ afterEach(async () => {
 });
 
 function makeHost(key: string, module: string, startupTimeoutMs = 5_000) {
-  const host = new HeldHost({
+  const host = new HostHolder({
     key,
     module,
     spec: { mode: "ok" },
