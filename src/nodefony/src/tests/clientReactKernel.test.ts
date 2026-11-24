@@ -123,6 +123,61 @@ describe("noyau client — React", () => {
     expect(branches).toBe(0);
   });
 
+  it("🔴 sans temps réel (realtime: false) : le noyau est servi sans socket", () => {
+    const kernel = noyau(false);
+    const lu: {
+      kernel?: INodefonyKernel | null;
+      identity?: NodefonyKernelIdentity | null;
+    } = {};
+    function Profond() {
+      const k = useNodefonyKernel();
+      const identity = useNodefonyKernelIdentity();
+      React.useEffect(() => {
+        lu.kernel = k;
+        lu.identity = identity;
+      });
+      return null;
+    }
+    root = createRoot(document.createElement("div"));
+    act(() =>
+      root!.render(
+        React.createElement(
+          NodefonyProvider,
+          { kernel },
+          React.createElement(Profond),
+        ),
+      ),
+    );
+    expect(lu.kernel).toBe(kernel);
+    expect(lu.identity).toBeNull();
+    act(() => kernel.setIdentity({ key: "alice" }));
+    expect(lu.identity).toEqual({ key: "alice" });
+  });
+
+  it("sans temps réel : useNodefony() lève en nommant la cause", () => {
+    const kernel = noyau(false);
+    const vu: { erreur?: unknown } = {};
+    function Profond() {
+      try {
+        useNodefony();
+      } catch (e) {
+        vu.erreur = e;
+      }
+      return null;
+    }
+    root = createRoot(document.createElement("div"));
+    act(() =>
+      root!.render(
+        React.createElement(
+          NodefonyProvider,
+          { kernel },
+          React.createElement(Profond),
+        ),
+      ),
+    );
+    expect(String(vu.erreur)).toMatch(/aucune socket temps réel/);
+  });
+
   it("sans noyau fourni : `null` partout, la socket fournie reste servie", () => {
     const vu = monter({ client: socketInerte() });
     expect(vu().kernel).toBeNull();

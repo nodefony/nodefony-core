@@ -91,6 +91,8 @@ import type {
 import {
   adaptiveRebindKey,
   connectShared,
+  kernelWithoutSocket,
+  KERNEL_WITHOUT_SOCKET,
   observeChannel,
   observePresence,
   observeChannelStats,
@@ -225,7 +227,12 @@ let pageKernel: INodefonyKernel | null = null;
  * composant, et `disconnect()` tranche les requêtes en vol des autres
  * consommateurs de la même socket partagée.
  *
- * @throws si aucune socket ne se résout — ni noyau qui en porte une, ni
+ * **Noyau sans temps réel** (`realtime: false`) : le noyau se pose seul —
+ * {@link nodefonyKernel}, {@link nodefonyKernelState} et
+ * {@link nodefonyKernelIdentity} le servent — et la page n'a pas de socket :
+ * {@link nodefony} lève alors en nommant la cause.
+ *
+ * @throws si aucune socket ne se résout et qu'aucun noyau n'est fourni — ni
  *   `client`, ni `url` : l'adresse dépend de l'application, et le
  *   framework n'en devine aucune (règle du socle : une adresse devinée
  *   marche en développement et se trompe en production).
@@ -245,6 +252,11 @@ let pageKernel: INodefonyKernel | null = null;
  * ```
  */
 export function configureNodefony(options: NodefonySvelteOptions): void {
+  if (kernelWithoutSocket(options)) {
+    pageSocket = null;
+    pageKernel = options.kernel ?? null;
+    return;
+  }
   const connection = connectShared(options);
   pageSocket = connection.socket;
   pageKernel = options.kernel ?? null;
@@ -258,13 +270,15 @@ export function configureNodefony(options: NodefonySvelteOptions): void {
  * gondole et échappatoire pour les cas avancés ; pour de l'état réactif, prendre
  * les liaisons dédiées ci-dessous.
  *
- * @throws si {@link configureNodefony} n'a pas été appelé. Le socle REFUSE de
+ * @throws si {@link configureNodefony} n'a pas été appelé, ou l'a été avec un
+ *   noyau sans temps réel (`realtime: false`). Le socle REFUSE de
  *   deviner une adresse : retomber ici sur une socket partagée fabriquée à la
  *   volée donnerait une page qui marche en développement et parle au mauvais
  *   hôte en production — mieux vaut une erreur au premier rendu.
  */
 export function nodefony(): NodefonySocket {
   if (!pageSocket) {
+    if (pageKernel) throw new Error(`nodefony() : ${KERNEL_WITHOUT_SOCKET}`);
     throw new Error(
       "nodefony() : configureNodefony() n'a pas été appelé — " +
         'configureNodefony({ url: "/api/live/realtime" }) dans main.ts, avant mount().',

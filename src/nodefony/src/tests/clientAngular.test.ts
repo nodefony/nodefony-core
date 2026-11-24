@@ -499,6 +499,34 @@ describe("noyau client — Angular", () => {
     app.destroy();
   });
 
+  it("🔴 sans temps réel (realtime: false) : le noyau est servi, injectNodefony() lève en nommant la cause", async () => {
+    const kernel = new NodefonyKernel({
+      realtime: false,
+      browserEvents: false,
+      banner: false,
+    });
+    const app = await appAvec([provideNodefony({ kernel })]);
+    const { valeur, arreter } = monter(app, () => {
+      let erreur: unknown = null;
+      try {
+        injectNodefony();
+      } catch (e) {
+        erreur = e;
+      }
+      return {
+        kernel: injectNodefonyKernel(),
+        identity: injectNodefonyKernelIdentity(),
+        erreur,
+      };
+    });
+    expect(valeur.kernel).toBe(kernel);
+    kernel.setIdentity({ key: "alice" });
+    expect(valeur.identity()?.key).toBe("alice");
+    expect(String(valeur.erreur)).toMatch(/aucune socket temps réel/);
+    arreter();
+    app.destroy();
+  });
+
   it("sans noyau fourni : `null` partout", async () => {
     const app = await appAvec([provideNodefony({ client: newClient() })]);
     const { valeur, arreter } = monter(app, () => ({
