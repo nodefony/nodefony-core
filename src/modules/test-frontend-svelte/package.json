@@ -34,7 +34,7 @@
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
-    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@sveltejs/vite-plugin-svelte": "^7.3.2",
     "@types/node": "26.6.6",
     "nodefony": "*",
     "svelte-check": "4.7.8"
