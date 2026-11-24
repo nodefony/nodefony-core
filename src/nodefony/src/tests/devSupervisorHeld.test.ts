@@ -93,12 +93,16 @@ function makeProject(): string {
   return dir;
 }
 
-function plan(stopGraceMs: number, pidFile: string): IDevHeldPlan {
+function plan(
+  stopGraceMs: number,
+  pidFile: string,
+  mode = "ignore-stop",
+): IDevHeldPlan {
   const service: IHeldServiceDeclaration = {
     key: "vite:bench",
     module: HOST,
     fingerprint: "f1",
-    spec: { mode: "ignore-stop", pidFile },
+    spec: { mode, pidFile },
     cwd: HELD_DIR,
     env: {},
     tuning: { startupTimeoutMs: 10_000, maxRestarts: 0, stopGraceMs },
@@ -132,12 +136,16 @@ interface IBench {
   ) => Promise<IBenchEvent>;
 }
 
-async function launch(stopGraceMs: number, crashOnce = false): Promise<IBench> {
+async function launch(
+  stopGraceMs: number,
+  crashOnce = false,
+  mode?: string,
+): Promise<IBench> {
   const cwd = makeProject();
   const config = {
     cwd,
     ports: await freePorts(),
-    plan: plan(stopGraceMs, path.join(cwd, "host.pid")),
+    plan: plan(stopGraceMs, path.join(cwd, "host.pid"), mode),
     ...(crashOnce ? { crashOnce: path.join(cwd, "crashed") } : {}),
   };
   const env: NodeJS.ProcessEnv = { ...process.env, NF_NO_TTY: "1" };
@@ -225,6 +233,26 @@ const readyHost = (e: IBenchEvent): boolean =>
   e.type === "held-state" &&
   e.status?.state === "ready" &&
   typeof e.status.pid === "number";
+
+// Les 3 plateformes : c'est le seul arrêt que Windows connaisse pour un arbre
+// (aucun arrêt gracieux, axiome 6) — `kill` y vaut TerminateProcess, comme une
+// console fermée. L'hôte n'a que la perte de son canal pour savoir qu'il est
+// seul. Hôte qui coopère (`ok`) : un hôte GELÉ (`ignore-stop`) dont le teneur
+// meurt net ne peut sortir de lui-même — sa boucle ne tourne plus — et seul
+// celui qui a tué le teneur peut encore abattre l'arbre.
+describe("superviseur réel tué net — linux · macOS · Windows", () => {
+  it("superviseur tué net : l'hôte porté perd son canal et sort de lui-même, aucun orphelin", async () => {
+    const bench = await launch(300, false, "ok");
+    const ready = await bench.waitFor(readyHost);
+    const hostPid = ready.status?.pid as number;
+    expect(isPidAlive(hostPid)).to.equal(true);
+    bench.supervisor.kill("SIGKILL");
+    await bench.exited;
+    expect(await deadWithin(hostPid, 3_000), "hôte porté orphelin").to.equal(
+      true,
+    );
+  }, 40_000);
+});
 
 describe.skipIf(process.platform === "win32")(
   "superviseur réel — services portés de bout en bout",
