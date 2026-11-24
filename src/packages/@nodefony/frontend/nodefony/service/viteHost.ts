@@ -18,6 +18,7 @@ import {
   serveHeldServiceIfMain,
   type HeldJsonObject,
   type IHeldServiceImpl,
+  type ProcessOutputStream,
 } from "nodefony/held";
 import type {
   InlineConfig,
@@ -133,9 +134,6 @@ export function readViteHostSpec(spec: HeldJsonObject): IViteHostSpec {
 /** Niveau d'une ligne de journal de l'hôte. */
 export type ViteHostLogLevel = "info" | "warn" | "error";
 
-/** Le flux où part une ligne : la sortie standard pour `info`, l'erreur sinon. */
-export type ViteHostStream = "out" | "err";
-
 /** Marque de niveau, posée après le préfixe de famille (`info` n'en a pas). */
 const LEVEL_MARK: Readonly<Record<ViteHostLogLevel, string>> = {
   info: "",
@@ -208,7 +206,7 @@ export function parseViteHostLine(line: string): IViteHostLine | null {
  */
 export function createViteHostLogger(
   family: string,
-  write: (stream: ViteHostStream, text: string) => void,
+  write: (stream: ProcessOutputStream, text: string) => void,
 ): Logger {
   const loggedErrors = new WeakSet<object>();
   const warned = new Set<string>();
@@ -310,7 +308,7 @@ export interface IViteHostDeps {
     createServer(config: InlineConfig): Promise<IViteHostServer>;
   }>;
   readonly probePort: (host: string, port: number) => Promise<PortProbe>;
-  readonly write: (stream: ViteHostStream, text: string) => void;
+  readonly write: (stream: ProcessOutputStream, text: string) => void;
   readonly setTitle: (title: string) => void;
 }
 

@@ -1,7 +1,7 @@
 import { fork, type ChildProcess } from "node:child_process";
 import { DEV_CHILD_ENV } from "./devChannelBase";
 import {
-  leadsOwnProcessGroup,
+  spawnsAsGroupLeader,
   signalExitedGroup,
   signalProcessGroup,
   waitAllDead,
@@ -15,12 +15,10 @@ import {
   type HeldJsonObject,
   type IHeldHostStatus,
   type IHostTuning,
+  type ProcessOutputStream,
 } from "./heldChannel";
 
 export type { HeldHostState, IHeldHostStatus, IHostTuning };
-
-/** Le flux d'origine d'une sortie d'hôte. */
-export type HeldOutputStream = "out" | "err";
 
 /** Options d'un {@link HostHolder}. */
 export interface IHostHolderOptions extends IHostTuning {
@@ -43,7 +41,7 @@ export interface IHostHolderOptions extends IHostTuning {
    * ligne n'est jamais coupée entre deux appels, si bien que plusieurs hôtes
    * peuvent partager un même lecteur sans mêler leurs lignes.
    */
-  readonly onOutput?: (stream: HeldOutputStream, lines: Buffer) => void;
+  readonly onOutput?: (stream: ProcessOutputStream, lines: Buffer) => void;
   /** Appelé à chaque changement d'instantané. */
   readonly onStatus?: (status: IHeldHostStatus) => void;
 }
@@ -320,7 +318,7 @@ export class HostHolder {
         // hôte mort avant `ready`. La sortie standard sans lecteur est
         // fermée — un tube jamais lu se remplit et bloque l'hôte.
         stdio: ["ignore", onOutput ? "pipe" : "ignore", "pipe", "ipc"],
-        detached: leadsOwnProcessGroup(),
+        detached: spawnsAsGroupLeader(),
         serialization: "json",
         windowsHide: true,
       });

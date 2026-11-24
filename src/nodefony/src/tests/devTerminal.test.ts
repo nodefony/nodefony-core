@@ -224,6 +224,38 @@ describe("DevTerminal — un seul écrivain (#536)", () => {
     expect(terminal.since(0).map((x) => x.text)).to.deep.equal(["\x1b[31mré"]);
   });
 
+  it("deux services portés : la fin coupée de l'un ne se colle jamais à la ligne de l'autre", () => {
+    const { out, terminal } = make();
+    const e = Buffer.from("é");
+    terminal.ingest("held", "out", Buffer.from("\x1b[3"), undefined, "a");
+    terminal.ingest("held", "out", Buffer.from("ligne-b\n"), undefined, "b");
+    terminal.ingest(
+      "held",
+      "out",
+      Buffer.concat([Buffer.from("1mr"), e.subarray(0, 1)]),
+      undefined,
+      "a",
+    );
+    terminal.ingest("held", "out", Buffer.from("x\n"), undefined, "b");
+    terminal.ingest(
+      "held",
+      "out",
+      Buffer.concat([e.subarray(1), Buffer.from("\n")]),
+      undefined,
+      "a",
+    );
+    // L'écran est UN terminal : la ligne en cours de A y est déjà écrite quand
+    // B arrive, B la suit. Mais aucun octet n'est mangé ni mal décodé — avant
+    // le couloir, le reste de séquence de A mangeait le « l » de B, et les
+    // demi-caractères devenaient « � » des deux côtés.
+    expect(out.written.join("")).to.equal("ligne-b\n\x1b[31mrx\né\n");
+    expect(terminal.since(0).map((x) => x.text)).to.deep.equal([
+      "ligne-b",
+      "x",
+      "\x1b[31mré",
+    ]);
+  });
+
   it("le spinner du superviseur : une seule entrée d'historique, la ligne finale", () => {
     const { terminal } = make();
     terminal.ingest("supervisor", "out", `${ERASE_LINE}[dev] ⠋ build…`);

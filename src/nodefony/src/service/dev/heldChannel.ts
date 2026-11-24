@@ -231,12 +231,12 @@ export function isHeldDataBounded(data: HeldJsonObject): boolean {
 }
 
 /**
- * Un numéro de séquence valide : entier positif sûr.
+ * Un entier sûr, positif ou nul — numéro de séquence, compteur ou PID reçu.
  *
  * @param value - la valeur reçue.
  * @returns `true` si exploitable.
  */
-function isSeq(value: unknown): value is number {
+function isNonNegativeSafeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
@@ -265,13 +265,13 @@ export function isHeldHostStatus(value: unknown): value is IHeldHostStatus {
     key.length <= MAX_HELD_KEY_LENGTH &&
     typeof state === "string" &&
     HELD_HOST_STATES.has(state) &&
-    (pid === null || (isSeq(pid) && pid > 0)) &&
+    (pid === null || (isNonNegativeSafeInteger(pid) && pid > 0)) &&
     (data === null || (isJsonObject(data) && isHeldDataBounded(data))) &&
     (lastError === null ||
       (typeof lastError === "string" &&
         lastError.length <= MAX_HELD_REASON_LENGTH)) &&
-    isSeq(restartCount) &&
-    isSeq(missedPongs)
+    isNonNegativeSafeInteger(restartCount) &&
+    isNonNegativeSafeInteger(missedPongs)
   );
 }
 
@@ -285,7 +285,7 @@ export function isHeldHostMessage(
   message: unknown,
 ): message is HeldHostMessage {
   if (!isJsonObject(message) || message.channel !== HELD_CHANNEL) return false;
-  if (message.type === "pong") return isSeq(message.seq);
+  if (message.type === "pong") return isNonNegativeSafeInteger(message.seq);
   if (message.type !== "report") return false;
   const { state, data, reason } = message;
   if (state !== "ready" && state !== "failed") return false;
@@ -306,7 +306,7 @@ export function isHeldHolderMessage(
 ): message is HeldHolderMessage {
   if (!isJsonObject(message) || message.channel !== HELD_CHANNEL) return false;
   if (message.type === "stop") return true;
-  if (message.type === "ping") return isSeq(message.seq);
+  if (message.type === "ping") return isNonNegativeSafeInteger(message.seq);
   return (
     message.type === "start" &&
     typeof message.key === "string" &&
@@ -476,3 +476,10 @@ export function serveHeldServiceIfMain(
   serveHeldService(createImpl(), endpoint);
   return true;
 }
+
+/**
+ * Le flux de sortie d'un process : `out` pour la sortie standard, `err` pour
+ * l'erreur. Seule définition — historique du terminal, teneur d'hôte et hôte
+ * Vite la partagent.
+ */
+export type ProcessOutputStream = "out" | "err";

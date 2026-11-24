@@ -19,8 +19,8 @@ import {
   type IViteHostDeps,
   type IViteHostServer,
   type PortProbe,
-  type ViteHostStream,
 } from "../../service/viteHost";
+import type { ProcessOutputStream } from "nodefony/held";
 
 const SPEC = {
   family: "default",
@@ -88,7 +88,7 @@ describe("format de journal — une écriture, une lecture", () => {
 
 describe("createViteHostLogger — la sémantique de Vite, nos flux", () => {
   function capture() {
-    const out: Array<[ViteHostStream, string]> = [];
+    const out: Array<[ProcessOutputStream, string]> = [];
     const logger = createViteHostLogger("vue", (s, t) => void out.push([s, t]));
     return { out, logger };
   }

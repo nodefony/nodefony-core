@@ -1095,7 +1095,6 @@ export type {
 export { HostHolder } from "./service/dev/HostHolder";
 export type {
   HeldHostState,
-  HeldOutputStream,
   IHostHolderOptions,
   IHeldHostStatus,
   IHostTuning,
@@ -1123,6 +1122,7 @@ export type {
   HeldJson,
   HeldJsonObject,
   IHeldServiceImpl,
+  ProcessOutputStream,
 } from "./service/dev/heldChannel";
 
 // ─── Scaffold (création app/module/…) : spec déclarative + moteur PUR ─────────

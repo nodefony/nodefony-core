@@ -8,7 +8,7 @@ import Module from "../kernel/Module";
 import type Kernel from "../kernel/Kernel";
 import type { DefaultOptionsService } from "../Service";
 import { nodefonyBin } from "../cli/nodefonyBin";
-import { leadsOwnProcessGroup } from "../service/dev/devProcess";
+import { spawnsAsGroupLeader } from "../service/dev/devProcess";
 import {
   readRuntimeState,
   readinessStateFile,
@@ -619,7 +619,7 @@ export async function startSpareApp(
     // Chef de son groupe : c'est ce qui permet d'emporter l'arbre à l'arrêt.
     // Sous Windows, où les groupes n'existent pas, `signalProcessGroup` passe
     // par le programme de kill d'arbre — la règle a UNE implémentation.
-    detached: leadsOwnProcessGroup(),
+    detached: spawnsAsGroupLeader(),
     env: {
       ...process.env,
       NF_PORT: String(options.port),

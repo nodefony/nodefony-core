@@ -1061,7 +1061,7 @@ function defaultRunTreeKill(cmd: { file: string; args: string[] }): boolean {
  * @param platform - la plateforme ; `process.platform` par défaut.
  * @returns la valeur à donner à l'option `detached` de `spawn`/`fork`.
  */
-export function leadsOwnProcessGroup(
+export function spawnsAsGroupLeader(
   platform: NodeJS.Platform = process.platform,
 ): boolean {
   return platform !== "win32";
@@ -1212,7 +1212,7 @@ export function signalExitedGroup(
     process.kill(-p, s);
   },
 ): ExitedGroupOutcome {
-  if (!leadsOwnProcessGroup(platform)) return "unsupported";
+  if (!spawnsAsGroupLeader(platform)) return "unsupported";
   try {
     killGroup(pid, signal);
     return "group";

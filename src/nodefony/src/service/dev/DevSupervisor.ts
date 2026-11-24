@@ -82,7 +82,7 @@ import {
   identifyProcess,
   isPidAlive,
   signalProcessGroup,
-  leadsOwnProcessGroup,
+  spawnsAsGroupLeader,
   waitGroupDead,
   terminateDevProcesses,
   waitPortsFree,
@@ -993,7 +993,7 @@ export function runCapturedCommand(
     const p = spawn(run.file, run.args, {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
-      detached: options.detached === true && leadsOwnProcessGroup(),
+      detached: options.detached === true && spawnsAsGroupLeader(),
       windowsVerbatimArguments: run.windowsVerbatimArguments,
     });
     options.onSpawn?.(p);
@@ -2266,9 +2266,11 @@ export class DevSupervisor {
           status,
         });
       },
-      onOutput: (_key, stream, lines) => {
+      onOutput: (key, stream, lines) => {
         const terminal = this.#terminal;
-        if (terminal) terminal.ingest("held", stream, lines);
+        // Un couloir par service : la fin coupée d'un hôte (ligne trop longue,
+        // sortie à sa mort) ne se colle jamais à la ligne d'un autre.
+        if (terminal) terminal.ingest("held", stream, lines, undefined, key);
         else (stream === "err" ? process.stderr : process.stdout).write(lines);
       },
     });
@@ -2325,7 +2327,7 @@ export class DevSupervisor {
         // pas de groupes, et le rattachement est ce qui
         // rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher y
         // couperait le lien de parenté, seul chemin vers les Vite.
-        detached: leadsOwnProcessGroup(),
+        detached: spawnsAsGroupLeader(),
       },
     );
     this.#child = child;

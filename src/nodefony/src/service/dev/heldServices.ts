@@ -18,11 +18,8 @@ import {
   type IDevHeldPlanAck,
   type IHeldServiceDeclaration,
 } from "./devChannel";
-import {
-  HostHolder,
-  type HeldOutputStream,
-  type IHeldHostStatus,
-} from "./HostHolder";
+import { HostHolder, type IHeldHostStatus } from "./HostHolder";
+import type { ProcessOutputStream } from "./heldChannel";
 
 /** Promesse déjà tenue, partagée : un service sans prédécesseur démarre sans attendre. */
 const NO_PREDECESSOR: Promise<void> = Promise.resolve();
@@ -43,7 +40,7 @@ export interface IHeldServiceRegistryOptions {
    */
   readonly onOutput: (
     key: string,
-    stream: HeldOutputStream,
+    stream: ProcessOutputStream,
     lines: Buffer,
   ) => void;
 }

@@ -6,7 +6,7 @@ import {
   DEV_VITE_PREFIX,
   GENERATED_VITE_CONFIG_FILE,
   type HeldJsonObject,
-  type HeldOutputStream,
+  type ProcessOutputStream,
   type IHeldHostStatus,
   type IHostTuning,
 } from "nodefony";
@@ -359,7 +359,7 @@ export class ViteFamily {
    * pose le logger de l'hôte ; une ligne sans marque (un greffon qui écrit
    * lui-même sur la console) prend celui de son flux.
    */
-  readonly relay = (stream: HeldOutputStream, lines: Buffer): void => {
+  readonly relay = (stream: ProcessOutputStream, lines: Buffer): void => {
     const log = this.#opts.logger;
     for (const raw of lines.toString("utf8").split("\n")) {
       const line = stripVTControlCharacters(raw).trim();

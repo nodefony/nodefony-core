@@ -21,6 +21,7 @@
 import { StringDecoder } from "node:string_decoder";
 import { CircularBuffer } from "../../runtime/CircularBuffer";
 import { controlSequenceLength } from "../../runtime/textWidth";
+import type { ProcessOutputStream } from "./heldChannel";
 
 /** Qui a produit une ligne de l'historique. */
 export type TranscriptSource =
@@ -33,15 +34,32 @@ export type TranscriptSource =
   // déjà son nom (`[vite:default]`) — le superviseur n’en nomme aucun.
   | "held";
 
-/** Le flux d'origine d'une ligne. */
-export type TranscriptStream = "out" | "err";
+/**
+ * La clé de l'état en cours d'un couple (source, flux), et de son écrivain
+ * quand la source en compte plusieurs — seule façon de la composer, partagée
+ * par l'historique et le terminal.
+ *
+ * @param source - qui écrit.
+ * @param stream - sur quel flux.
+ * @param lane - l'écrivain, s'il y en a plusieurs pour cette source.
+ * @returns `source:flux`, suivi de `:écrivain` s'il est nommé.
+ */
+export function laneKey(
+  source: TranscriptSource,
+  stream: ProcessOutputStream,
+  lane: string | undefined,
+): string {
+  return lane === undefined
+    ? `${source}:${stream}`
+    : `${source}:${stream}:${lane}`;
+}
 
 /** Une ligne logique de l'historique — objet plat, sérialisable en JSON. */
 export interface ITranscriptEntry {
   /** Numéro monotone : un lecteur reprend « depuis seq N », même après éviction. */
   readonly seq: number;
   readonly source: TranscriptSource;
-  readonly stream: TranscriptStream;
+  readonly stream: ProcessOutputStream;
   /** UNE ligne, assainie, sans `\n`, bornée (cf `maxEntryBytes`). */
   readonly text: string;
   /** `Date.now()` à la réception de la fin de ligne. */
@@ -245,7 +263,7 @@ export class DevTranscript {
    * @param stream - sur quel flux.
    * @returns la ligne en cours, assainie, ou `""`.
    */
-  partial(source: TranscriptSource, stream: TranscriptStream): string {
+  partial(source: TranscriptSource, stream: ProcessOutputStream): string {
     const pending = this.#pending[`${source}:${stream}`];
     return pending === undefined || pending.text === ""
       ? ""
@@ -320,14 +338,17 @@ export class DevTranscript {
    * @param stream - sur quel flux.
    * @param chunk - le paquet, octets bruts ou texte.
    * @param run - l'exécution que ces lignes accompagnent, s'il y en a une.
+   * @param lane - l'écrivain, quand une source en compte plusieurs : chacun
+   *   garde sa ligne en cours.
    */
   ingest(
     source: TranscriptSource,
-    stream: TranscriptStream,
+    stream: ProcessOutputStream,
     chunk: Buffer | Uint8Array | string,
     run?: number,
+    lane?: string,
   ): void {
-    const pending = this.#pendingOf(source, stream);
+    const pending = this.#pendingOf(source, stream, lane);
     if (typeof chunk === "string") {
       let start = 0;
       let nl = chunk.indexOf("\n");
@@ -371,7 +392,7 @@ export class DevTranscript {
     for (const key of Object.keys(this.#pending)) {
       const [owner, stream] = key.split(":") as [
         TranscriptSource,
-        TranscriptStream,
+        ProcessOutputStream,
       ];
       if (source !== undefined && owner !== source) continue;
       const pending = this.#pending[key];
@@ -395,8 +416,12 @@ export class DevTranscript {
   }
 
   /** La ligne en cours d'un couple, créée au premier paquet. */
-  #pendingOf(source: TranscriptSource, stream: TranscriptStream): IPendingLine {
-    const key = `${source}:${stream}`;
+  #pendingOf(
+    source: TranscriptSource,
+    stream: ProcessOutputStream,
+    lane: string | undefined,
+  ): IPendingLine {
+    const key = laneKey(source, stream, lane);
     let pending = this.#pending[key];
     if (pending === undefined) {
       pending = {
@@ -464,7 +489,7 @@ export class DevTranscript {
   #commit(
     pending: IPendingLine,
     source: TranscriptSource,
-    stream: TranscriptStream,
+    stream: ProcessOutputStream,
     run: number | undefined,
   ): void {
     // Recopie à plat, une fois par ligne : la ligne en cours est faite de
