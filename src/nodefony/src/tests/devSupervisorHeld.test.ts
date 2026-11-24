@@ -32,7 +32,11 @@ import {
   type IDevHeldPlan,
   type IHeldServiceDeclaration,
 } from "../service/dev/devChannel";
-import { isPidAlive } from "../service/dev/devProcess";
+import {
+  isPidAlive,
+  spawnsAsGroupLeader,
+  waitAllDead,
+} from "../service/dev/devProcess";
 import { DUPLICATE_SIGNAL_WINDOW_MS } from "../service/dev/shutdownSignals";
 import { HELD_HOST_CWD } from "./fixtures/held/hostCwd";
 
@@ -43,6 +47,8 @@ const HELD_DIR = path.join(
 );
 const HOST = path.join(HELD_DIR, "host.mjs");
 const BENCH = path.join(HELD_DIR, "supervisor.mjs");
+/** Parent en rendu terminal : la sortie du serveur passe par des tubes (#908). */
+const PIPE_PARENT = path.join(HELD_DIR, "pipe-parent.mjs");
 const TSX = pathToFileURL(
   createRequire(import.meta.url).resolve("tsx/esm"),
 ).href;
@@ -51,7 +57,7 @@ const TSX = pathToFileURL(
 const pids = new Set<number>();
 const dirs: string[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   // L'hôte a écrit son PID dans le projet jetable : abattu même si son état
   // n'est jamais parvenu au test — un `ignore-stop` orphelin tourne à 100 %.
   for (const d of dirs) {
@@ -65,8 +71,15 @@ afterEach(() => {
       /* déjà mort */
     }
   }
+  // Attendre la mort EFFECTIVE avant de supprimer (axiome 7) : sous Windows,
+  // `kill` rend la main avant que le process ne soit parti, et un dossier qui
+  // reste son répertoire courant refuse la suppression (`EPERM`, vu sur la
+  // forge). Les réessais ne sont qu'une ceinture.
+  await waitAllDead([...pids], 5_000);
   pids.clear();
-  for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  for (const d of dirs.splice(0)) {
+    rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
 });
 
 /** Deux ports libres, constatés par une écoute éphémère. */
@@ -128,6 +141,10 @@ interface IBenchEvent {
 
 interface IBench {
   supervisor: ChildProcess;
+  /** Le port qu'écoute le faux serveur en mode `lossWitness`. */
+  port: number;
+  /** Le témoin écrit par le faux serveur au bout de son arrêt (#908). */
+  lossWitness: string;
   events: IBenchEvent[];
   output: () => string;
   exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
@@ -141,19 +158,23 @@ async function launch(
   stopGraceMs: number,
   crashOnce = false,
   mode?: string,
+  extra: { script?: string; lossWitness?: boolean } = {},
 ): Promise<IBench> {
   const cwd = makeProject();
+  const ports = await freePorts();
+  const lossWitness = path.join(cwd, "loss-witness");
   const config = {
     cwd,
-    ports: await freePorts(),
+    ports,
     plan: plan(stopGraceMs, path.join(cwd, "host.pid"), mode),
     ...(crashOnce ? { crashOnce: path.join(cwd, "crashed") } : {}),
+    ...(extra.lossWitness ? { lossWitness } : {}),
   };
   const env: NodeJS.ProcessEnv = { ...process.env, NF_NO_TTY: "1" };
   delete env.NF_DEV_CHILD;
   const supervisor = spawn(
     process.execPath,
-    ["--import", TSX, BENCH, JSON.stringify(config)],
+    ["--import", TSX, extra.script ?? BENCH, JSON.stringify(config)],
     { cwd, env, stdio: ["ignore", "pipe", "pipe"] },
   );
   if (supervisor.pid !== undefined) pids.add(supervisor.pid);
@@ -217,7 +238,15 @@ async function launch(
       waiters.add(listener);
       check();
     });
-  return { supervisor, events, output: () => all, exited, waitFor };
+  return {
+    supervisor,
+    port: ports[0] as number,
+    lossWitness,
+    events,
+    output: () => all,
+    exited,
+    waitFor,
+  };
 }
 
 /** Attend la mort effective de `pid`, bornée : un témoin figé ne meurt jamais seul. */
@@ -253,6 +282,90 @@ describe("superviseur réel tué net — linux · macOS · Windows", () => {
       true,
     );
   }, 40_000);
+});
+
+/** Le port se lie-t-il encore ? Constaté par une écoute éphémère. */
+function portFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = net.createServer();
+    probe.once("error", () => resolve(false));
+    probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(true)));
+  });
+}
+
+/**
+ * Attend que le port soit rendu, borné. Sous Windows, le système ferme les
+ * descripteurs d'un process tué APRÈS l'avoir déclaré mort : sondé dans la
+ * même milliseconde, le port est encore lié (vu sur la forge). On attend le
+ * fait, on ne suppose pas l'instant.
+ */
+async function portFreeWithin(
+  port: number,
+  timeoutMs: number,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await portFree(port)) return true;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return portFree(port);
+}
+
+// #908 — le SERVEUR de dev, pas seulement ses hôtes : à la mort brutale du
+// superviseur, il s'arrête de lui-même et rend ses ports. Deux plomberies de
+// sortie : héritée (rendu `plain`, le vrai `DevSupervisor`) et en tubes (rendu
+// terminal, `pipe-parent.mjs`), où la première écriture après la mort du
+// lecteur lève `EPIPE`. Le témoin prouve que l'arrêt est allé AU BOUT — un
+// serveur emporté par `EPIPE` meurt aussi, mais sans fermer ses serveurs.
+//
+// Sous Windows, le témoin n'est PAS exigé, et c'est un verdict, pas une
+// tolérance (axiome 6) : le serveur n'y naît pas détaché (`spawnsAsGroupLeader`),
+// et libuv range tout enfant non détaché dans un job object tué avec son
+// parent. Le système emporte donc le serveur avec le superviseur, avant que la
+// perte du canal ne lui parvienne : aucun orphelin, port rendu — ce qui reste
+// prouvé —, mais aucun arrêt propre. Vu rouge sur la forge Windows.
+describe("serveur de dev à la mort du superviseur (#908) — linux · macOS · Windows", () => {
+  const plumbings = [
+    ["sortie héritée (rendu plain, vrai superviseur)", BENCH],
+    ["sortie en tubes (rendu terminal)", PIPE_PARENT],
+  ] as const;
+  for (const [label, script] of plumbings) {
+    it(`superviseur tué net, ${label} : le serveur s'arrête de lui-même et rend son port`, async () => {
+      const bench = await launch(300, false, "ok", {
+        script,
+        lossWitness: true,
+      });
+      const server = await bench.waitFor((e) => e.type === "server");
+      const serverPid = server.pid as number;
+      expect(isPidAlive(serverPid)).to.equal(true);
+      expect(await portFree(bench.port), "port jamais occupé").to.equal(false);
+      bench.supervisor.kill("SIGKILL");
+      await bench.exited;
+      // Comment le serveur est mort (fixture `supervisor.mjs`) : sans lui, un
+      // rouge de la forge ne disait que « pas de témoin ».
+      const diagnosis = (): string => {
+        const file = `${bench.lossWitness}.trace`;
+        const trace = existsSync(file)
+          ? readFileSync(file, "utf8").trim()
+          : "(aucune trace)";
+        return `journal du serveur :\n${trace}\n— sortie du banc :\n${bench.output()}`;
+      };
+      expect(
+        await deadWithin(serverPid, 5_000),
+        `serveur orphelin — ${diagnosis()}`,
+      ).to.equal(true);
+      if (spawnsAsGroupLeader()) {
+        expect(
+          existsSync(bench.lossWitness),
+          `arrêt propre jamais allé au bout — ${diagnosis()}`,
+        ).to.equal(true);
+        expect(readFileSync(bench.lossWitness, "utf8")).to.equal("0");
+      }
+      expect(await portFreeWithin(bench.port, 5_000), "port gardé").to.equal(
+        true,
+      );
+    }, 40_000);
+  }
 });
 
 describe.skipIf(process.platform === "win32")(

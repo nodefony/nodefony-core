@@ -1033,6 +1033,9 @@ class Kernel extends Service implements IKernel {
     // propriété de l'en-tête) — dev interactif seulement, dans l'enfant du
     // superviseur : cf {@link SupervisorLink.prepareDevScreen}.
     this.supervisorLink.prepareDevScreen();
+    // Enfant du superviseur : sa mort (même tué net) arrête le serveur, qui
+    // garderait sinon ses ports pour personne — cf SupervisorLink.stopOnSupervisorLoss.
+    this.supervisorLink.stopOnSupervisorLoss(this);
 
     // `tmp/` est gitignored (jamais commité) → absent sur un checkout frais (CI),
     // un container/pod neuf ou un premier boot. `FileClass` fait un `lstatSync()`
