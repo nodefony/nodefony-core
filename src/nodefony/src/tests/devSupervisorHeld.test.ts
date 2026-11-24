@@ -307,9 +307,9 @@ describe.skipIf(process.platform === "win32")(
     }, 40_000);
 
     it("arrêt forcé (signal insistant) : l'hôte figé est abattu, sortie 130", async () => {
-      // Délai de grâce démesuré : l'arrêt propre reste bloqué sur l'hôte figé,
-      // seul l'arrêt forcé peut en venir à bout.
-      const bench = await launch(120_000);
+      // Délai de grâce démesuré (le plafond du protocole) : l'arrêt propre
+      // reste bloqué sur l'hôte figé, seul l'arrêt forcé peut en venir à bout.
+      const bench = await launch(60_000);
       const ready = await bench.waitFor(readyHost);
       const hostPid = ready.status?.pid as number;
       bench.supervisor.kill("SIGTERM");

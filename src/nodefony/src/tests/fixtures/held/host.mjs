@@ -61,6 +61,15 @@ serveHeldService({
       );
       await new Promise(() => {});
     }
+    // Un déluge sur la sortie d'erreur, puis la cause, puis la mort : sous
+    // tube, ces dernières lignes arrivent au teneur APRÈS `exit`.
+    if (mode === "die-loudly-big") {
+      process.stderr.write(
+        `${"y".repeat(spec.bytes)}\nSyntaxError: fin du déluge\n`,
+        () => process.exit(1),
+      );
+      await new Promise(() => {});
+    }
     // Donnée démesurée : l'hôte doit nommer la cause plutôt que se taire.
     if (mode === "huge-data") return { blob: "x".repeat(spec.size) };
     if (mode === "silent") return new Promise(() => {});

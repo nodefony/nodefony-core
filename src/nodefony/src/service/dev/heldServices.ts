@@ -124,7 +124,11 @@ export class HeldServiceRegistry {
       const entry = this.#create(plan.owner, declaration, predecessorGone);
       this.#held.set(declaration.key, entry);
       void predecessorGone.then(() => {
-        if (this.#held.get(declaration.key) === entry) this.#launch(entry);
+        // Un arrêt (`stopAll`, `killAll`) passé pendant l'attente du
+        // prédécesseur : plus rien ne naît, même si l'entrée est encore là.
+        if (!this.#closing && this.#held.get(declaration.key) === entry) {
+          this.#launch(entry);
+        }
       });
     }
     return planAck(plan, null);

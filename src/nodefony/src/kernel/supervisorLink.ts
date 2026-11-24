@@ -43,6 +43,7 @@ import {
 import {
   DEV_CHANNEL,
   listenToSupervisor,
+  hasSupervisorChannel,
   sendToSupervisor,
   type DevChannelMessage,
   type IDevChannelEndpoint,
@@ -178,7 +179,10 @@ export class SupervisorLink {
    * @returns le client, le même à chaque appel pour un propriétaire donné.
    */
   heldServices(owner: string): IHeldServicesClient | null {
-    if (!this.supervised) return null;
+    // Le canal, pas la seule variable : héritée sans canal, elle ferait choisir
+    // le mode porté — le plan échouerait, et aucun Vite ne démarrerait, sans
+    // repli sur le mode tenu par le serveur.
+    if (!this.supervised || !hasSupervisorChannel(this.endpoint)) return null;
     this.#heldClients ??= new Map();
     let client = this.#heldClients.get(owner);
     if (client === undefined) {

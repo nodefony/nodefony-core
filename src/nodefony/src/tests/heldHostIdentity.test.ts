@@ -26,6 +26,7 @@ import {
 import {
   DEV_HELD_PREFIX,
   isPidAlive,
+  gracefulRoots,
   parsePsRow,
   rootProcesses,
   splitByProject,
@@ -323,6 +324,18 @@ describe("nodefony status / stop — l'hôte porté est reconnu et visé", () =>
     const vite = info(13, 11, "vite");
     const roots = rootProcesses([sup, server, held, vite]).map((p) => p.pid);
     expect(roots).to.deep.equal([10, 12, 13]);
+  });
+
+  it("arrêt gracieux : le SIGTERM va au teneur, jamais à l'hôte qu'il tient — l'hôte orphelin, lui, le reçoit", () => {
+    const sup = info(10, 1, "supervisor");
+    const server = info(11, 10, "server");
+    const held = info(12, 10, "held");
+    const vite = info(13, 11, "vite");
+    const orphan = info(14, 1, "vite");
+    const graceful = gracefulRoots([sup, server, held, vite, orphan]).map(
+      (p) => p.pid,
+    );
+    expect(graceful).to.deep.equal([10, 14]);
   });
 
   it("rattachement au projet : un hôte porté dans un SOUS-dossier est à ce projet ; ailleurs, étranger", () => {

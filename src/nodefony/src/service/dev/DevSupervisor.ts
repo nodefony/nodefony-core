@@ -86,6 +86,7 @@ import {
   waitGroupDead,
   terminateDevProcesses,
   waitPortsFree,
+  onProcessEnded,
 } from "./devProcess";
 import { installShutdownSignals } from "./shutdownSignals";
 import { RestartCycle } from "./restartCycle";
@@ -661,12 +662,6 @@ const SUSPENSION_RECHECK_MS = 1000;
 
 /** Au-delà de cette durée de vie, un crash n'est plus considéré « rapide ». */
 const FAST_CRASH_MS = 3000;
-/**
- * Après la sortie du serveur, délai max d'attente de la fin de ses flux
- * (`close`) avant de rendre le verdict : un petit-enfant qui garderait le tube
- * ouvert ne doit pas le taire.
- */
-const CLOSE_GRACE_MS = 1000;
 /** Nombre maximal de redémarrages auto après un crash rapide (anti-boucle). */
 const MAX_SPAWN_RETRIES = 3;
 /** Pause avant un redémarrage après crash rapide (laisse les ports se libérer). */
@@ -1088,38 +1083,6 @@ export function runCapturedCommand(
     p.once("exit", (code) => settle(code === 0));
     p.once("error", () => settle(false));
   });
-}
-
-/**
- * Appelle `onEnded` UNE fois, quand le serveur est fini — processus ET flux.
- *
- * Armé sur `close`, pas sur `exit` : sous tube, la pile d'un crash au
- * démarrage arrive APRÈS `exit`, et le verdict la précédait (ADR-0013 §9).
- * Un petit-enfant qui garderait le tube ouvert ne doit pas taire le verdict :
- * passé `graceMs` après `exit`, il part quand même.
- *
- * @param child - le serveur.
- * @param onEnded - le verdict, avec le code et le signal de sortie.
- * @param graceMs - attente max des flux après `exit`.
- */
-export function onServerEnded(
-  child: ChildProcess,
-  onEnded: (code: number | null, signal: NodeJS.Signals | null) => void,
-  graceMs = CLOSE_GRACE_MS,
-): void {
-  let settled = false;
-  let grace: ReturnType<typeof setTimeout> | null = null;
-  const settle = (code: number | null, signal: NodeJS.Signals | null) => {
-    if (settled) return;
-    settled = true;
-    if (grace) clearTimeout(grace);
-    onEnded(code, signal);
-  };
-  child.once("exit", (code, signal) => {
-    grace = setTimeout(() => settle(code, signal), graceMs);
-    grace.unref();
-  });
-  child.once("close", (code, signal) => settle(code, signal));
 }
 
 /** Ce que l'aiguillage des messages du serveur sait atteindre — injecté, donc éprouvable. */
@@ -2343,7 +2306,7 @@ export class DevSupervisor {
         terminal,
       }),
     );
-    onServerEnded(child, (code, signal) => {
+    onProcessEnded(child, (code, signal) => {
       terminal?.flush("server");
       // Restart sollicité : `#killChild` a déjà mis `#child` à null avant l'exit.
       if (this.#child !== child) return;
@@ -2872,7 +2835,7 @@ export class DevSupervisor {
 
   /**
    * Tue le groupe de l'enfant (SIGTERM, puis SIGKILL après 4 s) et attend sa
-   * FIN — processus et flux (cf {@link onServerEnded}) : ses dernières lignes
+   * FIN — processus et flux (cf {@link onProcessEnded}) : ses dernières lignes
    * (arrêt de Vite, `terminate`) passent par le terminal du superviseur, qui
    * ne doit ni se fermer ni relancer un serveur avant de les avoir reçues.
    */
@@ -2883,7 +2846,7 @@ export class DevSupervisor {
       if (c?.exitCode !== null || c.signalCode !== null) return resolve();
       this.#dyingChild = c;
       const kill9 = setTimeout(() => this.#signalGroup(c, "SIGKILL"), 4000);
-      onServerEnded(c, () => {
+      onProcessEnded(c, () => {
         clearTimeout(kill9);
         if (this.#dyingChild === c) this.#dyingChild = null;
         resolve();
@@ -2951,10 +2914,14 @@ export class DevSupervisor {
     this.#cycle.cancel();
     this.#watcher?.close();
     this.#terminal?.setPhase("restarting");
+    // Les services portés s'arrêtent DÈS l'arrêt décidé, sans attendre la fin
+    // d'un build : leur registre est clos sur-le-champ, et un hôte abattu de
+    // l'extérieur pendant l'attente n'est plus vu planté ni relancé.
+    const heldStopped = this.#held?.stopAll();
     await this.#killBuild();
     // Le serveur et les services portés s'arrêtent ensemble : ce sont des
     // arbres distincts, et chacun attend la mort effective du sien.
-    await Promise.all([this.#killChild(), this.#held?.stopAll()]);
+    await Promise.all([this.#killChild(), heldStopped]);
     this.#terminal?.close();
     this.#releaseLock();
     process.exit(0);

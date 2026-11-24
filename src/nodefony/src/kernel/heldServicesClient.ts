@@ -29,6 +29,14 @@ export type { IHeldServicesClient };
  */
 export const HELD_PLAN_ACK_TIMEOUT_MS = 5_000;
 
+/**
+ * Délai de composition d'un plan (`expect` → dernier `submit`/`withdraw`).
+ * Une clé annoncée qui n'est jamais ni soumise ni retirée gèlerait le plan :
+ * aucun `submit` ne se réglerait, et tout `expect` suivant serait refusé.
+ * Composer, c'est écrire une config et lire des versions — des millisecondes.
+ */
+export const HELD_PLAN_COMPOSE_TIMEOUT_MS = 30_000;
+
 /** Ce que le client demande au lien noyau ⇄ superviseur. */
 export interface IHeldChannelLink {
   /** Envoie un message ; `false` s'il n'est pas parti. */
@@ -75,6 +83,8 @@ export class HeldServicesClient implements IHeldServicesClient {
   #waiting: IPlanWaiter[] = [];
   #inFlight: Map<number, InFlightPlan> | null = null;
   #nextId = 1;
+  /** Échéance du plan en composition ; `null` hors composition. */
+  #composeTimer: NodeJS.Timeout | null = null;
 
   /**
    * @param owner - le propriétaire.
@@ -101,7 +111,16 @@ export class HeldServicesClient implements IHeldServicesClient {
     // part dans une file sans borne.
     this.#listen();
     this.#expected = new Set(keys);
-    if (this.#expected.size === 0) this.#flush();
+    if (this.#expected.size === 0) {
+      this.#flush();
+      return;
+    }
+    this.#composeTimer = setTimeout(
+      () => this.#abandonComposition(),
+      HELD_PLAN_COMPOSE_TIMEOUT_MS,
+    );
+    // L'échéance ne garde pas le process en vie à elle seule.
+    this.#composeTimer.unref();
   }
 
   submit(declaration: IHeldServiceDeclaration): Promise<void> {
@@ -152,13 +171,39 @@ export class HeldServicesClient implements IHeldServicesClient {
       }
     }
     // Un plan en composition ne partira plus : ses attendants le sauront.
-    rejectAll(
-      this.#waiting,
+    this.#dropComposition(
       new Error(`held services of "${this.owner}": client closed`),
     );
+  }
+
+  /**
+   * Le plan en composition a passé son échéance : rien ne part — un plan
+   * PARTIEL arrêterait les services que la clé manquante désigne —, ses
+   * attendants le savent, et un plan neuf peut être composé.
+   */
+  #abandonComposition(): void {
+    const missing = [...(this.#expected ?? [])].join(", ");
+    this.#dropComposition(
+      new Error(
+        `held services of "${this.owner}": plan never completed within ${HELD_PLAN_COMPOSE_TIMEOUT_MS} ms (missing: ${missing})`,
+      ),
+    );
+  }
+
+  /** Abandonne le plan en composition, en rejetant ses attendants. */
+  #dropComposition(error: Error): void {
+    this.#clearComposeTimer();
+    rejectAll(this.#waiting, error);
     this.#expected = null;
     this.#declared = [];
     this.#waiting = [];
+  }
+
+  #clearComposeTimer(): void {
+    if (this.#composeTimer !== null) {
+      clearTimeout(this.#composeTimer);
+      this.#composeTimer = null;
+    }
   }
 
   #listen(): void {
@@ -170,6 +215,7 @@ export class HeldServicesClient implements IHeldServicesClient {
     const id = this.#nextId++;
     const services = this.#declared;
     const waiters = this.#waiting;
+    this.#clearComposeTimer();
     this.#expected = null;
     this.#declared = [];
     this.#waiting = [];

@@ -33,6 +33,12 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   readonly #family: ViteFamily;
   #held: HostHolder | null = null;
   #startPromise: Promise<void> | null = null;
+  /**
+   * Époque : avancée par `stop()`. Un démarrage qui reprend après un `await`
+   * sous une époque passée s'interrompt — sinon un hôte naissait APRÈS
+   * l'arrêt, que plus personne ne tenait.
+   */
+  #epoch = 0;
 
   constructor(opts: ViteSupervisorOptions) {
     this.#family = new ViteFamily(opts);
@@ -65,11 +71,22 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     return this.#startPromise;
   }
 
-  /** Arrête l'hôte et attend la mort de son arbre. Idempotent. */
+  /**
+   * Arrête l'hôte et attend la mort de son arbre. Idempotent. Un démarrage en
+   * vol est interrompu, et attendu : quand `stop()` rend la main, aucun hôte
+   * ne naîtra plus.
+   */
   async stop(): Promise<void> {
-    const state = this.#family.status().state;
-    if (this.#held === null || state === "idle" || state === "stopped") return;
-    await this.#held.stop();
+    this.#epoch++;
+    const pending = this.#startPromise;
+    const held = this.#held;
+    const state = held?.status().state;
+    if (held !== null && state !== "idle" && state !== "stopped") {
+      await held.stop();
+    }
+    // Le démarrage reprend sous une époque passée et s'interrompt — ou a
+    // déjà échoué : son rejet appartient à l'appelant de `start()`.
+    if (pending !== null) await pending.catch(() => {});
   }
 
   /** L'instantané courant — lecture de champ, sans allocation (ADR-0030 §D5). */
@@ -78,6 +95,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   }
 
   async #start(entries: ReadonlyArray<IResolvedFrontendEntry>): Promise<void> {
+    const epoch = this.#epoch;
     const family = this.#family;
     family.begin(entries);
     let configFile: string;
@@ -93,6 +111,10 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     // précédent (démarrage raté, relances épuisées) n'a plus d'hôte vivant —
     // l'arrêter ne coûte rien et ne laisse rien derrière.
     await this.#held?.stop();
+    // Un `stop()` est passé pendant ces attentes : aucun hôte ne doit naître.
+    if (epoch !== this.#epoch) {
+      throw new FrontendSupervisorStartError("stopped before ready");
+    }
     const held = new HostHolder({
       key: family.key,
       module: VITE_HOST_MODULE,

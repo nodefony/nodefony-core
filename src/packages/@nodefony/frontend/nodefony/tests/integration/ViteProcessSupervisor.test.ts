@@ -160,6 +160,37 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
     expect(sup.status().pid).to.equal(null);
   });
 
+  it("stop() pendant la préparation du démarrage : start() rejette, AUCUN hôte ne naît après l'arrêt (audit #692, I1)", async () => {
+    const port = await freePort();
+    const sup = new ViteProcessSupervisor({
+      devHost: "127.0.0.1",
+      devPort: port,
+      startupTimeoutMs: 20_000,
+      pipeLogs: false,
+      cwd: FIXTURE_ROOT,
+      logger: silentLogger,
+      healthCheckIntervalMs: 0,
+      autoRestart: false,
+    });
+    // `start()` s'arrête à son premier `await` (écriture de la config) :
+    // l'arrêt du serveur tombe là, comme un SIGTERM pendant le boot.
+    const started = sup.start([makeEntry()], {}).then(
+      () => "résolu",
+      (e: unknown) => (e as Error).message,
+    );
+    await sup.stop();
+    expect(await started).to.match(/stopped before ready$/);
+    // Témoin, au-delà du temps qu'il faudrait à un hôte pour naître et écouter.
+    await new Promise((r) => setTimeout(r, 1_500));
+    expect(sup.status().pid).to.equal(null);
+    expect(sup.status().state).not.to.equal("ready");
+    const probe = await httpPing("127.0.0.1", port).then(
+      () => "écoute",
+      (e: unknown) => (e as NodeJS.ErrnoException).code,
+    );
+    expect(probe).to.equal("ECONNREFUSED");
+  });
+
   it("config inchangée → fichier NON réécrit (Vite redémarre à toute écriture de sa config)", async () => {
     // Vite surveille `vite.config.generated.mjs` : une écriture, même d'un
     // texte identique, le fait redémarrer. Un serveur qui redémarre et réécrit

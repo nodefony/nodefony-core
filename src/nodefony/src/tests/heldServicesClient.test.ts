@@ -4,8 +4,9 @@
  * les états vont à la clé qui les attend. Lien fictif : ce qui part est
  * enregistré, ce qui arrive est poussé à la main.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  HELD_PLAN_COMPOSE_TIMEOUT_MS,
   HeldServicesClient,
   type IHeldChannelLink,
 } from "../kernel/heldServicesClient";
@@ -168,6 +169,46 @@ describe("HeldServicesClient — acquittement", () => {
     deliver({ ...ack(plan), id: plan.id + 1 } as DevChannelMessage);
     // Seule l'échéance tranche : aucun des deux n'a été pris pour le bon.
     await expect(p).rejects.toThrow(/not acknowledged within 60 ms/);
+  });
+
+  it("une clé annoncée jamais apportée : le plan est abandonné à l'échéance, RIEN ne part, et un plan neuf se compose", async () => {
+    // Sans échéance, le `submit` pendait à vie et tout `expect` suivant était
+    // refusé (audit #692, M7). Un plan PARTIEL n'est jamais envoyé : il
+    // arrêterait le service que la clé manquante désigne.
+    vi.useFakeTimers();
+    try {
+      const { link, sent } = fakeLink();
+      const client = new HeldServicesClient("frontend", link);
+      client.expect(["vite:default", "vite:oubliee"]);
+      const pending = client.submit(decl("vite:default"));
+      const verdict = pending.then(
+        () => "résolu",
+        (e: unknown) => (e as Error).message,
+      );
+      vi.advanceTimersByTime(HELD_PLAN_COMPOSE_TIMEOUT_MS);
+      expect(await verdict).toMatch(
+        /plan never completed within \d+ ms \(missing: vite:oubliee\)/,
+      );
+      expect(sent).toHaveLength(0);
+      expect(() => client.expect(["vite:default"])).not.toThrow();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("un plan COMPLET à l'heure n'est jamais abandonné après coup", async () => {
+    vi.useFakeTimers();
+    try {
+      const { link, sent } = fakeLink();
+      const client = new HeldServicesClient("frontend", link);
+      client.expect(["vite:default"]);
+      void client.submit(decl("vite:default")).catch(() => {});
+      expect(sent).toHaveLength(1);
+      vi.advanceTimersByTime(HELD_PLAN_COMPOSE_TIMEOUT_MS * 2);
+      expect(() => client.expect(["vite:default"])).not.toThrow();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("sans acquittement à l'heure : rejet qui le dit", async () => {

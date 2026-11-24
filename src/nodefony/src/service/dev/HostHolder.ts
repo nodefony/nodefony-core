@@ -1,10 +1,10 @@
 import { fork, type ChildProcess } from "node:child_process";
 import { DEV_CHILD_ENV } from "./devChannelBase";
 import {
+  onProcessEnded,
   spawnsAsGroupLeader,
   signalExitedGroup,
   signalProcessGroup,
-  waitAllDead,
 } from "./devProcess";
 import {
   HELD_CHANNEL,
@@ -236,54 +236,55 @@ export class HostHolder {
   }
 
   async #doStop(): Promise<void> {
-    this.#epoch++;
+    const epoch = ++this.#epoch;
     this.#setState("stopping");
     this.#clearTimers();
+    // Un `kill()` suivi d'un `start()` pendant cet arrêt a ouvert une époque
+    // neuve : son hôte ne doit pas être déclaré `stopped` par un arrêt passé.
+    const settle = (): void => {
+      if (epoch === this.#epoch) this.#setState("stopped");
+    };
     const child = this.#child;
     if (child === null || hasExited(child)) {
       this.#child = null;
-      this.#setState("stopped");
+      settle();
       return;
     }
-    const exited = new Promise<void>((resolve) =>
-      child.once("exit", () => resolve()),
-    );
     this.#send(child, { channel: HELD_CHANNEL, type: "stop" });
-    const timedOut = Promise.withResolvers<boolean>();
-    const grace = setTimeout(
-      () => timedOut.resolve(true),
+    const exitedInGrace = await exitedWithin(
+      child,
       this.#opts.stopGraceMs ?? 3_000,
     );
-    const late = await Promise.race([
-      exited.then(() => false),
-      timedOut.promise,
-    ]);
-    clearTimeout(grace);
-    // Sorti à temps : sa sortie a déjà vidé son groupe (`#onExit`). En retard :
-    // l'arbre est tué vivant. Dans les deux cas, l'attente est BORNÉE — un
-    // process qui survit à SIGKILL ne doit pas suspendre l'arrêt de la session.
-    if (typeof child.pid === "number") {
-      if (late) signalProcessGroup(child.pid, "SIGKILL");
-      const alive = await waitAllDead([child.pid], TREE_DEATH_WAIT_MS);
-      if (alive.length > 0) {
+    // Sorti à temps : sa sortie a déjà vidé son groupe (`#onExit`), et son PID,
+    // rendu au système, n'est plus jamais sondé — sous Windows il est réattribué
+    // aussitôt, et l'arrêt attendait la mort d'un étranger. En retard : l'arbre
+    // est tué vivant, et sa mort se constate sur le process lui-même (`exit`),
+    // en attente BORNÉE — un process qui survit à SIGKILL ne doit pas suspendre
+    // l'arrêt de la session.
+    if (!exitedInGrace && typeof child.pid === "number") {
+      signalProcessGroup(child.pid, "SIGKILL");
+      if (!(await exitedWithin(child, TREE_DEATH_WAIT_MS))) {
         this.#lastError = `held host "${this.key}" survived SIGKILL (pid ${child.pid})`;
       }
     }
-    this.#setState("stopped");
+    settle();
   }
 
   /**
    * Tenue quand l'hôte précédent n'existe plus — tué s'il vivait encore. Un
    * hôte qui a échoué est déjà en train de mourir ; une relance en vol, non.
+   * Attente BORNÉE : un hôte qui survit à SIGKILL (signal refusé) fait
+   * échouer le démarrage en le nommant, au lieu de le laisser `starting` à vie.
    */
-  #previousGone(): Promise<void> {
+  async #previousGone(): Promise<void> {
     const child = this.#child;
-    if (child === null || hasExited(child)) return Promise.resolve();
-    const gone = new Promise<void>((resolve) =>
-      child.once("exit", () => resolve()),
-    );
+    if (child === null || hasExited(child)) return;
     if (typeof child.pid === "number") signalProcessGroup(child.pid, "SIGKILL");
-    return gone;
+    if (!(await exitedWithin(child, TREE_DEATH_WAIT_MS))) {
+      throw new Error(
+        `previous held host "${this.key}" survived SIGKILL (pid ${child.pid})`,
+      );
+    }
   }
 
   #stoppedBeforeReady(): Error {
@@ -392,18 +393,18 @@ export class HostHolder {
         fail(error);
         killTree();
       };
+      // La sortie se lit en DEUX temps. À `exit`, le PROCESS : état, groupe
+      // vidé, relance — sans attendre, car vider le groupe est justement ce
+      // qui fait lâcher le tube à un petit-enfant qui le tiendrait. À la fin
+      // des FLUX (`close`, borné), la SORTIE : sous tube, les dernières
+      // lignes arrivent après `exit` — c'est là que se lit la cause d'un hôte
+      // mort avant `ready`, et que la dernière ligne part au terminal.
       const onExit = (
         code: number | null,
         signal: NodeJS.Signals | null,
       ): void => {
         child.removeListener("message", onMessage);
         child.removeListener("error", onError);
-        if (out) child.stdout?.removeListener("data", onOut);
-        child.stderr?.removeListener("data", onErr);
-        out?.flush();
-        err?.flush();
-        const how = signal ?? `code ${code}`;
-        if (!settled) fail(new Error(exitedBeforeReady(this.key, how, tail)));
         // Seule la sortie de l'hôte COURANT parle de l'état : celle d'un hôte
         // déjà remplacé ne doit ni le faire croire planté ni relancer un
         // troisième hôte par-dessus le vivant. Défense en profondeur :
@@ -411,11 +412,23 @@ export class HostHolder {
         // avant sa sortie — cette garde tient si l'on en ouvre une.
         if (this.#child !== child) return;
         this.#child = null;
-        this.#onExit(how, child.pid);
+        this.#onExit(signal ?? `code ${code}`, child.pid);
+      };
+      const onEnded = (
+        code: number | null,
+        signal: NodeJS.Signals | null,
+      ): void => {
+        if (out) child.stdout?.removeListener("data", onOut);
+        child.stderr?.removeListener("data", onErr);
+        out?.flush();
+        err?.flush();
+        const how = signal ?? `code ${code}`;
+        if (!settled) fail(new Error(exitedBeforeReady(this.key, how, tail)));
       };
       child.on("message", onMessage);
       child.on("error", onError);
       child.once("exit", onExit);
+      onProcessEnded(child, onEnded);
       this.#send(child, {
         channel: HELD_CHANNEL,
         type: "start",
@@ -590,6 +603,28 @@ export class HostHolder {
 /** Le process est-il déjà sorti ? */
 function hasExited(child: ChildProcess): boolean {
   return child.exitCode !== null || child.signalCode !== null;
+}
+
+/**
+ * Le process sort-il dans le délai ? Constaté sur son `exit`, jamais sur son
+ * PID : rendu au système, celui-ci peut désigner un étranger (Windows le
+ * réattribue aussitôt). L'écouteur est retiré à l'échéance.
+ *
+ * @returns `true` s'il est sorti (ou l'était déjà), `false` à l'échéance.
+ */
+function exitedWithin(child: ChildProcess, ms: number): Promise<boolean> {
+  if (hasExited(child)) return Promise.resolve(true);
+  return new Promise<boolean>((resolve) => {
+    const onExit = (): void => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    const timer = setTimeout(() => {
+      child.removeListener("exit", onExit);
+      resolve(false);
+    }, ms);
+    child.once("exit", onExit);
+  });
 }
 
 /** Le message d'un hôte sorti avant `ready`, avec la fin de sa sortie d'erreur. */

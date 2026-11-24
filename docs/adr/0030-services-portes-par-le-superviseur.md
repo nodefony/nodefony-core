@@ -217,6 +217,15 @@ Tenu par le SERVEUR (`--no-watch`, `frontend:dev`, tout lancement sans supervise
 il s'arrête avec le serveur — par son teneur, ou à la perte du canal. Un hôte FIGÉ à ce
 moment-là survit au serveur ; `nodefony stop` le vise, puisqu'il est une racine.
 
+`nodefony stop` adresse son arrêt GRACIEUX au teneur seul (`devProcess.ts#gracefulRoots`) : un
+hôte dont le teneur est dans le relevé n'en reçoit aucun signal, c'est son teneur qui l'arrête
+par le canal. Signalé en même temps, l'hôte mourait avant que le teneur ait appris l'arrêt —
+faux plantage, relance armée, parfois un hôte neuf forké pendant l'arrêt. Seul un hôte
+ORPHELIN reçoit le signal gracieux ; les survivants sont emportés par le balayage forcé. Le
+superviseur, de son côté, clôt son registre dès l'arrêt décidé, sans attendre la fin d'un
+build. Le délai d'arrêt propre d'un hôte (`stopGraceMs`) est plafonné à une minute par le
+protocole : il retient le Ctrl-C de toute la session.
+
 ### D8 — Journaux : par les tubes, jamais par l'IPC
 
 La sortie de l'hôte (son `customLogger` écrit sur sa sortie standard) entre dans le terminal du

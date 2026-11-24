@@ -10,6 +10,7 @@
 import { spawn } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { DevTerminal } from "../service/dev/DevTerminal";
+import { onProcessEnded } from "../service/dev/devProcess";
 import { CLEAR_SCREEN } from "../service/dev/outputMode";
 import { eraseBlock, ERASE_LINE } from "../service/dev/statusLine";
 import {
@@ -20,7 +21,6 @@ import {
 import { brandMark } from "../cli/brand";
 import { resolveBootLinks, type IBootReport } from "../kernel/bootReport";
 import {
-  onServerEnded,
   relayServerOutput,
   relayedTerminalEnv,
 } from "../service/dev/DevSupervisor";
@@ -379,7 +379,7 @@ describe("serveur relayé — un vrai processus en tube (#536)", () => {
         stdio: ["ignore", "pipe", "pipe"],
       });
       relayServerOutput(child, terminal);
-      onServerEnded(
+      onProcessEnded(
         child,
         (code) => {
           terminal.flush("server");

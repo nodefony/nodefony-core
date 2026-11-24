@@ -374,6 +374,22 @@ describe("SupervisorLink — sans superviseur : 0 listener, 0 envoi", () => {
     assert.doesNotThrow(link.listen(() => {}));
     assert.strictEqual(listeners.size, 0);
   });
+
+  it("supervisé mais sans canal : PAS de mode porté — le module tient ses services lui-même", () => {
+    // Le plan partirait dans le vide (« no channel to the supervisor ») et
+    // aucun Vite ne démarrerait, faute de repli sur le mode tenu (audit #692, M5).
+    const { endpoint } = mkEndpoint(false);
+    const link = mkLink({ supervised: true, endpoint });
+    assert.strictEqual(link.heldServices("frontend"), null);
+  });
+
+  it("supervisé AVEC canal : le client des services portés, le même à chaque appel", () => {
+    const { endpoint } = mkEndpoint(true);
+    const link = mkLink({ supervised: true, endpoint });
+    const client = link.heldServices("frontend");
+    assert.notStrictEqual(client, null);
+    assert.strictEqual(link.heldServices("frontend"), client);
+  });
 });
 
 describe("SupervisorLink — supervisé : la couture unique", () => {

@@ -175,7 +175,7 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
     `bin/nodefony` embarque SA copie du module), puis retiré de l'env (les petits-enfants ne
     l'héritent pas). `terminalSize`/`onTerminalResize` ← IPC `resize`. Canal = `devChannel.ts`
     (union discriminée `{channel:"nf-dev",type}`, garde unique `isDevChannelMessage`).
-    Verdict de fin = `onServerEnded` armé sur `close` (processus ET flux : la pile d'un crash
+    Verdict de fin = `onProcessEnded` (`devProcess.ts`) armé sur `close` (processus ET flux : la pile d'un crash
     arrive après `exit`), grâce 1 s après `exit` si un petit-enfant garde le tube.
     ⚠️ Arrêt : `DevCommand` retire les signaux du CLI (`releaseSignalListeners`, même geste que le
     master cluster) AVANT `supervisor.start()` — sinon le `terminate()` du CLI sort au même Ctrl+C

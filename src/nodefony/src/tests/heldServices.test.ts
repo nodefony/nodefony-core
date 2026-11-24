@@ -266,6 +266,12 @@ describe("HeldServiceRegistry — refus nommés", () => {
       'service "vite:a": tuning "maxRestarts" must be an integer in [0, 1000]',
     ],
     [
+      // L'arrêt d'un hôte retient le Ctrl-C de toute la session (audit #692, M4).
+      "délai d'arrêt au-delà d'une minute",
+      [{ ...service("vite:a", "f1"), tuning: { stopGraceMs: 60_001 } }],
+      'service "vite:a": tuning "stopGraceMs" must be an integer in [0, 60000]',
+    ],
+    [
       "empreinte vide",
       [{ ...service("vite:a", "f1"), fingerprint: "" }],
       'service "vite:a": invalid fingerprint',

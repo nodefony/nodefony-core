@@ -13,14 +13,19 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import {
   DEV_CHANNEL,
   type IDevHeldPlan,
   type IHeldServiceDeclaration,
 } from "../service/dev/devChannel";
-import { isPidAlive } from "../service/dev/devProcess";
+import {
+  isPidAlive,
+  terminateDevProcesses,
+  type DevProcessInfo,
+} from "../service/dev/devProcess";
 import {
   HELD_CHANNEL,
   MAX_HELD_DATA_LENGTH,
@@ -46,6 +51,10 @@ const FIXTURES = path.join(
 const HOST = path.join(FIXTURES, "host.mjs");
 const ROGUE = path.join(FIXTURES, "rogue.mjs");
 const HOLDER = path.join(FIXTURES, "holder.mjs");
+const GRACEFUL_HOLDER = path.join(FIXTURES, "holder-graceful.mjs");
+const TSX = pathToFileURL(
+  createRequire(import.meta.url).resolve("tsx/esm"),
+).href;
 
 const dir = mkdtempSync(path.join(os.tmpdir(), "nf-held-limits-"));
 let markers = 0;
@@ -232,6 +241,19 @@ describe("L2 — un arrêt qui croise un démarrage ou une relance (audit I1)", 
     expect(host.status()).toMatchObject({ state: "stopped", pid: null });
   });
 
+  it("kill() pendant un arrêt, puis start() : l'arrêt passé ne déclare pas `stopped` le NOUVEL hôte (audit #692, M1)", async () => {
+    const { host } = makeHost({ mode: "ignore-stop" }, { stopGraceMs: 10_000 });
+    const first = await host.start();
+    strays.push(first.pid as number);
+    const stopping = host.stop();
+    host.kill();
+    const second = await host.start();
+    strays.push(second.pid as number);
+    expect(second.pid).not.toBe(first.pid);
+    await stopping;
+    expect(host.status()).toMatchObject({ state: "ready", pid: second.pid });
+  });
+
   it("stop() pendant le recul d'une relance : la relance n'a jamais lieu", async () => {
     let afterStop = 0;
     let stopped = false;
@@ -307,6 +329,57 @@ describe("L5 — un hôte qui meurt avant `ready` dit pourquoi (audit M2)", () =
     await expect(host.start()).rejects.toThrow(
       /exited before ready \(code 1\): SyntaxError: fixture illisible/,
     );
+  });
+});
+
+describe("L5b — la cause d'un hôte mort se lit à la fin des FLUX, pas à `exit` (audit #692, I2)", () => {
+  it("teneur OCCUPÉ quand l'hôte écrit sa cause puis meurt : la dernière ligne est dans l'échec et au lecteur", async () => {
+    // Le cas réel : le superviseur a sa boucle prise (rendu, build) au moment
+    // où l'hôte écrit et sort. À son réveil, la sortie du process ET la fin du
+    // tube sont prêtes ensemble, et `exit` peut passer AVANT les dernières
+    // données. La donnée tient dans un tampon de tube : l'hôte sort sans
+    // attendre qu'on le lise.
+    const bytes = 16 * 1024;
+    const last = "SyntaxError: fin du déluge";
+    for (let i = 0; i < 1; i++) {
+      let received = 0;
+      let tailSeen = "";
+      let blocked = false;
+      const { host } = makeHost(
+        { mode: "die-loudly-big", bytes },
+        {
+          onOutput: (stream, lines) => {
+            if (stream !== "err") return;
+            received += lines.length;
+            tailSeen = lines.toString("utf8", Math.max(0, lines.length - 64));
+          },
+        },
+        (s) => {
+          // Juste après le `fork` (le `start` part dans le même tour) : la
+          // boucle du teneur est prise le temps que l'hôte écrive et meure.
+          if (s.pid === null || blocked) return;
+          blocked = true;
+          setImmediate(() => {
+            const until = Date.now() + 1_500;
+            while (Date.now() < until) {
+              // boucle tenue : rien n'est lu pendant ce temps
+            }
+          });
+        },
+      );
+      const message = await host.start().then(
+        () => "résolu",
+        (e: unknown) => (e as Error).message,
+      );
+      expect(message, `essai ${i}`).toMatch(
+        /exited before ready \(code 1\): y+\nSyntaxError: fin du déluge$/,
+      );
+      // Tout ce que l'hôte a écrit est arrivé au lecteur, dernière ligne comprise.
+      expect(received, `essai ${i}`).toBe(
+        bytes + 1 + Buffer.byteLength(last) + 1,
+      );
+      expect(tailSeen.endsWith(`${last}\n`), `essai ${i}`).toBe(true);
+    }
   });
 });
 
@@ -557,6 +630,33 @@ describe("L11 — 20 services à la fois, puis stopAll", () => {
     expect(pids.filter(isPidAlive)).toEqual([]);
   });
 
+  it("killAll pendant un REMPLACEMENT : le successeur, qui attendait la mort de l'ancien, ne naît jamais (audit #692, M1)", async () => {
+    const { registry, events } = makeRegistry();
+    const deaf = {
+      ...declaration("vite:a", "f1"),
+      spec: { mode: "ignore-stop", tag: "f1" },
+      tuning: { startupTimeoutMs: 5_000, maxRestarts: 0, stopGraceMs: 10_000 },
+    };
+    registry.apply(plan([deaf]));
+    const first = await until(() =>
+      events.find((e) => e.state === "ready" && e.data?.tag === "f1"),
+    );
+    strays.push(first.pid as number);
+    // f2 attend la mort de f1, sourd à `stop` (10 s de grâce) : c'est
+    // `killAll` qui l'abat — et qui doit aussi interdire f2.
+    registry.apply(plan([declaration("vite:a", "f2")]));
+    const from = events.length;
+    registry.killAll();
+    await until(() => !isPidAlive(first.pid as number), 3_000);
+    // Témoin : au-delà de la mort de f1, f2 n'a reçu aucun PID.
+    await sleep(500);
+    const born = events
+      .slice(from)
+      .filter((e) => e.pid !== null && e.pid !== first.pid);
+    for (const e of born) strays.push(e.pid as number);
+    expect(born).toEqual([]);
+  });
+
   it("killAll après la mort d'un hôte : aucun signal ne vise son ancien PID", async () => {
     const { registry, events } = makeRegistry();
     registry.apply(
@@ -589,3 +689,64 @@ describe("L12 — le teneur tué net (SIGKILL)", () => {
     await until(() => !isPidAlive(hostPid), 8_000);
   });
 });
+
+/** Une ligne du relevé `nodefony stop`, pour `terminateDevProcesses`. */
+function devProcess(
+  pid: number,
+  ppid: number,
+  role: DevProcessInfo["role"],
+): DevProcessInfo {
+  return {
+    pid,
+    ppid,
+    mode: "dev",
+    role,
+    label: role,
+    rssKb: 0,
+    cpu: 0,
+    uptimeSec: 0,
+  };
+}
+
+describe.skipIf(process.platform === "win32")(
+  "L13 — `nodefony stop` : l'hôte tenu n'est arrêté que par son teneur (audit #692, I3, POSIX)",
+  () => {
+    it("SIGTERM au teneur seul : son hôte n'est jamais vu planté ni relancé pendant l'arrêt, et rien ne survit", async () => {
+      const holder = spawn(
+        process.execPath,
+        ["--import", TSX, GRACEFUL_HOLDER, HELD_HOST_CWD],
+        { stdio: ["ignore", "pipe", "ignore"], detached: true },
+      );
+      strays.push(holder.pid as number);
+      const states: string[] = [];
+      let hostPid = 0;
+      let buffered = "";
+      holder.stdout.on("data", (b: Buffer) => {
+        buffered += String(b);
+        let nl = buffered.indexOf("\n");
+        while (nl !== -1) {
+          const line = JSON.parse(buffered.slice(0, nl)) as {
+            state: string;
+            pid: number | null;
+          };
+          buffered = buffered.slice(nl + 1);
+          states.push(line.state);
+          if (line.state === "ready" && line.pid !== null) hostPid = line.pid;
+          nl = buffered.indexOf("\n");
+        }
+      });
+      await until(() => hostPid !== 0, 15_000);
+      strays.push(hostPid);
+      const from = states.length;
+      const alive = await terminateDevProcesses([
+        devProcess(holder.pid as number, process.pid, "supervisor"),
+        devProcess(hostPid, holder.pid as number, "held"),
+      ]);
+      expect(alive).toEqual([]);
+      const during = states.slice(from);
+      expect(during).not.toContain("crashed");
+      expect(during).not.toContain("restarting");
+      expect(during).toContain("stopped");
+    });
+  },
+);

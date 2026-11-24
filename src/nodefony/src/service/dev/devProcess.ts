@@ -1,4 +1,4 @@
-import { execFile, spawnSync } from "node:child_process";
+import { execFile, spawnSync, type ChildProcess } from "node:child_process";
 import { readlink } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import {
@@ -1175,6 +1175,26 @@ export function rootProcesses(
 }
 
 /**
+ * Racines à qui l'arrêt GRACIEUX s'adresse en premier : les racines, moins les
+ * hôtes de service dont le TENEUR est dans l'ensemble. Un hôte appartient à
+ * son teneur (superviseur, ou serveur hors superviseur) : c'est lui qui
+ * l'arrête par son canal. Signalé en même temps, l'hôte mourait avant que le
+ * teneur ait appris l'arrêt — faux « plantage », relance armée, et parfois un
+ * hôte neuf forké pendant l'arrêt, inconnu du relevé. Un hôte ORPHELIN (teneur
+ * absent de l'ensemble) reste une racine : personne d'autre ne l'arrêtera.
+ * Les hôtes tenus qui survivent sont emportés par le balayage forcé.
+ *
+ * @param procs - les process à arrêter.
+ * @returns les racines à signaler d'abord.
+ */
+export function gracefulRoots(
+  procs: readonly DevProcessInfo[],
+): DevProcessInfo[] {
+  const pids = new Set(procs.map((p) => p.pid));
+  return procs.filter((p) => !pids.has(p.ppid));
+}
+
+/**
  * Un hôte de service (Vite, service porté) est lancé DÉTACHÉ par son teneur
  * (`HostHolder`) : il dirige son propre groupe, que le groupe de son parent
  * n'emporte pas. Il est donc une racine à lui seul — sinon un hôte figé, qui
@@ -1219,6 +1239,47 @@ export function signalExitedGroup(
   } catch {
     return "gone";
   }
+}
+
+/**
+ * Après la sortie d'un process, délai max d'attente de la fin de ses flux
+ * (`close`) avant de rendre le verdict : un petit-enfant qui garderait le tube
+ * ouvert ne doit pas le taire.
+ */
+const CLOSE_GRACE_MS = 1000;
+
+/**
+ * Appelle `onEnded` UNE fois, quand le process est fini — process ET flux.
+ *
+ * Armé sur `close`, pas sur `exit` : sous tube, les dernières lignes d'un
+ * process (la pile d'un crash au démarrage, la cause d'un hôte mort avant
+ * `ready`) arrivent APRÈS `exit`, et le verdict les précédait (ADR-0013 §9).
+ * Un petit-enfant qui garderait le tube ouvert ne doit pas taire le verdict :
+ * passé `graceMs` après `exit`, il part quand même. Seule implémentation —
+ * le superviseur l'emploie pour le serveur, le teneur pour ses hôtes.
+ *
+ * @param child - le process.
+ * @param onEnded - le verdict, avec le code et le signal de sortie.
+ * @param graceMs - attente max des flux après `exit`.
+ */
+export function onProcessEnded(
+  child: ChildProcess,
+  onEnded: (code: number | null, signal: NodeJS.Signals | null) => void,
+  graceMs = CLOSE_GRACE_MS,
+): void {
+  let settled = false;
+  let grace: ReturnType<typeof setTimeout> | null = null;
+  const settle = (code: number | null, signal: NodeJS.Signals | null) => {
+    if (settled) return;
+    settled = true;
+    if (grace) clearTimeout(grace);
+    onEnded(code, signal);
+  };
+  child.once("exit", (code, signal) => {
+    grace = setTimeout(() => settle(code, signal), graceMs);
+    grace.unref();
+  });
+  child.once("close", (code, signal) => settle(code, signal));
 }
 
 /** Attend que tous les `pids` soient morts (poll), renvoie ceux encore vivants à l'échéance. */
@@ -1301,7 +1362,9 @@ export interface TerminateOptions {
 
 /**
  * Arrête un ensemble de process dev par GROUPE — SIGTERM (arrêt gracieux) sur les
- * racines puis SIGKILL des récalcitrants (groupes racines + PID restants un à un).
+ * racines (hôtes tenus exceptés : leur teneur les arrête, cf {@link gracefulRoots})
+ * puis SIGKILL des récalcitrants (groupes racines, hôtes compris, + PID restants
+ * un à un).
  * Renvoie les PID encore vivants à la fin (vide = arrêt complet).
  *
  * OBSERVATION EXTERNE pure (signaux POSIX, aucun IPC). Logique PARTAGÉE entre
@@ -1317,7 +1380,7 @@ export async function terminateDevProcesses(
   const termWaitMs = opts.termWaitMs ?? 4000;
   const killWaitMs = opts.killWaitMs ?? 1500;
   const roots = rootProcesses(procs);
-  for (const r of roots) signalProcessGroup(r.pid, "SIGTERM");
+  for (const r of gracefulRoots(procs)) signalProcessGroup(r.pid, "SIGTERM");
   let alive = await waitAllDead(
     procs.map((p) => p.pid),
     termWaitMs,

@@ -193,7 +193,8 @@ const HELD_TUNING_MAX = {
   livenessIntervalMs: 3_600_000,
   livenessTimeoutMs: 600_000,
   livenessMissedLimit: 1_000,
-  stopGraceMs: 600_000,
+  // L'arrêt d'un hôte retient le Ctrl-C de la session : une minute au plus.
+  stopGraceMs: 60_000,
 } as const satisfies Record<keyof IHostTuning, number>;
 
 /**
@@ -494,6 +495,21 @@ export interface IDevChannelEndpoint {
 }
 
 /**
+ * Côté SERVEUR : le canal vers le superviseur est-il ouvert ? Une variable
+ * d'environnement héritée ne suffit pas — un process qui la reçoit sans canal
+ * IPC (relancé à la main, lancé par un outil) n'a personne à qui parler.
+ *
+ * @param endpoint - le processus porteur du canal ; `process` par défaut.
+ * @returns `true` si un message peut partir.
+ */
+export function hasSupervisorChannel(
+  endpoint: IDevChannelEndpoint = process,
+): endpoint is IDevChannelEndpoint &
+  Required<Pick<IDevChannelEndpoint, "send">> {
+  return typeof endpoint.send === "function" && endpoint.connected === true;
+}
+
+/**
  * Côté SERVEUR : envoie au superviseur. Sans superviseur (`--no-watch`, ou
  * lancé autrement), il n'y a pas de canal : rien n'est envoyé.
  *
@@ -505,7 +521,7 @@ export function sendToSupervisor(
   message: DevChannelMessage,
   endpoint: IDevChannelEndpoint = process,
 ): boolean {
-  if (typeof endpoint.send !== "function" || !endpoint.connected) return false;
+  if (!hasSupervisorChannel(endpoint)) return false;
   try {
     // Rappel posé : un échec d'écriture (superviseur sorti) le reçoit, au lieu
     // d'un `'error'` émis sur le process, fatal sans écouteur.
