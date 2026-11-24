@@ -108,6 +108,13 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+env:
+  # Aucun binaire MongoDB à l'installation (#918) : `mongodb-memory-server`,
+  # dépendance de développement de @nodefony/mongoose, en téléchargeait un à
+  # CHAQUE `npm ci` (781 Mo sous Windows, un job coupé à 20 min avant ses tests).
+  # Seul le job « Tests unit » de node.js.yml s'en sert, depuis un cache.
+  MONGOMS_DISABLE_POSTINSTALL: "1"
+
 jobs:
   build:
     name: Rendre le site depuis les sources versionnées

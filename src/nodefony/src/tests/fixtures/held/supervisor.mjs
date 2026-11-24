@@ -89,8 +89,16 @@ if (process.env.NF_DEV_CHILD === "1") {
       },
     });
   }
+  // Avec le rappel du VRAI serveur, jamais sans : le test tue le superviseur
+  // dès l'annonce ci-dessous, et un envoi encore en vol échoue alors en
+  // `EPIPE`. Sans rappel, Node en fait une exception non rattrapée, et le
+  // faux serveur mourait sans s'arrêter (vu sur la forge macOS, nommé par le
+  // journal de bord) — un défaut du banc, que le noyau n'a pas. Importé AVANT
+  // l'annonce, pour ne pas retarder l'envoi.
+  const { IGNORE_SEND_ERROR } =
+    await import("../../../service/dev/heldChannel.ts");
   report({ type: "server", pid: process.pid });
-  process.send(config.plan);
+  process.send(config.plan, IGNORE_SEND_ERROR);
   setInterval(() => {}, 1_000);
 } else {
   const { DevSupervisor } =
