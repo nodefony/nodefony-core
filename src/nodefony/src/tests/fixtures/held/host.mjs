@@ -24,6 +24,11 @@ async function writeAll(text, size) {
 serveHeldService({
   async start(spec) {
     const mode = spec.mode;
+    // Le PID sur disque, dès le départ : un test peut abattre l'hôte même si
+    // aucun état ne lui parvient (c'est justement ce qu'il éprouve).
+    if (typeof spec.pidFile === "string") {
+      writeFileSync(spec.pidFile, String(process.pid));
+    }
     if (mode === "fail") throw new Error("port occupé (fixture)");
     // Échoue UNE fois avec un arrêt LENT (B1) : l'hôte condamné tarde à sortir.
     if (mode === "fail-once-slow-stop" && !existsSync(spec.marker)) {
