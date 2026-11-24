@@ -151,10 +151,13 @@ tomber le mauvais.
 
 **Un superviseur tué net n'abandonne pas son serveur.** Sous `development`, le serveur est un
 processus enfant du superviseur, relié à lui par un canal. Si le superviseur meurt sans pouvoir
-s'arrêter — `kill -9`, terminal fermé, plantage —, le serveur constate la fermeture du canal et
-s'arrête de lui-même, ports libérés, sur les trois plateformes
-(`devChannel.ts#terminateOnSupervisorLoss`) ; les hôtes Vite portés font de même. Le
-`development` suivant trouve donc ses ports libres, sans `stop` préalable.
+s'arrêter — `kill -9`, terminal fermé, plantage —, le serveur ne lui survit pas, et le
+`development` suivant trouve ses ports libres, sans `stop` préalable. Sous Linux et macOS, il
+constate la fermeture du canal et s'arrête PROPREMENT, ports fermés par lui-même
+(`devChannel.ts#terminateOnSupervisorLoss`) ; les hôtes Vite portés font de même. Sous
+Windows, le système l'emporte avec son superviseur — le serveur n'y est pas détaché, et un
+enfant non détaché meurt avec son parent : ports rendus, mais sans arrêt propre (rien de ce
+qui suit l'arrêt, journal compris, ne s'exécute).
 
 ### 2. Ajouter sa propre commande
 

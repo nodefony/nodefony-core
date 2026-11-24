@@ -524,8 +524,13 @@ const IGNORE_OUTPUT_ERROR = (): void => {};
  * Un superviseur tué net (SIGKILL, `TerminateProcess`, console fermée) ne
  * prévient personne, et le serveur naît dans son propre groupe de process :
  * sans cet écouteur, il garderait ses ports, sans plus rien recharger ni
- * afficher. La perte du canal est le seul signal qui lui parvient sur les
- * trois plateformes — le patron des hôtes portés (`heldChannel.ts#serveHeldService`).
+ * afficher. La perte du canal est le seul signal qui lui parvient — le patron
+ * des hôtes portés (`heldChannel.ts#serveHeldService`).
+ *
+ * Sous Windows, l'écouteur n'est qu'un filet : le serveur n'y naît pas détaché
+ * (`devProcess.ts#spawnsAsGroupLeader`), et un enfant non détaché meurt avec
+ * son parent (job object de libuv). Le système l'emporte avant que la perte
+ * du canal ne lui parvienne — ports rendus, aucun arrêt propre (axiome 6).
  *
  * À la perte :
  * - les erreurs d'écriture de `outputs` sont absorbées : en rendu terminal, la
