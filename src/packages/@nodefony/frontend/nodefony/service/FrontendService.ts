@@ -140,6 +140,14 @@ class FrontendService extends Service implements IFrontendService {
    * qui doit l'être avant `onPostReady` (sinon ses hôtes sont balayés).
    */
   #held: IHeldServicesClient | null = null;
+
+  /**
+   * Génération de démarrage : avancée par chaque {@link stopDev}. Un
+   * `startDev` qui la trouve changée à son terme a été INTERROMPU par un arrêt
+   * (le superviseur relance le serveur pendant son démarrage) : les familles
+   * qu'il voit rejetées ont été arrêtées, elles n'ont pas échoué.
+   */
+  #devRun = 0;
   constructor(module: Module) {
     // Sans config déclarée, le module peut n'avoir reçu aucune section.
     const options = module.options as object | undefined;
@@ -352,6 +360,7 @@ class FrontendService extends Service implements IFrontendService {
    * famille n'a pu démarrer.
    */
   async startDev(): Promise<void> {
+    const run = this.#devRun;
     if (this.entries.length === 0) {
       throw new FrontendNoEntriesError();
     }
@@ -420,6 +429,16 @@ class FrontendService extends Service implements IFrontendService {
       }),
     );
 
+    // Arrêté pendant le démarrage : rien n'a échoué, chaque rejet vient de
+    // l'arrêt lui-même (client porté fermé, époque du teneur). Le dire en
+    // ERROR ferait chercher une panne qui n'existe pas.
+    if (run !== this.#devRun) {
+      this.log(
+        "frontend start interrupted by a stop — nothing failed",
+        "DEBUG",
+      );
+      return;
+    }
     results.forEach((res, i) => {
       if (res.status === "rejected") {
         const reason: unknown = res.reason;
@@ -649,6 +668,9 @@ class FrontendService extends Service implements IFrontendService {
   }
 
   async stopDev(): Promise<void> {
+    // AVANT le retour anticipé : un démarrage en cours peut n'avoir encore
+    // déclaré aucune famille, il doit quand même savoir qu'il est interrompu.
+    this.#devRun += 1;
     if (this.supervisors.size === 0) return;
     // allSettled : une instance qui throw au stop n'empêche pas d'arrêter
     // les autres. Un hôte PORTÉ n'est pas arrêté ici : son superviseur le

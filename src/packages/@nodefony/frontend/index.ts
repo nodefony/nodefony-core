@@ -119,6 +119,7 @@ export {
   FrontendPluginExportError,
   FrontendSupervisorStartError,
   FrontendNoEntriesError,
+  FrontendSvelteConfigConflictError,
 } from "./nodefony/src/errors/FrontendError";
 
 // Interfaces publiques.

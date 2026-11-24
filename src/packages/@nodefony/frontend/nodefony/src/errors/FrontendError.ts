@@ -80,6 +80,23 @@ export class FrontendPresetNotDescribedError extends FrontendError {
   }
 }
 
+/**
+ * Deux entrées Svelte d'une même instance Vite portent des configurations
+ * Svelte DIFFÉRENTES : un seul plugin les sert, il ne peut en lire qu'une.
+ * Choisir en silence compilerait l'un des modules avec le préprocesseur de
+ * l'autre — le build, lui, lit chacune à sa racine.
+ */
+export class FrontendSvelteConfigConflictError extends FrontendError {
+  constructor(first: string, second: string) {
+    super(
+      `Two different Svelte configs in the same Vite dev instance: "${first}" and "${second}" — one Svelte plugin can only load one. Make them identical, or keep a single svelte.config.* for these modules`,
+      "SVELTE_CONFIG_CONFLICT",
+      { first, second },
+    );
+    this.name = "FrontendSvelteConfigConflictError";
+  }
+}
+
 /** Aucune entrée front trouvée alors qu'on tente de démarrer le dev server. */
 export class FrontendNoEntriesError extends FrontendError {
   constructor() {
