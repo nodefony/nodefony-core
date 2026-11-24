@@ -24,6 +24,7 @@ import {
   type IHeldServiceImpl,
 } from "../service/dev/heldChannel";
 import {
+  DEV_HELD_PREFIX,
   isPidAlive,
   parsePsRow,
   rootProcesses,
@@ -277,6 +278,30 @@ describe.skipIf(process.platform === "win32")(
 );
 
 describe("nodefony status / stop — l'hôte porté est reconnu et visé", () => {
+  it("le préfixe que status reconnaît est celui que l'hôte pose (deux copies, une valeur)", () => {
+    expect(DEV_HELD_PREFIX).to.equal(HELD_HOST_TITLE_PREFIX);
+  });
+
+  it("devProcess.ts se charge tel quel par Node (scripts du dépôt) : aucun import relatif", () => {
+    const file = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "service",
+      "dev",
+      "devProcess.ts",
+    );
+    const r = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `await import(${JSON.stringify(pathToFileURL(file).href)});`,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(r.status, r.stderr).to.equal(0);
+  });
+
   it("parsePsRow : le titre ANCRÉ en tête, jamais cherché dans la ligne", () => {
     const row = parsePsRow("4242 4000 5000 0,5 01:02 nodefony-held[ai:llm]");
     expect(row).to.include({

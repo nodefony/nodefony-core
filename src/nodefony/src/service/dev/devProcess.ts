@@ -12,7 +12,6 @@ import {
 } from "node:fs";
 import net from "node:net";
 import path from "node:path";
-import { HELD_HOST_TITLE_PREFIX } from "./heldChannel";
 
 /**
  * Helpers d'INTROSPECTION des process de développement Nodefony — source de vérité
@@ -30,6 +29,14 @@ export const DEV_SUPERVISOR_TITLE = "nodefony-dev-supervisor";
 export const DEV_SERVER_TITLE = "nodefony-dev-server";
 /** Préfixe de titre des process Vite (`ViteProcessSupervisor`, via `argv0`). */
 export const DEV_VITE_PREFIX = "nodefony-vite";
+
+/**
+ * Préfixe de titre d'un hôte de service porté (`nodefony-held[<clé>]`). Même
+ * valeur que `heldChannel.ts#HELD_HOST_TITLE_PREFIX`, qui le POSE — recopiée,
+ * pas importée : ce fichier est chargé tel quel par Node (`scripts/repo/turbo.mjs`),
+ * où un import relatif sans extension ne se résout pas. Un test compare les deux.
+ */
+export const DEV_HELD_PREFIX = "nodefony-held";
 /**
  * Titre du serveur prod **mono-process** (`production` ou `cluster` avec `workers:1`,
  * posé par `Prod`/`ClusterCommand.generate`). Espace (≠ tiret de `nodefony-dev-server`)
@@ -1913,7 +1920,7 @@ function classify(command: string): {
     return { mode: "dev", role: "supervisor", label: "supervisor" };
   if (cmd.startsWith(DEV_SERVER_TITLE))
     return { mode: "dev", role: "server", label: "server" };
-  if (cmd.startsWith(HELD_HOST_TITLE_PREFIX)) {
+  if (cmd.startsWith(DEV_HELD_PREFIX)) {
     // `nodefony-held[<clé>]` : la clé en détail, hors colonne.
     const key = /^nodefony-held\[([^\]]*)\]/.exec(cmd)?.[1];
     return { mode: "dev", role: "held", label: "held", detail: key };
