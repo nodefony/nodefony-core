@@ -349,21 +349,25 @@ export function useNodefonyChannel(
   third?: ChannelHandler | React.DependencyList,
   fourth?: React.DependencyList,
 ): void {
+  // Les arguments se décident d'abord, le hook s'appelle ensuite, une seule
+  // fois et sans condition (règle des hooks) — des variables plutôt qu'un
+  // tuple : rien d'alloué à chaque rendu.
+  let socket: NodefonySocket | null;
+  let channel: string;
+  let handler: ChannelHandler;
+  let deps: React.DependencyList | undefined;
   if (typeof first === "string") {
-    useChannelSubscription(
-      null,
-      first,
-      requireChannelHandler(second, "useNodefonyChannel()"),
-      typeof third === "function" ? undefined : third,
-    );
+    socket = null;
+    channel = first;
+    handler = requireChannelHandler(second, "useNodefonyChannel()");
+    deps = typeof third === "function" ? undefined : third;
   } else {
-    useChannelSubscription(
-      first,
-      channelArg(second),
-      requireChannelHandler(third, "useNodefonyChannel()"),
-      fourth,
-    );
+    socket = first;
+    channel = channelArg(second);
+    handler = requireChannelHandler(third, "useNodefonyChannel()");
+    deps = fourth;
   }
+  useChannelSubscription(socket, channel, handler, deps);
 }
 
 /** Le nom de canal à sa place d'argument — sinon l'appel est mal formé. */
