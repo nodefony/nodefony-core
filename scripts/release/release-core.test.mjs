@@ -73,6 +73,7 @@ import {
   fusionnerChangelog,
   ordreTopologique,
   paquetsNonEstampilles,
+  versionFigee,
   verrouNonEstampille,
   pairsTropLarges,
   alignerReferencesInternes,
@@ -3353,5 +3354,24 @@ describe("analyserCommits — le squash se DÉCLARE (trailer Squash-Of), jamais 
         "chore(x): t (#1)\n\n- fix(a): b\n\nBREAKING CHANGE: global\nSquash-Of: #1",
       ),
     ).toEqual(["x:global"]);
+  });
+});
+
+describe("versionFigee — la version qu'un dist a gravée au build", () => {
+  it("lit la version du module émis pour un import de package.json", () => {
+    const emis =
+      '// package.json\nvar version = "10.0.2";\nvar engines = { "node": ">=24" };\nexport { engines, version };\n';
+    expect(versionFigee(emis)).toBe("10.0.2");
+  });
+
+  it("lit une variable renommée par le bundler (version$1)", () => {
+    expect(versionFigee('var version$1 = "10.0.3-beta.1";')).toBe(
+      "10.0.3-beta.1",
+    );
+  });
+
+  it("rend null quand le module ne fige aucune version", () => {
+    expect(versionFigee('var name = "nodefony";\nexport { name };')).toBeNull();
+    expect(versionFigee('var versionCode = "3";')).toBeNull();
   });
 });
