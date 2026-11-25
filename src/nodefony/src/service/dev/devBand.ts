@@ -47,6 +47,8 @@ export function helpBand(options: {
   readonly charset: ScreenCharset;
   readonly color: boolean;
   readonly mouse: boolean;
+  /** L'invite est branchée : ↑ ↓ y parcourent l'historique, plus le journal. */
+  readonly prompt?: boolean;
   readonly close: () => void;
 }): IDevBand {
   const ascii = options.charset === "ascii";
@@ -59,9 +61,24 @@ export function helpBand(options: {
       does: "idem en AZERTY, hors VS Code",
     },
     { keys: "PgUp PgDn", does: "défiler d'une page" },
-    { keys: ascii ? "haut bas" : "↑ ↓", does: "défiler d'une ligne" },
-    { keys: "Début Fin", does: "haut / retour au direct" },
   ];
+  if (options.prompt === true) {
+    gestures.push(
+      {
+        keys: ascii ? "haut bas Ctrl+P/N" : "↑ ↓ Ctrl+P/N",
+        does: "historique de l'invite",
+      },
+      { keys: ascii ? "droite" : "→", does: "accepter la suggestion" },
+      { keys: "Alt+Entrée", does: "saut de ligne" },
+      { keys: "Ctrl+W Ctrl+U", does: "effacer le mot / la ligne" },
+      { keys: "Début Fin", does: "invite vide : haut / direct" },
+    );
+  } else {
+    gestures.push(
+      { keys: ascii ? "haut bas" : "↑ ↓", does: "défiler d'une ligne" },
+      { keys: "Début Fin", does: "haut / retour au direct" },
+    );
+  }
   if (options.mouse) {
     gestures.push(
       { keys: "clic", does: "montrer un onglet" },
@@ -71,7 +88,9 @@ export function helpBand(options: {
   }
   gestures.push(
     { keys: "Échap", does: "effacer la sélection" },
-    { keys: "Ctrl+C", does: "arrêter le serveur" },
+    options.prompt === true
+      ? { keys: "Ctrl+C", does: "effacer ; invite vide : arrêter" }
+      : { keys: "Ctrl+C", does: "arrêter le serveur" },
   );
   const half = Math.ceil(gestures.length / 2);
   const keyWidth = gestures.reduce((w, g) => Math.max(w, g.keys.length), 0);

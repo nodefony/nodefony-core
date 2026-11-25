@@ -43,6 +43,7 @@ import {
   type DevPhase,
   type IFrame,
   type IFrameModel,
+  type IFramePrompt,
   type IFrameSize,
   type IFrameTabs,
   type IScrollAnchor,
@@ -84,6 +85,10 @@ import {
   type ScreenCharset,
 } from "./startupScreen";
 import { StatusLine, type IStatusStream } from "./statusLine";
+import { brandMiniMark } from "../../cli/brand";
+import { LineEditor, type IPromptRenderOptions } from "./lineEditor";
+import { PromptHistoryFile, describeHistorySkip } from "./promptHistory";
+import { promptVerb, type IPromptAction, type IPromptIO } from "./promptAction";
 
 /** Un flux de sortie du terminal, injectable en test. */
 export interface IDevTerminalStream extends IStatusStream {
@@ -122,6 +127,40 @@ export interface IDevTerminalOptions {
    * `inline`, le rendu de #533.
    */
   fullscreen?: IDevFullscreenOptions;
+}
+
+/** L'invite du plein écran (#538) : ce que {@link DevTerminal.attachPrompt} reçoit. */
+export interface IDevPromptOptions {
+  /** La racine du projet : l'historique y vit (`var/prompt-history.jsonl`). */
+  readonly root: string;
+  /** Les actions qu'Entrée sait lancer, essayées dans l'ordre. */
+  readonly actions: readonly IPromptAction[];
+}
+
+/** Le canal où l'invite écrit : l'écho de la saisie et la sortie des actions. */
+const PROMPT_CHANNEL = "prompt";
+
+/** L'état de l'invite branchée. Forme fixe, posée par `attachPrompt`. */
+interface IPromptState {
+  readonly history: PromptHistoryFile;
+  readonly actions: readonly IPromptAction[];
+  /** Un éditeur par onglet (ADR-0013 §11) : le brouillon survit au changement d'onglet. */
+  readonly editors: Map<string, LineEditor>;
+  readonly render: IPromptRenderOptions;
+  /** La marque réduite (`brandMiniMark`) : la barre se resserre sous l'invite. */
+  readonly mark: readonly string[];
+  /** L'historique a été demandé — à la première frappe, jamais au démarrage. */
+  loading: boolean;
+  /** La suggestion grisée, calculée pour `suggestionOf` à sa version `suggestionVersion`. */
+  suggestionOf: LineEditor | null;
+  suggestionVersion: number;
+  suggestion: string;
+  /** L'image de l'invite, filet compris, tirée de `frameSource` à `frameWidth`. */
+  frameSource: IFramePrompt | null;
+  frame: IFramePrompt | null;
+  frameWidth: number;
+  /** L'action en cours, qu'un Ctrl+C interrompt. */
+  running: AbortController | null;
 }
 
 /** Ce que le plein écran exige — rien n'y est deviné. */
@@ -479,6 +518,11 @@ export class DevTerminal {
   /** Tout ce que le plein écran possède — `null` sur la surface `inline`. */
   #full: IFullscreenState | null = null;
 
+  /** L'invite, une fois branchée (`attachPrompt`) — `null` sinon. */
+  #prompt: IPromptState | null = null;
+  /** Le foyer de la bande : l'invite se pose JUSTE APRÈS lui (D9). */
+  #bandHandle: IInputFocus | null = null;
+
   /**
    * @param options - flux, rendu de la barre, plafonds de l'historique, et
    *   le plein écran s'il est demandé.
@@ -740,8 +784,9 @@ export class DevTerminal {
   }
 
   /**
-   * Insère un foyer EN TÊTE de la chaîne : il voit les touches avant le
-   * défilement et l'arrêt (l'invite de #538 s'y branche).
+   * Insère un foyer EN TÊTE de la chaîne : il voit les touches avant la
+   * bande, l'invite, le défilement et l'arrêt. L'invite, elle, passe par
+   * {@link DevTerminal.attachPrompt}, qui la pose après la bande.
    *
    * @param focus - le foyer.
    * @returns son retrait.
@@ -754,6 +799,75 @@ export class DevTerminal {
       const index = full.foci.indexOf(focus);
       if (index !== -1) full.foci.splice(index, 1);
     };
+  }
+
+  /**
+   * Branche l'invite (#538) : un éditeur par onglet, l'historique du projet,
+   * et les actions qu'Entrée lance. Son foyer passe APRÈS celui de la bande
+   * (une bande ouverte garde le clavier, D9) et avant le défilement ; la
+   * barre se resserre sous elle. Sans plein écran : rien — aucun clavier
+   * n'est lu en surface `inline`.
+   *
+   * @param options - racine du projet et actions.
+   * @returns son retrait.
+   */
+  attachPrompt(options: IDevPromptOptions): () => void {
+    const full = this.#full;
+    if (!full || this.#prompt !== null) return () => {};
+    const state: IPromptState = {
+      history: new PromptHistoryFile(options.root, (error) =>
+        this.#notify(
+          full,
+          `historique de l'invite non écrit : ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      ),
+      actions: options.actions,
+      editors: new Map(),
+      render: {
+        sigil: this.#charset === "ascii" ? "> " : "❯ ",
+        placeholder: `${options.actions.map((action) => action.id).join(" · ")} — ? aide · Alt+Entrée saut de ligne`,
+        color: this.#color,
+      },
+      mark: brandMiniMark(this.#charset, this.#color),
+      loading: false,
+      suggestionOf: null,
+      suggestionVersion: -1,
+      suggestion: "",
+      frameSource: null,
+      frame: null,
+      frameWidth: -1,
+      running: null,
+    };
+    this.#prompt = state;
+    const focus = this.#promptFocus(full, state);
+    const band =
+      this.#bandHandle === null ? -1 : full.foci.indexOf(this.#bandHandle);
+    full.foci.splice(band + 1, 0, focus);
+    this.#scheduleFrame();
+    return () => {
+      if (this.#prompt !== state) return;
+      state.running?.abort();
+      this.#prompt = null;
+      const index = full.foci.indexOf(focus);
+      if (index !== -1) full.foci.splice(index, 1);
+      this.#scheduleFrame();
+    };
+  }
+
+  /**
+   * La fin des écritures de l'historique de l'invite — à attendre avant de
+   * quitter.
+   *
+   * @returns la promesse de la dernière écriture.
+   */
+  flushPrompt(): Promise<void> {
+    return this.#prompt?.history.flush() ?? Promise.resolve();
+  }
+
+  /** Ouvre l'aide des gestes (le verbe `help`, F1, `?` sur une invite vide). */
+  showHelp(): void {
+    const full = this.#full;
+    if (full) this.#openHelp(full);
   }
 
   /**
@@ -973,7 +1087,9 @@ export class DevTerminal {
     };
     if (full.mouse) full.foci.push(this.#mouseFocus(full));
     full.foci.push(this.#scrollFocus(full), this.#globalFocus(full));
-    full.foci.unshift(this.#bandFocus(full));
+    const band = this.#bandFocus(full);
+    this.#bandHandle = band;
+    full.foci.unshift(band);
     this.#full = full;
     this.#surface = "fullscreen";
     full.releaseGuard = guardTerminal(() => this.#restoreTerminal(full));
@@ -1272,8 +1388,10 @@ export class DevTerminal {
 
   /**
    * Foyer de défilement : molette captée, flèches (la molette en envoie en
-   * mode 1007), PgUp, PgDn, Début, Fin. Une flèche venue de la molette est indiscernable d'une
-   * flèche tapée : l'historique de l'invite (#538) prendra Ctrl+P / Ctrl+N.
+   * mode 1007), PgUp, PgDn, Début, Fin. Invite branchée, ↑/↓ lui reviennent
+   * (l'historique) : la molette captée — le défaut sous macOS et Linux —
+   * arrive en `wheel`, jamais en flèche ; souris laissée au terminal, une
+   * flèche venue de la molette est indiscernable d'une flèche tapée.
    */
   #scrollFocus(full: IFullscreenState): IInputFocus {
     return {
@@ -1359,6 +1477,203 @@ export class DevTerminal {
     return this.#bands.at(-1) ?? null;
   }
 
+  /** L'éditeur de l'onglet affiché — alloué à sa première frappe ou image. */
+  #editorOf(state: IPromptState): LineEditor {
+    const id = this.#active.id;
+    let editor = state.editors.get(id);
+    if (editor === undefined) {
+      editor = new LineEditor();
+      state.editors.set(id, editor);
+    }
+    return editor;
+  }
+
+  /**
+   * Foyer de l'invite : la frappe, le collage et les touches d'édition vont à
+   * l'éditeur de l'onglet affiché. ↑/↓ et Ctrl+P/Ctrl+N restent à l'invite
+   * — l'historique — même sans rien à rappeler : la molette captée arrive en
+   * évènement `wheel`, jamais en flèche. Le reste passe : PgUp/PgDn au
+   * défilement, Ctrl+C/Ctrl+D sur une invite vide à l'arrêt, `?` sur une
+   * invite vide à l'aide.
+   */
+  #promptFocus(full: IFullscreenState, state: IPromptState): IInputFocus {
+    return {
+      handle: (event) => {
+        if (
+          event.kind !== "text" &&
+          event.kind !== "paste" &&
+          event.kind !== "key"
+        ) {
+          return false;
+        }
+        if (
+          event.kind === "key" &&
+          event.ctrl &&
+          !event.alt &&
+          event.key === "c" &&
+          state.running !== null
+        ) {
+          state.running.abort();
+          return true;
+        }
+        if (!state.loading) {
+          state.loading = true;
+          void this.#loadPromptHistory(state);
+        }
+        const editor = this.#editorOf(state);
+        const result = editor.handle(
+          event,
+          state.history.history.source(this.#active.id),
+        );
+        if (result === "submit") {
+          this.#submit(full, state, editor);
+          return true;
+        }
+        if (result === "changed") {
+          this.#scheduleFrame();
+          return true;
+        }
+        return (
+          event.kind === "key" &&
+          !event.alt &&
+          !event.shift &&
+          (event.ctrl
+            ? event.key === "p" || event.key === "n"
+            : event.key === "up" || event.key === "down")
+        );
+      },
+    };
+  }
+
+  /** L'historique lu (première frappe) : la suggestion est à recalculer. */
+  async #loadPromptHistory(state: IPromptState): Promise<void> {
+    await state.history.load();
+    state.suggestionVersion = -1;
+    this.#scheduleFrame();
+  }
+
+  /**
+   * Entrée : la saisie part — écho dans le journal, historique, puis l'action
+   * qui la reconnaît. Envoyer ramène le journal au direct. Une seule action à
+   * la fois : la saisie reste dans le tampon tant qu'une autre tourne.
+   */
+  #submit(
+    full: IFullscreenState,
+    state: IPromptState,
+    editor: LineEditor,
+  ): void {
+    if (state.running !== null) {
+      this.#notify(full, "une commande tourne encore — Ctrl+C l'interrompt");
+      return;
+    }
+    const text = editor.take();
+    this.#setAnchor(null);
+    this.#scheduleFrame();
+    if (text.trim() === "") return;
+    this.ingest(PROMPT_CHANNEL, "out", `${state.render.sigil}${text}\n`);
+    const kept = state.history.remember(text, this.#active.id, Date.now());
+    if (!kept.kept && kept.reason !== "empty") {
+      this.#notify(full, describeHistorySkip(kept.reason));
+    }
+    const action = state.actions.find((candidate) => candidate.matches(text));
+    if (action === undefined) {
+      this.ingest(
+        PROMPT_CHANNEL,
+        "err",
+        `commande inconnue : ${promptVerb(text)} — help pour l'aide\n`,
+      );
+      return;
+    }
+    const controller = new AbortController();
+    state.running = controller;
+    void this.#runAction(
+      state,
+      action,
+      text,
+      controller,
+      kept.kept ? kept.entry : null,
+    );
+  }
+
+  /** Lance une action ; son code et sa durée rejoignent l'entrée d'historique. */
+  async #runAction(
+    state: IPromptState,
+    action: IPromptAction,
+    text: string,
+    controller: AbortController,
+    entry: { code: number | null; durationMs: number | null } | null,
+  ): Promise<void> {
+    const started = performance.now();
+    const io: IPromptIO = {
+      write: (chunk, stream = "out") =>
+        this.ingest(PROMPT_CHANNEL, stream, chunk),
+      // Confirmer et prêter le terminal arrivent avec les commandes du CLI
+      // (lot 2) : aucun verbe du superviseur n'en a besoin.
+      confirm: () =>
+        Promise.reject(new Error("confirmation indisponible dans l'invite")),
+      suspend: () =>
+        Promise.reject(new Error("le terminal ne se prête pas encore")),
+      columns: this.#size().columns,
+    };
+    let code = 1;
+    try {
+      code = await action.run(text, io, controller.signal);
+    } catch (error) {
+      this.ingest(
+        PROMPT_CHANNEL,
+        "err",
+        `${action.id} : ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+    } finally {
+      if (state.running === controller) state.running = null;
+    }
+    if (entry !== null) {
+      entry.code = code;
+      entry.durationMs = Math.round(performance.now() - started);
+    }
+  }
+
+  /**
+   * L'image de l'invite de l'onglet affiché, son filet au-dessus — `null`
+   * sans invite. Rejouée tant que ni l'éditeur ni la largeur n'ont bougé :
+   * `#model` la redemande à chaque image.
+   */
+  #promptFrame(): IFramePrompt | null {
+    const state = this.#prompt;
+    if (state === null) return null;
+    const editor = this.#editorOf(state);
+    if (
+      state.suggestionOf !== editor ||
+      state.suggestionVersion !== editor.version
+    ) {
+      state.suggestionOf = editor;
+      state.suggestionVersion = editor.version;
+      state.suggestion = editor.suggestion(
+        state.history.history.source(this.#active.id),
+      );
+    }
+    const width = Math.max(1, this.#size().columns - 1);
+    const drawn = editor.render(width, state.render, state.suggestion);
+    if (
+      state.frame !== null &&
+      state.frameSource === drawn &&
+      state.frameWidth === width
+    ) {
+      return state.frame;
+    }
+    const rule = "─".repeat(width);
+    state.frame = {
+      lines: [
+        state.render.color ? `\x1b[2m${rule}\x1b[0m` : rule,
+        ...drawn.lines,
+      ],
+      cursor: { row: drawn.cursor.row + 1, column: drawn.cursor.column },
+    };
+    state.frameSource = drawn;
+    state.frameWidth = width;
+    return state.frame;
+  }
+
   /**
    * Foyer de la bande, en tête de chaîne : le clavier va à la bande ouverte,
    * sauf Ctrl+C et Ctrl+D ; la souris seulement sur son rectangle, en
@@ -1401,6 +1716,7 @@ export class DevTerminal {
         charset: this.#charset,
         color: this.#color,
         mouse: full.mouse,
+        prompt: this.#prompt !== null,
         close: () => this.#closeHelp?.(),
       }),
     );
@@ -1426,6 +1742,8 @@ export class DevTerminal {
     const index = this.#views.indexOf(view);
     if (index <= 0) return;
     this.#views.splice(index, 1);
+    // Son brouillon part avec lui.
+    this.#prompt?.editors.delete(view.id);
     for (const channel of this.#history.channels()) {
       if (view.match(channel) && !this.#claimed(channel)) {
         this.#history.drop(channel);
@@ -1590,7 +1908,8 @@ export class DevTerminal {
             },
       color: this.#color,
       charset: this.#charset,
-      mark: this.#mark,
+      // Sous l'invite, la barre se resserre : la marque réduite le lui dit.
+      mark: this.#prompt?.mark ?? this.#mark,
       heights: view.heights,
       statusBar: full.statusBar,
       ...(view.floorSeq === undefined ? {} : { floorSeq: view.floorSeq }),
@@ -1602,6 +1921,7 @@ export class DevTerminal {
         : "",
       tabs: this.#tabs(views),
       band: this.#bands.at(-1) ?? null,
+      prompt: this.#promptFrame(),
       selection:
         full.selection === null ||
         (full.selection.unit === "char" && !full.dragged)

@@ -132,6 +132,33 @@ export class RestartCycle {
     } finally {
       this.#busy = false;
     }
+    this.#replay();
+  }
+
+  /**
+   * Relance le serveur MAINTENANT, sans reconstruire (le verbe `restart` de
+   * l'invite) — sous la même garde qu'un cycle : jamais deux remplacements
+   * concurrents, et une sauvegarde arrivée pendant lui est rejouée.
+   *
+   * @returns `false` si un cycle est en vol, le serveur suspendu ou un arrêt
+   *   demandé : rien n'est lancé.
+   */
+  async restartNow(): Promise<boolean> {
+    if (this.#busy || this.#steps.isStopping() || this.#steps.isSuspended()) {
+      return false;
+    }
+    this.#busy = true;
+    try {
+      await this.#steps.swap();
+    } finally {
+      this.#busy = false;
+    }
+    this.#replay();
+    return true;
+  }
+
+  /** Les sauvegardes notées pendant un cycle : un nouveau cycle part. */
+  #replay(): void {
     if (!this.#pending || this.#steps.isStopping()) return;
     this.#pending = false;
     // Un rejeu sans fichier relancerait le serveur pour rien.
