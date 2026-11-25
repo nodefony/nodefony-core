@@ -8,7 +8,25 @@
  * filtre, sans rouvrir le terminal.
  */
 import type { DevHistory, MergedTranscript } from "./devHistory";
-import { FrameHeights, type IScrollAnchor } from "./devFrame";
+import { FrameHeights, type IScrollAnchor, type ViewOutcome } from "./devFrame";
+
+/** Ce qu'on donne pour ouvrir un onglet à la volée (`DevTerminal.addView`). */
+export interface IDevViewSpec {
+  /** Identifiant stable et unique (`agent:3`). */
+  readonly id: string;
+  /** Le libellé de l'onglet. */
+  readonly title: string;
+  /** Son canal (`agent:3`), ou le filtre de ses canaux. */
+  readonly channels: string | ((channel: string) => boolean);
+}
+
+/** La poignée d'un onglet ouvert à la volée : qui l'ouvre le referme. */
+export interface IDevViewHandle {
+  /** Son travail est fini : ✓ ou ✗ après le titre, jusqu'à sa fermeture. */
+  finish(outcome: ViewOutcome): void;
+  /** Le referme et libère l'historique de ses canaux ; sans effet la 2ᵉ fois. */
+  close(): void;
+}
 
 /** Un onglet : ses canaux, sa position de lecture, ce qu'il n'a pas montré. */
 export class DevView {
@@ -17,6 +35,8 @@ export class DevView {
   readonly title: string;
   /** Dit si un canal appartient à l'onglet — un canal ouvert plus tard y entre seul. */
   readonly match: (channel: string) => boolean;
+  /** Montré dès son ouverture, même vide (un onglet ouvert à la volée). */
+  readonly alwaysShown: boolean;
   /** Ses canaux, fusionnés dans l'ordre des numéros. */
   readonly transcript: MergedTranscript;
   /** Son cache de repli : chaque onglet replie ses propres entrées. */
@@ -29,22 +49,27 @@ export class DevView {
   seenSeq = 0;
   /** Une sortie d'erreur est arrivée pendant qu'il était caché. */
   alert = false;
+  /** L'issue de son travail, `null` tant qu'il tourne. */
+  outcome: ViewOutcome | null = null;
 
   /**
    * @param history - l'historique par canal.
    * @param id - identifiant stable de l'onglet.
    * @param title - son libellé.
    * @param match - ses canaux.
+   * @param alwaysShown - montré même vide.
    */
   constructor(
     history: DevHistory,
     id: string,
     title: string,
     match: (channel: string) => boolean,
+    alwaysShown = false,
   ) {
     this.id = id;
     this.title = title;
     this.match = match;
+    this.alwaysShown = alwaysShown;
     this.transcript = history.merge(match);
   }
 

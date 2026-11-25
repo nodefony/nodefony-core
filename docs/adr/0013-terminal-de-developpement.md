@@ -677,7 +677,8 @@ d'onglet garde le brouillon. Le résultat d'une commande s'affiche dans l'onglet
 tapée. **Plusieurs fenêtres ne vivent que DANS un onglet** : la vue reçoit son rectangle et des
 coordonnées locales, et le découpe comme elle veut (un onglet de supervision à graphes) ; le
 layout principal n'en sait rien. **Les onglets se créent et se détruisent à la volée** (un
-sous-agent ouvre le sien) : `addView` rend sa fermeture, qui libère aussi l'historique du canal.
+sous-agent ouvre le sien) : `addView` rend sa poignée — `close`, qui libère aussi l'historique du
+canal, et `finish`, qui marque l'issue ✓ / ✗ jusqu'à la fermeture.
 
 **Trois contrats de branchement**, dans `src/nodefony/src/service/dev/` :
 
@@ -689,7 +690,7 @@ interface IDevView {
   render(rect: IRegion): IViewFrame; // segments + origines (entrée, colonne) de chaque ligne
   handle?(event: InputEvent): boolean; // foyer local, coordonnées de la région
 }
-// addView(view) rend sa fermeture, comme openBand : qui crée l'onglet le détruit.
+// addView(spec) rend sa poignée { finish, close } : qui crée l'onglet le détruit.
 interface IDevBand {
   readonly height: number; // lignes demandées, bornées par la mise en page
   render(rect: IRegion): IViewFrame;
@@ -714,6 +715,14 @@ interface IDevBand {
   sans onglet. La ligne d'onglets n'apparaît que quand un second onglet a quelque chose à montrer —
   sans Vite, l'écran reste celui d'une seule vue. La page propre d'`ESC[2J` et l'indicateur du
   superviseur restent dans l'onglet `serveur` ; changer d'onglet efface la sélection.
+- **Onglets à la volée livrés à l'étape 4** (`DevTerminal.ts#DevTerminal.addView`) : un onglet
+  ouvert par un producteur paraît dès l'ouverture, même vide, et prend ses canaux à `serveur`,
+  devenu le complément de TOUS les autres onglets. Sa poignée rend `finish` (✓ / ✗ après le
+  titre) et `close` (retour à `serveur` s'il était à l'écran, historique de ses canaux libéré).
+  Une poignée plutôt que la seule fermeture : l'issue appartient à qui a ouvert l'onglet, sans
+  chercher l'onglet par son identifiant. Trop d'onglets pour la largeur : une fenêtre autour de
+  l'actif, bordée de `‹ +3` / `+2 ›` — un clic sur la marque montre le voisin caché, et la
+  marque passe au gras ou au rouge quand un onglet qu'elle cache a reçu des lignes ou une erreur.
 - **Régions sales** : chaque mutateur marque la sienne (§5) ; l'image ne rend que celles-là
   (§9).
 

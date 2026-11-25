@@ -80,6 +80,9 @@ export interface IFramePrompt {
   readonly cursor: { row: number; column: number };
 }
 
+/** L'issue d'un onglet dont le travail est fini (un sous-agent) : ✓ ou ✗. */
+export type ViewOutcome = "ok" | "failed";
+
 /** Un onglet, tel que sa ligne le montre. */
 export interface IFrameTab {
   readonly title: string;
@@ -87,6 +90,8 @@ export interface IFrameTab {
   readonly unseen: number;
   /** L'une d'elles vient d'une sortie d'erreur : le compteur passe au rouge. */
   readonly alert: boolean;
+  /** Son travail est fini : ✓ ou ✗ après le titre, jusqu'à sa fermeture. */
+  readonly outcome?: ViewOutcome | null;
 }
 
 /** La ligne d'onglets : les onglets dans l'ordre, et lequel est actif. */
@@ -95,10 +100,15 @@ export interface IFrameTabs {
   readonly active: number;
 }
 
-/** Les colonnes d'un onglet sur sa ligne, `[start, end)` — ce qu'un clic vise. */
+/**
+ * Les colonnes d'une zone cliquable de la ligne, `[start, end)`, et le rang
+ * de l'onglet qu'elle montre — un onglet, ou une marque de débordement
+ * (`‹ +3`), qui montre le voisin caché le plus proche.
+ */
 export interface ITabSpan {
   readonly start: number;
   readonly end: number;
+  readonly index: number;
 }
 
 /** Tout ce que l'image lit. */
@@ -369,28 +379,98 @@ function unseenLine(count: number, model: IFrameModel): string {
 /**
  * La ligne d'onglets : ` 1 serveur  2 vite ·5 `. L'actif en vidéo inverse
  * (entre crochets sans couleur, à largeur égale) ; le compteur d'un onglet
- * caché en gras, en rouge quand une erreur y est arrivée.
+ * caché en gras, en rouge quand une erreur y est arrivée ; ✓ / ✗ quand son
+ * travail est fini. Trop large : une fenêtre autour de l'actif, bordée de
+ * `‹ +3` / `+2 ›` (un onglet plus long que la ligne seul y reste, coupé par
+ * le terminal).
  *
  * @param tabs - les onglets.
  * @param model - couleur et jeu de caractères.
- * @returns la ligne, et les colonnes de chaque onglet.
+ * @param width - colonnes disponibles.
+ * @returns la ligne, et les zones cliquables avec l'onglet que chacune montre.
  */
 function tabsLine(
   tabs: IFrameTabs,
   model: IFrameModel,
+  width: number,
 ): { text: string; spans: ITabSpan[] } {
-  const dot = model.charset === "ascii" ? "*" : "·";
+  const ascii = model.charset === "ascii";
+  const dot = ascii ? "*" : "·";
+  const count = tabs.items.length;
+  const heads: string[] = [];
+  const counters: string[] = [];
+  const widths = new Uint32Array(count);
+  let total = 0;
+  for (let i = 0; i < count; i++) {
+    const tab = tabs.items[i];
+    const outcome =
+      tab?.outcome === "ok"
+        ? ascii
+          ? " +"
+          : " ✓"
+        : tab?.outcome === "failed"
+          ? ascii
+            ? " x"
+            : " ✗"
+          : "";
+    const head = `${i + 1} ${sanitizeTerminalText(tab?.title ?? "")}${outcome}`;
+    const counter =
+      tab !== undefined && tab.unseen > 0 ? ` ${dot}${tab.unseen}` : "";
+    heads.push(head);
+    counters.push(counter);
+    widths[i] = visibleWidth(head) + visibleWidth(counter) + 2;
+    total += widths[i] ?? 0;
+  }
+  // Trop large : une fenêtre autour de l'actif, élargie tant qu'elle tient,
+  // et une marque de chaque côté qui compte les onglets cachés (`‹ +3`).
+  let lo = 0;
+  let hi = count - 1;
+  if (total > width && count > 1) {
+    const active = Math.min(Math.max(tabs.active, 0), count - 1);
+    const left = (hidden: number): number =>
+      hidden === 0 ? 0 : String(hidden).length + 5;
+    lo = active;
+    hi = active;
+    let used = widths[active] ?? 0;
+    for (;;) {
+      let grew = false;
+      const right = widths[hi + 1];
+      if (
+        right !== undefined &&
+        used + right + left(lo) + left(count - hi - 2) <= width
+      ) {
+        hi++;
+        used += right;
+        grew = true;
+      }
+      const before = lo > 0 ? (widths[lo - 1] ?? 0) : -1;
+      if (
+        before !== -1 &&
+        used + before + left(lo - 1) + left(count - hi - 1) <= width
+      ) {
+        lo--;
+        used += before;
+        grew = true;
+      }
+      if (!grew) break;
+    }
+  }
   let text = "";
   let column = 0;
   const spans: ITabSpan[] = [];
-  for (let i = 0; i < tabs.items.length; i++) {
+  if (lo > 0) {
+    const mark = ` ${ascii ? "<" : "‹"} +${lo} `;
+    spans.push({ start: 0, end: mark.length, index: lo - 1 });
+    column = mark.length;
+    text += overflowMark(mark, tabs.items, 0, lo, model);
+  }
+  for (let i = lo; i <= hi; i++) {
     const tab = tabs.items[i];
-    if (tab === undefined) continue;
-    const head = `${i + 1} ${sanitizeTerminalText(tab.title)}`;
-    const counter = tab.unseen > 0 ? ` ${dot}${tab.unseen}` : "";
-    const width = visibleWidth(head) + visibleWidth(counter) + 2;
-    spans.push({ start: column, end: column + width });
-    column += width;
+    const head = heads[i] ?? "";
+    const counter = counters[i] ?? "";
+    const end = column + (widths[i] ?? 0);
+    spans.push({ start: column, end, index: i });
+    column = end;
     if (i === tabs.active) {
       text += model.color
         ? `\x1b[7m ${head}${counter} \x1b[0m`
@@ -398,10 +478,40 @@ function tabsLine(
     } else if (!model.color || counter === "") {
       text += ` ${head}${counter} `;
     } else {
-      text += ` ${head}${tab.alert ? "\x1b[1;31m" : "\x1b[1m"}${counter}\x1b[0m `;
+      text += ` ${head}${tab?.alert === true ? "\x1b[1;31m" : "\x1b[1m"}${counter}\x1b[0m `;
     }
   }
+  if (hi < count - 1) {
+    const hidden = count - 1 - hi;
+    const mark = ` +${hidden} ${ascii ? ">" : "›"} `;
+    spans.push({ start: column, end: column + mark.length, index: hi + 1 });
+    text += overflowMark(mark, tabs.items, hi + 1, count, model);
+  }
   return { text, spans };
+}
+
+/**
+ * Une marque de débordement : en rouge si un onglet qu'elle cache a reçu une
+ * erreur, en gras s'il a reçu des lignes — un compteur caché reste vu.
+ */
+function overflowMark(
+  mark: string,
+  items: readonly IFrameTab[],
+  from: number,
+  to: number,
+  model: IFrameModel,
+): string {
+  if (!model.color) return mark;
+  let alert = false;
+  let unseen = false;
+  for (let i = from; i < to; i++) {
+    const tab = items[i];
+    if (tab === undefined) continue;
+    if (tab.alert) alert = true;
+    if (tab.unseen > 0) unseen = true;
+  }
+  if (alert) return `\x1b[1;31m${mark}\x1b[0m`;
+  return unseen ? `\x1b[1m${mark}\x1b[0m` : `\x1b[2m${mark}\x1b[0m`;
 }
 
 /** Les lignes du journal et, en parallèle, leur origine. */
@@ -684,7 +794,7 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   const unseen =
     model.anchor === null ? 0 : model.transcript.countAfter(model.anchor.seq);
   const indicator = unseen > 0 ? [unseenLine(unseen, model)] : [];
-  const tabs = model.tabs ? tabsLine(model.tabs, model) : null;
+  const tabs = model.tabs ? tabsLine(model.tabs, model, width) : null;
   // Les hauteurs viennent de la mise en page (`devLayout.ts`), seule source :
   // la barre, l'invite puis les onglets d'abord, la vue prend le reste ;
   // l'indicateur est DANS la vue. Négatif quand la hauteur manque — tout

@@ -597,8 +597,8 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
     expect(frame.lines[8]).to.equal("l30");
     expect(frame.origins?.[9]).to.equal(null);
     expect(frame.tabs?.spans).to.deep.equal([
-      { start: 0, end: 11 },
-      { start: 11, end: 22 },
+      { start: 0, end: 11, index: 0 },
+      { start: 11, end: 22, index: 1 },
     ]);
     expect(frameJournalRows(model(t, { status: null, tabs }), size)).to.equal(
       9,
@@ -634,5 +634,74 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
     expect(frame.lines).to.have.length(1);
     expect(frame.tabs).to.equal(undefined);
     expect(frame.lines.join("\n")).to.not.include("serveur");
+  });
+
+  const many = (active: number, alertAt = -1) => ({
+    active,
+    items: Array.from({ length: 6 }, (_, i) => ({
+      title: `a${i + 1}`,
+      unseen: i === alertAt ? 1 : 0,
+      alert: i === alertAt,
+    })),
+  });
+
+  it("trop d'onglets pour la largeur : une fenêtre autour de l'actif, « ‹ +3 » compte les cachés, et un clic sur la marque vise le voisin", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), { status: null, tabs: many(3) }),
+      { columns: 27, rows: 10 },
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      " ‹ +3 [4 a4] 5 a5  6 a6 ",
+    );
+    expect(frame.tabs?.spans).to.deep.equal([
+      { start: 0, end: 6, index: 2 },
+      { start: 6, end: 12, index: 3 },
+      { start: 12, end: 18, index: 4 },
+      { start: 18, end: 24, index: 5 },
+    ]);
+  });
+
+  it("l'actif au bout de la ligne : la fenêtre s'élargit vers la gauche", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), { status: null, tabs: many(5) }),
+      { columns: 27, rows: 10 },
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      " ‹ +3  4 a4  5 a5 [6 a6]",
+    );
+  });
+
+  it("une erreur dans un onglet caché par le débordement met sa marque au rouge", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        color: true,
+        tabs: many(0, 5),
+      }),
+      { columns: 21, rows: 10 },
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      "\x1b[7m 1 a1 \x1b[0m 2 a2 \x1b[1;31m +4 › \x1b[0m",
+    );
+  });
+
+  it("un onglet dont le travail est fini porte ✓ ou ✗ après son titre", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        tabs: {
+          active: 0,
+          items: [
+            { title: "serveur", unseen: 0, alert: false },
+            { title: "agent", unseen: 0, alert: false, outcome: "ok" },
+            { title: "build", unseen: 0, alert: false, outcome: "failed" },
+          ],
+        },
+      }),
+      size,
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      "[1 serveur] 2 agent ✓  3 build ✗ ",
+    );
   });
 });

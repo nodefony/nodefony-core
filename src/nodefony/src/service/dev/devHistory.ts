@@ -424,6 +424,16 @@ export class MergedTranscript {
   }
 
   /**
+   * Refait la liste des canaux à la prochaine lecture : `match` a changé de
+   * réponse sans qu'aucun canal s'ouvre ni se ferme (un onglet ajouté prend
+   * ses canaux à l'onglet `serveur`).
+   */
+  refresh(): void {
+    this.#version = -1;
+    this.#layout = -1;
+  }
+
+  /**
    * Périme le curseur si l'historique a changé ; ne refait la liste des
    * anneaux que si un canal s'est ouvert ou fermé.
    */

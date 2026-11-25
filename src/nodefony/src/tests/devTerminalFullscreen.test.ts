@@ -1385,3 +1385,91 @@ describe("plein écran — onglets serveur et vite (#903)", () => {
     terminal.close();
   });
 });
+
+describe("plein écran — onglets ouverts à la volée (#903, N8)", () => {
+  it("addView : l'onglet paraît dès l'ouverture, même vide, et prend son canal au serveur — même déjà écrit", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(2));
+    terminal.ingest("agent:1", "out", "avant\n");
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.include("avant");
+    terminal.addView({ id: "agent:1", title: "agent", channels: "agent:1" });
+    terminal.addView({ id: "agent:2", title: "vide", channels: "agent:2" });
+    await nextFrame();
+    let shown = await screen(stdout.written);
+    expect(shown).to.include("[1 serveur] 2 agent ·1  3 vide ");
+    expect(shown.join("\n")).to.not.include("avant");
+    input.type("\x1b2");
+    await nextFrame();
+    shown = await screen(stdout.written);
+    expect(terminal.activeView).to.equal("agent:1");
+    expect(shown[0]).to.equal("avant");
+    terminal.close();
+  });
+
+  it("finish marque l'issue ; close à l'écran ramène le serveur, retire l'onglet et libère l'historique du canal", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(2));
+    const view = terminal.addView({
+      id: "agent:1",
+      title: "agent",
+      channels: (channel) => channel.startsWith("agent:1"),
+    });
+    terminal.ingest("agent:1", "out", "travail\n");
+    terminal.ingest("agent:1/outil", "out", "outil\n");
+    await nextFrame();
+    input.type("\x1b2");
+    await nextFrame();
+    view.finish("failed");
+    await nextFrame();
+    expect(
+      (await screen(stdout.written)).find((l) => l.includes("agent")),
+    ).to.equal(" 1 serveur [2 agent ✗]");
+    view.close();
+    view.close();
+    await nextFrame();
+    expect(terminal.activeView).to.equal("server");
+    expect(terminal.history.channel("agent:1")).to.equal(undefined);
+    expect(terminal.history.channel("agent:1/outil")).to.equal(undefined);
+    const shown = (await screen(stdout.written)).join("\n");
+    expect(shown).to.not.include("agent");
+    expect(shown).to.include("ligne 2");
+    terminal.close();
+  });
+
+  it("un identifiant déjà ouvert est refusé en le nommant", () => {
+    const { terminal } = fullscreen();
+    terminal.addView({ id: "agent:1", title: "agent", channels: "agent:1" });
+    expect(() =>
+      terminal.addView({ id: "agent:1", title: "bis", channels: "agent:1" }),
+    ).to.throw("agent:1");
+    expect(() =>
+      terminal.addView({ id: "vite", title: "bis", channels: "x" }),
+    ).to.throw("vite");
+    terminal.close();
+  });
+
+  it("--mouse, trop d'onglets pour la largeur : un clic sur « ‹ +N » montre le voisin caché", async () => {
+    const { stdout, input, terminal } = fullscreen({
+      mouse: true,
+      columns: 30,
+    });
+    terminal.ingest("server", "out", lines(1));
+    for (let i = 1; i <= 6; i++) {
+      terminal.addView({ id: `a${i}`, title: `a${i}`, channels: `a${i}` });
+    }
+    await nextFrame();
+    input.type("\x1b7");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("a6");
+    const shown = await screen(stdout.written);
+    const row = shown.findIndex((l) => l.includes("‹ +"));
+    expect(row).to.not.equal(-1);
+    const column = (shown[row] ?? "").indexOf("‹") + 1;
+    input.type(press(column, row + 1) + release(column, row + 1));
+    await nextFrame();
+    expect(terminal.activeView).to.not.equal("a6");
+    expect(terminal.activeView).to.match(/^a\d$/);
+    terminal.close();
+  });
+});

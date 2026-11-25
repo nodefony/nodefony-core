@@ -24,8 +24,9 @@
  * écriture. Le clavier passe en mode brut ; ses évènements traversent une
  * chaîne de foyers (§4) — défilement, puis global (Ctrl+C, Ctrl+D, Alt+1 à
  * Alt+9). L'écran montre un ONGLET à la fois (§11, #903) : `serveur` (tout
- * sauf Vite) et `vite` (`vite:*`) ; la ligne d'onglets n'apparaît que quand
- * le second a quelque chose à montrer.
+ * canal qu'aucun autre onglet ne retient), `vite` (`vite:*`), et ceux qu'un
+ * producteur ouvre à la volée ({@link DevTerminal.addView}) ; la ligne
+ * d'onglets n'apparaît que quand un second a quelque chose à montrer.
  */
 import { StringDecoder } from "node:string_decoder";
 import { BRAILLE_FRAMES, LINE_FRAMES } from "../../cli/progress";
@@ -70,7 +71,7 @@ import {
   type ITranscriptEntry,
 } from "./devTranscript";
 import { DevHistory, type IDevHistoryOptions } from "./devHistory";
-import { DevView } from "./devView";
+import { DevView, type IDevViewHandle, type IDevViewSpec } from "./devView";
 import type { ProcessOutputStream } from "./heldChannel";
 import { CLEAR_SCREEN } from "./outputMode";
 import {
@@ -389,14 +390,6 @@ function isVite(channel: string): boolean {
 }
 
 /**
- * Tout le reste — serveur, superviseur, autres services portés : l'onglet
- * `serveur` est le complément des autres, aucun canal ne reste sans onglet.
- */
-function isNotVite(channel: string): boolean {
-  return !channel.startsWith("vite:");
-}
-
-/**
  * Le terminal de développement : historique + surface `inline` + barre
  * d'état, sous un seul propriétaire.
  */
@@ -411,12 +404,16 @@ export class DevTerminal {
   /** L'historique, un anneau par canal. */
   readonly #history: DevHistory;
   /** Les onglets, dans leur ordre ; le premier (`serveur`) est toujours montré. */
-  readonly #views: readonly DevView[];
+  readonly #views: DevView[];
+  /**
+   * L'onglet `serveur` : tout canal qu'aucun autre ne retient — serveur,
+   * superviseur, autres services portés. Aucun canal ne reste sans onglet.
+   */
+  readonly #server: DevView;
   /** L'onglet à l'écran. */
   #active: DevView;
   /** Les onglets montrés, rebâtis seulement quand leur ensemble change. */
-  #shown: DevView[] = [];
-  #shownMask = -1;
+  #shown: readonly DevView[] = [];
   readonly #status: StatusLine;
   /** États d'affichage par couple (canal, flux) — une dizaine de clés au plus. */
   readonly #echo: Record<string, IEchoState> = Object.create(null) as Record<
@@ -453,7 +450,13 @@ export class DevTerminal {
     this.#project = options.project ?? null;
     this.#version = options.version ?? null;
     this.#history = new DevHistory(options.history);
-    const server = new DevView(this.#history, "server", "serveur", isNotVite);
+    const server = new DevView(
+      this.#history,
+      "server",
+      "serveur",
+      (channel) => !this.#claimed(channel),
+    );
+    this.#server = server;
     this.#views = [server, new DevView(this.#history, "vite", "vite", isVite)];
     this.#active = server;
     // Les DEUX flux sont surveillés : une écriture sur la sortie d'erreur
@@ -481,7 +484,7 @@ export class DevTerminal {
     return this.#full === null ? null : this.#active.anchor;
   }
 
-  /** L'onglet à l'écran (`server`, `vite`). */
+  /** L'onglet à l'écran (`server`, `vite`, ou celui d'un onglet ouvert à la volée). */
   get activeView(): string {
     return this.#active.id;
   }
@@ -708,6 +711,47 @@ export class DevTerminal {
     return () => {
       const index = full.foci.indexOf(focus);
       if (index !== -1) full.foci.splice(index, 1);
+    };
+  }
+
+  /**
+   * Ouvre un onglet à la volée — un sous-agent, une commande (ADR-0013 §11,
+   * N8). Il montre les canaux qu'il retient, que l'onglet `serveur` lui
+   * cède, et paraît dès son ouverture, même vide.
+   *
+   * @param spec - identifiant, libellé, canaux.
+   * @returns sa poignée : `finish` marque l'issue (✓ / ✗), `close` le
+   *   referme et libère l'historique de ses canaux. Un producteur qui écrit
+   *   encore après la fermeture rouvre son canal, dans l'onglet `serveur`.
+   * @throws Si l'identifiant est déjà pris.
+   */
+  addView(spec: IDevViewSpec): IDevViewHandle {
+    if (this.#views.some((view) => view.id === spec.id)) {
+      throw new Error(`onglet déjà ouvert : ${spec.id}`);
+    }
+    const only = spec.channels;
+    const view = new DevView(
+      this.#history,
+      spec.id,
+      spec.title,
+      typeof only === "string" ? (channel) => channel === only : only,
+      true,
+    );
+    this.#views.push(view);
+    this.#server.transcript.refresh();
+    this.#scheduleFrame();
+    let closed = false;
+    return {
+      finish: (outcome) => {
+        if (closed) return;
+        view.outcome = outcome;
+        this.#scheduleFrame();
+      },
+      close: () => {
+        if (closed) return;
+        closed = true;
+        this.#removeView(view);
+      },
     };
   }
 
@@ -1226,13 +1270,44 @@ export class DevTerminal {
     };
   }
 
+  /** Un autre onglet que `serveur` retient ce canal. */
+  #claimed(channel: string): boolean {
+    for (let i = 1; i < this.#views.length; i++) {
+      if (this.#views[i]?.match(channel) === true) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Retire un onglet et libère les canaux que plus aucun autre ne retient ;
+   * s'il était à l'écran, `serveur` le remplace.
+   */
+  #removeView(view: DevView): void {
+    const index = this.#views.indexOf(view);
+    if (index <= 0) return;
+    this.#views.splice(index, 1);
+    for (const channel of this.#history.channels()) {
+      if (view.match(channel) && !this.#claimed(channel)) {
+        this.#history.drop(channel);
+      }
+    }
+    this.#server.transcript.refresh();
+    if (this.#active === view) {
+      const full = this.#full;
+      if (full) this.#selectView(full, this.#server);
+      else this.#active = this.#server;
+    }
+    this.#scheduleFrame();
+  }
+
   /**
    * Montre un onglet. Celui qu'on quitte garde sa position de lecture et
    * compte ce que sa dernière image n'a pas montré ; la sélection, faite sur
    * l'autre texte, est effacée.
    */
   #selectView(full: IFullscreenState, view: DevView): void {
-    if (view === this.#active) return;
+    // Un clic lu sur l'image précédente peut viser un onglet refermé depuis.
+    if (view === this.#active || !this.#views.includes(view)) return;
     this.#active = view;
     full.selecting = false;
     this.#stopEdge(full);
@@ -1245,40 +1320,43 @@ export class DevTerminal {
   #tabAt(full: IFullscreenState, row: number, column: number): DevView | null {
     const tabs = full.frame?.tabs;
     if (tabs?.row !== row - 1) return null;
-    for (let i = 0; i < tabs.spans.length; i++) {
-      const span = tabs.spans[i];
-      if (
-        span !== undefined &&
-        column - 1 >= span.start &&
-        column - 1 < span.end
-      ) {
-        return full.tabViews[i] ?? null;
+    for (const span of tabs.spans) {
+      if (column - 1 >= span.start && column - 1 < span.end) {
+        return full.tabViews[span.index] ?? null;
       }
     }
     return null;
   }
 
   /**
-   * Les onglets montrés : `serveur` toujours, l'actif, et tout onglet qui a
-   * quelque chose à montrer. Le tableau n'est rebâti que quand cet ensemble
-   * change — une image le lit, une touche de défilement aussi.
+   * Les onglets montrés : `serveur` toujours, l'actif, un onglet ouvert à la
+   * volée, et tout onglet qui a quelque chose à montrer. Le tableau n'est
+   * rebâti que quand cet ensemble change — une image le lit, une touche de
+   * défilement aussi ; une image passée garde le sien (ce qu'un clic vise).
    */
   #shownViews(): readonly DevView[] {
-    let mask = 0;
+    const shown = this.#shown;
+    let count = 0;
+    let same = true;
     for (let i = 0; i < this.#views.length; i++) {
       const view = this.#views[i];
-      if (
-        view !== undefined &&
-        (i === 0 || view === this.#active || view.transcript.length > 0)
-      ) {
-        mask |= 1 << i;
-      }
+      if (view === undefined || !this.#isShown(view, i)) continue;
+      if (shown[count] !== view) same = false;
+      count++;
     }
-    if (mask !== this.#shownMask) {
-      this.#shownMask = mask;
-      this.#shown = this.#views.filter((_, i) => (mask & (1 << i)) !== 0);
-    }
+    if (same && count === shown.length) return shown;
+    this.#shown = this.#views.filter((view, i) => this.#isShown(view, i));
     return this.#shown;
+  }
+
+  /** Un onglet a sa place sur la ligne. */
+  #isShown(view: DevView, index: number): boolean {
+    return (
+      index === 0 ||
+      view === this.#active ||
+      view.alwaysShown ||
+      view.transcript.length > 0
+    );
   }
 
   /** La ligne d'onglets de l'image — `null` quand un seul est montré. */
@@ -1289,8 +1367,18 @@ export class DevTerminal {
       active: views.indexOf(active),
       items: views.map((view) =>
         view === active
-          ? { title: view.title, unseen: 0, alert: false }
-          : { title: view.title, unseen: view.unseen, alert: view.alert },
+          ? {
+              title: view.title,
+              unseen: 0,
+              alert: false,
+              outcome: view.outcome,
+            }
+          : {
+              title: view.title,
+              unseen: view.unseen,
+              alert: view.alert,
+              outcome: view.outcome,
+            },
       ),
     };
   }
