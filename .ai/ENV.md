@@ -228,7 +228,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_WIDTHS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:1035` |
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:66` |
-| `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2685` |
+| `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2814` |
 | `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:86` |
 | `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:84` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:142` |

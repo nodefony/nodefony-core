@@ -1866,6 +1866,8 @@ interface IPtySession {
   child: ChildProcess;
   term: InstanceType<typeof xterm.Terminal>;
   exited: Promise<number | null>;
+  /** Les octets reçus, en latin1 : les séquences de dessin y sont lisibles. */
+  raw: string[];
 }
 
 /**
@@ -1927,7 +1929,9 @@ function startPty(
   });
   // Octets bruts : l'émulateur recolle lui-même un caractère UTF-8 coupé entre
   // deux paquets — `chunk.toString()` paquet par paquet ne le fait pas.
+  const raw: string[] = [];
   child.stdout?.on("data", (chunk: Buffer) => {
+    raw.push(chunk.toString("latin1"));
     term.write(new Uint8Array(chunk));
   });
   if (answerProbe) term.onData((data) => child.stdin?.write(data));
@@ -1943,7 +1947,7 @@ function startPty(
     });
     child.once("close", () => resolve(null));
   });
-  return { child, term, exited };
+  return { child, term, exited, raw };
 }
 
 /**
@@ -2006,6 +2010,12 @@ function garbage(sc: IScreen): string[] {
     /\x1b|\[\??[0-9;]+[ABCDGHJKSTmhl]|�/.test(l),
   );
 }
+
+/**
+ * Le journal défilé PAR LE TERMINAL : marges posées sur sa région, `SU`, marges
+ * rendues dans la même écriture (`devFrame.ts#diffFrameScrolled`, #903).
+ */
+const SCROLL_RE = /\x1b\[1;\d+r\x1b\[\d+S\x1b\[r/;
 
 /** Ctrl+C TAPÉ : le terminal signale le groupe de premier plan, comme devant un humain. */
 async function ctrlC(s: IPtySession): Promise<number | null> {
@@ -2361,6 +2371,27 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
             `Fin revient au direct\n${screenText(back)}`,
           );
 
+          // Au direct, un second rechargement : ses lignes poussent le journal,
+          // et c'est le TERMINAL qui le fait défiler (le défaut, #903 D2).
+          fs.utimesSync(watched, new Date(), new Date());
+          await waitFor(s, /↻ 2/);
+          await new Promise((r) => setTimeout(r, 3000));
+          const scrolled = await snap(s);
+          assert.match(
+            s.raw.join(""),
+            SCROLL_RE,
+            "le journal défile par le terminal",
+          );
+          assert.ok(
+            scrolled.screen.slice(-8).some(isBar),
+            `défilé, la barre reste en bas\n${screenText(scrolled)}`,
+          );
+          assert.deepStrictEqual(
+            garbage(scrolled),
+            [],
+            "défilé, aucune séquence en clair",
+          );
+
           // Ctrl+C : en mode brut c'est une touche, l'arrêt passe par le foyer.
           const code = await ctrlC(s);
           const final = await snap(s);
@@ -2377,6 +2408,96 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
             false,
             "ports libérés",
           );
+        } finally {
+          await cleanup(s);
+        }
+      },
+      SCREEN_READY_TIMEOUT_MS * 2 + 60_000,
+    );
+
+    it(
+      "plein écran (NF_DEV_PAINT=diff) : l'aide s'ouvre et se ferme, les onglets répondent, le journal n'est jamais défilé par le terminal",
+      async () => {
+        let s: IPtySession | null = null;
+        try {
+          s = startPty(
+            flavor,
+            ["development", "--ui", "--no-mouse"],
+            { ...process.env, NF_DEV_PAINT: "diff" },
+            true,
+          );
+          await waitFor(s, BAR_RE);
+          await new Promise((r) => setTimeout(r, 3000));
+          assert.strictEqual(s.term.buffer.active.type, "alternate");
+          const live = await snap(s);
+          assert.ok(
+            live.screen.some((l) => l.includes("[1 serveur]│ 2 vite")),
+            `les Vite ont écrit : la ligne d'onglets, serveur actif\n${screenText(live)}`,
+          );
+
+          // `?` ouvre l'aide des gestes, `?` la referme.
+          s.child.stdin?.write("?");
+          await new Promise((r) => setTimeout(r, 500));
+          const help = await snap(s);
+          assert.ok(
+            help.screen.some((l) => l.includes("Échap ou ? pour fermer")),
+            `l'aide est ouverte\n${screenText(help)}`,
+          );
+          s.child.stdin?.write("?");
+          await new Promise((r) => setTimeout(r, 500));
+          const closed = await snap(s);
+          assert.ok(
+            !closed.screen.some((l) => l.includes("Échap ou ? pour fermer")),
+            `l'aide est refermée\n${screenText(closed)}`,
+          );
+
+          // Alt+2 montre Vite, Alt+1 rend le serveur.
+          s.child.stdin?.write("\x1b2");
+          await new Promise((r) => setTimeout(r, 500));
+          const vite = await snap(s);
+          assert.ok(
+            vite.screen.some((l) => l.includes("│[2 vite]")),
+            `Alt+2 montre Vite\n${screenText(vite)}`,
+          );
+          s.child.stdin?.write("\x1b1");
+          await new Promise((r) => setTimeout(r, 500));
+          const server = await snap(s);
+          assert.ok(
+            server.screen.some((l) => l.includes("[1 serveur]│")),
+            `Alt+1 rend le serveur\n${screenText(server)}`,
+          );
+
+          // Un rechargement au direct : en `diff`, le terminal ne défile pas —
+          // la variable est bien parvenue au plein écran (#903 D3).
+          const watched = path.join(
+            REPO_ROOT,
+            "src",
+            "modules",
+            "test",
+            "index.ts",
+          );
+          fs.utimesSync(watched, new Date(), new Date());
+          await waitFor(s, /↻ 1/);
+          await new Promise((r) => setTimeout(r, 3000));
+          const reloaded = await snap(s);
+          assert.doesNotMatch(
+            s.raw.join(""),
+            /\x1b\[1;\d+r/,
+            "aucune marge de défilement posée",
+          );
+          assert.ok(
+            reloaded.screen.slice(-8).some(isBar),
+            `rechargé, la barre reste en bas\n${screenText(reloaded)}`,
+          );
+          assert.deepStrictEqual(
+            garbage(reloaded),
+            [],
+            "aucune séquence en clair",
+          );
+
+          const code = await ctrlC(s);
+          assert.strictEqual(code, 0, "arrêt propre");
+          assert.strictEqual(s.term.buffer.active.type, "normal");
         } finally {
           await cleanup(s);
         }
@@ -2555,10 +2676,12 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
         let s: IPtySession | null = null;
         let second: ChildProcess | null = null;
         try {
+          // `NF_DEV_PAINT` invalide : dit AVANT le plein écran, il doit se
+          // relire une fois le terminal rendu (#903 D3).
           s = startPty(
             flavor,
             ["development", "--ui"],
-            process.env,
+            { ...process.env, NF_DEV_PAINT: "bof" },
             true,
             `stty -a > ${quote(sttyFile)} 2>&1`,
           );
@@ -2588,6 +2711,12 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           const stty = fs.readFileSync(sttyFile, "utf8");
           assert.match(stty, /(^|\s)icanon\b/, `mode cuit rendu\n${stty}`);
           assert.match(stty, /(^|\s)echo\b/, `écho rendu\n${stty}`);
+          assert.ok(
+            [...final.history, ...final.screen].some((l) =>
+              l.includes("NF_DEV_PAINT=bof ignorée : scroll, diff ou full"),
+            ),
+            `la valeur rejetée est nommée\n${screenText(final)}`,
+          );
         } finally {
           second?.kill("SIGTERM");
           await cleanup(s);
