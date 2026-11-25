@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/http",
-  "version": "10.0.2",
+  "version": "10.0.3",
   "description": "Native HTTP, HTTPS, HTTP/2 and WebSocket servers for Nodefony: SSE, sessions, request contexts, TLS certificates and gRPC transport",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "main": "./dist/index.js",
@@ -80,7 +80,7 @@
     "@types/node": "26.6.7",
     "@types/websocket": "1.0.10",
     "@vitest/coverage-v8": "5.1.1",
-    "nodefony": "^10.0.2",
+    "nodefony": "^10.0.3",
     "tsx": "4.23.15",
     "vitest": "5.1.1"
   },
@@ -91,7 +91,7 @@
     "@bufbuild/protobuf": "^2.7.0",
     "@connectrpc/connect": "^2.3.0",
     "@connectrpc/connect-node": "^2.3.0",
-    "nodefony": "^10.0.2",
+    "nodefony": "^10.0.3",
     "zod": "^4.6.7"
   },
   "peerDependenciesMeta": {

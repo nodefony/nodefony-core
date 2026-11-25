@@ -8,6 +8,40 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.3 - 2026-11-25
+
+### Changed
+
+- **cli:** Générer les applications Angular avec `@analogjs/vite-plugin-angular` 3.0.0 : le HMR des gabarits tient après la modification d'un fichier hors composant, et le build échoue sur une erreur de feuille de style au lieu de la taire (#922) (62b4fbf30)
+- **cli:** Générer les applications avec `oxlint` ^1.95.0, sa règle neuve `typescript/no-unsafe-class-instance-assignment` coupée dans `.oxlintrc.json` (#906) (9d1bba4c3)
+- **mongoose:** Dépendre de `mongoose` 9.13.1 et du pilote `mongodb` 7.9.1 (#922) (62b4fbf30)
+- **redis:** Dépendre de `redis` 6.4.0 (#906) (9d1bba4c3)
+- **studio:** Dépendre de `react-router` 8.5.3 et de `@tabler/icons-react` 3.53.0 (#922) (62b4fbf30)
+
+### Added
+
+- **cli:** Monter tous les paquets Nodefony d'un geste avec `nodefony upgrade --to <version|canal>` : plages, `devDependencies` et `overrides` alignés, outillage relevé à son plancher, une seule installation (#873) (05120392d)
+- **cli:** Exposer `proposed` dans le rapport de `runAppContributions` et de `createAppContributionContext` : les copies retouchées dont la nouvelle livraison est posée à côté (#875) (41c881a80)
+
+### Fixed
+
+- **security:** Fermer (4001) la socket temps réel d'un jeton sans `iat` quand son compte est révoqué : le seuil de révocation s'applique de la même façon partout (#865) (9cd6009f9)
+- **security:** Ne plus compter ni lister les clés d'API d'un compte révoqué (#856) (85458d456)
+- **cli:** Poser la nouvelle version d'un fichier livré à côté de la copie que l'application a retouchée (`<fichier>.nodefony-new`), avec `nodefony upgrade` et `scaffold:sync --update`, au lieu de la taire (#875) (41c881a80)
+- **cli:** Compléter dans `nodefony upgrade` les entrées `allowScripts` que le gabarit déclare et qui manquent (`esbuild`, `fsevents`), sans modifier une entrée présente : npm n'avertit plus à chaque installation d'une application née avant la beta.7 (#874) (e4918ce41)
+- **cli:** Générer un test de service qui passe encore une fois la méthode d'exemple remplacée (#890) (c6884f87a)
+- **cli:** Formater les `.svelte` d'une application Svelte, `prettier-plugin-svelte` ajouté au gabarit (#890) (c6884f87a)
+- **client:** Servir un noyau client composé sans temps réel (`realtime: false`) dans les liaisons Svelte, React, Vue et Angular au lieu de lever : seul l'accès à la socket lève, en nommant la cause (#915) (96025ffbe)
+- **client:** Appeler le hook d'abonnement sans condition dans `useNodefonyChannel`, comme l'exigent les règles des hooks React (#906) (9d1bba4c3)
+- **core:** Ne plus proposer « build périmé » quand une variable d'environnement requise est absente (#882) (274ca6658)
+- **http:** Lire `statics.defaultOptions.maxAge` en secondes, comme il est documenté : le défaut de quatre jours partait en millisecondes et donnait `max-age=345`, soit 345 s de cache pour les fichiers du front (#890) (c6884f87a)
+- **frontend:** Reconstruire le front quand les paquets du framework installés changent (#872) (bbedf394e)
+- **frontend:** Écrire l'URL de développement d'une entrée comme Vite écrit celle de ses imports : un module importé par l'entrée ne se charge plus en deux instances, donc deux singletons (#890) (c6884f87a)
+- **devkit:** Ne plus signaler dans la revue de sécurité livrée une variable locale nommée `body` ou `params` comme une donnée de la requête (#890) (c6884f87a)
+- **studio:** Retirer toutes les feuilles de style d'un schéma de la documentation, même imbriquées (#868) (bf66ea484)
+- **studio:** Recalculer les pages d'une grille qui change de mode (#862) (61c8d729c)
+- **studio:** Dessiner les schémas de la documentation aux couleurs de la console, mesurés avec leur feuille en place (#860) (5f232b25d)
+
 ## 10.0.2 - 2026-11-22
 
 ### Changed
