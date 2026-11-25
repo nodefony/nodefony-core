@@ -14,6 +14,7 @@
  * arrivé dessous (« ↑ N nouvelles lignes — Fin »).
  */
 import { fitToWidth, visibleWidth, wrapToWidth } from "../../runtime/textWidth";
+import { layout as screenLayout } from "./devLayout";
 import { invertColumns, type ISelectionRange } from "./devSelection";
 import { sanitizeTerminalText, type ITranscriptEntry } from "./devTranscript";
 import {
@@ -610,8 +611,16 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   const unseen =
     model.anchor === null ? 0 : model.transcript.countAfter(model.anchor.seq);
   const indicator = unseen > 0 ? [unseenLine(unseen, model)] : [];
-  const journalHeight =
-    rows - bar.length - promptLines.length - indicator.length;
+  // Les hauteurs viennent de la mise en page (`devLayout.ts`), seule source :
+  // la barre puis l'invite d'abord, la vue prend le reste ; l'indicateur est
+  // DANS la vue. Négatif quand la hauteur manque — tout lecteur borne à 0.
+  const view = screenLayout(size, {
+    tabs: "none",
+    band: 0,
+    prompt: promptLines.length,
+    bar: bar.length,
+  }).find((region) => region.kind === "view");
+  const journalHeight = (view?.height ?? 0) - indicator.length;
   return {
     rows,
     width,

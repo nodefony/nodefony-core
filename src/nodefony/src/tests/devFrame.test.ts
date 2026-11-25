@@ -48,7 +48,7 @@ function transcriptOf(lines: string[], maxEntries?: number): DevTranscript {
 }
 
 function model(
-  transcript: DevTranscript,
+  transcript: IFrameModel["transcript"],
   patch: Partial<IFrameModel> = {},
 ): IFrameModel {
   return {
@@ -550,5 +550,30 @@ describe("frameJournalRows — la page de PgUp/PgDn", () => {
     expect(
       frameJournalRows(model(t, { status: null }), { columns: 40, rows: 5 }),
     ).to.equal(5);
+  });
+});
+
+describe("renderFrame — la vue unique lit les canaux fusionnés", () => {
+  it("même image que l'anneau unique d'avant, en direct comme remonté", () => {
+    const channels = ["server", "supervisor", "vite:default"];
+    const single = new DevTranscript({ now: () => 0 });
+    const history = new DevHistory({ now: () => 0 });
+    for (let p = 0; p < 120; p++) {
+      const channel = channels[(p * 7) % 3] ?? "server";
+      const text = p % 11 === 0 ? `${"x".repeat(70)} ${p}\n` : `l${p}\n`;
+      single.ingest(channel, "out", text);
+      history.ingest(channel, "out", text);
+    }
+    const merged = history.merge(() => true);
+    const size = { columns: 40, rows: 12 };
+    const anchors = [null, { seq: 5, below: 0 }, { seq: 60, below: 1 }];
+    for (const anchor of anchors) {
+      expect(
+        renderFrame(model(merged, { anchor, status: null }), size).lines,
+        JSON.stringify(anchor),
+      ).to.deep.equal(
+        renderFrame(model(single, { anchor, status: null }), size).lines,
+      );
+    }
   });
 });

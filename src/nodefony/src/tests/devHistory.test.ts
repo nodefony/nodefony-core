@@ -165,3 +165,103 @@ describe("DevHistory — plafond global", () => {
     expect(h.bytes).to.equal(h.channel("server")?.bytes);
   });
 });
+
+describe("MergedTranscript — plusieurs canaux lus comme UN historique", () => {
+  /** Générateur pseudo-aléatoire à graine (mulberry32) : un échec se rejoue. */
+  function random(seed: number): () => number {
+    let a = seed;
+    return () => {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const CHANNELS = ["server", "supervisor", "vite:default", "vite:admin"];
+
+  /** Le même flux versé dans l'anneau unique d'avant et dans l'historique par canal. */
+  function twin(seed: number, packets: number) {
+    const next = random(seed);
+    const now = () => 0;
+    const single = new DevTranscript({ now });
+    const history = new DevHistory({ now });
+    for (let p = 0; p < packets; p++) {
+      const channel =
+        CHANNELS[Math.floor(next() * CHANNELS.length)] ?? "server";
+      const stream = next() < 0.2 ? "err" : "out";
+      // Fragments sans fin de ligne compris : la ligne en cours est par canal.
+      const chunk =
+        next() < 0.3 ? `frag${p}` : `l${p}\n${next() < 0.3 ? "x\n" : ""}`;
+      single.ingest(channel, stream, chunk);
+      history.ingest(channel, stream, chunk);
+    }
+    return { single, history, next };
+  }
+
+  it("mêmes entrées, mêmes numéros, mêmes positions que l'anneau unique d'avant", () => {
+    for (const seed of [1, 7, 42, 2026]) {
+      const { single, history } = twin(seed, 400);
+      const merged = history.merge(() => true);
+      expect(merged.length, `graine ${seed}`).to.equal(single.length);
+      expect(merged.lastSeq).to.equal(single.lastSeq);
+      for (let i = 0; i < single.length; i++) {
+        expect(merged.at(i)).to.deep.equal(single.at(i));
+      }
+      for (let i = single.length - 1; i >= 0; i--) {
+        expect(merged.at(i)).to.deep.equal(single.at(i));
+      }
+      expect(merged.at(-1)).to.deep.equal(single.at(-1));
+      expect(merged.at(single.length)).to.equal(undefined);
+    }
+  });
+
+  it("accès dans le désordre, indexOf et countAfter : le curseur ne dérive jamais", () => {
+    const { single, history, next } = twin(99, 300);
+    const merged = history.merge(() => true);
+    for (let k = 0; k < 500; k++) {
+      const i = Math.floor(next() * single.length);
+      expect(merged.at(i), `position ${i}`).to.deep.equal(single.at(i));
+      const seq = single.at(i)?.seq ?? 0;
+      expect(merged.indexOf(seq)).to.equal(i);
+      expect(merged.at(i + 1)).to.deep.equal(single.at(i + 1));
+      expect(merged.countAfter(seq)).to.equal(single.countAfter(seq));
+    }
+    expect(merged.indexOf(0)).to.equal(-1);
+    expect(merged.indexOf(single.lastSeq + 1)).to.equal(-1);
+  });
+
+  it("indexOf SAUTE le curseur sur l'ancre : les voisins se lisent depuis elle", () => {
+    const { single, history, next } = twin(5, 300);
+    const merged = history.merge(() => true);
+    for (let k = 0; k < 200; k++) {
+      const i = 1 + Math.floor(next() * (single.length - 2));
+      merged.at(Math.floor(next() * single.length)); // curseur ailleurs
+      expect(merged.indexOf(single.at(i)?.seq ?? 0)).to.equal(i);
+      expect(merged.at(i - 1), `avant ${i}`).to.deep.equal(single.at(i - 1));
+      merged.indexOf(single.at(i)?.seq ?? 0);
+      expect(merged.at(i + 1), `après ${i}`).to.deep.equal(single.at(i + 1));
+    }
+  });
+
+  it("une écriture périme le curseur : la lecture suivante voit la nouvelle entrée", () => {
+    const history = new DevHistory();
+    const merged = history.merge(() => true);
+    history.ingest("server", "out", "a\n");
+    expect(merged.at(-1)?.text).to.equal("a");
+    history.ingest("vite:default", "out", "b\n");
+    expect(merged.at(-1)?.text).to.equal("b");
+    expect(merged.length).to.equal(2);
+  });
+
+  it("ne lit que les canaux retenus, y compris ceux ouverts après lui", () => {
+    const history = new DevHistory();
+    const vite = history.merge((c) => c.startsWith("vite:"));
+    history.ingest("server", "out", "s\n");
+    history.ingest("vite:default", "out", "v1\n");
+    history.ingest("vite:admin", "out", "v2\n");
+    expect([0, 1].map((i) => vite.at(i)?.text)).to.deep.equal(["v1", "v2"]);
+    expect(vite.indexOf(1)).to.equal(-1); // « s » n'est pas dans la vue
+    history.drop("vite:admin");
+    expect(vite.length).to.equal(1);
+  });
+});

@@ -62,12 +62,15 @@ import {
   type IProbeResult,
 } from "./terminalCapability";
 import {
-  DevTranscript,
   channelKey,
   sanitizeTerminalText,
-  type IDevTranscriptOptions,
   type ITranscriptEntry,
 } from "./devTranscript";
+import {
+  DevHistory,
+  type IDevHistoryOptions,
+  type MergedTranscript,
+} from "./devHistory";
 import type { ProcessOutputStream } from "./heldChannel";
 import { CLEAR_SCREEN } from "./outputMode";
 import {
@@ -96,8 +99,8 @@ export interface IDevTerminalOptions {
   charset: ScreenCharset;
   /** Les lignes de la marque (`brandMark`). */
   mark: readonly string[];
-  /** Plafonds de l'historique. */
-  transcript?: Omit<IDevTranscriptOptions, "onClear">;
+  /** Plafonds de l'historique, global et par canal. */
+  history?: Omit<IDevHistoryOptions, "onClear">;
   /**
    * Le nom du projet, pour la barre du plein écran AVANT que le serveur ait
    * donné son bilan : pendant un premier build, elle dit déjà la phase.
@@ -376,6 +379,11 @@ interface IEchoState {
   carry: string;
 }
 
+/** La vue unique montre tous les canaux. */
+function everyChannel(): boolean {
+  return true;
+}
+
 /**
  * Le terminal de développement : historique + surface `inline` + barre
  * d'état, sous un seul propriétaire.
@@ -388,7 +396,13 @@ export class DevTerminal {
   readonly #mark: readonly string[];
   readonly #project: string | null;
   readonly #version: string | null;
-  readonly #transcript: DevTranscript;
+  /** L'historique, un anneau par canal. */
+  readonly #history: DevHistory;
+  /**
+   * Ce que montre la vue unique : TOUS les canaux fusionnés, comme l'écran
+   * d'avant les onglets (ADR-0013 §11, #903) — les onglets le scinderont.
+   */
+  readonly #screen: MergedTranscript;
   readonly #status: StatusLine;
   /** États d'affichage par couple (canal, flux) — une dizaine de clés au plus. */
   readonly #echo: Record<string, IEchoState> = Object.create(null) as Record<
@@ -424,7 +438,8 @@ export class DevTerminal {
     this.#mark = options.mark;
     this.#project = options.project ?? null;
     this.#version = options.version ?? null;
-    this.#transcript = new DevTranscript(options.transcript);
+    this.#history = new DevHistory(options.history);
+    this.#screen = this.#history.merge(everyChannel);
     // Les DEUX flux sont surveillés : une écriture sur la sortie d'erreur
     // efface aussi la barre avant elle, sinon elle s'y collerait.
     this.#status = new StatusLine(
@@ -435,9 +450,9 @@ export class DevTerminal {
     if (options.fullscreen) this.#enterFullscreen(options.fullscreen);
   }
 
-  /** L'historique, en lecture. */
-  get transcript(): DevTranscript {
-    return this.#transcript;
+  /** L'historique par canal, en lecture. */
+  get history(): DevHistory {
+    return this.#history;
   }
 
   /** La surface courante — `inline` après la sortie du plein écran. */
@@ -517,7 +532,7 @@ export class DevTerminal {
    * @param channel - le canal qui s'arrête.
    */
   flush(channel: string): void {
-    this.#transcript.flush(channel);
+    this.#history.flush(channel);
     // Clés exactes : un préfixe `vite:` effacerait aussi `vite:admin`.
     Reflect.deleteProperty(this.#echo, channelKey(channel, "out"));
     Reflect.deleteProperty(this.#echo, channelKey(channel, "err"));
@@ -648,7 +663,7 @@ export class DevTerminal {
   clear(): void {
     if (this.#closed) return;
     if (this.#full) {
-      this.#full.floorSeq = this.#transcript.lastSeq;
+      this.#full.floorSeq = this.#screen.lastSeq;
       this.#scheduleFrame();
       return;
     }
@@ -736,7 +751,7 @@ export class DevTerminal {
    * @returns une copie bornée.
    */
   since(seq: number, limit?: number): ITranscriptEntry[] {
-    return this.#transcript.since(seq, limit);
+    return this.#history.since(seq, limit);
   }
 
   /**
@@ -747,7 +762,7 @@ export class DevTerminal {
     if (this.#closed) return;
     this.leaveFullscreen();
     this.#closed = true;
-    this.#transcript.flush();
+    this.#history.flush();
     this.#status.release();
   }
 
@@ -759,7 +774,7 @@ export class DevTerminal {
     segment: string,
   ): void {
     if (segment.length === 0) return;
-    this.#transcript.ingest(channel, stream, segment);
+    this.#history.ingest(channel, stream, segment);
     if (this.#full) {
       this.#scheduleFrame();
       return;
@@ -972,7 +987,7 @@ export class DevTerminal {
     }
     const range = this.#range(full);
     if (range === null) return;
-    const text = extractSelection(this.#transcript, range);
+    const text = extractSelection(this.#screen, range);
     if (text.length === 0) return;
     this.#copyText(full, text);
   }
@@ -1206,7 +1221,7 @@ export class DevTerminal {
             ...(this.#version === null ? {} : { version: this.#version }),
           });
     return {
-      transcript: this.#transcript,
+      transcript: this.#screen,
       anchor: full.anchor,
       status:
         context === null
@@ -1239,7 +1254,8 @@ export class DevTerminal {
       ...(full.floorSeq === undefined ? {} : { floorSeq: full.floorSeq }),
       // L'indicateur de build du superviseur se réécrit sur place, sans fin
       // de ligne : sans lui, un long build laissait l'écran figé.
-      partial: this.#transcript.partial("supervisor", "out"),
+      partial:
+        this.#history.channel("supervisor")?.partial("supervisor", "out") ?? "",
       selection:
         full.selection === null ||
         (full.selection.unit === "char" && !full.dragged)
@@ -1259,7 +1275,7 @@ export class DevTerminal {
     if (full.range?.of !== selection) {
       full.range = {
         of: selection,
-        value: selectionRange(selection, this.#transcript),
+        value: selectionRange(selection, this.#screen),
       };
     }
     return full.range.value;

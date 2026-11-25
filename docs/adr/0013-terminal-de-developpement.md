@@ -233,8 +233,8 @@ interface ITranscriptEntry {
   de canaux existent. Un `seq` n'est donc plus contigu dans un anneau : `indexOf` passe par
   dichotomie (O(log n)).
 - **Plafond par canal ET plafond global de 8 Mio** : une rafale de Vite n'évince jamais la pile
-  d'un crash du serveur. Proposé : le plafond global évince d'abord dans le canal qui dépasse le
-  plus sa part ; le détail (part fixe ou proportionnelle) se règle au banc, l'invariant non.
+  d'un crash du serveur. Retenu : le plafond global évince dans le canal le plus GROS (parts
+  égales, `devHistory.ts#DevHistory`) ; une part pondérée se réglerait au banc, l'invariant non.
 - Les canaux sont le modèle de données du SUPERVISEUR, pas de l'écran : le terminal n'en est
   qu'un lecteur ; l'assistant en est un autre (il lit le serveur et Vite, écrit les siens) ; la
   console d'administration et le serveur MCP pourront l'être par le lot à la demande (§6).
@@ -646,7 +646,7 @@ AVANT eux, pour ne pas être repris.
 | Niveau | Ce qu'il porte                                                                     | Qui le possède                                        |
 | ------ | ---------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | Canal  | un anneau `DevTranscript`, un `seq` global, une ligne en cours par flux (§3)       | le superviseur — lu par le terminal, l'agent, Studio  |
-| Vue    | { canal, ancre, cache de repli, sélection, rendu de la ligne en cours } — légère   | le terminal ; deux vues peuvent montrer le même canal |
+| Vue    | { canaux, ancre, cache de repli, sélection, rendu de la ligne en cours } — légère  | le terminal ; deux vues peuvent montrer le même canal |
 | Région | un rectangle de l'écran (ligne, colonne, largeur, hauteur) et son drapeau « sale » | la mise en page, recalculée à la taille ou à l'état   |
 
 **Direction de travail — non figée, validée sur pièce au fil du développement** (maquette vue
@@ -662,6 +662,12 @@ l'invite** : onglet actif, bande et invite forment un bloc — on voit à qui on
 hauteur manque, la priorité part du bas : barre, invite, bande, onglets ; la vue prend le reste.
 Sans onglets ni bande, la mise en page rend exactement les trois zones d'aujourd'hui : c'est la
 preuve d'équivalence de la refonte.
+
+**Une vue lit UN OU PLUSIEURS canaux** (validé à l'étape 2) : ils sont fusionnés dans l'ordre des
+numéros, sans copie (`src/nodefony/src/service/dev/devHistory.ts#MergedTranscript`), et un canal
+ouvert plus tard entre de lui-même dans la vue qui le retient. La vue unique d'avant les onglets
+lit tous les canaux — l'écran reste identique à l'octet près ; les onglets la scindent ensuite
+(serveur : `server` + `supervisor` ; vite : `vite:*`).
 
 **Une invite par onglet** : son préfixe, son brouillon, son historique, son menu ; changer
 d'onglet garde le brouillon. Le résultat d'une commande s'affiche dans l'onglet où elle a été
