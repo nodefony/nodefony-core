@@ -21,6 +21,7 @@ import { brandMark } from "../cli/brand";
 import {
   DevTerminal,
   probeTerminal,
+  type DevPaint,
   type IInputFocus,
 } from "../service/dev/DevTerminal";
 import {
@@ -79,6 +80,7 @@ function fullscreen(
     rows?: number;
     mouse?: boolean;
     copy?: (text: string) => Promise<string>;
+    paint?: DevPaint;
   } = {},
 ) {
   const stdout = output(options.columns, options.rows);
@@ -95,6 +97,7 @@ function fullscreen(
       onQuit: quit,
       ...(options.mouse === undefined ? {} : { mouse: options.mouse }),
       ...(options.copy === undefined ? {} : { copy: options.copy }),
+      ...(options.paint === undefined ? {} : { paint: options.paint }),
     },
   });
   return { stdout, input, quit, terminal };
@@ -1606,5 +1609,93 @@ describe("plein écran — la bande (#903)", () => {
     expect(terminal.anchor).to.not.equal(null);
     expect(seen).to.have.length(3);
     terminal.close();
+  });
+});
+
+describe("plein écran — le terminal fait défiler le journal (#903, D2)", () => {
+  /** Le même scénario sur deux terminaux : défilement confié, diff seul. */
+  async function both(
+    steps: ReadonlyArray<(t: ReturnType<typeof fullscreen>) => void>,
+  ): Promise<{ scroll: string[]; diff: string[] }> {
+    const scroll = fullscreen({ paint: "scroll", mouse: true });
+    const diff = fullscreen({ paint: "diff", mouse: true });
+    for (const t of [scroll, diff]) t.terminal.setStatus(null, ctx, "ready");
+    for (const [i, step] of steps.entries()) {
+      for (const t of [scroll, diff]) step(t);
+      await nextFrame();
+      expect(
+        await screen(scroll.stdout.written),
+        `écran différent après l'étape ${i}`,
+      ).to.deep.equal(await screen(diff.stdout.written));
+    }
+    scroll.terminal.close();
+    diff.terminal.close();
+    return { scroll: scroll.stdout.written, diff: diff.stdout.written };
+  }
+
+  it("rafales, molette, PgUp, Fin, sélection, onglet : l'écran est le MÊME, à chaque image", async () => {
+    const { scroll, diff } = await both([
+      (t) => t.terminal.ingest("server", "out", lines(30)),
+      (t) => t.terminal.ingest("server", "out", lines(1, 31)),
+      (t) => t.terminal.ingest("server", "out", lines(3, 32)),
+      (t) => t.terminal.ingest("server", "out", "en cours"),
+      (t) => t.terminal.ingest("server", "out", " fini\n"),
+      (t) => t.input.type("\x1b[A\x1b[A\x1b[A"),
+      (t) => t.terminal.ingest("server", "out", lines(5, 40)),
+      (t) => t.input.type("\x1b[5~"),
+      (t) => t.input.type("\x1b[B"),
+      (t) => t.input.type(press(3, 2) + drag(8, 4)),
+      (t) => t.input.type("\x1b[A"),
+      (t) => t.input.type(release(8, 4) + "\x1b"),
+      (t) => t.input.type("\x1b[F"),
+      (t) => t.terminal.ingest("vite:app", "out", "vite prêt\n"),
+      (t) => t.terminal.ingest("server", "out", lines(4, 50)),
+      (t) => t.input.type("\x1b2"),
+      (t) => t.input.type("\x1b1"),
+      (t) => t.terminal.ingest("server", "out", lines(20, 60)),
+    ]);
+    const bytes = (w: readonly string[]) => w.join("").length;
+    expect(bytes(scroll)).to.be.lessThan(bytes(diff));
+  });
+
+  it("une ligne arrive en direct : UN défilement borné au journal, une ligne écrite, marges remises", async () => {
+    const { stdout, terminal } = fullscreen({ paint: "scroll" });
+    terminal.setStatus(null, ctx, "ready");
+    terminal.ingest("server", "out", lines(30));
+    await nextFrame();
+    const before = stdout.written.length;
+    terminal.ingest("server", "out", lines(1, 31));
+    await nextFrame();
+    const redraw = stdout.written.slice(before).join("");
+    expect(redraw).to.match(/\x1b\[0m\x1b\[1;\d+r\x1b\[1S\x1b\[r/);
+    expect(redraw.match(/\x1b\[\d+;1H/g)).to.have.length(1);
+    expect(redraw).to.include("ligne 31");
+    terminal.close();
+  });
+
+  it("paint « full » repeint toute l'image ; « diff » ne défile jamais", async () => {
+    for (const paint of ["full", "diff"] as const) {
+      const { stdout, terminal } = fullscreen({ paint });
+      terminal.setStatus(null, ctx, "ready");
+      terminal.ingest("server", "out", lines(30));
+      await nextFrame();
+      const before = stdout.written.length;
+      terminal.ingest("server", "out", lines(1, 31));
+      await nextFrame();
+      const redraw = stdout.written.slice(before).join("");
+      expect(redraw, paint).to.not.match(/\x1b\[\d*S|\x1b\[1;\d+r/);
+      if (paint === "full") {
+        expect(redraw.match(/\x1b\[\d+;1H/g)).to.have.length(ROWS);
+      }
+      terminal.close();
+    }
+  });
+
+  it("la sortie remet les marges avant de quitter l'écran alternatif", () => {
+    const { stdout, terminal } = fullscreen();
+    terminal.close();
+    const out = stdout.written.join("");
+    expect(out.indexOf("\x1b[r")).to.be.greaterThan(-1);
+    expect(out.indexOf("\x1b[r")).to.be.lessThan(out.indexOf("\x1b[?1049l"));
   });
 });

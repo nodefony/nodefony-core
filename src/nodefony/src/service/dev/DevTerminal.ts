@@ -35,6 +35,7 @@ import { guardTerminal } from "../../runtime/terminalGuard";
 import {
   StatusBarCache,
   diffFrame,
+  diffFrameScrolled,
   frameJournalRows,
   renderFrame,
   scrollAnchor,
@@ -140,7 +141,18 @@ export interface IDevFullscreenOptions {
    * Absente : la sélection se surligne, rien n'est copié.
    */
   copy?: (text: string) => Promise<string>;
+  /**
+   * Comment une image passe à l'écran : `"scroll"` (le défaut) fait défiler
+   * la région du journal par le terminal (`DECSTBM` + `SU`/`SD`) et n'écrit
+   * que les lignes neuves ; `"diff"` réécrit chaque ligne changée ;
+   * `"full"` repeint toute l'image — là où les écritures positionnées
+   * laissent des fragments (ConPTY, ADR-0013 D3).
+   */
+  paint?: DevPaint;
 }
+
+/** Comment une image passe à l'écran ({@link IDevFullscreenOptions.paint}). */
+export type DevPaint = "scroll" | "diff" | "full";
 
 /** Le clavier du terminal, injectable en test. */
 export interface IDevTerminalInput {
@@ -199,7 +211,7 @@ const MOUSE_CAPTURE = "\x1b[?1000h\x1b[?1002h\x1b[?1006h";
  * séquences à chaque clic.
  */
 const LEAVE_FULLSCREEN =
-  "\x1b[?1006l\x1b[?1002l\x1b[?1000l\x1b[?2004l\x1b[?1007l\x1b[?25h\x1b[?1049l";
+  "\x1b[r\x1b[?1006l\x1b[?1002l\x1b[?1000l\x1b[?2004l\x1b[?1007l\x1b[?25h\x1b[?1049l";
 
 /**
  * Lignes par cran de molette captée : ce qu'envoie un cran traduit par le
@@ -312,6 +324,7 @@ export async function probeTerminal(
 interface IFullscreenState {
   input: IDevTerminalInput;
   synchronized: boolean;
+  paint: DevPaint;
   mouse: boolean;
   copy: ((text: string) => Promise<string>) | null;
   /** La sélection à la souris — `null` sans sélection. */
@@ -901,6 +914,7 @@ export class DevTerminal {
     const full: IFullscreenState = {
       input: options.input,
       synchronized: options.synchronized,
+      paint: options.paint ?? "scroll",
       mouse: options.mouse === true,
       copy: options.copy ?? null,
       selection: null,
@@ -1614,7 +1628,13 @@ export class DevTerminal {
     const views = this.#shownViews();
     const frame = renderFrame(this.#model(full, views), this.#size());
     const previous = full.frame;
-    const changes = diffFrame(previous, frame);
+    const { shift, changes } =
+      full.paint === "scroll"
+        ? diffFrameScrolled(previous, frame)
+        : {
+            shift: 0,
+            changes: diffFrame(full.paint === "full" ? null : previous, frame),
+          };
     full.frame = frame;
     full.tabViews = views;
     this.#active.markSeen();
@@ -1625,9 +1645,16 @@ export class DevTerminal {
           frame.cursor !== null &&
           previous.cursor.row === frame.cursor.row &&
           previous.cursor.column === frame.cursor.column));
-    if (changes.length === 0 && sameCursor) return;
+    if (changes.length === 0 && shift === 0 && sameCursor) return;
     let out = full.synchronized ? "\x1b[?2026h\x1b[?25l" : "\x1b[?25l";
     if (previous === null) out += "\x1b[H\x1b[2J";
+    else if (shift !== 0) {
+      // Attributs remis AVANT : les lignes libérées prennent le fond par
+      // défaut, celui que le diff leur suppose. Les marges ne survivent pas
+      // à l'image — aucun état laissé au terminal entre deux écritures.
+      const rows = frame.journalRows ?? 0;
+      out += `\x1b[0m\x1b[1;${rows}r\x1b[${shift > 0 ? `${shift}S` : `${-shift}T`}\x1b[r`;
+    }
     for (const { row, text } of changes) {
       // Un lien qu'une ligne ouvre sans le fermer ne déborde ni sur les
       // lignes suivantes ni sur ce qu'écrira le shell après nous.

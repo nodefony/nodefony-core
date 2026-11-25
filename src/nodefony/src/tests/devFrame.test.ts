@@ -9,6 +9,7 @@ import {
   FrameHeights,
   frameJournalRows,
   diffFrame,
+  diffFrameScrolled,
   renderFrame,
   scrollAnchor,
   StatusBarCache,
@@ -437,6 +438,81 @@ describe("diffFrame", () => {
     expect(diffFrame(a, b)).to.deep.equal([{ row: 1, text: "Y" }]);
     expect(diffFrame(a, a)).to.deep.equal([]);
     expect(diffFrame(a, { lines: ["x", "y"], cursor: null })).to.have.length(2);
+  });
+});
+
+describe("diffFrameScrolled — le terminal fait défiler le journal (#903, D2)", () => {
+  // Un journal de 4 lignes sur une image de 5 : la dernière est la barre.
+  const image = (seqs: readonly (number | null)[], bar = "barre") => ({
+    lines: [...seqs.map((n) => (n === null ? "" : `l${n}`)), bar],
+    cursor: null,
+    origins: [
+      ...seqs.map((n) => (n === null ? null : { seq: n, column: 0 })),
+      null,
+    ],
+    journalRows: seqs.length,
+  });
+
+  it("des lignes arrivent en direct : défiler vers le haut, n'écrire que les neuves", () => {
+    const d = diffFrameScrolled(image([1, 2, 3, 4]), image([3, 4, 5, 6]));
+    expect(d.shift).to.equal(2);
+    expect(d.changes).to.deep.equal([
+      { row: 2, text: "l5" },
+      { row: 3, text: "l6" },
+    ]);
+  });
+
+  it("on remonte : défiler vers le bas, seule la ligne du haut s'écrit", () => {
+    const d = diffFrameScrolled(image([5, 6, 7, 8]), image([4, 5, 6, 7]));
+    expect(d.shift).to.equal(-1);
+    expect(d.changes).to.deep.equal([{ row: 0, text: "l4" }]);
+  });
+
+  it("une ligne libérée par le défilement compte pour vide ; hors du journal, le diff ordinaire", () => {
+    const d = diffFrameScrolled(
+      image([1, 2, 3, 4]),
+      image([2, 3, 4, null], "autre barre"),
+    );
+    expect(d.shift).to.equal(1);
+    expect(d.changes).to.deep.equal([{ row: 4, text: "autre barre" }]);
+  });
+
+  it("défiler ne coûterait pas moins : pas de défilement, les lignes changées", () => {
+    const next = image([2, 3, 4, 5]);
+    // Tout le journal surligné : le décalage se retrouve, rien ne coïncide.
+    const lit = {
+      ...next,
+      lines: next.lines.map((l, i) => (i < 4 ? `[${l}]` : l)),
+    };
+    const d = diffFrameScrolled(image([1, 2, 3, 4]), lit);
+    expect(d.shift).to.equal(0);
+    expect(d.changes).to.deep.equal(diffFrame(image([1, 2, 3, 4]), lit));
+  });
+
+  it("premier dessin, autre hauteur, autre région ou rien de retrouvé : jamais de défilement", () => {
+    const a = image([1, 2, 3, 4]);
+    expect(diffFrameScrolled(null, a).shift).to.equal(0);
+    expect(diffFrameScrolled(null, a).changes).to.have.length(5);
+    expect(diffFrameScrolled(a, image([2, 3, 4])).shift).to.equal(0);
+    expect(
+      diffFrameScrolled(a, { ...image([2, 3, 4, 5]), journalRows: 3 }).shift,
+    ).to.equal(0);
+    expect(diffFrameScrolled(a, image([9, 10, 11, 12])).shift).to.equal(0);
+    const plain = { lines: a.lines, cursor: null };
+    expect(diffFrameScrolled(plain, plain).shift).to.equal(0);
+  });
+
+  it("renderFrame dit la hauteur du journal à l'écran, invite et barre exclues", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(30)), {
+        prompt: { lines: ["❯ "], cursor: { row: 0, column: 2 } },
+      }),
+      { columns: 30, rows: 10 },
+    );
+    const below = frame.lines.length - (frame.journalRows ?? 0);
+    expect(frame.journalRows).to.be.greaterThan(2);
+    expect(frame.lines[(frame.journalRows ?? 0) - 1]).to.equal("l30");
+    expect(below).to.be.greaterThan(1);
   });
 });
 

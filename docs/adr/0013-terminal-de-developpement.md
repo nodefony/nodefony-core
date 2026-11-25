@@ -617,6 +617,17 @@ image.**
   SEULEMENT — l'écran alternatif n'a pas d'historique à vider, ce qui lève l'objection de #533
   (voir « Alternatives écartées »). Les marges sont remises (`CSI r`) à chaque image qui ne
   défile pas, et à la sortie par le protocole unique.
+- **Livré à l'étape 6** (`devFrame.ts#diffFrameScrolled`) : le décalage se lit sur les origines
+  (`seq`, colonne) de la ligne du haut, dans les deux sens — `SU` quand des lignes arrivent en
+  direct, `SD` (`CSI N T`) quand on remonte d'une ligne. Le diff compare ensuite chaque ligne à
+  ce que l'écran montre APRÈS le défilement : le choix du décalage ne joue que sur le coût, jamais
+  sur l'exactitude, et il n'est retenu que s'il réécrit moins de lignes que sans lui. Attributs
+  remis (`CSI 0 m`) avant `SU`, pour que les lignes libérées prennent le fond par défaut ; marges
+  posées et remises DANS la même écriture, donc aucun état laissé au terminal entre deux images.
+  Le mode se choisit par `paint` (`"scroll"` par défaut, `"diff"`, `"full"` pour le garde-fou
+  ConPTY de D3). Mesuré au banc de #896 (rafale de 4 lignes par image, 7 tours entrelacés) :
+  3 300 → 439 octets par image, temps d'image −14 à −16 %. Le même scénario rejoué en `scroll` et
+  en `diff` donne le même écran xterm.js à chaque image (`devTerminalFullscreen.test.ts`).
 - **Limite constatée de la norme** : `DECSTBM` ne borne que des lignes. Deux volets CÔTE À CÔTE
   exigeraient des marges gauche/droite (`DECSLRM`, sous le mode `DECLRMM`), dont la prise en
   charge par les terminaux visés n'est pas relevée. Tant qu'elle ne l'est pas, des volets côte à

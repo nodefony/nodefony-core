@@ -204,6 +204,11 @@ export interface IFrame {
   readonly tabs?: { readonly row: number; readonly spans: readonly ITabSpan[] };
   /** La bande à l'écran : sa première ligne et sa hauteur — ce qu'un clic teste. */
   readonly band?: { readonly row: number; readonly height: number };
+  /**
+   * Les lignes du journal à l'écran, depuis le haut : la région que le
+   * terminal peut faire défiler ({@link diffFrameScrolled}).
+   */
+  readonly journalRows?: number;
 }
 
 /** Une ligne à réécrire. */
@@ -1154,13 +1159,13 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
   const hasBand = bandLines.length > 0 && bandRow >= 0;
   // Un littéral par cas : une forme fixe chacun, et le cas courant (ni
   // onglets ni bande) n'alloue rien de plus que l'image.
-  if (!hasTabs && !hasBand) return { lines, cursor, origins };
+  if (!hasTabs && !hasBand) return { lines, cursor, origins, journalRows };
   const band = { row: bandRow, height: bandLines.length };
-  if (!hasTabs) return { lines, cursor, origins, band };
+  if (!hasTabs) return { lines, cursor, origins, journalRows, band };
   const tabs = { row: tabRow, spans: tabSpans };
   return hasBand
-    ? { lines, cursor, origins, tabs, band }
-    : { lines, cursor, origins, tabs };
+    ? { lines, cursor, origins, journalRows, tabs, band }
+    : { lines, cursor, origins, journalRows, tabs };
 }
 
 /**
@@ -1180,4 +1185,106 @@ export function diffFrame(
     if (full || previous.lines[row] !== text) changes.push({ row, text });
   });
   return changes;
+}
+
+/** Le passage d'une image à la suivante, défilement du journal compris. */
+export interface IFrameDiff {
+  /**
+   * De combien la région du journal défile AVANT les écritures : `> 0` vers
+   * le haut (`SU`, des lignes arrivent en direct), `< 0` vers le bas (`SD`,
+   * on remonte dans l'historique), `0` sans défilement.
+   */
+  readonly shift: number;
+  /** Les lignes à réécrire, une fois le défilement fait. */
+  readonly changes: IFrameChange[];
+}
+
+const NO_SHIFT = 0;
+
+/**
+ * De combien le journal a glissé d'une image à l'autre, lu sur les origines
+ * (`seq`, colonne), uniques par ligne : la ligne du haut de la nouvelle image
+ * retrouvée plus bas dans l'ancienne (vers le haut), ou l'inverse (vers le
+ * bas). `0` quand rien ne se retrouve. Le choix ne touche que le COÛT : le
+ * diff compare ensuite à ce que l'écran montre après le défilement.
+ */
+function journalShift(
+  previous: readonly (IRowOrigin | null)[],
+  next: readonly (IRowOrigin | null)[],
+  rows: number,
+): number {
+  const top = next[0] ?? null;
+  if (top !== null) {
+    for (let row = 1; row < rows; row++) {
+      const origin = previous[row] ?? null;
+      if (origin?.seq === top.seq && origin.column === top.column) return row;
+    }
+  }
+  const oldTop = previous[0] ?? null;
+  if (oldTop !== null) {
+    for (let row = 1; row < rows; row++) {
+      const origin = next[row] ?? null;
+      if (origin?.seq === oldTop.seq && origin.column === oldTop.column) {
+        return -row;
+      }
+    }
+  }
+  return NO_SHIFT;
+}
+
+/**
+ * Comme {@link diffFrame}, mais le terminal fait défiler la région du journal
+ * quand c'est moins cher : seules les lignes neuves s'écrivent, au lieu de
+ * tout le journal (ADR-0013, amendement #903, D2). Une ligne libérée par le
+ * défilement compte pour vide — l'appelant remet les attributs avant.
+ *
+ * @param previous - l'image à l'écran, ou `null` (premier dessin).
+ * @param next - l'image à dessiner.
+ * @returns le défilement à faire, puis les lignes à réécrire — le défilement
+ *   n'est retenu que s'il réécrit MOINS de lignes que sans lui.
+ */
+export function diffFrameScrolled(
+  previous: IFrame | null,
+  next: IFrame,
+): IFrameDiff {
+  const rows = next.journalRows ?? 0;
+  if (
+    previous === null ||
+    previous.lines.length !== next.lines.length ||
+    previous.journalRows !== rows ||
+    rows < 2 ||
+    previous.origins === undefined ||
+    next.origins === undefined
+  ) {
+    return { shift: NO_SHIFT, changes: diffFrame(previous, next) };
+  }
+  const shift = journalShift(previous.origins, next.origins, rows);
+  if (shift === NO_SHIFT) {
+    return { shift, changes: diffFrame(previous, next) };
+  }
+  const before = previous.lines;
+  const after = next.lines;
+  // Deux comptes sans rien allouer, puis la liste du moins cher.
+  let plain = 0;
+  let scrolled = 0;
+  for (let row = 0; row < rows; row++) {
+    const text = after[row];
+    if (before[row] !== text) plain++;
+    const from = row + shift;
+    if ((from >= 0 && from < rows ? before[from] : "") !== text) scrolled++;
+  }
+  if (scrolled >= plain) {
+    return { shift: NO_SHIFT, changes: diffFrame(previous, next) };
+  }
+  const changes: IFrameChange[] = [];
+  for (let row = 0; row < after.length; row++) {
+    const text = after[row] ?? "";
+    let shown: string | undefined;
+    if (row < rows) {
+      const from = row + shift;
+      shown = from >= 0 && from < rows ? before[from] : "";
+    } else shown = before[row];
+    if (shown !== text) changes.push({ row, text });
+  }
+  return { shift, changes };
 }

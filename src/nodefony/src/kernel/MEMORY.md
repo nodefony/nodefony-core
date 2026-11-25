@@ -199,7 +199,7 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
     TOUJOURS (molette → flèches), collage, mode brut ; souris CAPTÉE par défaut hors Windows,
     `--mouse` / `NF_DEV_MOUSE=1` sous Windows (`readDevMouseRequest` ; 1000+1002+1006, jamais 1003/1004 ; refusée sous
     Windows si Node < 24.2, `mouseCaptureBlocker`) ; `LEAVE_FULLSCREEN` coupe tous les modes, posés
-    ou non ; images `renderFrame`→`diffFrame` ≤ 1/16 ms, UNE écriture, sortie
+    ou non ; images `renderFrame`→`diffFrameScrolled` (journal défilé par `DECSTBM`+`SU`/`SD`, option `paint`) ≤ 1/16 ms, UNE écriture, sortie
     synchronisée si vue ; foyers (`addFocus` en tête, `dispatch`) souris (si captée) puis défilement
     (↑↓ et molette captée 3 lignes/cran, PgUp/PgDn, Début, Fin — l'invite prendra Ctrl+P/Ctrl+N)
     puis global (Ctrl+C/Ctrl+D → `onQuit`
