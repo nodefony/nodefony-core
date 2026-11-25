@@ -35,6 +35,8 @@ export interface ITranscriptReader {
   readonly lastSeq: number;
   at(index: number): ITranscriptEntry | undefined;
   indexOf(seq: number): number;
+  /** Entrées retenues dont le numéro dépasse `seq` — les numéros croissent sans se suivre. */
+  countAfter(seq: number): number;
 }
 
 /**
@@ -603,10 +605,10 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   }
   const bar = statusBar(model, size, width);
   const promptLines = model.prompt?.lines ?? [];
+  // Un COMPTE d'entrées, jamais une différence de numéros : quand plusieurs
+  // canaux partagent la numérotation, deux lignes d'un anneau ne se suivent pas.
   const unseen =
-    model.anchor === null
-      ? 0
-      : Math.max(0, model.transcript.lastSeq - model.anchor.seq);
+    model.anchor === null ? 0 : model.transcript.countAfter(model.anchor.seq);
   const indicator = unseen > 0 ? [unseenLine(unseen, model)] : [];
   const journalHeight =
     rows - bar.length - promptLines.length - indicator.length;

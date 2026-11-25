@@ -22,7 +22,7 @@ describe("DevTranscript — découpe", () => {
     expect(texts(t)).to.deep.equal(["un", "deux", "trois"]);
     expect(t.at(-1)).to.deep.equal({
       seq: 3,
-      source: "server",
+      channel: "server",
       stream: "out",
       text: "trois",
       at: 42,
@@ -39,19 +39,19 @@ describe("DevTranscript — découpe", () => {
     expect(texts(t)).to.deep.equal(["été 漢字 👍"]);
   });
 
-  it("une ligne en cours par couple (source, flux) : les fragments ne se mêlent pas", () => {
+  it("une ligne en cours par couple (canal, flux) : les fragments ne se mêlent pas", () => {
     const t = new DevTranscript();
     t.ingest("server", "out", "serv");
-    t.ingest("assistant", "out", "assis");
+    t.ingest("agent:1", "out", "assis");
     t.ingest("server", "err", "erreur\n");
     t.ingest("server", "out", "eur\n");
-    t.ingest("assistant", "out", "tant\n");
+    t.ingest("agent:1", "out", "tant\n");
     expect(
-      t.since(0).map((e) => `${e.source}/${e.stream}:${e.text}`),
+      t.since(0).map((e) => `${e.channel}/${e.stream}:${e.text}`),
     ).to.deep.equal([
       "server/err:erreur",
       "server/out:serveur",
-      "assistant/out:assistant",
+      "agent:1/out:assistant",
     ]);
   });
 
@@ -72,16 +72,25 @@ describe("DevTranscript — découpe", () => {
     ]);
   });
 
-  it("flush termine les lignes en cours, run relie une saisie à sa sortie", () => {
+  it("flush termine les lignes en cours d'un canal — la saisie et sa sortie partagent run:<n>", () => {
     const t = new DevTranscript();
-    t.ingest("user", "out", "❯ status\n", 7);
-    t.ingest("command", "out", "fin sans retour", 7);
+    t.ingest("run:7", "out", "❯ status\n");
+    t.ingest("run:7", "out", "fin sans retour");
     expect(t.length).to.equal(1);
-    t.flush("command");
-    expect(t.since(0).map((e) => [e.source, e.text, e.run])).to.deep.equal([
-      ["user", "❯ status", 7],
-      ["command", "fin sans retour", undefined],
+    t.flush("run:7");
+    expect(t.since(0).map((e) => [e.channel, e.text])).to.deep.equal([
+      ["run:7", "❯ status"],
+      ["run:7", "fin sans retour"],
     ]);
+  });
+
+  it("flush d'un canal ne touche pas un canal dont l'identifiant le prolonge", () => {
+    const t = new DevTranscript();
+    t.ingest("vite", "out", "court");
+    t.ingest("vite:admin", "out", "long");
+    t.flush("vite");
+    expect(t.since(0).map((e) => e.text)).to.deep.equal(["court"]);
+    expect(t.partial("vite:admin", "out")).to.equal("long");
   });
 
   it("ESC[2J devient un évènement, jamais un caractère de l'historique", () => {

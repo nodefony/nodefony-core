@@ -2,20 +2,25 @@
  * L'historique de ce que le terminal de développement a montré : des lignes
  * logiques, assainies, bornées en nombre ET en octets — sans terminal.
  *
- * Le superviseur y verse la sortie du serveur, la sienne, celle des commandes
- * lancées depuis l'invite et celle de l'assistant ; l'écran (`devFrame.ts`)
- * en lit une fenêtre par index à chaque image. Cf ADR-0013 §3.
+ * Le superviseur y verse la sortie du serveur, la sienne, celle des services
+ * qu'il porte et des commandes lancées depuis l'invite ; l'écran
+ * (`devFrame.ts`) en lit une fenêtre par index à chaque image. Cf ADR-0013 §3.
+ *
+ * Chaque ligne appartient à un CANAL, identifiant ouvert (`server`,
+ * `supervisor`, `vite:<nom>`, `run:<n>`, `agent:<id>`) : un producteur neuf ne
+ * rouvre pas le modèle. Un anneau peut porter un canal ou plusieurs ;
+ * `DevHistory` (`devHistory.ts`) en tient un par canal, sous une numérotation
+ * commune.
  *
  * Trois règles portent le module :
  * - **la découpe se fait sur le `Buffer`**, une ligne décodée à la fois :
  *   décoder un paquet entier puis le découper produirait des chaînes qui
  *   retiennent chacune le paquet parent ; un caractère UTF-8 coupé entre deux
- *   paquets est recomposé par un `StringDecoder` par couple (source, flux) ;
- * - **une ligne en cours par couple (source, flux)** : le serveur et
- *   l'assistant écrivent des fragments en même temps ; `\r` réinitialise la
- *   ligne en cours (un indicateur d'attente réécrit sa ligne, il n'empile pas
- *   cent entrées) ;
- * - **toute source est assainie** ({@link sanitizeTerminalText}) : une ligne de
+ *   paquets est recomposé par un `StringDecoder` par couple (canal, flux) ;
+ * - **une ligne en cours par couple (canal, flux)** : deux producteurs écrivent
+ *   des fragments en même temps ; `\r` réinitialise la ligne en cours (un
+ *   indicateur d'attente réécrit sa ligne, il n'empile pas cent entrées) ;
+ * - **tout canal est assaini** ({@link sanitizeTerminalText}) : une ligne de
  *   journal ne pilote pas le terminal du développeur.
  */
 import { StringDecoder } from "node:string_decoder";
@@ -23,49 +28,36 @@ import { CircularBuffer } from "../../runtime/CircularBuffer";
 import { controlSequenceLength } from "../../runtime/textWidth";
 import type { ProcessOutputStream } from "./heldChannel";
 
-/** Qui a produit une ligne de l'historique. */
-export type TranscriptSource =
-  | "server"
-  | "supervisor"
-  | "command"
-  | "user"
-  | "assistant"
-  // Un service porté par le superviseur (ADR-0030 §D8) ; sa ligne porte
-  // déjà son nom (`[vite:default]`) — le superviseur n’en nomme aucun.
-  | "held";
-
 /**
- * La clé de l'état en cours d'un couple (source, flux), et de son écrivain
- * quand la source en compte plusieurs — seule façon de la composer, partagée
- * par l'historique et le terminal.
+ * La clé de l'état en cours d'un couple (canal, flux) — seule façon de la
+ * composer, partagée par l'historique et le terminal.
  *
- * @param source - qui écrit.
+ * @param channel - le canal qui écrit.
  * @param stream - sur quel flux.
- * @param lane - l'écrivain, s'il y en a plusieurs pour cette source.
- * @returns `source:flux`, suivi de `:écrivain` s'il est nommé.
+ * @returns `canal:flux`.
  */
-export function laneKey(
-  source: TranscriptSource,
+export function channelKey(
+  channel: string,
   stream: ProcessOutputStream,
-  lane: string | undefined,
 ): string {
-  return lane === undefined
-    ? `${source}:${stream}`
-    : `${source}:${stream}:${lane}`;
+  return `${channel}:${stream}`;
 }
 
 /** Une ligne logique de l'historique — objet plat, sérialisable en JSON. */
 export interface ITranscriptEntry {
-  /** Numéro monotone : un lecteur reprend « depuis seq N », même après éviction. */
+  /**
+   * Numéro monotone, commun à tous les canaux d'un même historique : un
+   * lecteur reprend « depuis seq N », même après éviction. Deux entrées d'un
+   * même anneau ne se suivent donc pas forcément.
+   */
   readonly seq: number;
-  readonly source: TranscriptSource;
+  /** Le canal qui l'a écrite (`server`, `vite:default`, `run:3`…). */
+  readonly channel: string;
   readonly stream: ProcessOutputStream;
   /** UNE ligne, assainie, sans `\n`, bornée (cf `maxEntryBytes`). */
   readonly text: string;
   /** `Date.now()` à la réception de la fin de ligne. */
   readonly at: number;
-  /** Relie une saisie (`user`) à la sortie qu'elle a produite (`command`). */
-  readonly run?: number;
 }
 
 /** Réglages de l'historique — les défauts sont ceux de l'ADR-0013. */
@@ -79,11 +71,19 @@ export interface IDevTranscriptOptions {
   /** Horloge, injectable en test. */
   now?: () => number;
   /**
-   * Appelé quand une source efface l'écran (`ESC[2J`) : la séquence n'entre
+   * Fournit le numéro de la prochaine entrée — partagé par les anneaux d'un
+   * même historique ; par défaut, l'anneau numérote seul, à partir de 1.
+   */
+  nextSeq?: () => number;
+  /**
+   * Appelé quand un canal efface l'écran (`ESC[2J`) : la séquence n'entre
    * pas dans l'historique, son SENS est décidé par qui affiche.
    */
-  onClear?: (source: TranscriptSource) => void;
+  onClear?: (channel: string) => void;
 }
+
+/** Cases de l'anneau allouées d'emblée ; il double ensuite à la demande. */
+const INITIAL_SLOTS = 64;
 
 /** Ce qui remplace la fin d'une ligne trop longue. */
 export const TRUNCATION_MARK = " … [ligne tronquée]";
@@ -186,8 +186,10 @@ export function sanitizeTerminalText(text: string): string {
   return start === 0 ? text : out + text.slice(start);
 }
 
-/** La ligne en cours d'un couple (source, flux). */
+/** La ligne en cours d'un couple (canal, flux). */
 interface IPendingLine {
+  readonly channel: string;
+  readonly stream: ProcessOutputStream;
   decoder: StringDecoder;
   text: string;
   /** La ligne a déjà été tronquée : la suite est ignorée jusqu'au `\r` ou au `\n`. */
@@ -219,57 +221,74 @@ function cutToBytes(text: string, maxBytes: number): string {
 }
 
 /**
- * L'historique borné d'un terminal de développement.
+ * L'historique borné d'un terminal de développement — un anneau.
  *
  * Coût : un objet par ligne logique, rien par paquet reçu au-delà des
- * tranches décodées ; l'éviction est en O(1) par entrée (anneau).
+ * tranches décodées ; l'éviction est en O(1) par entrée (anneau), et l'anneau
+ * part de {@link INITIAL_SLOTS} cases. La taille d'une entrée n'est pas
+ * retenue : elle se recompte à son éviction, une fois dans sa vie — un second
+ * anneau de nombres coûterait autant de cases que le premier.
+ *
+ * Les numéros (`seq`) croissent mais ne se suivent pas forcément quand
+ * plusieurs anneaux partagent la numérotation ({@link IDevTranscriptOptions.nextSeq}) :
+ * {@link DevTranscript.indexOf} et {@link DevTranscript.since} cherchent par
+ * dichotomie, jamais par différence.
  */
 export class DevTranscript {
   readonly #maxEntries: number;
   readonly #maxBytes: number;
   readonly #maxEntryBytes: number;
   readonly #now: () => number;
-  readonly #onClear: ((source: TranscriptSource) => void) | null;
+  readonly #nextSeq: () => number;
+  readonly #onClear: ((channel: string) => void) | null;
   readonly #ring: CircularBuffer<ITranscriptEntry>;
-  /** Octets UTF-8 retenus, par entrée — même ordre que l'anneau. */
-  readonly #sizes: CircularBuffer<number>;
-  /** Lignes en cours, par source puis par flux — une dizaine de clés au plus. */
+  /** Lignes en cours, par couple (canal, flux) — une dizaine de clés au plus. */
   readonly #pending: Record<string, IPendingLine> = Object.create(
     null,
   ) as Record<string, IPendingLine>;
   #bytes = 0;
-  #seq = 0;
+  /** Numéro de la dernière entrée écrite DANS cet anneau. */
+  #lastSeq = 0;
 
   /**
-   * @param options - plafonds, horloge, et qui prévenir d'un effacement d'écran.
+   * @param options - plafonds, horloge, numérotation, et qui prévenir d'un
+   *   effacement d'écran.
    */
   constructor(options: IDevTranscriptOptions = {}) {
     this.#maxEntries = options.maxEntries ?? 10_000;
     this.#maxBytes = options.maxBytes ?? 8 * 1024 * 1024;
     this.#maxEntryBytes = options.maxEntryBytes ?? 16 * 1024;
     this.#now = options.now ?? Date.now;
+    if (options.nextSeq !== undefined) {
+      this.#nextSeq = options.nextSeq;
+    } else {
+      let seq = 0;
+      this.#nextSeq = () => ++seq;
+    }
     this.#onClear = options.onClear ?? null;
-    this.#ring = new CircularBuffer<ITranscriptEntry>(this.#maxEntries);
-    this.#sizes = new CircularBuffer<number>(this.#maxEntries);
+    this.#ring = new CircularBuffer<ITranscriptEntry>(
+      this.#maxEntries,
+      INITIAL_SLOTS,
+    );
   }
 
-  /** Nombre d'entrées retenues. */
   /**
-   * La ligne EN COURS d'un couple (source, flux) — écrite sans fin de ligne,
+   * La ligne EN COURS d'un couple (canal, flux) — écrite sans fin de ligne,
    * comme l'indicateur de build qui se réécrit sur place. Un terminal la
    * montre déjà ; l'historique ne l'inscrit qu'à son `\n`.
    *
-   * @param source - qui écrit.
+   * @param channel - le canal.
    * @param stream - sur quel flux.
    * @returns la ligne en cours, assainie, ou `""`.
    */
-  partial(source: TranscriptSource, stream: ProcessOutputStream): string {
-    const pending = this.#pending[`${source}:${stream}`];
+  partial(channel: string, stream: ProcessOutputStream): string {
+    const pending = this.#pending[channelKey(channel, stream)];
     return pending === undefined || pending.text === ""
       ? ""
       : sanitizeTerminalText(pending.text);
   }
 
+  /** Nombre d'entrées retenues. */
   get length(): number {
     return this.#ring.length;
   }
@@ -279,9 +298,12 @@ export class DevTranscript {
     return this.#bytes;
   }
 
-  /** Numéro de la dernière entrée écrite (`0` tant que rien ne l'a été). */
+  /**
+   * Numéro de la dernière entrée écrite dans cet anneau (`0` tant que rien ne
+   * l'a été) — gardé après {@link DevTranscript.clear} et après éviction.
+   */
   get lastSeq(): number {
-    return this.#seq;
+    return this.#lastSeq;
   }
 
   /**
@@ -295,16 +317,26 @@ export class DevTranscript {
   }
 
   /**
-   * Position actuelle d'une entrée dans l'historique.
+   * Position actuelle d'une entrée dans l'historique, par dichotomie.
    *
    * @param seq - son numéro.
-   * @returns sa position, ou `-1` si elle a été évincée ou n'existe pas encore.
+   * @returns sa position, ou `-1` si elle a été évincée, n'existe pas encore,
+   *   ou appartient à un autre anneau.
    */
   indexOf(seq: number): number {
-    const first = this.#ring.at(0);
-    if (!first) return -1;
-    const index = seq - first.seq;
-    return index >= 0 && index < this.#ring.length ? index : -1;
+    const index = this.#firstAfter(seq - 1);
+    return this.#ring.at(index)?.seq === seq ? index : -1;
+  }
+
+  /**
+   * Nombre d'entrées retenues dont le numéro dépasse `seq` — ce qu'un lecteur
+   * ancré sur `seq` n'a pas encore vu.
+   *
+   * @param seq - le numéro de l'ancre.
+   * @returns le compte, `0` à `length`.
+   */
+  countAfter(seq: number): number {
+    return this.#ring.length - this.#firstAfter(seq);
   }
 
   /**
@@ -317,9 +349,7 @@ export class DevTranscript {
    * @returns une copie bornée.
    */
   since(seq: number, limit = Number.POSITIVE_INFINITY): ITranscriptEntry[] {
-    const first = this.#ring.at(0);
-    if (!first) return [];
-    const from = Math.max(0, seq - first.seq + 1);
+    const from = this.#firstAfter(seq);
     const to = Math.min(this.#ring.length, from + limit);
     const out: ITranscriptEntry[] = [];
     for (let i = from; i < to; i++) {
@@ -330,36 +360,30 @@ export class DevTranscript {
   }
 
   /**
-   * Verse un paquet reçu d'une source. Les lignes complètes entrent dans
-   * l'historique ; la fin sans `\n` reste en cours pour ce couple (source,
+   * Verse un paquet reçu d'un canal. Les lignes complètes entrent dans
+   * l'historique ; la fin sans `\n` reste en cours pour ce couple (canal,
    * flux), jusqu'au paquet suivant ou à {@link DevTranscript.flush}.
    *
-   * @param source - qui écrit.
+   * @param channel - le canal qui écrit.
    * @param stream - sur quel flux.
    * @param chunk - le paquet, octets bruts ou texte.
-   * @param run - l'exécution que ces lignes accompagnent, s'il y en a une.
-   * @param lane - l'écrivain, quand une source en compte plusieurs : chacun
-   *   garde sa ligne en cours.
    */
   ingest(
-    source: TranscriptSource,
+    channel: string,
     stream: ProcessOutputStream,
     chunk: Buffer | Uint8Array | string,
-    run?: number,
-    lane?: string,
   ): void {
-    const pending = this.#pendingOf(source, stream, lane);
+    const pending = this.#pendingOf(channel, stream);
     if (typeof chunk === "string") {
       let start = 0;
       let nl = chunk.indexOf("\n");
       while (nl !== -1) {
-        this.#append(pending, source, chunk.slice(start, nl));
-        this.#commit(pending, source, stream, run);
+        this.#append(pending, chunk.slice(start, nl));
+        this.#commit(pending);
         start = nl + 1;
         nl = chunk.indexOf("\n", start);
       }
-      if (start < chunk.length)
-        this.#append(pending, source, chunk.slice(start));
+      if (start < chunk.length) this.#append(pending, chunk.slice(start));
       return;
     }
     const buf = Buffer.isBuffer(chunk)
@@ -368,63 +392,79 @@ export class DevTranscript {
     let start = 0;
     let nl = buf.indexOf(0x0a);
     while (nl !== -1) {
-      this.#append(
-        pending,
-        source,
-        pending.decoder.write(buf.subarray(start, nl)),
-      );
-      this.#commit(pending, source, stream, run);
+      this.#append(pending, pending.decoder.write(buf.subarray(start, nl)));
+      this.#commit(pending);
       start = nl + 1;
       nl = buf.indexOf(0x0a, start);
     }
     if (start < buf.length) {
-      this.#append(pending, source, pending.decoder.write(buf.subarray(start)));
+      this.#append(pending, pending.decoder.write(buf.subarray(start)));
     }
   }
 
   /**
-   * Termine les lignes en cours (une source qui s'arrête sans `\n` final) et
+   * Termine les lignes en cours (un canal qui s'arrête sans `\n` final) et
    * les verse dans l'historique.
    *
-   * @param source - la source à terminer ; toutes si absente.
+   * @param channel - le canal à terminer ; tous si absent.
    */
-  flush(source?: TranscriptSource): void {
+  flush(channel?: string): void {
     for (const key of Object.keys(this.#pending)) {
-      const [owner, stream] = key.split(":") as [
-        TranscriptSource,
-        ProcessOutputStream,
-      ];
-      if (source !== undefined && owner !== source) continue;
       const pending = this.#pending[key];
       if (!pending) continue;
-      this.#append(pending, owner, pending.decoder.end());
-      if (pending.text.length > 0 || pending.truncated) {
-        this.#commit(pending, owner, stream, undefined);
-      }
+      if (channel !== undefined && pending.channel !== channel) continue;
+      this.#append(pending, pending.decoder.end());
+      if (pending.text.length > 0 || pending.truncated) this.#commit(pending);
       Reflect.deleteProperty(this.#pending, key);
     }
+  }
+
+  /**
+   * Évince l'entrée la plus ancienne — pour un plafond tenu au-dessus de
+   * l'anneau (le plafond global de `DevHistory`).
+   *
+   * @returns les octets libérés, `0` si l'anneau est vide.
+   */
+  evictOldest(): number {
+    const entry = this.#ring.shift();
+    if (entry === undefined) return 0;
+    const size = Buffer.byteLength(entry.text, "utf8");
+    this.#bytes -= size;
+    return size;
   }
 
   /** Vide l'historique et les lignes en cours ; la numérotation continue. */
   clear(): void {
     this.#ring.clear();
-    this.#sizes.clear();
     this.#bytes = 0;
     for (const key of Object.keys(this.#pending)) {
       Reflect.deleteProperty(this.#pending, key);
     }
   }
 
+  /**
+   * Première position dont le numéro dépasse `seq` (`length` s'il n'y en a
+   * pas) — dichotomie : les numéros croissent, sans se suivre.
+   */
+  #firstAfter(seq: number): number {
+    let low = 0;
+    let high = this.#ring.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if ((this.#ring.at(middle)?.seq ?? 0) > seq) high = middle;
+      else low = middle + 1;
+    }
+    return low;
+  }
+
   /** La ligne en cours d'un couple, créée au premier paquet. */
-  #pendingOf(
-    source: TranscriptSource,
-    stream: ProcessOutputStream,
-    lane: string | undefined,
-  ): IPendingLine {
-    const key = laneKey(source, stream, lane);
+  #pendingOf(channel: string, stream: ProcessOutputStream): IPendingLine {
+    const key = channelKey(channel, stream);
     let pending = this.#pending[key];
     if (pending === undefined) {
       pending = {
+        channel,
+        stream,
         decoder: new StringDecoder("utf8"),
         text: "",
         truncated: false,
@@ -439,17 +479,13 @@ export class DevTranscript {
    * Ajoute un fragment décodé à la ligne en cours : `ESC[2J` devient un
    * évènement, `\r` repart de zéro, et la ligne ne dépasse jamais son plafond.
    */
-  #append(
-    pending: IPendingLine,
-    source: TranscriptSource,
-    fragment: string,
-  ): void {
+  #append(pending: IPendingLine, fragment: string): void {
     if (fragment.length === 0) return;
     let text = fragment;
     let clear = text.indexOf(CLEAR);
     while (clear !== -1) {
       this.#extend(pending, text.slice(0, clear));
-      this.#onClear?.(source);
+      this.#onClear?.(pending.channel);
       text = text.slice(clear + CLEAR.length);
       clear = text.indexOf(CLEAR);
     }
@@ -486,12 +522,7 @@ export class DevTranscript {
   }
 
   /** Verse la ligne en cours dans l'historique, sous les deux plafonds. */
-  #commit(
-    pending: IPendingLine,
-    source: TranscriptSource,
-    stream: ProcessOutputStream,
-    run: number | undefined,
-  ): void {
+  #commit(pending: IPendingLine): void {
     // Recopie à plat, une fois par ligne : la ligne en cours est faite de
     // tranches (`slice`) qui RETIENNENT leur chaîne mère dans V8 — une ligne
     // courte découpée d'un paquet de 60 Ko garderait les 60 Ko vivants, et
@@ -509,15 +540,17 @@ export class DevTranscript {
       (this.#ring.length >= this.#maxEntries ||
         this.#bytes + size > this.#maxBytes)
     ) {
-      this.#ring.shift();
-      this.#bytes -= this.#sizes.shift() ?? 0;
+      this.evictOldest();
     }
-    const entry: ITranscriptEntry =
-      run === undefined
-        ? { seq: ++this.#seq, source, stream, text, at: this.#now() }
-        : { seq: ++this.#seq, source, stream, text, at: this.#now(), run };
-    this.#ring.push(entry);
-    this.#sizes.push(size);
+    const seq = this.#nextSeq();
+    this.#lastSeq = seq;
+    this.#ring.push({
+      seq,
+      channel: pending.channel,
+      stream: pending.stream,
+      text,
+      at: this.#now(),
+    });
     this.#bytes += size;
   }
 }

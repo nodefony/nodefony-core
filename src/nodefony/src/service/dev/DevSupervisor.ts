@@ -2212,7 +2212,7 @@ export class DevSupervisor {
 
   /**
    * Le registre des services portés, créé au premier plan. Ses états vont
-   * au serveur COURANT, sa sortie au terminal (source `held`), ou telle
+   * au serveur COURANT, sa sortie au terminal (un canal par service), ou telle
    * quelle sur la sortie du superviseur hors rendu humain — là où le serveur,
    * qui hérite alors du terminal, l'aurait écrite.
    *
@@ -2231,9 +2231,10 @@ export class DevSupervisor {
       },
       onOutput: (key, stream, lines) => {
         const terminal = this.#terminal;
-        // Un couloir par service : la fin coupée d'un hôte (ligne trop longue,
-        // sortie à sa mort) ne se colle jamais à la ligne d'un autre.
-        if (terminal) terminal.ingest("held", stream, lines, undefined, key);
+        // Un canal par service, nommé par sa clé (`vite:<nom>`) : la fin
+        // coupée d'un hôte (ligne trop longue, sortie à sa mort) ne se colle
+        // jamais à la ligne d'un autre.
+        if (terminal) terminal.ingest(key, stream, lines);
         else (stream === "err" ? process.stderr : process.stdout).write(lines);
       },
     });

@@ -7,21 +7,30 @@
  * {@link CircularBuffer.at} : `toArray()` allouerait autant de cases que
  * l'anneau en contient, à chaque lecture.
  *
+ * Les cases s'allouent d'un coup par défaut ; avec `initialSlots`, l'anneau
+ * part petit et double jusqu'à sa capacité — un historique ouvert par canal ne
+ * paie pas dix mille cases pour une commande qui écrit trois lignes.
+ *
  * Le SEUL anneau du dépôt : le tampon de `Syslog` et l'historique du terminal
  * de développement le partagent.
  */
 export class CircularBuffer<T> {
   #buf: Array<T | undefined>;
+  /** Cases allouées — `capacity` au plus. */
+  #slots: number;
   #head = 0;
   #size = 0;
   readonly capacity: number;
 
   /**
    * @param capacity - nombre maximal d'entrées retenues.
+   * @param initialSlots - cases allouées d'emblée (défaut : `capacity`) ;
+   *   l'anneau double ensuite à la demande, sans dépasser `capacity`.
    */
-  constructor(capacity: number) {
+  constructor(capacity: number, initialSlots: number = capacity) {
     this.capacity = capacity;
-    this.#buf = new Array<T | undefined>(capacity);
+    this.#slots = Math.min(capacity, Math.max(1, Math.floor(initialSlots)));
+    this.#buf = new Array<T | undefined>(this.#slots);
   }
 
   /**
@@ -32,11 +41,24 @@ export class CircularBuffer<T> {
   push(item: T): void {
     if (this.#size === this.capacity) {
       this.#buf[this.#head] = item;
-      this.#head = (this.#head + 1) % this.capacity;
-    } else {
-      this.#buf[(this.#head + this.#size) % this.capacity] = item;
-      this.#size++;
+      this.#head = (this.#head + 1) % this.#slots;
+      return;
     }
+    if (this.#size === this.#slots) this.#grow();
+    this.#buf[(this.#head + this.#size) % this.#slots] = item;
+    this.#size++;
+  }
+
+  /** Double les cases (sans dépasser `capacity`), la plus ancienne entrée en `0`. */
+  #grow(): void {
+    const slots = Math.min(this.capacity, this.#slots * 2);
+    const next = new Array<T | undefined>(slots);
+    for (let i = 0; i < this.#size; i++) {
+      next[i] = this.#buf[(this.#head + i) % this.#slots];
+    }
+    this.#buf = next;
+    this.#slots = slots;
+    this.#head = 0;
   }
 
   /**
@@ -49,7 +71,7 @@ export class CircularBuffer<T> {
     const item = this.#buf[this.#head];
     // La case est libérée : l'anneau ne retient plus ce qu'il a rendu.
     this.#buf[this.#head] = undefined;
-    this.#head = (this.#head + 1) % this.capacity;
+    this.#head = (this.#head + 1) % this.#slots;
     this.#size--;
     return item;
   }
@@ -63,7 +85,7 @@ export class CircularBuffer<T> {
   at(index: number): T | undefined {
     const i = index < 0 ? this.#size + index : index;
     if (!Number.isInteger(i) || i < 0 || i >= this.#size) return undefined;
-    return this.#buf[(this.#head + i) % this.capacity];
+    return this.#buf[(this.#head + i) % this.#slots];
   }
 
   /** Nombre d'entrées retenues. */
@@ -91,7 +113,7 @@ export class CircularBuffer<T> {
   toArray(): T[] {
     const result = new Array<T>(this.#size);
     for (let i = 0; i < this.#size; i++) {
-      result[i] = this.#buf[(this.#head + i) % this.capacity] as T;
+      result[i] = this.#buf[(this.#head + i) % this.#slots] as T;
     }
     return result;
   }

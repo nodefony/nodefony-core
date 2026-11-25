@@ -16,6 +16,7 @@ import {
   type IFrameModel,
   type IFrameStatus,
 } from "../service/dev/devFrame";
+import { DevHistory } from "../service/dev/devHistory";
 import { DevTranscript } from "../service/dev/devTranscript";
 import type { IStartupView } from "../service/dev/startupScreen";
 
@@ -215,6 +216,30 @@ describe("renderFrame — fenêtre ancrée sur un seq", () => {
     ]);
   });
 
+  it("numérotation partagée entre canaux : l'indicateur compte les lignes du canal, pas l'écart des numéros", () => {
+    const history = new DevHistory();
+    for (const l of range(20)) {
+      history.ingest("server", "out", `${l}\n`);
+      history.ingest("vite:default", "out", `v${l}\n`);
+    }
+    const t = history.channel("server");
+    if (t === undefined) throw new Error("canal server absent");
+    // l10 porte le numéro 19 (deux canaux entrelacés) ; dix lignes du
+    // serveur le suivent, dont les numéros s'étalent jusqu'à 39.
+    const anchor = { seq: 19, below: 0 };
+    expect(t.at(t.indexOf(19))?.text).to.equal("l10");
+    const frame = renderFrame(model(t, { anchor, status: null }), {
+      columns: 40,
+      rows: 4,
+    });
+    expect(frame.lines).to.deep.equal([
+      "l8",
+      "l9",
+      "l10",
+      "↑ 10 nouvelles lignes — Fin",
+    ]);
+  });
+
   it("below cache les dernières lignes repliées de l'entrée d'ancrage", () => {
     const t = transcriptOf(["avant", "abcdefghij"]);
     const frame = renderFrame(
@@ -231,10 +256,13 @@ describe("renderFrame — fenêtre ancrée sur un seq", () => {
       model(t, { anchor: { seq: 2, below: 0 }, status: null }),
       { columns: 40, rows: 3 },
     );
+    // L'indicateur compte ce qui reste ATTEIGNABLE sous l'ancre (l6 à l10),
+    // pas les lignes évincées : un anneau qui partage sa numérotation avec
+    // d'autres canaux ne sait pas combien des numéros perdus étaient à lui.
     expect(frame.lines).to.deep.equal([
       "l6",
       "l7",
-      "↑ 8 nouvelles lignes — Fin",
+      "↑ 5 nouvelles lignes — Fin",
     ]);
   });
 

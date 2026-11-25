@@ -63,11 +63,10 @@ import {
 } from "./terminalCapability";
 import {
   DevTranscript,
-  laneKey,
+  channelKey,
   sanitizeTerminalText,
   type IDevTranscriptOptions,
   type ITranscriptEntry,
-  type TranscriptSource,
 } from "./devTranscript";
 import type { ProcessOutputStream } from "./heldChannel";
 import { CLEAR_SCREEN } from "./outputMode";
@@ -370,7 +369,7 @@ function journalRowsOf(frame: IFrame | null): number {
   return 0;
 }
 
-/** Ce qui reste d'un paquet, par couple (source, flux), pour le suivant. */
+/** Ce qui reste d'un paquet, par couple (canal, flux), pour le suivant. */
 interface IEchoState {
   decoder: StringDecoder;
   /** Une séquence de contrôle coupée par la fin du paquet. */
@@ -391,7 +390,7 @@ export class DevTerminal {
   readonly #version: string | null;
   readonly #transcript: DevTranscript;
   readonly #status: StatusLine;
-  /** États d'affichage par couple (source, flux) — une dizaine de clés au plus. */
+  /** États d'affichage par couple (canal, flux) — une dizaine de clés au plus. */
   readonly #echo: Record<string, IEchoState> = Object.create(null) as Record<
     string,
     IEchoState
@@ -457,26 +456,22 @@ export class DevTerminal {
   }
 
   /**
-   * Verse un paquet d'une source : inscrit dans l'historique, affiché sur la
+   * Verse un paquet d'un canal : inscrit dans l'historique, affiché sur la
    * surface `inline`. Une séquence coupée entre deux paquets attend la suite.
    *
-   * @param source - qui écrit.
+   * @param channel - le canal qui écrit (`server`, `supervisor`,
+   *   `vite:<nom>`…) : chacun garde son reste de séquence et sa ligne en
+   *   cours, sans quoi la fin coupée de l'un se collerait à la ligne de l'autre.
    * @param stream - sur quel flux.
    * @param chunk - le paquet, octets bruts ou texte.
-   * @param run - l'exécution que ces lignes accompagnent, s'il y en a une.
-   * @param lane - l'écrivain, quand une source en compte plusieurs (la clé
-   *   d'un service porté) : chacun garde son reste de séquence et sa ligne en
-   *   cours, sans quoi la fin coupée de l'un se collerait à la ligne de l'autre.
    */
   ingest(
-    source: TranscriptSource,
+    channel: string,
     stream: ProcessOutputStream,
     chunk: Buffer | Uint8Array | string,
-    run?: number,
-    lane?: string,
   ): void {
     if (this.#closed) return;
-    const state = this.#echoOf(source, stream, lane);
+    const state = this.#echoOf(channel, stream);
     let text =
       state.carry +
       (typeof chunk === "string"
@@ -498,34 +493,34 @@ export class DevTerminal {
     // Seul le SERVEUR tourne la page (ADR-0030 §D6) : un service porté, une
     // commande lancée, n'effacent pas ce que le développeur est en train de
     // lire — la séquence est retirée, jamais exécutée ni recopiée.
-    if (source !== "server") {
+    if (channel !== "server") {
       if (text.includes(CLEAR)) text = text.replaceAll(CLEAR, "");
-      this.#show(source, stream, target, text, run, lane);
+      this.#show(channel, stream, target, text);
       return;
     }
     let start = 0;
     let clear = text.indexOf(CLEAR);
     while (clear !== -1) {
-      this.#show(source, stream, target, text.slice(start, clear), run, lane);
+      this.#show(channel, stream, target, text.slice(start, clear));
       this.clear();
       start = clear + CLEAR.length;
       clear = text.indexOf(CLEAR, start);
     }
-    this.#show(source, stream, target, text.slice(start), run, lane);
+    this.#show(channel, stream, target, text.slice(start));
   }
 
   /**
-   * Une source se tait (le serveur s'est arrêté) : sa ligne en cours entre
-   * dans l'historique, et ce qu'elle retenait est oublié — le prochain
+   * Un canal se tait (le serveur s'est arrêté) : sa ligne en cours entre
+   * dans l'historique, et ce qu'il retenait est oublié — le prochain
    * serveur repart d'un décodeur neuf.
    *
-   * @param source - la source qui s'arrête.
+   * @param channel - le canal qui s'arrête.
    */
-  flush(source: TranscriptSource): void {
-    this.#transcript.flush(source);
-    for (const key of Object.keys(this.#echo)) {
-      if (key.startsWith(`${source}:`)) Reflect.deleteProperty(this.#echo, key);
-    }
+  flush(channel: string): void {
+    this.#transcript.flush(channel);
+    // Clés exactes : un préfixe `vite:` effacerait aussi `vite:admin`.
+    Reflect.deleteProperty(this.#echo, channelKey(channel, "out"));
+    Reflect.deleteProperty(this.#echo, channelKey(channel, "err"));
   }
 
   /**
@@ -758,15 +753,13 @@ export class DevTerminal {
 
   /** Inscrit et affiche un segment sans `ESC[2J`. */
   #show(
-    source: TranscriptSource,
+    channel: string,
     stream: ProcessOutputStream,
     target: IDevTerminalStream,
     segment: string,
-    run: number | undefined,
-    lane: string | undefined,
   ): void {
     if (segment.length === 0) return;
-    this.#transcript.ingest(source, stream, segment, run, lane);
+    this.#transcript.ingest(channel, stream, segment);
     if (this.#full) {
       this.#scheduleFrame();
       return;
@@ -1330,13 +1323,9 @@ export class DevTerminal {
     this.#stdout.write(out);
   }
 
-  /** L'état d'affichage d'un couple (et de son écrivain), créé au premier paquet. */
-  #echoOf(
-    source: TranscriptSource,
-    stream: ProcessOutputStream,
-    lane: string | undefined,
-  ): IEchoState {
-    const key = laneKey(source, stream, lane);
+  /** L'état d'affichage d'un couple (canal, flux), créé au premier paquet. */
+  #echoOf(channel: string, stream: ProcessOutputStream): IEchoState {
+    const key = channelKey(channel, stream);
     let state = this.#echo[key];
     if (state === undefined) {
       state = { decoder: new StringDecoder("utf8"), carry: "" };
