@@ -18,6 +18,8 @@ const HOST = path.join(
   "host.mjs",
 );
 
+const ROGUE = path.join(path.dirname(HOST), "rogue.mjs");
+
 const hosts: HostHolder[] = [];
 
 afterEach(async () => {
@@ -81,16 +83,26 @@ describe("HostHolder — preuves de vie manquées dans l'instantané", () => {
     expect(relaunched?.missedPongs).to.equal(0);
   });
 
-  it("hôte sain : aucune republication à chaque pong — le compte reste 0 sans bruit", async () => {
-    const { host, seen } = makeHost("ok", {
+  it("🔴 pong plus lent qu'un tour mais dans son délai : rien de manqué, aucune republication", async () => {
+    // Le cas d'une machine chargée, rendu CERTAIN : chaque pong part après
+    // 80 ms, soit plus de deux tours de 30 ms, et bien avant le délai de 1 s.
+    // Le contrat (`livenessTimeoutMs`) dit qu'il est à l'heure.
+    let pongs = 0;
+    const { host, seen } = makeHost("slow-pong", {
+      module: ROGUE,
+      spec: { mode: "slow-pong", pongDelayMs: 80 },
       livenessIntervalMs: 30,
       livenessTimeoutMs: 1_000,
+      onOutput: (_stream, lines) => {
+        pongs += lines.toString("utf8").split("pong ").length - 1;
+      },
     });
     await host.start();
     const before = seen.length;
-    // Une dizaine de tours de preuve de vie, tous à l'heure.
-    await new Promise((r) => setTimeout(r, 350));
-    expect(seen.length).to.equal(before);
+    // Un FAIT, pas une durée : cinq preuves de vie rendues, toutes en retard
+    // sur le tour, toutes dans le délai.
+    await until(() => pongs >= 5, "moins de cinq pongs rendus");
+    expect(seen.length, "aucune republication").to.equal(before);
     expect(host.status().missedPongs).to.equal(0);
   });
 });

@@ -14,10 +14,20 @@ const ready = (data) =>
   });
 
 let keep = null;
+// `slow-pong` : chaque pong part après ce délai, et s'annonce sur la sortie
+// standard une fois envoyé — le test attend ce FAIT, jamais une durée.
+let pongDelayMs = 0;
 
 process.on("message", (message) => {
   if (message?.channel !== CHANNEL) return;
   if (message.type === "ping") {
+    if (pongDelayMs > 0) {
+      setTimeout(() => {
+        send({ channel: CHANNEL, type: "pong", seq: message.seq });
+        process.stdout.write(`pong ${message.seq}\n`);
+      }, pongDelayMs);
+      return;
+    }
     send({ channel: CHANNEL, type: "pong", seq: message.seq });
     return;
   }
@@ -29,6 +39,11 @@ process.on("message", (message) => {
   if (message.type !== "start") return;
   keep = setInterval(() => {}, 1_000);
   const { mode } = message.spec;
+  if (mode === "slow-pong") {
+    pongDelayMs = message.spec.pongDelayMs;
+    ready({});
+    return;
+  }
   if (mode === "ready-after-stop") {
     // Rapporte `ready` quoi qu'il arrive, même après un `stop`.
     setTimeout(() => ready({ late: true }), message.spec.readyMs);

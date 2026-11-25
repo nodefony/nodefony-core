@@ -441,9 +441,7 @@ export class HostHolder {
   #onPong(seq: number): void {
     if (seq !== this.#awaitedSeq) return;
     this.#awaitedSeq = -1;
-    const late =
-      performance.now() - this.#pingSentAt >
-      (this.#opts.livenessTimeoutMs ?? 5_000);
+    const late = this.#pingOverdue();
     this.#setMissed(late ? this.#missed + 1 : 0);
     // Une preuve de vie à l'heure, hôte prêt : un intervalle entier a été
     // VÉCU depuis la relance. Le budget de relances est rendu — il ne doit
@@ -522,7 +520,14 @@ export class HostHolder {
   #tickLiveness(): void {
     const child = this.#child;
     if (child === null) return;
-    if (this.#awaitedSeq !== -1) this.#setMissed(this.#missed + 1);
+    if (this.#awaitedSeq !== -1) {
+      // Un ping encore dans son délai n'est PAS manqué : c'est le contrat de
+      // `livenessTimeoutMs`. On l'attend, sans en envoyer un autre — sinon un
+      // aller-retour plus long qu'un tour (machine chargée) comptait un raté
+      // puis un rétablissement, et publiait deux instantanés pour rien.
+      if (!this.#pingOverdue()) return;
+      this.#setMissed(this.#missed + 1);
+    }
     if (this.#missed >= (this.#opts.livenessMissedLimit ?? 3)) {
       // La sortie qui suit passe par `#onExit` → relance avec recul, et c'est
       // cette cause qu'elle publie. La preuve de vie reste armée : si le
@@ -540,6 +545,18 @@ export class HostHolder {
       type: "ping",
       seq: this.#awaitedSeq,
     });
+  }
+
+  /**
+   * Le ping en attente a-t-il dépassé son délai (`livenessTimeoutMs`) ? Seule
+   * source de cette règle : le tour de preuve de vie et la réception du pong
+   * la lisent tous deux.
+   */
+  #pingOverdue(): boolean {
+    return (
+      performance.now() - this.#pingSentAt >
+      (this.#opts.livenessTimeoutMs ?? 5_000)
+    );
   }
 
   #stopLiveness(): void {
