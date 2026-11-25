@@ -174,6 +174,31 @@ export interface SharedConnection {
 }
 
 /**
+ * Cause d'une page sans socket alors qu'un noyau est fourni — reprise TELLE
+ * QUELLE par chaque liaison, pour que l'erreur dise la même chose partout.
+ */
+export const KERNEL_WITHOUT_SOCKET =
+  "le noyau fourni n'a composé aucune socket temps réel (realtime: false) — " +
+  "lui en composer une, ou donner `client` ou `url`.";
+
+/**
+ * Vrai quand un noyau est fourni sans socket temps réel, et que ni `client`
+ * ni `url` n'en donnent une : aucune socket ne se résout.
+ *
+ * Les liaisons de vue posent alors le noyau SEUL — ses liaisons propres
+ * (état, identité) n'ont pas besoin de socket — et ne lèvent qu'à l'accès à
+ * la socket. {@link connectShared}, lui, lève : on lui demande une socket.
+ *
+ * @param opts - les options qu'on passerait à {@link connectShared}.
+ * @returns `true` si aucune socket ne se résout à cause du noyau.
+ */
+export function kernelWithoutSocket(opts: ConnectSharedOptions): boolean {
+  return (
+    !!opts.kernel && !opts.kernel.get("realtime") && !opts.client && !opts.url
+  );
+}
+
+/**
  * Résout la socket partagée d'une adresse — ou adopte celle qu'on lui donne —
  * et rend de quoi la démarrer sans jamais la couper.
  *
@@ -203,13 +228,10 @@ export interface SharedConnection {
  *   devine aucune.
  */
 export function connectShared(opts: ConnectSharedOptions): SharedConnection {
-  const provided = opts.kernel?.get("realtime") ?? opts.client;
-  if (!provided && opts.kernel && !opts.url) {
-    throw new Error(
-      "connectShared : le noyau fourni n'a composé aucune socket temps réel " +
-        "(realtime: false) — lui en composer une, ou donner `client` ou `url`.",
-    );
+  if (kernelWithoutSocket(opts)) {
+    throw new Error(`connectShared : ${KERNEL_WITHOUT_SOCKET}`);
   }
+  const provided = opts.kernel?.get("realtime") ?? opts.client;
   const socket = provided ?? NodefonySocket.shared({ url: opts.url });
   const owned = !provided;
   return {

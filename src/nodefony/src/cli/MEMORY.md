@@ -278,6 +278,12 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
 - ⚠️ Un front généré importe du CSS → `types: ["node", "vite/client"]` dans le tsconfig de l'app,
   sinon `npm run typecheck` échoue en TS2882 sur un projet qui, lui, se construit très bien.
 
+- `allowScripts` (npm) : liste UNIQUE `scaffold/allowScripts.ts` (`appAllowScripts` → gabarit via
+  `it.allowScripts` ; `missingAllowScripts` → `upgrade`, ajoute les absentes, jamais une présente,
+  hors npm `null`). `esbuild`/`fsevents` toujours, `better-sqlite3` si l'app le DÉCLARE — condition
+  du moteur confrontée au manifeste rendu (`allowScripts.test.ts`). `upgrade --to` complète AVANT
+  l'installation. ⚠️ `allowBuilds` de `pnpm-workspace.yaml.tpl` est une liste distincte (pas de
+  `fsevents`).
 - Manifeste d'app `complete` : `"allowScripts": { "better-sqlite3": false }`. npm SYNTHÉTISE un
   `install: node-gyp rebuild` dès que l'arbre vient d'un `package-lock.json` — le `gypfile: false`
   du paquet n'est lu que sur un arbre bâti depuis le registre (npm/cli#9837). npm 11 (Node 24 LTS)

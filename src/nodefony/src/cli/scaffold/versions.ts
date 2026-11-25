@@ -43,7 +43,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // seul le décor e2e l'importe, pour vider sa base avant la suite — Mongoose
   // n'a pas de `orm:reset`. Même version que celle de `@nodefony/mongoose`,
   // sinon npm en installe deux et la suite parle à un autre client que l'app.
-  mongodb: "7.8.0",
+  mongodb: "7.9.1",
   // L'outil qui ÉCRIT les migrations, piloté par `nodefony orm:generate`. Aucun
   // code ne l'importe : c'est une dépendance de DÉVELOPPEMENT, et elle n'a rien
   // à faire dans une image de production, qui APPLIQUE des migrations déjà
@@ -73,9 +73,9 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // développement et MEURT en production — `Cannot find package
   // '@node-rs/argon2'`, échec critique du boot, sur le chemin par défaut.
   "@node-rs/argon2": "^2.2.2",
-  "@types/node": "^26.6.6",
+  "@types/node": "^26.6.7",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
-  oxlint: "^1.94.0",
+  oxlint: "^1.95.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
   "oxlint-tsgolint": "^7.0.2008",
@@ -105,7 +105,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   react: "^19.3.1",
   "react-dom": "^19.3.1",
   "@vitejs/plugin-react": "^6.3.0",
-  "@types/react": "^19.3.0",
+  "@types/react": "^19.3.1",
   "@types/react-dom": "^19.3.0",
   // La scène 3D du jeu Prisme de la démo (`create app --demo`) : chargée à la
   // demande sur sa seule page, jamais par le framework.
@@ -118,7 +118,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   vue: "^3.5.46",
   "@vitejs/plugin-vue": "^6.0.11",
   svelte: "^5.59.1",
-  "@sveltejs/vite-plugin-svelte": "^7.3.1",
+  "@sveltejs/vite-plugin-svelte": "^7.3.2",
   // Contrôle de l'INTÉRIEUR des composants, enchaîné par le script `typecheck`
   // (`FRONTEND_PARAMS.componentTypecheck`) : `tsgo` ne lit ni un `.vue` ni un
   // `.svelte`. Tous deux chargent le paquet `typescript`, que l'application
@@ -127,7 +127,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "svelte-check": "^4.7.8",
   // Prettier 3 ne lit un `.svelte` qu'avec ce greffon, DÉCLARÉ dans la config
   // (`plugins`) : sans lui, `format:check` passait sans regarder les composants.
-  "prettier-plugin-svelte": "^4.1.1",
+  "prettier-plugin-svelte": "^4.2.0",
   // 🔴 Angular BORNÉ à la mineure (tilde, pas caret) : le plugin Vite
   // d'analogjs dépend d'API PRIVÉES de `@angular/build`. La 22.2 a cessé de
   // faire hériter `SourceFileCache` de `Map` : avec analogjs ≤ 2.7.2, le
@@ -139,7 +139,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@angular/core": "~22.3.0",
   "@angular/common": "~22.3.0",
   "@angular/platform-browser": "~22.3.0",
-  "@analogjs/vite-plugin-angular": "^2.9.7",
+  "@analogjs/vite-plugin-angular": "^3.0.0",
   "@angular/build": "~22.3.0",
   "@angular/compiler-cli": "~22.3.0",
 };

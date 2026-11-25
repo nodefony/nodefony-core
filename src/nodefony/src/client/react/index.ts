@@ -47,6 +47,8 @@ import type {
 } from "../INodefonyKernel";
 import {
   connectShared,
+  kernelWithoutSocket,
+  KERNEL_WITHOUT_SOCKET,
   observeChannel,
   observeState,
   observeChannelStats,
@@ -173,6 +175,9 @@ export interface NodefonyProviderProps {
  * ```tsx
  * <NodefonyProvider kernel={kernel}>…</NodefonyProvider>
  * ```
+ *
+ * Un noyau sans temps réel (`realtime: false`) est servi seul : les hooks du
+ * noyau le lisent, et {@link useNodefony} lève en nommant la cause.
  */
 export function NodefonyProvider(
   props: NodefonyProviderProps,
@@ -181,20 +186,25 @@ export function NodefonyProvider(
   // `connectShared` dédoublonne par URL absolue : deux Providers de même URL
   // rendent la même instance. Le `useMemo` n'est donc pas là pour la justesse
   // mais pour éviter la résolution d'URL à chaque rendu.
+  // Noyau sans temps réel : il est servi seul, sans socket — les hooks du
+  // noyau n'en ont pas besoin, `useNodefony()` lève en nommant la cause.
   const connection = React.useMemo(
-    () => connectShared({ url, client, kernel }),
+    () =>
+      kernelWithoutSocket({ url, client, kernel })
+        ? null
+        : connectShared({ url, client, kernel }),
     [client, url, kernel],
   );
   // `start()` est idempotent, avale le rejet, et ne touche PAS au cycle d'une
   // socket fournie — les trois règles vivent dans le socle, pas ici. Toujours
   // pas de `disconnect()` au démontage : la connexion appartient à la PAGE.
-  React.useEffect(() => connection.start(), [connection]);
+  React.useEffect(() => connection?.start(), [connection]);
   return React.createElement(
     NodefonyKernelContext.Provider,
     { value: kernel ?? null },
     React.createElement(
       NodefonyContext.Provider,
-      { value: connection.socket },
+      { value: connection?.socket ?? null },
       props.children,
     ),
   );
@@ -258,17 +268,25 @@ export function useNodefonyKernelIdentity(): NodefonyKernelIdentity | null {
  * Tête de gondole + échappatoire pour les cas avancés. Référence stable (pas de
  * re-render) ; pour l'état réactif, utiliser les hooks dédiés ci-dessous.
  *
- * @throws si appelé hors d'un `<NodefonyProvider>`.
+ * @throws si appelé hors d'un `<NodefonyProvider>`, ou sous un Provider
+ *   dont le noyau n'a composé aucune socket temps réel (`realtime: false`).
  */
 export function useNodefony(): NodefonySocket {
-  return requireProvided(React.useContext(NodefonyContext));
+  const socket = React.useContext(NodefonyContext);
+  const kernel = React.useContext(NodefonyKernelContext);
+  if (!socket && kernel) {
+    throw new Error(`useNodefony() : ${KERNEL_WITHOUT_SOCKET}`);
+  }
+  return requireProvided(socket);
 }
 
 /** La socket du Provider, ou l'erreur qui dit où le monter. */
 function requireProvided(client: NodefonySocket | null): NodefonySocket {
   if (!client) {
     throw new Error(
-      "useNodefony() doit être utilisé dans un <NodefonyProvider>.",
+      "useNodefony() : aucune socket temps réel — à utiliser dans un " +
+        "<NodefonyProvider> qui en résout une (`url`, `client`, ou un `kernel` " +
+        "composé avec le temps réel).",
     );
   }
   return client;
@@ -349,21 +367,25 @@ export function useNodefonyChannel(
   third?: ChannelHandler | React.DependencyList,
   fourth?: React.DependencyList,
 ): void {
+  // Les arguments se décident d'abord, le hook s'appelle ensuite, une seule
+  // fois et sans condition (règle des hooks) — des variables plutôt qu'un
+  // tuple : rien d'alloué à chaque rendu.
+  let socket: NodefonySocket | null;
+  let channel: string;
+  let handler: ChannelHandler;
+  let deps: React.DependencyList | undefined;
   if (typeof first === "string") {
-    useChannelSubscription(
-      null,
-      first,
-      requireChannelHandler(second, "useNodefonyChannel()"),
-      typeof third === "function" ? undefined : third,
-    );
+    socket = null;
+    channel = first;
+    handler = requireChannelHandler(second, "useNodefonyChannel()");
+    deps = typeof third === "function" ? undefined : third;
   } else {
-    useChannelSubscription(
-      first,
-      channelArg(second),
-      requireChannelHandler(third, "useNodefonyChannel()"),
-      fourth,
-    );
+    socket = first;
+    channel = channelArg(second);
+    handler = requireChannelHandler(third, "useNodefonyChannel()");
+    deps = fourth;
   }
+  useChannelSubscription(socket, channel, handler, deps);
 }
 
 /** Le nom de canal à sa place d'argument — sinon l'appel est mal formé. */

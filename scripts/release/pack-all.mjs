@@ -33,6 +33,8 @@ import {
   ciblesDeTypes,
   detecterContenuSuspect,
   EXTENSIONS_INSPECTEES,
+  MODULE_PACKAGE_JSON,
+  versionFigee,
 } from "./release-core.mjs";
 import { foreignModules, publishedModules } from "../lib/symbols-publish.mjs";
 import { releasableWorkspaces } from "../lib/workspaces.mjs";
@@ -131,6 +133,29 @@ for (const w of workspaces) {
   if (Array.isArray(pkg.files) && pkg.files.includes("dist")) {
     if (!existsSync(path.join(dir, "dist"))) {
       failures.push(`${pkg.name}: dist/ absent — lancer npm run build d'abord`);
+      continue;
+    }
+  }
+
+  // Un `dist` bâti AVANT l'estampille fige l'ancienne version dans le code
+  // qui lit le `package.json` : le tarball s'annonce sous un numéro et dit en
+  // tourner un autre (`versionFigee`).
+  const distDir = path.join(dir, "dist");
+  if (existsSync(distDir)) {
+    const figees = readdirSync(distDir, { recursive: true })
+      .map(String)
+      .filter((f) => path.basename(f) === MODULE_PACKAGE_JSON)
+      .map((f) => ({
+        f,
+        v: versionFigee(readFileSync(path.join(distDir, f), "utf8")),
+      }))
+      .filter((x) => x.v !== null && x.v !== pkg.version);
+    if (figees.length) {
+      failures.push(
+        `${pkg.name}@${pkg.version}: dist/ bâti pour une autre version (${figees
+          .map((x) => `${x.f} → ${x.v}`)
+          .join(", ")}) — relancer npm run build après l'estampille`,
+      );
       continue;
     }
   }

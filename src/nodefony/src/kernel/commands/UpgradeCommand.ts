@@ -27,8 +27,8 @@ const options: OptionsCommandInterface = {
  *
  * @example
  * ```bash
- * npm install nodefony @nodefony/http …             # monter les paquets
- * nodefony upgrade                                  # puis l'application
+ * nodefony upgrade --to <version>                  # monter les paquets, installer
+ * nodefony upgrade                                  # paquets montés à la main
  * nodefony upgrade --check                          # en CI : 1 si en retard
  * ```
  */
@@ -38,6 +38,10 @@ class Upgrade extends Command {
       ...options,
       examples: () => usageExamples(UPGRADE_USAGE),
     });
+    this.addOption(
+      "--to <version>",
+      "Monte tous les paquets du framework à cette version (ou ce canal), installe, puis rejoue",
+    );
     this.addOption("--check", "Dit ce qui est en retard, sort en 1 si oui");
     this.addOption("--dry-run", "Le plan, sans rien écrire");
     this.addOption("--json", "Sortie exploitable par un script");
@@ -48,12 +52,14 @@ class Upgrade extends Command {
   }
 
   override async generate(opts?: {
+    to?: string;
     check?: boolean;
     dryRun?: boolean;
     json?: boolean;
     cwd?: string;
   }): Promise<this> {
     const argv = ["node", "nodefony", "upgrade"];
+    if (opts?.to) argv.push("--to", opts.to);
     if (opts?.check) argv.push("--check");
     if (opts?.dryRun) argv.push("--dry-run");
     if (opts?.json) argv.push("--json");

@@ -222,6 +222,11 @@ describe("isUpgradePending — ce que `--check` compte", () => {
     },
     contributions: [],
     envExample: { status: "synced", variables: 3, unreadable: [] },
+    ranges: [],
+    tooling: [],
+    allowScripts: [],
+    target: null,
+    newer: null,
   };
   const contribution = {
     packageName: "@nodefony/security",
@@ -230,6 +235,7 @@ describe("isUpgradePending — ce que `--check` compte", () => {
     updated: [],
     outdated: [],
     modified: [],
+    proposed: [],
     error: null,
   };
 
@@ -243,6 +249,20 @@ describe("isUpgradePending — ce que `--check` compte", () => {
         agents: { status: "updated", file: "AGENTS.md" },
       }),
       true,
+    );
+  });
+  // #874 : une application née avant une entrée garderait l'avertissement d'npm.
+  it("entrée allowScripts manquante : en retard ; hors npm (null) : rien à compter", () => {
+    assert.strictEqual(
+      isUpgradePending({
+        ...base,
+        allowScripts: [{ name: "esbuild", allow: false }],
+      }),
+      true,
+    );
+    assert.strictEqual(
+      isUpgradePending({ ...base, allowScripts: null }),
+      false,
     );
   });
   it("copie intacte à rafraîchir : en retard", () => {
@@ -312,6 +332,26 @@ describe("isUpgradePending — ce que `--check` compte", () => {
     assert.match(text, /\+ docker\/keycloak\/import\/realm\.json/u);
     assert.match(text, /~ docker\/keycloak\/themes\/a\.css/u);
   });
+  it("copie RETOUCHÉE dont la livraison a changé : nommée avec sa version posée à côté, sans rougir --check", () => {
+    const report: IUpgradeReport = {
+      ...base,
+      dryRun: false,
+      contributions: [
+        {
+          ...contribution,
+          kept: ["Dockerfile"],
+          modified: ["Dockerfile"],
+          proposed: ["Dockerfile"],
+        },
+      ],
+    };
+    assert.strictEqual(isUpgradePending(report), false);
+    assert.match(
+      renderUpgrade(report),
+      /Dockerfile — retouché par l'application, gardé ; nouvelle version posée à côté : Dockerfile\.nodefony-new/u,
+    );
+  });
+
   it("copie RETOUCHÉE, AGENTS.md absent : pas en retard — rien ne se tranche sans humain", () => {
     assert.strictEqual(
       isUpgradePending({
@@ -347,6 +387,7 @@ describe("upgradeUsage — l'aide se calcule depuis la version", () => {
     assert.ok(!aide.includes("@beta"), aide);
     assert.ok(!aide.includes("latest"), aide);
     assert.ok(aide.includes("npm install nodefony @nodefony/http"), aide);
+    assert.ok(aide.includes("nodefony upgrade --to <version>"), aide);
   });
 
   it("nomme le canal d'une préversion, dans l'exemple comme dans le texte", () => {
@@ -356,5 +397,6 @@ describe("upgradeUsage — l'aide se calcule depuis la version", () => {
       aide,
     );
     assert.ok(aide.includes("le canal `beta`"), aide);
+    assert.ok(aide.includes("nodefony upgrade --to beta"), aide);
   });
 });

@@ -634,6 +634,7 @@ const contribution = (
   updated: [],
   outdated: [],
   modified: [],
+  proposed: [],
   error: null,
   ...partiel,
 });
@@ -782,6 +783,7 @@ describe("doctor --live — les fichiers livrés par les paquets (#268)", () => 
           contribution({
             kept: [`${THEME}/login.ftl`],
             modified: [`${THEME}/login.ftl`],
+            proposed: [],
           }),
         ),
       ),

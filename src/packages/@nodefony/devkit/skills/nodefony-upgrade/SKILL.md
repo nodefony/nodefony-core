@@ -11,7 +11,7 @@ description: >
   version", "upgrade nodefony", "npm update nodefony", "une nouvelle version est sortie", "mes paquets
   nodefony sont en retard", "après la mise à jour plus rien ne compile", "AGENTS.md est périmé".
 metadata:
-  version: 1.2.0
+  version: 1.3.2
 ---
 
 # nodefony-upgrade — les paquets, puis l'application, puis la preuve
@@ -56,27 +56,27 @@ npx nodefony outdated
 
 `outdated` liste les paquets en retard, regroupés. Note la version cible.
 
-**Monter TOUS les paquets Nodefony, ensemble, sous le bon canal.** Ils sortent verrouillés : même
-version pour `nodefony` et chaque `@nodefony/*`, devDependencies comprises (`@nodefony/devkit`
-porte les skills). Nomme chacun de ceux que ton `package.json` déclare :
+**Monter TOUS les paquets Nodefony, ensemble, puis remettre l'application au niveau — un seul
+geste** :
 
 ```bash
-npm install nodefony @nodefony/http @nodefony/framework @nodefony/security
-npm install -D @nodefony/devkit
+npx nodefony upgrade --to <version>     # ou un canal : --to beta
 ```
 
-⚠️ `npm install nodefony` suit le canal `latest`. Pour viser une version précise, l'écrire
-(`nodefony@<version>`) — la même sur TOUS les paquets de l'application.
+Les paquets sortent verrouillés : même version pour `nodefony` et chaque `@nodefony/*`.
+`--to` réécrit chaque plage du `package.json` — `devDependencies` (`@nodefony/devkit` porte les
+skills) et surcharges (`overrides`, `resolutions`) comprises —, relève l'outillage du gabarit
+resté sous son plancher, installe avec le gestionnaire de l'application, puis la version
+installée rejoue la remise au niveau. Plan sans rien écrire : ajouter `--dry-run`.
 
-**Remettre l'application au niveau des paquets** :
-
-```bash
-npx nodefony upgrade
-```
+À la main, c'est `npm install nodefony@<version> @nodefony/<paquet>@<version>…` pour chaque
+paquet déclaré (⚠️ sans version, `npm install nodefony` suit le canal `latest`), puis
+`npx nodefony upgrade`, qui remet l'application au niveau sans rien installer.
 
 Elle réécrit le bloc framework d'`AGENTS.md` (le texte hors des marqueurs `<!-- nodefony:start -->`
 / `<!-- nodefony:end -->` ne bouge pas), pose les pointeurs des skills apparus, rafraîchit les
-copies livrées restées intactes. Ce qu'elle ne tranche pas est listé sous « À trancher à la main » :
+copies livrées restées intactes et, sous npm, ajoute au bloc `allowScripts` du `package.json` les
+entrées que le gabarit déclare et qui manquent — une entrée présente garde sa valeur. Ce qu'elle ne tranche pas est listé sous « À trancher à la main » :
 une copie que l'application a retouchée, un `SKILL.md` écrit à la main, un skill que plus aucun
 paquet ne livre. **Lis cette liste** : chaque ligne est une décision qui t'appartient.
 
@@ -115,8 +115,9 @@ puis la procédure de `nodefony-migrate-schema`.
   `npx nodefony upgrade --check` le voient.
 - **`upgrade` ne recrée pas un `AGENTS.md` supprimé** : l'absence peut être un choix. Elle le dit.
 - **Ne corrige pas une copie livrée « en retard » à la main** : si elle est intacte, `upgrade` la
-  remplace ; si tu l'as retouchée, reporte tes retouches sur la nouvelle version du paquet, à la
-  main et en connaissance de cause.
+  remplace ; si tu l'as retouchée et que la livraison a changé, il pose la nouvelle version À
+  CÔTÉ (`<fichier>.nodefony-new`) : compare-la à la copie, reporte ce que l'application garde,
+  puis supprime le `.nodefony-new`. Il ne s'inscrit nulle part et le `.gitignore` l'ignore.
 - **Le `Dockerfile` est une copie livrée** : les correctifs de l'image (étage de construction,
   sécurité) ne t'atteignent que s'il est resté intact. Une base, des paquets système ou une cible
   se règlent SANS le retoucher — `--build-arg` ou `NF_IMAGE_TARGET`, `NF_IMAGE_PACKAGES`,

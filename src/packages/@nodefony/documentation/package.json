@@ -41,7 +41,7 @@
   "devDependencies": {
     "@nodefony/framework": "^10.0.2",
     "@nodefony/http": "^10.0.2",
-    "@types/node": "26.6.6",
+    "@types/node": "26.6.7",
     "@vitest/coverage-v8": "5.1.1",
     "nodefony": "^10.0.2",
     "vitest": "5.1.1"

@@ -401,6 +401,34 @@ describe("noyau client — Vue", () => {
     expect(off.mock.calls).toEqual(on.mock.calls);
   });
 
+  it("🔴 sans temps réel (realtime: false) : le noyau est servi, useNodefony() lève en nommant la cause", () => {
+    const kernel = new NodefonyKernel({
+      realtime: false,
+      browserEvents: false,
+      banner: false,
+    });
+    const app = createApp({});
+    expect(() => app.use(nodefonyVue, { kernel })).not.toThrow();
+    const { valeur, arreter } = monter(app, () => {
+      let erreur: unknown = null;
+      try {
+        useNodefony();
+      } catch (e) {
+        erreur = e;
+      }
+      return {
+        kernel: useNodefonyKernel(),
+        identity: useNodefonyKernelIdentity(),
+        erreur,
+      };
+    });
+    expect(valeur.kernel).toBe(kernel);
+    kernel.setIdentity({ key: "alice" });
+    expect(valeur.identity.value?.key).toBe("alice");
+    expect(String(valeur.erreur)).toMatch(/aucune socket temps réel/);
+    arreter();
+  });
+
   it("sans noyau fourni : `null` partout", () => {
     const { valeur, arreter } = monter(appAvec(newClient()), () => ({
       kernel: useNodefonyKernel(),

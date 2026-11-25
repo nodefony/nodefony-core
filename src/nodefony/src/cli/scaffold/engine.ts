@@ -182,6 +182,7 @@ import {
   SCAFFOLD_VERSIONS,
   versionOf,
 } from "./versions";
+import { appAllowScripts } from "./allowScripts";
 import { formatScaffoldOutput } from "./format.js";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
 import {
@@ -2553,6 +2554,16 @@ function dispatchScaffold(
     pmExec: packageManagerCommandLines(packageManager).exec,
     // Catalogue de versions tierces (source unique — cf versions.ts).
     pkg: SCAFFOLD_VERSIONS,
+    // Bloc `allowScripts` (npm) : la règle que `nodefony upgrade` applique
+    // aussi. `better-sqlite3` n'y entre que si le gabarit le DÉCLARE — même
+    // condition que ses deux lignes de dépendances, confrontée au rendu par
+    // `allowScripts.test.ts`.
+    allowScripts: appAllowScripts(
+      (name) =>
+        name === "better-sqlite3" &&
+        preset === "complete" &&
+        (answers.database === "sqlite" || answers.demo === true),
+    ),
     preset,
     complete: preset === "complete",
     // Le service d'exemple d'une app sans vitrine — même nom que celui rendu

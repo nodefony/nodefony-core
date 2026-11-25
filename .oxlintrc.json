@@ -218,6 +218,12 @@
     "typescript/only-throw-error": "error",
     "typescript/use-unknown-in-catch-callback-variable": "error",
     "typescript/no-deprecated": "error",
+    // Coupée : neuve dans oxlint 1.95 (catégorie « suspicious »), elle prend le
+    // typage des bibliothèques pour des instances mal construites — un schéma
+    // Mongoose `{ type: String }`, une table Drizzle passée comme `PgTable` —
+    // et les doublures de test pour des fautes. 175 sites dans le dépôt, aucun
+    // défaut à l'échantillon relu ; sous `--deny-warnings`, elle cassait le lint.
+    "typescript/no-unsafe-class-instance-assignment": "off",
     "typescript/consistent-type-exports": "error",
     "typescript/restrict-plus-operands": "error",
     "typescript/switch-exhaustiveness-check": "error",
