@@ -606,7 +606,7 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
     expect(frameJournalRows(model(t, { status: null }), size)).to.equal(10);
   });
 
-  it("en couleur : l'actif en vidéo inverse, le compteur caché en gras, rouge sur une erreur", () => {
+  it("en couleur, aux couleurs de la marque : numéro vert gras, titre sur gris ; l'actif numéro sur cyan, titre blanc gras sur bleu ; compteur caché rouge sur une erreur", () => {
     const frame = renderFrame(
       model(transcriptOf(range(3)), {
         status: null,
@@ -622,7 +622,7 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
       size,
     );
     expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
-      "\x1b[100m 1 serveur\x1b[1;31m ·2\x1b[22;39m \x1b[0m \x1b[1;7m 2 vite \x1b[0m ",
+      "\x1b[1;32m 1 \x1b[0;100m serveur\x1b[1;91m ·2\x1b[22;39m \x1b[0m \x1b[1;30;46m 2 \x1b[0;1;97;44m vite \x1b[0m ",
     );
   });
 
@@ -679,10 +679,10 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
         color: true,
         tabs: many(0, 5),
       }),
-      { columns: 22, rows: 10 },
+      { columns: 24, rows: 10 },
     );
     expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
-      "\x1b[1;7m 1 a1 \x1b[0m \x1b[100m 2 a2 \x1b[0m \x1b[1;31m +4 › \x1b[0m",
+      "\x1b[1;30;46m 1 \x1b[0;1;97;44m a1 \x1b[0m \x1b[1;32m 2 \x1b[0;100m a2 \x1b[0m \x1b[1;31m +4 › \x1b[0m",
     );
   });
 
@@ -704,5 +704,28 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
     expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
       "[1 serveur]│ 2 agent ✓ │ 3 build ✗ │",
     );
+  });
+
+  it("en couleur, ✓ en vert et ✗ en rouge, gras, le titre reprend sa teinte après", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        color: true,
+        tabs: {
+          active: 1,
+          items: [
+            { title: "serveur", unseen: 0, alert: false },
+            { title: "agent", unseen: 0, alert: false, outcome: "ok" },
+            { title: "build", unseen: 0, alert: false, outcome: "failed" },
+          ],
+        },
+      }),
+      size,
+    );
+    const line = frame.lines[frame.tabs?.row ?? -1] ?? "";
+    expect(line).to.include(
+      "\x1b[0;1;97;44m agent\x1b[1;92m ✓\x1b[97m \x1b[0m",
+    );
+    expect(line).to.include("\x1b[0;100m build\x1b[1;91m ✗\x1b[22;39m \x1b[0m");
   });
 });

@@ -1371,17 +1371,23 @@ describe("plein écran — onglets serveur et vite (#903)", () => {
     terminal.ingest("server", "out", lines(1));
     terminal.ingest("vite:default", "out", vite(1));
     await nextFrame();
-    expect(stdout.written.join("")).to.include("2 vite\x1b[1m ·1\x1b[22;39m");
+    expect(stdout.written.join("")).to.include(
+      "\x1b[1;32m 2 \x1b[0;100m vite\x1b[1m ·1\x1b[22;39m",
+    );
     terminal.ingest("vite:default", "err", "échec\n");
     await nextFrame();
-    expect(stdout.written.at(-1)).to.include("2 vite\x1b[1;31m ·2\x1b[22;39m");
+    expect(stdout.written.at(-1)).to.include(
+      "\x1b[1;32m 2 \x1b[0;100m vite\x1b[1;91m ·2\x1b[22;39m",
+    );
     input.type("\x1b2");
     await nextFrame();
     input.type("\x1b1");
     await nextFrame();
     terminal.ingest("vite:default", "out", vite(1, 2));
     await nextFrame();
-    expect(stdout.written.at(-1)).to.include("2 vite\x1b[1m ·1\x1b[22;39m");
+    expect(stdout.written.at(-1)).to.include(
+      "\x1b[1;32m 2 \x1b[0;100m vite\x1b[1m ·1\x1b[22;39m",
+    );
     terminal.close();
   });
 });

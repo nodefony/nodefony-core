@@ -378,11 +378,15 @@ function unseenLine(count: number, model: IFrameModel): string {
 
 /**
  * La ligne d'onglets : chaque onglet est une PASTILLE, séparée de la
- * suivante — sur fond gris, l'actif en vidéo inverse grasse, une colonne de
- * fond nu entre deux ; sans couleur, l'actif entre crochets et un trait
- * `│` après chaque onglet. Sans pastille, les titres se lisaient comme une
- * seule phrase. Le compteur d'un onglet caché en gras, en rouge quand une
- * erreur y est arrivée ; ✓ / ✗ quand son travail est fini. Trop large : une
+ * suivante par une colonne de fond nu — sans pastille, les titres se
+ * lisaient comme une seule phrase. En couleur, deux blocs aux couleurs de la
+ * marque : le numéro (la touche Alt+N) en VERT Node gras sur le fond du
+ * terminal, le titre sur gris ; l'onglet actif, numéro sur un bloc CYAN,
+ * titre blanc gras sur BLEU — seul l'actif porte deux blocs, il ressort. Les
+ * couleurs sont celles des 16 du terminal, que son thème ajuste. ✓ en vert,
+ * ✗ en rouge ; le compteur d'un onglet caché en gras, en rouge quand une
+ * erreur y est arrivée. Sans couleur, l'actif entre crochets et un trait
+ * `│` après chaque onglet. Trop large : une
  * fenêtre autour de l'actif, bordée de `‹ +3` / `+2 ›` (un onglet plus long
  * que la ligne seul y reste, coupé par le terminal).
  *
@@ -401,28 +405,25 @@ function tabsLine(
   // Ce qui suit chaque pastille : une colonne de fond nu, ou un trait.
   const gap = model.color ? " " : ascii ? "|" : "│";
   const count = tabs.items.length;
-  const heads: string[] = [];
+  const labels: string[] = [];
   const counters: string[] = [];
   const widths = new Uint32Array(count);
+  // En couleur, le numéro a son propre bloc : une colonne de plus.
+  const frame = model.color ? 5 : 4;
   let total = 0;
   for (let i = 0; i < count; i++) {
     const tab = tabs.items[i];
-    const outcome =
-      tab?.outcome === "ok"
-        ? ascii
-          ? " +"
-          : " ✓"
-        : tab?.outcome === "failed"
-          ? ascii
-            ? " x"
-            : " ✗"
-          : "";
-    const head = `${i + 1} ${sanitizeTerminalText(tab?.title ?? "")}${outcome}`;
+    const label = sanitizeTerminalText(tab?.title ?? "");
     const counter =
       tab !== undefined && tab.unseen > 0 ? ` ${dot}${tab.unseen}` : "";
-    heads.push(head);
+    labels.push(label);
     counters.push(counter);
-    widths[i] = visibleWidth(head) + visibleWidth(counter) + 3;
+    widths[i] =
+      String(i + 1).length +
+      visibleWidth(label) +
+      (tab?.outcome ? 2 : 0) +
+      visibleWidth(counter) +
+      frame;
     total += widths[i] ?? 0;
   }
   // Trop large : une fenêtre autour de l'actif, élargie tant qu'elle tient,
@@ -470,21 +471,39 @@ function tabsLine(
   }
   for (let i = lo; i <= hi; i++) {
     const tab = tabs.items[i];
-    const head = heads[i] ?? "";
+    const label = labels[i] ?? "";
     const counter = counters[i] ?? "";
     const stride = widths[i] ?? 0;
+    const active = i === tabs.active;
     spans.push({ start: column, end: column + stride - 1, index: i });
     column += stride;
-    if (i === tabs.active) {
-      text += model.color
-        ? `\x1b[1;7m ${head}${counter} \x1b[0m`
-        : `[${head}${counter}]`;
-    } else if (!model.color) {
-      text += ` ${head}${counter} `;
-    } else if (counter === "") {
-      text += `\x1b[100m ${head} \x1b[0m`;
+    const glyph =
+      tab?.outcome === "ok"
+        ? ascii
+          ? " +"
+          : " ✓"
+        : tab?.outcome === "failed"
+          ? ascii
+            ? " x"
+            : " ✗"
+          : "";
+    if (!model.color) {
+      const body = `${i + 1} ${label}${glyph}${counter}`;
+      text += active ? `[${body}]` : ` ${body} `;
     } else {
-      text += `\x1b[100m ${head}${tab?.alert === true ? "\x1b[1;31m" : "\x1b[1m"}${counter}\x1b[22;39m \x1b[0m`;
+      // Le bloc du titre : blanc gras sur bleu (actif), teinte du thème sur
+      // gris ; `fg` la rend après une coche ou un compteur colorés.
+      const fg = active ? "97" : "39";
+      text += active
+        ? `\x1b[1;30;46m ${i + 1} \x1b[0;1;97;44m ${label}`
+        : `\x1b[1;32m ${i + 1} \x1b[0;100m ${label}`;
+      if (glyph !== "") {
+        text += `\x1b[1;${tab?.outcome === "ok" ? "92" : "91"}m${glyph}\x1b[${active ? "" : "22;"}${fg}m`;
+      }
+      if (counter !== "") {
+        text += `${tab?.alert === true ? "\x1b[1;91m" : "\x1b[1m"}${counter}\x1b[22;39m`;
+      }
+      text += " \x1b[0m";
     }
     text += gap;
   }
