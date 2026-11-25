@@ -28,6 +28,7 @@ import {
   readDevMouseRequest,
   readDevUiRequest,
 } from "../service/dev/outputMode";
+import type { IDevBand } from "../service/dev/devBand";
 import { invertColumns } from "../service/dev/devSelection";
 import type { IStartupView } from "../service/dev/startupScreen";
 import { TERMINAL_PROBE } from "../service/dev/terminalCapability";
@@ -1476,6 +1477,134 @@ describe("plein écran — onglets ouverts à la volée (#903, N8)", () => {
     await nextFrame();
     expect(terminal.activeView).to.not.equal("a6");
     expect(terminal.activeView).to.match(/^a\d$/);
+    terminal.close();
+  });
+});
+
+describe("plein écran — la bande (#903)", () => {
+  /** Une bande qui garde TOUT et note ce qu'elle reçoit. */
+  const greedy = () => {
+    const seen: { kind: string; row?: number; column?: number }[] = [];
+    const band: IDevBand = {
+      height: () => 2,
+      render: () => ["bande 1", "bande 2"],
+      handle: (event) => {
+        seen.push(
+          event.kind === "mouse" || event.kind === "wheel"
+            ? { kind: event.kind, row: event.row, column: event.column }
+            : { kind: event.kind },
+        );
+        return true;
+      },
+    };
+    return { seen, band };
+  };
+
+  it("? ouvre l'aide des gestes ; ?, q, Échap la referment, F1 aussi l'ouvre", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(20));
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.not.include("Gestes");
+    input.type("?");
+    await nextFrame();
+    let shown = await screen(stdout.written);
+    expect(shown.join("\n")).to.include("Gestes");
+    expect(shown.join("\n")).to.include("changer d'onglet");
+    input.type("?");
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.not.include("Gestes");
+    input.type("\x1bOP");
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.include("Gestes");
+    input.type("q");
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.not.include("Gestes");
+    input.type("?");
+    await nextFrame();
+    input.type("\x1b");
+    await new Promise((resolve) => setTimeout(resolve, 80)); // délai de l'Échap seul
+    await nextFrame();
+    shown = await screen(stdout.written);
+    expect(shown.join("\n")).to.not.include("Gestes");
+    expect(terminal.band).to.equal(null);
+    terminal.close();
+  });
+
+  it("l'aide ouverte, le défilement et Alt+N passent : elle rend ce qu'elle ne garde pas", async () => {
+    const { input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(40));
+    terminal.ingest("vite:default", "out", "vite 1\n");
+    await nextFrame();
+    input.type("?");
+    await nextFrame();
+    input.type("\x1b[5~");
+    await nextFrame();
+    expect(terminal.anchor).to.not.equal(null);
+    input.type("\x1b2");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("vite");
+    expect(terminal.band).to.not.equal(null);
+    terminal.close();
+  });
+
+  it("sous une autre bande, ? ne rouvre pas l'aide une seconde fois", async () => {
+    const { input, terminal } = fullscreen();
+    input.type("?");
+    const help = terminal.band;
+    const close = terminal.openBand({
+      height: () => 1,
+      render: () => ["dessus"],
+      handle: () => false,
+    });
+    input.type("?");
+    close();
+    expect(terminal.band).to.equal(help);
+    terminal.close();
+  });
+
+  it("une bande qui garde tout ne retient pas Ctrl+C ; la refermer deux fois est sans effet", async () => {
+    const { stdout, input, quit, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(20));
+    const { seen, band } = greedy();
+    const close = terminal.openBand(band);
+    await nextFrame();
+    expect(await screen(stdout.written)).to.include("bande 2");
+    input.type("x\x1b[5~");
+    expect(seen.map((e) => e.kind)).to.deep.equal(["text", "key"]);
+    expect(terminal.anchor).to.equal(null);
+    input.type("\x03");
+    expect(quit).toHaveBeenCalledTimes(1);
+    close();
+    close();
+    await nextFrame();
+    expect(terminal.band).to.equal(null);
+    const shown = await screen(stdout.written);
+    expect(shown.join("\n")).to.not.include("bande");
+    expect(shown.join("\n")).to.include("ligne 20");
+    terminal.close();
+  });
+
+  it("--mouse : un clic sur la bande lui arrive en coordonnées LOCALES et ne traverse pas ; la molette non plus ; hors d'elle, la souris atteint le journal", async () => {
+    const { stdout, input, terminal } = fullscreen({ mouse: true });
+    terminal.ingest("server", "out", lines(40));
+    const { seen, band } = greedy();
+    terminal.openBand(band);
+    await nextFrame();
+    const shown = await screen(stdout.written);
+    const row = shown.indexOf("bande 2") + 1;
+    expect(row).to.be.greaterThan(1);
+    input.type(press(4, row) + release(4, row) + `\x1b[<64;4;${row}M`);
+    await nextFrame();
+    expect(seen).to.deep.equal([
+      { kind: "mouse", row: 2, column: 4 },
+      { kind: "mouse", row: 2, column: 4 },
+      { kind: "wheel", row: 2, column: 4 },
+    ]);
+    expect(terminal.anchor).to.equal(null);
+    input.type("\x1b[<64;4;2M");
+    await nextFrame();
+    expect(terminal.anchor).to.not.equal(null);
+    expect(seen).to.have.length(3);
     terminal.close();
   });
 });

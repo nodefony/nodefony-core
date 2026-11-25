@@ -16,6 +16,7 @@ import {
   type IFrameModel,
   type IFrameStatus,
 } from "../service/dev/devFrame";
+import { helpBand } from "../service/dev/devBand";
 import { DevHistory } from "../service/dev/devHistory";
 import { DevTranscript } from "../service/dev/devTranscript";
 import type { IStartupView } from "../service/dev/startupScreen";
@@ -727,5 +728,97 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
       "\x1b[0;1;97;44m agent\x1b[1;92m ✓\x1b[97m \x1b[0m",
     );
     expect(line).to.include("\x1b[0;100m build\x1b[1;91m ✗\x1b[22;39m \x1b[0m");
+  });
+});
+
+describe("renderFrame — la bande (#903)", () => {
+  it("l'aide se replie sur une colonne quand deux ne tiennent pas, et demande alors toute sa hauteur", () => {
+    const help = helpBand({
+      charset: "unicode",
+      color: false,
+      mouse: true,
+      close: () => {},
+    });
+    expect(help.height(120)).to.equal(6);
+    expect(help.height(40)).to.equal(10);
+    const narrow = help.render({
+      kind: "band",
+      row: 0,
+      column: 0,
+      width: 40,
+      height: 10,
+    });
+    expect(narrow).to.have.length(10);
+    expect(narrow.join("\n")).to.include("arrêter le serveur");
+    const wide = help.render({
+      kind: "band",
+      row: 0,
+      column: 0,
+      width: 120,
+      height: 6,
+    });
+    expect(wide).to.have.length(6);
+    expect(wide.join("\n")).to.include("arrêter le serveur");
+  });
+
+  const band = (height: number, drawn: readonly string[]) => ({
+    height: () => height,
+    render: () => drawn,
+  });
+
+  it("sous le journal, de la hauteur demandée : une bande courte est complétée, jamais rendue au journal", () => {
+    const t = transcriptOf(range(30));
+    const frame = renderFrame(
+      model(t, { status: null, band: band(3, ["b1", "b2"]) }),
+      { columns: 40, rows: 12 },
+    );
+    expect(frame.lines).to.have.length(12);
+    expect(frame.lines.slice(8)).to.deep.equal(["l30", "b1", "b2", ""]);
+    expect(frame.band).to.deep.equal({ row: 9, height: 3 });
+    expect(frame.origins?.[9]).to.equal(null);
+  });
+
+  it("un tiers de l'écran au plus : une bande trop longue est coupée, l'image garde ses lignes", () => {
+    const drawn = Array.from({ length: 10 }, (_, i) => `b${i + 1}`);
+    const frame = renderFrame(
+      model(transcriptOf(range(30)), { status: null, band: band(10, drawn) }),
+      { columns: 40, rows: 12 },
+    );
+    expect(frame.lines).to.have.length(12);
+    expect(frame.lines.slice(8)).to.deep.equal(["b1", "b2", "b3", "b4"]);
+    expect(frame.band).to.deep.equal({ row: 8, height: 4 });
+  });
+
+  it("sous la ligne d'onglets, collée à elle ; la hauteur demandée lit la largeur", () => {
+    let asked = -1;
+    const frame = renderFrame(
+      model(transcriptOf(range(30)), {
+        status: null,
+        tabs: {
+          active: 0,
+          items: [
+            { title: "serveur", unseen: 0, alert: false },
+            { title: "vite", unseen: 0, alert: false },
+          ],
+        },
+        band: {
+          height: (width: number) => {
+            asked = width;
+            return 2;
+          },
+          render: () => ["b1", "b2"],
+        },
+      }),
+      { columns: 40, rows: 10 },
+    );
+    expect(asked).to.equal(39);
+    expect(frame.tabs?.row).to.equal(7);
+    expect(frame.band).to.deep.equal({ row: 8, height: 2 });
+    expect(frame.lines.slice(6)).to.deep.equal([
+      "l30",
+      "[1 serveur]│ 2 vite │",
+      "b1",
+      "b2",
+    ]);
   });
 });

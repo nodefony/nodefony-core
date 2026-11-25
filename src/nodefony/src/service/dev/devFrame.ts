@@ -14,7 +14,7 @@
  * arrivé dessous (« ↑ N nouvelles lignes — Fin »).
  */
 import { fitToWidth, visibleWidth, wrapToWidth } from "../../runtime/textWidth";
-import { layout as screenLayout } from "./devLayout";
+import { layout as screenLayout, type IRegion } from "./devLayout";
 import { invertColumns, type ISelectionRange } from "./devSelection";
 import { sanitizeTerminalText, type ITranscriptEntry } from "./devTranscript";
 import {
@@ -111,6 +111,28 @@ export interface ITabSpan {
   readonly index: number;
 }
 
+/**
+ * Une bande (menu, complétion, aide) telle que l'image la lit : la hauteur
+ * qu'elle demande, et ses lignes pour le rectangle que la mise en page lui
+ * donne (ADR-0013 §11).
+ */
+export interface IFrameBand {
+  /**
+   * Lignes demandées pour cette largeur (une bande se replie sur un écran
+   * étroit) ; la mise en page les borne à un tiers de l'écran.
+   *
+   * @param width - colonnes disponibles.
+   */
+  height(width: number): number;
+  /**
+   * Ses lignes, au plus `region.height` ; chacune est bornée à
+   * `region.width` par l'image.
+   *
+   * @param region - son rectangle.
+   */
+  render(region: IRegion): readonly string[];
+}
+
 /** Tout ce que l'image lit. */
 export interface IFrameModel {
   readonly transcript: ITranscriptReader;
@@ -145,6 +167,8 @@ export interface IFrameModel {
    * ou `null` : pas de ligne, l'écran d'une seule vue.
    */
   readonly tabs?: IFrameTabs | null;
+  /** La bande ouverte, entre les onglets et l'invite — absente : hauteur 0. */
+  readonly band?: IFrameBand | null;
 }
 
 /**
@@ -174,6 +198,8 @@ export interface IFrame {
   readonly origins?: readonly (IRowOrigin | null)[];
   /** La ligne d'onglets à l'écran : sa ligne, et les colonnes de chaque onglet. */
   readonly tabs?: { readonly row: number; readonly spans: readonly ITabSpan[] };
+  /** La bande à l'écran : sa première ligne et sa hauteur — ce qu'un clic teste. */
+  readonly band?: { readonly row: number; readonly height: number };
 }
 
 /** Une ligne à réécrire. */
@@ -688,6 +714,8 @@ interface IFrameLayout {
   /** La ligne d'onglets (zéro ou une), et les colonnes de chaque onglet. */
   tabLines: readonly string[];
   tabSpans: readonly ITabSpan[];
+  /** Les lignes de la bande, exactement la hauteur que la mise en page lui donne. */
+  bandLines: readonly string[];
   journalHeight: number;
 }
 
@@ -825,12 +853,25 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   // la barre, l'invite puis les onglets d'abord, la vue prend le reste ;
   // l'indicateur est DANS la vue. Négatif quand la hauteur manque — tout
   // lecteur borne à 0.
-  const view = screenLayout(size, {
+  const regions = screenLayout(size, {
     tabs: tabs === null ? "none" : "bottom",
-    band: 0,
+    band: model.band?.height(width) ?? 0,
     prompt: promptLines.length,
     bar: bar.length,
-  }).find((region) => region.kind === "view");
+  });
+  let view: IRegion | undefined;
+  let bandLines: readonly string[] = NO_TAB_LINES;
+  for (const region of regions) {
+    if (region.kind === "view") view = region;
+    else if (region.kind === "band" && model.band) {
+      // Toujours la hauteur donnée : une bande courte ne rend pas de lignes au
+      // journal, une bande trop longue ne pousse pas l'invite.
+      const drawn = model.band.render(region);
+      const fixed: string[] = [];
+      for (let i = 0; i < region.height; i++) fixed.push(drawn[i] ?? "");
+      bandLines = fixed;
+    }
+  }
   const journalHeight = (view?.height ?? 0) - indicator.length;
   return {
     rows,
@@ -841,6 +882,7 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
     indicator,
     tabLines: tabs === null ? NO_TAB_LINES : [tabs.text],
     tabSpans: tabs === null ? NO_TAB_SPANS : tabs.spans,
+    bandLines,
     journalHeight,
   };
 }
@@ -1004,6 +1046,7 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
     indicator,
     tabLines,
     tabSpans,
+    bandLines,
     journalHeight,
   } = frameLayout(model, size);
   const prompt = model.prompt ?? null;
@@ -1012,6 +1055,7 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
     ...journal.lines,
     ...indicator,
     ...tabLines,
+    ...bandLines,
     ...promptLines,
     ...bar,
   ];
@@ -1020,7 +1064,11 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
     ...Array.from(
       {
         length:
-          indicator.length + tabLines.length + promptLines.length + bar.length,
+          indicator.length +
+          tabLines.length +
+          bandLines.length +
+          promptLines.length +
+          bar.length,
       },
       () => null,
     ),
@@ -1053,9 +1101,18 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
     }
   }
   const tabRow = journal.lines.length + indicator.length - cut;
-  return tabLines.length === 0 || tabRow < 0
-    ? { lines, cursor, origins }
-    : { lines, cursor, origins, tabs: { row: tabRow, spans: tabSpans } };
+  const bandRow = tabRow + tabLines.length;
+  return {
+    lines,
+    cursor,
+    origins,
+    ...(tabLines.length === 0 || tabRow < 0
+      ? {}
+      : { tabs: { row: tabRow, spans: tabSpans } }),
+    ...(bandLines.length === 0 || bandRow < 0
+      ? {}
+      : { band: { row: bandRow, height: bandLines.length } }),
+  };
 }
 
 /**

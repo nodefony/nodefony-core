@@ -692,8 +692,8 @@ interface IDevView {
 }
 // addView(spec) rend sa poignée { finish, close } : qui crée l'onglet le détruit.
 interface IDevBand {
-  readonly height: number; // lignes demandées, bornées par la mise en page
-  render(rect: IRegion): IViewFrame;
+  height(width: number): number; // lignes demandées à cette largeur, bornées par la mise en page
+  render(rect: IRegion): readonly string[];
   handle(event: InputEvent): boolean; // modale : consomme tout ce qu'elle ne rend pas
 }
 // l'invite = une bande PERMANENTE : éditeur pur (tampon, curseur compté en graphèmes par la
@@ -723,6 +723,15 @@ interface IDevBand {
   chercher l'onglet par son identifiant. Trop d'onglets pour la largeur : une fenêtre autour de
   l'actif, bordée de `‹ +3` / `+2 ›` — un clic sur la marque montre le voisin caché, et la
   marque passe au gras ou au rouge quand un onglet qu'elle cache a reçu des lignes ou une erreur.
+- **Bande livrée à l'étape 4** (`devBand.ts#IDevBand`, `DevTerminal.ts#DevTerminal.openBand`) :
+  entre la ligne d'onglets et l'invite, de la hauteur qu'elle demande À CETTE LARGEUR (une bande
+  se replie sur un écran étroit), bornée à un tiers de l'écran, complétée ou coupée à la hauteur
+  donnée — le journal ne bouge pas d'une image à l'autre. La dernière ouverte reçoit le clavier
+  avant le défilement ; ce qu'elle rend (`false`) continue la chaîne ; Ctrl+C et Ctrl+D ne lui
+  parviennent jamais. La souris ne lui arrive que sur son rectangle, en coordonnées locales, et
+  s'y arrête ; hors d'elle, elle atteint la vue. Premier usage : l'aide des gestes (`?` ou F1 ;
+  `?`, `q`, Échap ou F1 la referment), qui laisse passer défilement et Alt+N. Avec l'invite
+  (#538), `?` deviendra une frappe : F1 reste.
 - **Régions sales** : chaque mutateur marque la sienne (§5) ; l'image ne rend que celles-là
   (§9).
 

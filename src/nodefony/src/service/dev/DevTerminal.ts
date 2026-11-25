@@ -72,6 +72,7 @@ import {
 } from "./devTranscript";
 import { DevHistory, type IDevHistoryOptions } from "./devHistory";
 import { DevView, type IDevViewHandle, type IDevViewSpec } from "./devView";
+import { helpBand, type IDevBand } from "./devBand";
 import type { ProcessOutputStream } from "./heldChannel";
 import { CLEAR_SCREEN } from "./outputMode";
 import {
@@ -414,6 +415,10 @@ export class DevTerminal {
   #active: DevView;
   /** Les onglets montrés, rebâtis seulement quand leur ensemble change. */
   #shown: readonly DevView[] = [];
+  /** Les bandes ouvertes ; la dernière est à l'écran et reçoit les évènements. */
+  readonly #bands: IDevBand[] = [];
+  /** La fermeture de l'aide (`?`), `null` quand elle est fermée. */
+  #closeHelp: (() => void) | null = null;
   readonly #status: StatusLine;
   /** États d'affichage par couple (canal, flux) — une dizaine de clés au plus. */
   readonly #echo: Record<string, IEchoState> = Object.create(null) as Record<
@@ -924,6 +929,7 @@ export class DevTerminal {
     };
     if (full.mouse) full.foci.push(this.#mouseFocus(full));
     full.foci.push(this.#scrollFocus(full), this.#globalFocus(full));
+    full.foci.unshift(this.#bandFocus(full));
     this.#full = full;
     this.#surface = "fullscreen";
     full.releaseGuard = guardTerminal(() => this.#restoreTerminal(full));
@@ -1249,15 +1255,24 @@ export class DevTerminal {
 
   /**
    * Foyer global : Ctrl+C et Ctrl+D demandent l'arrêt au propriétaire ;
-   * Alt+1 à Alt+9 montrent l'onglet de ce rang (`Ctrl+Tab` n'atteint pas
+   * `?` et F1 ouvrent l'aide des gestes ; Alt+1 à Alt+9 montrent l'onglet
+   * de ce rang (`Ctrl+Tab` n'atteint pas
    * l'application dans la plupart des terminaux).
    */
   #globalFocus(full: IFullscreenState): IInputFocus {
     return {
       handle: (event) => {
+        if (event.kind === "text" && event.text === "?") {
+          this.#openHelp(full);
+          return true;
+        }
         if (event.kind !== "key") return false;
         if (event.ctrl && (event.key === "c" || event.key === "d")) {
           full.onQuit();
+          return true;
+        }
+        if (event.key === "f1" && !event.ctrl && !event.alt) {
+          this.#openHelp(full);
           return true;
         }
         if (event.alt && !event.ctrl && isTabKey(event.key)) {
@@ -1267,6 +1282,82 @@ export class DevTerminal {
         }
         return false;
       },
+    };
+  }
+
+  /**
+   * Ouvre une bande modale entre la ligne d'onglets et l'invite — menu,
+   * complétion, confirmation, aide (ADR-0013 §11). La dernière ouverte est
+   * à l'écran et reçoit le clavier avant le défilement ; un clic sur elle ne
+   * traverse pas.
+   *
+   * @param band - la bande.
+   * @returns sa fermeture, sans effet la 2ᵉ fois.
+   */
+  openBand(band: IDevBand): () => void {
+    this.#bands.push(band);
+    this.#scheduleFrame();
+    return () => {
+      const index = this.#bands.indexOf(band);
+      if (index === -1) return;
+      this.#bands.splice(index, 1);
+      this.#scheduleFrame();
+    };
+  }
+
+  /** La bande à l'écran, ou `null`. */
+  get band(): IDevBand | null {
+    return this.#bands.at(-1) ?? null;
+  }
+
+  /**
+   * Foyer de la bande, en tête de chaîne : le clavier va à la bande ouverte,
+   * sauf Ctrl+C et Ctrl+D ; la souris seulement sur son rectangle, en
+   * coordonnées locales, et jamais plus loin.
+   */
+  #bandFocus(full: IFullscreenState): IInputFocus {
+    return {
+      handle: (event) => {
+        const band = this.#bands.at(-1);
+        if (band === undefined) return false;
+        if (event.kind === "mouse" || event.kind === "wheel") {
+          const region = full.frame?.band;
+          const row = event.row - 1 - (region?.row ?? 0);
+          if (region === undefined || row < 0 || row >= region.height) {
+            return false;
+          }
+          band.handle({ ...event, row: row + 1 });
+          return true;
+        }
+        if (
+          event.kind === "key" &&
+          event.ctrl &&
+          (event.key === "c" || event.key === "d")
+        ) {
+          return false;
+        }
+        return band.handle(event);
+      },
+    };
+  }
+
+  /**
+   * Ouvre l'aide des gestes. Ouverte, elle reçoit `?` et F1 avant ce foyer
+   * et se referme elle-même ; sous une autre bande, elle n'est pas rouverte.
+   */
+  #openHelp(full: IFullscreenState): void {
+    if (this.#closeHelp !== null) return;
+    const close = this.openBand(
+      helpBand({
+        charset: this.#charset,
+        color: this.#color,
+        mouse: full.mouse,
+        close: () => this.#closeHelp?.(),
+      }),
+    );
+    this.#closeHelp = () => {
+      this.#closeHelp = null;
+      close();
     };
   }
 
@@ -1461,6 +1552,7 @@ export class DevTerminal {
           "")
         : "",
       tabs: this.#tabs(views),
+      band: this.#bands.at(-1) ?? null,
       selection:
         full.selection === null ||
         (full.selection.unit === "char" && !full.dragged)
