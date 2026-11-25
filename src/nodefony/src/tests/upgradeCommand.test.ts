@@ -235,6 +235,7 @@ describe("isUpgradePending — ce que `--check` compte", () => {
     updated: [],
     outdated: [],
     modified: [],
+    proposed: [],
     error: null,
   };
 
@@ -331,6 +332,26 @@ describe("isUpgradePending — ce que `--check` compte", () => {
     assert.match(text, /\+ docker\/keycloak\/import\/realm\.json/u);
     assert.match(text, /~ docker\/keycloak\/themes\/a\.css/u);
   });
+  it("copie RETOUCHÉE dont la livraison a changé : nommée avec sa version posée à côté, sans rougir --check", () => {
+    const report: IUpgradeReport = {
+      ...base,
+      dryRun: false,
+      contributions: [
+        {
+          ...contribution,
+          kept: ["Dockerfile"],
+          modified: ["Dockerfile"],
+          proposed: ["Dockerfile"],
+        },
+      ],
+    };
+    assert.strictEqual(isUpgradePending(report), false);
+    assert.match(
+      renderUpgrade(report),
+      /Dockerfile — retouché par l'application, gardé ; nouvelle version posée à côté : Dockerfile\.nodefony-new/u,
+    );
+  });
+
   it("copie RETOUCHÉE, AGENTS.md absent : pas en retard — rien ne se tranche sans humain", () => {
     assert.strictEqual(
       isUpgradePending({

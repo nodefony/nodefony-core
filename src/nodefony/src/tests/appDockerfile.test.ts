@@ -145,6 +145,13 @@ describe("Dockerfile d'application — copie suivie", () => {
     assert.deepEqual(run.modified, [APP_DOCKERFILE_PATH]);
     assert.deepEqual(run.updated, []);
     assert.equal(readDockerfile(app), touched);
+    // La livraison a changé (OLD → gabarit courant) : posée À CÔTÉ, intacte.
+    assert.deepEqual(run.proposed, [APP_DOCKERFILE_PATH]);
+    assert.equal(
+      readText(app, `${APP_DOCKERFILE_PATH}.nodefony-new`),
+      renderAppDockerfile("docker-npm", "npm"),
+    );
+    assert.notProperty(run.files, `${APP_DOCKERFILE_PATH}.nodefony-new`);
   });
 
   it("gestionnaire introuvable (ni champ, ni verrou) : rien n'est posé", () => {

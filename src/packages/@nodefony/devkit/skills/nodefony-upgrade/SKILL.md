@@ -11,7 +11,7 @@ description: >
   version", "upgrade nodefony", "npm update nodefony", "une nouvelle version est sortie", "mes paquets
   nodefony sont en retard", "après la mise à jour plus rien ne compile", "AGENTS.md est périmé".
 metadata:
-  version: 1.3.1
+  version: 1.3.2
 ---
 
 # nodefony-upgrade — les paquets, puis l'application, puis la preuve
@@ -115,8 +115,9 @@ puis la procédure de `nodefony-migrate-schema`.
   `npx nodefony upgrade --check` le voient.
 - **`upgrade` ne recrée pas un `AGENTS.md` supprimé** : l'absence peut être un choix. Elle le dit.
 - **Ne corrige pas une copie livrée « en retard » à la main** : si elle est intacte, `upgrade` la
-  remplace ; si tu l'as retouchée, reporte tes retouches sur la nouvelle version du paquet, à la
-  main et en connaissance de cause.
+  remplace ; si tu l'as retouchée et que la livraison a changé, il pose la nouvelle version À
+  CÔTÉ (`<fichier>.nodefony-new`) : compare-la à la copie, reporte ce que l'application garde,
+  puis supprime le `.nodefony-new`. Il ne s'inscrit nulle part et le `.gitignore` l'ignore.
 - **Le `Dockerfile` est une copie livrée** : les correctifs de l'image (étage de construction,
   sécurité) ne t'atteignent que s'il est resté intact. Une base, des paquets système ou une cible
   se règlent SANS le retoucher — `--build-arg` ou `NF_IMAGE_TARGET`, `NF_IMAGE_PACKAGES`,

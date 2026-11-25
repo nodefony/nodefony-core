@@ -86,6 +86,7 @@ describe("contributions des paquets à l'application", () => {
         updated: [],
         outdated: [],
         modified: [],
+        proposed: [],
         error: null,
       },
     ]);
@@ -329,6 +330,90 @@ describe("scaffold:sync --update — registre de provenance", () => {
     );
   });
 
+  it("🔴 copie retouchée, livraison changée : la nouvelle version est posée À CÔTÉ, l'original et le registre intacts", async () => {
+    const t = makeThemedApp();
+    t.deliver({ "login.css": "v1" });
+    await runAppContributions(t.app);
+    writeFileSync(path.join(t.app, "docker", "theme", "login.css"), "à moi");
+    t.deliver({ "login.css": "v2" });
+    const [report] = await runAppContributions(t.app, false, true);
+    assert.deepEqual(report?.proposed, ["docker/theme/login.css"]);
+    assert.strictEqual(t.read("docker/theme/login.css"), "à moi");
+    assert.strictEqual(t.read("docker/theme/login.css.nodefony-new"), "v2");
+    assert.deepEqual(
+      t.lock(),
+      { "docker/theme/login.css": contributionFingerprint("v1") },
+      "le .nodefony-new n'entre pas au registre, et l'empreinte livrée reste",
+    );
+    // Rejeu : réécrit à l'identique, jamais empilé.
+    const [again] = await runAppContributions(t.app, false, true);
+    assert.deepEqual(again?.proposed, ["docker/theme/login.css"]);
+    assert.strictEqual(t.read("docker/theme/login.css.nodefony-new"), "v2");
+    assert.isFalse(
+      existsSync(
+        path.join(
+          t.app,
+          "docker",
+          "theme",
+          "login.css.nodefony-new.nodefony-new",
+        ),
+      ),
+    );
+  });
+
+  it("copie retouchée, livraison INCHANGÉE depuis : rien n'est posé à côté", async () => {
+    const t = makeThemedApp();
+    t.deliver({ "login.css": "v1" });
+    await runAppContributions(t.app);
+    writeFileSync(path.join(t.app, "docker", "theme", "login.css"), "à moi");
+    const [report] = await runAppContributions(t.app, false, true);
+    assert.deepEqual(report?.modified, ["docker/theme/login.css"]);
+    assert.isEmpty(report?.proposed ?? []);
+    assert.isFalse(
+      existsSync(path.join(t.app, "docker", "theme", "login.css.nodefony-new")),
+    );
+  });
+
+  it("sans --update, ni en simulation : rien n'est posé à côté", async () => {
+    const t = makeThemedApp();
+    t.deliver({ "login.css": "v1" });
+    await runAppContributions(t.app);
+    writeFileSync(path.join(t.app, "docker", "theme", "login.css"), "à moi");
+    t.deliver({ "login.css": "v2" });
+    const [plain] = await runAppContributions(t.app, false, false);
+    assert.isEmpty(plain?.proposed ?? []);
+    const [dry] = await runAppContributions(t.app, true, true);
+    assert.deepEqual(
+      dry?.proposed,
+      ["docker/theme/login.css"],
+      "la simulation le NOMME",
+    );
+    assert.isFalse(
+      existsSync(path.join(t.app, "docker", "theme", "login.css.nodefony-new")),
+      "…sans l'écrire",
+    );
+  });
+
+  it("le rendu nomme la version posée à côté, et le geste qui suit", () => {
+    const text = renderScaffoldSync(
+      [
+        {
+          packageName: "@nodefony/theme",
+          written: [],
+          kept: ["b.css"],
+          updated: [],
+          outdated: [],
+          modified: ["b.css"],
+          proposed: ["b.css"],
+          error: null,
+        },
+      ],
+      { dryRun: false, update: true },
+    );
+    assert.include(text, "b.css.nodefony-new");
+    assert.notInclude(text, "supprime le fichier puis relance");
+  });
+
   it("une copie posée AVANT le registre : gardée si elle diffère, adoptée si elle est identique", async () => {
     const t = makeThemedApp();
     t.deliver({ "same.css": "pareil", "other.css": "du paquet" });
@@ -338,6 +423,12 @@ describe("scaffold:sync --update — registre de provenance", () => {
     const [report] = await runAppContributions(t.app, false, true);
     assert.deepEqual(report?.modified, ["docker/theme/other.css"]);
     assert.strictEqual(t.read("docker/theme/other.css"), "ancien");
+    // Origine inconnue : la version du paquet est posée à côté, pour comparer.
+    assert.deepEqual(report?.proposed, ["docker/theme/other.css"]);
+    assert.strictEqual(
+      t.read("docker/theme/other.css.nodefony-new"),
+      "du paquet",
+    );
     assert.deepEqual(t.lock(), {
       "docker/theme/same.css": contributionFingerprint("pareil"),
     });
@@ -433,6 +524,7 @@ describe("scaffold:sync --update — registre de provenance", () => {
           updated: [],
           outdated: ["a.css"],
           modified: ["b.css"],
+          proposed: [],
           error: null,
         },
       ],
