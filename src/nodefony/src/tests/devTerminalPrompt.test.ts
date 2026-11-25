@@ -358,6 +358,37 @@ describe("plein écran — l'invite (#538)", () => {
     terminal.close();
   });
 
+  it("capture demandée mais molette reçue en flèches : le refus du terminal est DIT, une fois", async () => {
+    const { written, input, terminal } = prompted(true, 120, 30);
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
+    for (let i = 0; i < 80; i++)
+      terminal.ingest("server", "out", `ligne ${i}\n`);
+    input.type(UP + UP + UP);
+    await nextFrame();
+    const text = (await screen(written, 120, 30)).join("\n");
+    expect(text).to.contain("le terminal ne rapporte pas la souris");
+    terminal.close();
+  });
+
+  it("souris rapportée : aucun avertissement, même sur une rafale de flèches", async () => {
+    const { written, input, terminal } = prompted(true, 120, 30);
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
+    input.type("\x1b[<64;5;5M");
+    input.type(UP + UP + UP);
+    await nextFrame();
+    const text = (await screen(written, 120, 30)).join("\n");
+    expect(text).to.not.contain("le terminal ne rapporte pas la souris");
+    terminal.close();
+  });
+
   it("retirée, l'invite rend la place et les touches au journal", async () => {
     const { input, terminal, detach } = prompted();
     for (let i = 0; i < 40; i++)

@@ -472,6 +472,12 @@ interface IFullscreenState {
    * touche, même répétée, arrive une par paquet.
    */
   wheelBurst: boolean;
+  /**
+   * Ce que le terminal a montré de la souris : `reported` dès qu'un
+   * évènement souris arrive ; `refused` quand, capture demandée, la molette
+   * arrive traduite en flèches — le terminal ne rapporte pas la souris.
+   */
+  mouseState: "unknown" | "reported" | "refused";
   releaseGuard: () => void;
 }
 
@@ -1139,6 +1145,7 @@ export class DevTerminal {
       statusBar: new StatusBarCache(),
       foci: [],
       wheelBurst: false,
+      mouseState: "unknown",
       releaseGuard: () => {},
     };
     if (full.mouse) full.foci.push(this.#mouseFocus(full));
@@ -1179,6 +1186,28 @@ export class DevTerminal {
     this.#stdout.write(LEAVE_FULLSCREEN);
   }
 
+  /**
+   * CONSTATE si le terminal rapporte la souris (une capacité ne se déduit
+   * pas) : capture demandée mais molette reçue en flèches — un réglage du
+   * terminal l'a refusée (iTerm2 : « Enable mouse reporting »). Dit une fois,
+   * pour qu'un clic d'onglet sans effet ait son explication.
+   */
+  #observeMouse(full: IFullscreenState, events: readonly InputEvent[]): void {
+    if (full.mouseState !== "unknown" || !full.mouse) return;
+    for (const event of events) {
+      if (event.kind === "mouse" || event.kind === "wheel") {
+        full.mouseState = "reported";
+        return;
+      }
+    }
+    if (!full.wheelBurst) return;
+    full.mouseState = "refused";
+    this.#notify(
+      full,
+      "le terminal ne rapporte pas la souris : clic d'onglet indisponible — Alt+1…9 (iTerm2 : Profiles › Terminal › Enable mouse reporting)",
+    );
+  }
+
   /** Octets du clavier → évènements → chaîne de foyers. */
   #onInput(chunk: Buffer | string): void {
     const full = this.#full;
@@ -1189,6 +1218,7 @@ export class DevTerminal {
     }
     const events = full.decoder.feed(chunk);
     full.wheelBurst = isArrowBurst(events);
+    this.#observeMouse(full, events);
     for (const event of events) this.dispatch(event);
     full.wheelBurst = false;
     // Un Échap seul est indiscernable d'un début de séquence : il attend un
