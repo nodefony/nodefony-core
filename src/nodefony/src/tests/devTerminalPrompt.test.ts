@@ -42,13 +42,13 @@ afterAll(() => {
   for (const root of roots) fs.rmSync(root, { recursive: true, force: true });
 });
 
-function prompted() {
+function prompted(mouse = false, columns = COLS, rows = ROWS) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nf-dev-prompt-"));
   roots.push(root);
   const written: string[] = [];
   const stdout = {
-    columns: COLS,
-    rows: ROWS,
+    columns,
+    rows,
     write: (chunk: string | Uint8Array): boolean => {
       written.push(String(chunk));
       return true;
@@ -61,7 +61,7 @@ function prompted() {
     color: false,
     charset: "unicode",
     mark: brandMark("unicode", false),
-    fullscreen: { input, synchronized: false, onQuit: quit },
+    fullscreen: { input, synchronized: false, onQuit: quit, mouse },
   });
   const verbs = {
     restart: vi.fn(async () => true),
@@ -79,16 +79,20 @@ function prompted() {
 const nextFrame = (): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, 40));
 
-async function screen(written: readonly string[]): Promise<string[]> {
+async function screen(
+  written: readonly string[],
+  cols = COLS,
+  rows = ROWS,
+): Promise<string[]> {
   const term = new xterm.Terminal({
-    cols: COLS,
-    rows: ROWS,
+    cols,
+    rows,
     allowProposedApi: true,
   });
   await new Promise<void>((resolve) => term.write(written.join(""), resolve));
   const buf = term.buffer.active;
   const lines: string[] = [];
-  for (let i = 0; i < ROWS; i++) {
+  for (let i = 0; i < rows; i++) {
     lines.push(buf.getLine(buf.baseY + i)?.translateToString(true) ?? "");
   }
   term.dispose();
@@ -212,6 +216,87 @@ describe("plein écran — l'invite (#538)", () => {
     input.type("\x1b1");
     await nextFrame();
     expect((await screen(written)).at(-1)).to.equal("❯ brouillon");
+    terminal.close();
+  });
+
+  it("action en vol : Ctrl+C l'interrompt, un second Ctrl+C arrête quand même", async () => {
+    const { input, quit, terminal, verbs } = prompted();
+    verbs.restart.mockImplementation(() => new Promise<boolean>(() => {}));
+    input.type("restart" + ENTER);
+    await nextFrame();
+    input.type(CTRL_C);
+    expect(quit).not.toHaveBeenCalled();
+    input.type(CTRL_C);
+    expect(quit).toHaveBeenCalledTimes(1);
+    terminal.close();
+  });
+
+  it("l'écho d'un long collage montre son étiquette, pas son texte", async () => {
+    const { written, input, terminal } = prompted();
+    input.type(`\x1b[200~l1\nl2\nl3\nl4\nl5\nl6\x1b[201~${ENTER}`);
+    await nextFrame();
+    const lines = await screen(written);
+    expect(lines.some((l) => l === "❯ [Collé #1 · 6 lignes]")).to.equal(true);
+    expect(lines.some((l) => l === "l3")).to.equal(false);
+    terminal.close();
+  });
+
+  it("clearView vide l'onglet AFFICHÉ, quel qu'il soit", async () => {
+    const { written, input, terminal } = prompted();
+    terminal.ingest("server", "out", "prêt\n");
+    terminal.addView({ id: "run:1", title: "run", channels: "run:1" });
+    terminal.ingest("run:1", "out", "sortie de run\n");
+    input.type(ALT_2);
+    await nextFrame();
+    expect((await screen(written)).some((l) => l === "sortie de run")).to.equal(
+      true,
+    );
+    terminal.clearView();
+    await nextFrame();
+    expect((await screen(written)).some((l) => l === "sortie de run")).to.equal(
+      false,
+    );
+    terminal.close();
+  });
+
+  it("souris captée : un clic sur un onglet le montre, invite branchée", async () => {
+    const { written, input, terminal } = prompted(true);
+    terminal.ingest("server", "out", "prêt\n");
+    terminal.addView({ id: "run:1", title: "run", channels: "run:1" });
+    terminal.ingest("run:1", "out", "sortie de run\n");
+    await nextFrame();
+    const lines = await screen(written);
+    const row = lines.findIndex(
+      (l) => l.includes("run") && l.includes("serveur"),
+    );
+    expect(row, lines.join("\n")).to.be.greaterThan(-1);
+    const column = (lines[row] ?? "").indexOf("run") + 1;
+    input.type(`\x1b[<0;${column};${row + 1}M\x1b[<0;${column};${row + 1}m`);
+    await nextFrame();
+    expect(terminal.activeView).to.equal("run:1");
+    terminal.close();
+  });
+
+  it("souris captée, décor réel (120×30, barre d'état, journal plein) : le clic montre l'onglet", async () => {
+    const { written, input, terminal } = prompted(true, 120, 30);
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
+    for (let i = 0; i < 80; i++)
+      terminal.ingest("server", "out", `ligne ${i}\n`);
+    terminal.ingest("vite:app", "out", "vite prêt\n");
+    await nextFrame();
+    const lines = await screen(written, 120, 30);
+    const row = lines.findIndex(
+      (l) => l.includes("serveur") && l.includes("vite"),
+    );
+    expect(row, lines.join("\n")).to.be.greaterThan(-1);
+    const column = (lines[row] ?? "").indexOf("vite") + 1;
+    input.type(`\x1b[<0;${column};${row + 1}M\x1b[<0;${column};${row + 1}m`);
+    await nextFrame();
+    expect(terminal.activeView, lines.join("\n")).to.equal("vite");
     terminal.close();
   });
 

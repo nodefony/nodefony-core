@@ -130,7 +130,8 @@ const GAP = "  ";
 const PANEL_GAP = "   ";
 const INDENT = "  ";
 const LOGO_WIDTH = 8;
-const MINI_LOGO_WIDTH = 4;
+/** Largeur visible du logo réduit (`brandMiniMark`) — la seule source. */
+export const BRAND_MINI_LOGO_WIDTH = 4;
 const WORD_WIDTH = (BRAND_WORDMARK[0] ?? "").length;
 const ART_WIDTH = LOGO_WIDTH + GAP.length + WORD_WIDTH;
 
@@ -191,7 +192,7 @@ export function brandMiniMark(charset: BrandCharset, color: boolean): string[] {
   const colors =
     charset === "ascii" ? BRAND_LOGO_MINI_ASCII_COLORS : BRAND_LOGO_MINI_COLORS;
   return logo.map((line, i) =>
-    paintLogoLine(line.padEnd(MINI_LOGO_WIDTH), colors[i] ?? "", color),
+    paintLogoLine(line.padEnd(BRAND_MINI_LOGO_WIDTH), colors[i] ?? "", color),
   );
 }
 

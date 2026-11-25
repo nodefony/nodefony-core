@@ -87,7 +87,11 @@ import {
 import { StatusLine, type IStatusStream } from "./statusLine";
 import { brandMiniMark } from "../../cli/brand";
 import { LineEditor, type IPromptRenderOptions } from "./lineEditor";
-import { PromptHistoryFile, describeHistorySkip } from "./promptHistory";
+import {
+  PromptHistoryFile,
+  describeHistorySkip,
+  type PromptHistoryEntry,
+} from "./promptHistory";
 import { promptVerb, type IPromptAction, type IPromptIO } from "./promptAction";
 
 /** Un flux de sortie du terminal, injectable en test. */
@@ -864,6 +868,16 @@ export class DevTerminal {
     return this.#prompt?.history.flush() ?? Promise.resolve();
   }
 
+  /**
+   * Vide l'onglet AFFICHÉ (le verbe `clear`) : le direct ne montre plus rien
+   * d'antérieur ; remonter le journal le retrouve, comme après `ESC[2J`.
+   */
+  clearView(): void {
+    if (this.#closed || !this.#full) return;
+    this.#active.floorSeq = this.#active.transcript.lastSeq;
+    this.#scheduleFrame();
+  }
+
   /** Ouvre l'aide des gestes (le verbe `help`, F1, `?` sur une invite vide). */
   showHelp(): void {
     const full = this.#full;
@@ -1511,7 +1525,10 @@ export class DevTerminal {
           event.ctrl &&
           !event.alt &&
           event.key === "c" &&
-          state.running !== null
+          state.running !== null &&
+          // Un second Ctrl+C retombe sur l'éditeur puis l'arrêt : une action
+          // qui ignore le signal ne prend pas le terminal en otage.
+          !state.running.signal.aborted
         ) {
           state.running.abort();
           return true;
@@ -1566,17 +1583,20 @@ export class DevTerminal {
       this.#notify(full, "une commande tourne encore — Ctrl+C l'interrompt");
       return;
     }
+    const shown = editor.display;
     const text = editor.take();
     this.#setAnchor(null);
     this.#scheduleFrame();
     if (text.trim() === "") return;
-    this.ingest(PROMPT_CHANNEL, "out", `${state.render.sigil}${text}\n`);
+    this.ingest(PROMPT_CHANNEL, "out", `${state.render.sigil}${shown}\n`);
     const kept = state.history.remember(text, this.#active.id, Date.now());
     if (!kept.kept && kept.reason !== "empty") {
       this.#notify(full, describeHistorySkip(kept.reason));
     }
     const action = state.actions.find((candidate) => candidate.matches(text));
     if (action === undefined) {
+      // 127 : « commande introuvable », la convention des shells.
+      if (kept.kept) state.history.settle(kept.entry, 127, null);
       this.ingest(
         PROMPT_CHANNEL,
         "err",
@@ -1601,7 +1621,7 @@ export class DevTerminal {
     action: IPromptAction,
     text: string,
     controller: AbortController,
-    entry: { code: number | null; durationMs: number | null } | null,
+    entry: PromptHistoryEntry | null,
   ): Promise<void> {
     const started = performance.now();
     const io: IPromptIO = {
@@ -1628,8 +1648,11 @@ export class DevTerminal {
       if (state.running === controller) state.running = null;
     }
     if (entry !== null) {
-      entry.code = code;
-      entry.durationMs = Math.round(performance.now() - started);
+      state.history.settle(
+        entry,
+        code,
+        Math.round(performance.now() - started),
+      );
     }
   }
 
@@ -1662,11 +1685,12 @@ export class DevTerminal {
       return state.frame;
     }
     const rule = "─".repeat(width);
+    // Le même objet tant que rien ne change : `renderFrame` ne le réajuste
+    // qu'une fois (`fittedPromptLines`).
+    const lines = [state.render.color ? `\x1b[2m${rule}\x1b[0m` : rule];
+    for (const line of drawn.lines) lines.push(line);
     state.frame = {
-      lines: [
-        state.render.color ? `\x1b[2m${rule}\x1b[0m` : rule,
-        ...drawn.lines,
-      ],
+      lines,
       cursor: { row: drawn.cursor.row + 1, column: drawn.cursor.column },
     };
     state.frameSource = drawn;
@@ -1744,6 +1768,7 @@ export class DevTerminal {
     this.#views.splice(index, 1);
     // Son brouillon part avec lui.
     this.#prompt?.editors.delete(view.id);
+    this.#prompt?.history.history.forget(view.id);
     for (const channel of this.#history.channels()) {
       if (view.match(channel) && !this.#claimed(channel)) {
         this.#history.drop(channel);

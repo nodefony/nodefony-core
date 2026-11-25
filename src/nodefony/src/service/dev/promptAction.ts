@@ -87,10 +87,17 @@ export const SUPERVISOR_VERBS: readonly {
 export function promptVerb(input: string): string {
   const trimmed = input.trim();
   const start = trimmed.startsWith("/") ? 1 : 0;
-  let end = start;
-  while (end < trimmed.length && !/\s/.test(trimmed.charAt(end))) end++;
-  return trimmed.slice(start, end);
+  const space = trimmed.slice(start).search(/\s/);
+  const word =
+    space === -1 ? trimmed.slice(start) : trimmed.slice(start, start + space);
+  // Cité dans un message : borné, un collage sans espace ne s'y recopie pas.
+  return word.length > PROMPT_VERB_MAX
+    ? `${word.slice(0, PROMPT_VERB_MAX)}…`
+    : word;
 }
+
+/** Longueur au plus du mot cité par {@link promptVerb}. */
+const PROMPT_VERB_MAX = 64;
 
 /**
  * Les verbes du superviseur comme actions de l'invite : `restart`, `clear`,

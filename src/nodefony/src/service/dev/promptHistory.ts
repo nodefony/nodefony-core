@@ -19,7 +19,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { IRecallSource } from "./lineEditor";
+import { PASTE_ATTACH_CHARS, type IRecallSource } from "./lineEditor";
 
 /** Entrées retenues au plus. */
 export const PROMPT_HISTORY_CAPACITY = 1000;
@@ -94,13 +94,15 @@ export function describeHistorySkip(reason: PromptHistorySkip): string {
   }
 }
 
-/** Une ligne du fichier, telle qu'elle est écrite. */
+/** Une ligne du fichier, telle qu'elle est écrite. Forme fixe. */
 interface IStoredEntry {
   t: string;
   v: string;
   at: number;
-  code?: number;
-  ms?: number;
+  /** Nombre de saisies : la compaction le garde, le rang par fréquence aussi. */
+  n: number;
+  code: number | null;
+  ms: number | null;
 }
 
 /**
@@ -119,17 +121,21 @@ function parseStoredLine(line: string): IStoredEntry | null {
     return null;
   }
   if (typeof value !== "object" || value === null) return null;
-  const t: unknown = Reflect.get(value, "t");
-  const v: unknown = Reflect.get(value, "v");
-  const at: unknown = Reflect.get(value, "at");
+  if (!("t" in value) || !("v" in value) || !("at" in value)) return null;
+  const { t, v, at } = value;
   if (typeof t !== "string" || typeof v !== "string") return null;
   if (typeof at !== "number" || !Number.isFinite(at)) return null;
-  const stored: IStoredEntry = { t, v, at };
-  const code: unknown = Reflect.get(value, "code");
-  if (typeof code === "number" && Number.isInteger(code)) stored.code = code;
-  const ms: unknown = Reflect.get(value, "ms");
-  if (typeof ms === "number" && Number.isFinite(ms)) stored.ms = ms;
-  return stored;
+  const n = "n" in value ? value.n : 1;
+  const code = "code" in value ? value.code : null;
+  const ms = "ms" in value ? value.ms : null;
+  return {
+    t,
+    v,
+    at,
+    n: typeof n === "number" && Number.isInteger(n) && n > 0 ? n : 1,
+    code: typeof code === "number" && Number.isInteger(code) ? code : null,
+    ms: typeof ms === "number" && Number.isFinite(ms) ? ms : null,
+  };
 }
 
 /**
@@ -139,9 +145,14 @@ function parseStoredLine(line: string): IStoredEntry | null {
  * @returns la ligne JSON.
  */
 export function serializeHistoryEntry(entry: PromptHistoryEntry): string {
-  const stored: IStoredEntry = { t: entry.text, v: entry.view, at: entry.at };
-  if (entry.code !== null) stored.code = entry.code;
-  if (entry.durationMs !== null) stored.ms = entry.durationMs;
+  const stored: IStoredEntry = {
+    t: entry.text,
+    v: entry.view,
+    at: entry.at,
+    n: entry.count,
+    code: entry.code,
+    ms: entry.durationMs,
+  };
   return `${JSON.stringify(stored)}\n`;
 }
 
@@ -228,9 +239,9 @@ export class PromptHistory {
         stored.t,
         stored.v,
         stored.at,
-        1,
-        stored.code ?? null,
-        stored.ms ?? null,
+        stored.n,
+        stored.code,
+        stored.ms,
       );
     }
     for (const entry of live) {
@@ -317,7 +328,9 @@ export class PromptHistory {
       if (
         entry.text === prefix ||
         !entry.text.startsWith(prefix) ||
-        entry.text.includes("\n")
+        entry.text.includes("\n") ||
+        // Une suggestion plus longue que la borne de l'éditeur ne s'affiche pas.
+        entry.text.length > PASTE_ATTACH_CHARS
       ) {
         continue;
       }
@@ -385,6 +398,15 @@ export class PromptHistory {
   }
 
   /**
+   * Oublie la source de rappel d'un onglet fermé (les entrées restent).
+   *
+   * @param view - l'onglet.
+   */
+  forget(view: string): void {
+    this.#sources?.delete(view);
+  }
+
+  /**
    * Le contenu compacté du fichier : une ligne par entrée retenue.
    *
    * @returns le texte à écrire.
@@ -413,6 +435,8 @@ export class PromptHistoryFile {
   /** Les écritures, dans l'ordre : jamais deux en vol sur le même fichier. */
   #writing: Promise<void> = Promise.resolve();
   #failed = false;
+  /** Le dossier `var/` existe : `mkdir` une fois, pas à chaque écriture. */
+  #dirReady = false;
 
   /**
    * @param root - la racine du projet.
@@ -450,7 +474,9 @@ export class PromptHistoryFile {
     try {
       content = await fs.readFile(this.#file, "utf8");
     } catch (error) {
-      if (Reflect.get(Object(error), "code") !== "ENOENT") this.#fail(error);
+      const absent =
+        error instanceof Error && "code" in error && error.code === "ENOENT";
+      if (!absent) this.#fail(error);
       return;
     }
     const lines = this.history.load(content);
@@ -461,7 +487,8 @@ export class PromptHistoryFile {
   }
 
   /**
-   * Garde une saisie et l'ajoute au fichier.
+   * Garde une saisie en mémoire — le rappel la voit aussitôt. Elle part au
+   * fichier par {@link PromptHistoryFile.settle}, une fois son issue connue.
    *
    * @param text - la saisie.
    * @param view - l'onglet.
@@ -469,17 +496,30 @@ export class PromptHistoryFile {
    * @returns ce que l'historique en a fait.
    */
   remember(text: string, view: string, at: number): PromptHistoryRemember {
-    const result = this.history.remember(text, view, at);
-    if (result.kept) {
-      const line = serializeHistoryEntry(result.entry);
-      // Après la lecture : appendue avant, la ligne serait relue et comptée
-      // deux fois.
-      this.#enqueue(async () => {
-        await this.load();
-        await fs.appendFile(this.#file, line, "utf8");
-      });
-    }
-    return result;
+    return this.history.remember(text, view, at);
+  }
+
+  /**
+   * Pose l'issue d'une saisie gardée (code de sortie, durée) et l'ajoute au
+   * fichier — après la lecture : ajoutée avant, la ligne serait relue et
+   * comptée deux fois.
+   *
+   * @param entry - l'entrée rendue par {@link PromptHistoryFile.remember}.
+   * @param code - le code de sortie, `null` s'il n'y en a pas.
+   * @param durationMs - la durée, `null` si elle n'a pas de sens.
+   */
+  settle(
+    entry: PromptHistoryEntry,
+    code: number | null,
+    durationMs: number | null,
+  ): void {
+    entry.code = code;
+    entry.durationMs = durationMs;
+    const line = serializeHistoryEntry(entry);
+    this.#enqueue(async () => {
+      await this.load();
+      await fs.appendFile(this.#file, line, "utf8");
+    });
   }
 
   /**
@@ -502,7 +542,10 @@ export class PromptHistoryFile {
   ): Promise<void> {
     await previous;
     try {
-      await fs.mkdir(path.dirname(this.#file), { recursive: true });
+      if (!this.#dirReady) {
+        await fs.mkdir(path.dirname(this.#file), { recursive: true });
+        this.#dirReady = true;
+      }
       await write();
     } catch (error) {
       this.#fail(error);

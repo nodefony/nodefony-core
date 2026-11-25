@@ -113,6 +113,12 @@ describe("PromptHistory — retrouver", () => {
     expect(h.search("mod ins", now)).to.have.length(1);
   });
 
+  it("suggest ignore une saisie plus longue que la borne de l'éditeur", () => {
+    const h = new PromptHistory();
+    h.remember(`x${"a".repeat(2000)}`, "server", 1);
+    expect(h.suggest("server", "x")).to.equal("");
+  });
+
   it("source : une par onglet, gardée", () => {
     expect(history.source("server")).to.equal(history.source("server"));
     expect(history.source("server").matching("st")).to.deep.equal(["status"]);
@@ -136,9 +142,14 @@ describe("PromptHistory — fichier", () => {
     const file = new PromptHistoryFile(root, (e) => errors.push(e));
     await file.load();
     expect(file.history.length).to.equal(0);
-    file.remember("status", "server", 10);
-    file.remember(" secret", "server", 11);
-    file.remember("env", "server", 12);
+    for (const [text, at] of [
+      ["status", 10],
+      [" secret", 11],
+      ["env", 12],
+    ] as const) {
+      const kept = file.remember(text, "server", at);
+      if (kept.kept) file.settle(kept.entry, 0, 5);
+    }
     await file.flush();
     const content = fs.readFileSync(
       path.join(root, PROMPT_HISTORY_FILE),
@@ -168,12 +179,14 @@ describe("PromptHistory — fichier", () => {
   it("une saisie envoyée AVANT la fin de la lecture n'est comptée qu'une fois", async () => {
     const root = project();
     const first = new PromptHistoryFile(root, () => {});
-    first.remember("status", "server", 1);
+    const status = first.remember("status", "server", 1);
+    if (status.kept) first.settle(status.entry, 0, 1);
     await first.flush();
     const second = new PromptHistoryFile(root, () => {});
     // Envoyée avant toute lecture ; l'écriture finie, la lecture ne doit pas
     // relire la ligne qu'elle vient d'ajouter.
-    second.remember("doctor", "server", 2);
+    const doctor = second.remember("doctor", "server", 2);
+    if (doctor.kept) second.settle(doctor.entry, 0, 1);
     await second.flush();
     await second.load();
     const lines = fs
@@ -214,10 +227,52 @@ describe("PromptHistory — fichier", () => {
     fs.writeFileSync(path.join(root, "var"), "");
     const errors: unknown[] = [];
     const file = new PromptHistoryFile(root, (e) => errors.push(e));
-    file.remember("a", "server", 1);
-    file.remember("b", "server", 2);
+    for (const [text, at] of [
+      ["a", 1],
+      ["b", 2],
+    ] as const) {
+      const kept = file.remember(text, "server", at);
+      if (kept.kept) file.settle(kept.entry, 0, 1);
+    }
     await file.flush();
     expect(errors).to.have.length(1);
     expect(texts(file.history)).to.deep.equal(["a", "b"]);
+  });
+
+  it("settle écrit l'issue : code et durée relus du fichier", async () => {
+    const root = project();
+    const file = new PromptHistoryFile(root, () => {});
+    const kept = file.remember("doctor", "server", 1);
+    expect(kept.kept).to.equal(true);
+    // Rien n'est écrit avant l'issue.
+    await file.flush();
+    expect(fs.existsSync(path.join(root, PROMPT_HISTORY_FILE))).to.equal(false);
+    if (kept.kept) file.settle(kept.entry, 3, 4200);
+    await file.flush();
+    const again = new PromptHistoryFile(root, () => {});
+    await again.load();
+    expect(again.history.at(0)?.code).to.equal(3);
+    expect(again.history.at(0)?.durationMs).to.equal(4200);
+  });
+
+  it("la compaction garde le compteur : le rang par fréquence survit", async () => {
+    const root = project();
+    fs.mkdirSync(path.join(root, "var"));
+    let content = "";
+    for (let i = 0; i <= 2 * PROMPT_HISTORY_CAPACITY; i++) {
+      content += serializeHistoryEntry(
+        new PromptHistoryEntry("status", "server", i, 1, null, null),
+      );
+    }
+    fs.writeFileSync(path.join(root, PROMPT_HISTORY_FILE), content);
+    const file = new PromptHistoryFile(root, () => {});
+    await file.load();
+    await file.flush();
+    const total = 2 * PROMPT_HISTORY_CAPACITY + 1;
+    expect(file.history.at(0)?.count).to.equal(total);
+    const again = new PromptHistoryFile(root, () => {});
+    await again.load();
+    expect(again.history.length).to.equal(1);
+    expect(again.history.at(0)?.count).to.equal(total);
   });
 });

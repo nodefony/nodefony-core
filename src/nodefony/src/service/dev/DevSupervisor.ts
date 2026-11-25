@@ -1423,7 +1423,7 @@ export class DevSupervisor {
       root: this.#cwd,
       actions: supervisorActions({
         restart: () => this.#restartFromPrompt(),
-        clear: () => terminal.clear(),
+        clear: () => terminal.clearView(),
         help: () => terminal.showHelp(),
         quit: () => void this.#shutdown(),
       }),
@@ -2652,8 +2652,13 @@ export class DevSupervisor {
     if (this.#cycle.busy || this.#isStopping()) return false;
     const before = this.#terminal?.phase ?? null;
     this.#terminal?.setPhase("restarting");
-    const restarted = await this.#cycle.restartNow();
-    if (!restarted && before !== null) this.#terminal?.setPhase(before);
+    let restarted = false;
+    try {
+      restarted = await this.#cycle.restartNow();
+    } finally {
+      // Refusé ou en échec : la barre ne reste pas sur « redémarrage ».
+      if (!restarted && before !== null) this.#terminal?.setPhase(before);
+    }
     return restarted;
   }
 

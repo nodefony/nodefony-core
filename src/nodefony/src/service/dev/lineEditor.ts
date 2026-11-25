@@ -112,11 +112,49 @@ function isSpace(unit: PromptUnit | undefined): boolean {
  * tabulations gardées, séquences de contrôle et caractères C0 retirés —
  * aucun Échap n'entre dans le tampon, donc aucun ne ressort à l'écran.
  *
+ * Voie rapide d'abord : tant que le texte est de l'ASCII imprimable, une
+ * tabulation ou `\n`, chaque caractère EST un graphème — ni segmenteur ni
+ * générateur (1 Mio de collage : 191 → 29 ms, mesuré). Au premier autre code,
+ * le dernier caractère retenu est rendu à la voie complète : une marque
+ * combinante ou un sélecteur de variante (`e` + `´`, `1` + keycap) lui
+ * appartient.
+ *
  * @param raw - le texte reçu (frappe ou collage).
  * @param out - les graphèmes retenus, ajoutés à la fin.
  * @returns le nombre de fins de ligne retenues.
  */
 function cleanInto(raw: string, out: string[]): number {
+  let newlines = 0;
+  let i = 0;
+  const length = raw.length;
+  for (; i < length; i++) {
+    const code = raw.charCodeAt(i);
+    if (code === 0x0a) {
+      out.push("\n");
+      newlines++;
+    } else if ((code >= 0x20 && code < 0x7f) || code === 0x09) {
+      out.push(raw.charAt(i));
+    } else {
+      break;
+    }
+  }
+  if (i === length) return newlines;
+  let start = i;
+  if (start > 0 && raw.charCodeAt(start - 1) !== 0x0a) {
+    out.pop();
+    start--;
+  }
+  return newlines + cleanSlowInto(start === 0 ? raw : raw.slice(start), out);
+}
+
+/**
+ * La voie complète de {@link cleanInto} : graphème par graphème.
+ *
+ * @param raw - le texte.
+ * @param out - les graphèmes retenus, ajoutés à la fin.
+ * @returns le nombre de fins de ligne retenues.
+ */
+function cleanSlowInto(raw: string, out: string[]): number {
   let newlines = 0;
   let previousCr = false;
   for (const unit of textUnits(raw)) {
@@ -203,6 +241,18 @@ export class LineEditor {
     return text;
   }
 
+  /**
+   * Le texte tel qu'il est AFFICHÉ : les pièces jointes par leur étiquette
+   * (`[Collé #1 · 40 lignes]`) — l'écho d'un envoi, jamais le collage entier.
+   */
+  get display(): string {
+    let text = "";
+    for (const unit of this.#units) {
+      text += typeof unit === "string" ? unit : unit.label;
+    }
+    return text;
+  }
+
   /** Le tampon porte au moins une pièce jointe. */
   get hasAttachment(): boolean {
     for (const unit of this.#units) {
@@ -235,13 +285,7 @@ export class LineEditor {
     if (units.length === 0) return;
     const lines = newlines + 1;
     if (lines > PASTE_ATTACH_LINES || units.length > PASTE_ATTACH_CHARS) {
-      const attachment = new PromptAttachment(
-        ++this.#attachments,
-        units.join(""),
-        lines,
-        units.length,
-      );
-      this.#insertUnits([attachment]);
+      this.#insertUnits([this.#attach(units, lines)]);
       return;
     }
     this.#insertUnits(units);
@@ -249,17 +293,35 @@ export class LineEditor {
 
   /**
    * Remplace la saisie par `text`, curseur en fin (un rappel, un brouillon
-   * restauré).
+   * restauré). Au-delà de {@link PASTE_ATTACH_CHARS} caractères, le texte
+   * revient en UNE pièce jointe : le tampon n'est jamais plus long que la
+   * borne, quel que soit le chemin.
    *
    * @param text - le nouveau texte.
    */
   setText(text: string): void {
-    const units: string[] = [];
-    cleanInto(text, units);
-    this.#units = units;
-    this.#cursor = units.length;
+    this.#units = this.#unitsOf(text);
+    this.#cursor = this.#units.length;
     this.#recall = null;
     this.#touch();
+  }
+
+  /** Les unités d'un texte entier : graphèmes, ou une pièce jointe au-delà de la borne. */
+  #unitsOf(text: string): PromptUnit[] {
+    const units: string[] = [];
+    const newlines = cleanInto(text, units);
+    return units.length > PASTE_ATTACH_CHARS
+      ? [this.#attach(units, newlines + 1)]
+      : units;
+  }
+
+  #attach(units: readonly string[], lines: number): PromptAttachment {
+    return new PromptAttachment(
+      ++this.#attachments,
+      units.join(""),
+      lines,
+      units.length,
+    );
   }
 
   /**
@@ -300,7 +362,10 @@ export class LineEditor {
     if (event.kind === "text") {
       // D5 : `?` est un caractère, sauf sur une invite vide (l'aide).
       if (this.#units.length === 0 && event.text === "?") return "ignored";
-      this.insert(event.text);
+      // Un collage SANS crochets (terminal sans mode 2004) arrive en une
+      // tranche de frappe : au-delà de la borne, il est traité en collage.
+      if (event.text.length > PASTE_ATTACH_CHARS) this.paste(event.text);
+      else this.insert(event.text);
       return "changed";
     }
     if (event.kind !== "key") return "ignored";
@@ -472,9 +537,7 @@ export class LineEditor {
       this.#recall = null;
     } else {
       recall.index = next;
-      const units: string[] = [];
-      cleanInto(recall.list[next] ?? "", units);
-      this.#units = units;
+      this.#units = this.#unitsOf(recall.list[next] ?? "");
     }
     this.#cursor = this.#units.length;
     this.#touch();
@@ -659,7 +722,9 @@ export class LineEditor {
       if (unit === "\n") {
         if (index === cursor) {
           cursorRow = rows.length - 1;
-          cursorColumn = Math.min(used, room - 1);
+          // Après le dernier caractère, jamais dessus : l'image garde une
+          // colonne libre et `renderFrame` borne le curseur.
+          cursorColumn = used;
         }
         newRow();
         index++;
@@ -679,7 +744,14 @@ export class LineEditor {
       }
       // Un seul point de repli : l'unité qui ne tient plus passe à la ligne,
       // et le curseur posé sur elle la suit.
-      if (used + cells > room && used > 0) newRow();
+      if (used + cells > room && used > 0) {
+        newRow();
+        // Une tabulation repliée repart d'un taquet plein.
+        if (unit === "\t") {
+          cells = TAB_STOP;
+          text = " ".repeat(cells);
+        }
+      }
       if (index === cursor) {
         cursorRow = rows.length - 1;
         cursorColumn = used;

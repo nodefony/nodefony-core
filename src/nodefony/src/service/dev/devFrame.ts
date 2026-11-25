@@ -920,6 +920,31 @@ function layoutOnce(
   return last.regions;
 }
 
+/**
+ * Les lignes de l'invite bornées à `width`, par OBJET d'invite : son
+ * producteur rend le même objet tant que rien ne change (`#promptFrame`), le
+ * réajustement — le filet, tout non-ASCII, payait le segmenteur à chaque
+ * image — n'a donc lieu qu'une fois.
+ */
+const fittedPrompts = new WeakMap<
+  IFramePrompt,
+  { width: number; lines: readonly string[] }
+>();
+
+function fittedPromptLines(
+  prompt: IFramePrompt | null | undefined,
+  width: number,
+): readonly string[] {
+  if (prompt === null || prompt === undefined) return NO_TAB_LINES;
+  const kept = fittedPrompts.get(prompt);
+  if (kept?.width === width) return kept.lines;
+  const lines = prompt.lines.map((line) =>
+    fitToWidth(line.replace(ERASE_IN_LINE, ""), width),
+  );
+  fittedPrompts.set(prompt, { width, lines });
+  return lines;
+}
+
 function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   const rows = Math.max(0, Math.floor(size.rows));
   const width = Math.max(1, Math.floor(size.columns) - 1);
@@ -929,7 +954,7 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
     heights.prune(first.seq);
   }
   const bar = statusBar(model, size, width);
-  const promptLines = model.prompt?.lines ?? [];
+  const promptLines = fittedPromptLines(model.prompt, width);
   // Un COMPTE d'entrées, jamais une différence de numéros : quand plusieurs
   // canaux partagent la numérotation, deux lignes d'un anneau ne se suivent pas.
   const unseen =
@@ -1170,9 +1195,11 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
   // La barre aussi (`statusBar`, une fois tant qu'elle ne change pas).
   const journalRows = Math.max(0, journal.lines.length - cut);
   const barStart = all.length - cut - bar.length;
+  // L'invite arrive bornée (`fittedPromptLines`, une fois par objet d'invite).
+  const promptStart = barStart - promptLines.length;
   const lines = all.slice(cut).map((line, row) => {
     const fitted =
-      row < journalRows || row >= barStart
+      row < journalRows || row >= promptStart
         ? line
         : fitToWidth(line.replace(ERASE_IN_LINE, ""), width);
     const origin = origins[row] ?? null;

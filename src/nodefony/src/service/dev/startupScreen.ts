@@ -13,6 +13,7 @@
  * noyau ni capturer une sortie standard.
  */
 import { stripVTControlCharacters } from "node:util";
+import { BRAND_MINI_LOGO_WIDTH } from "../../cli/brand";
 import Syslog from "../../syslog/Syslog";
 import type Pdu from "../../syslog/Pdu";
 import type {
@@ -1102,8 +1103,6 @@ const STATUS_BLOCK_MIN_ROWS = 20;
 
 /** Une marque de 3 lignes au plus demande le bloc RESSERRÉ (`brandMiniMark`). */
 const COMPACT_MARK_ROWS = 3;
-/** Largeur visible de la marque réduite. */
-const COMPACT_MARK_WIDTH = 4;
 
 /**
  * Le bloc d'état figé en bas du terminal : un filet qui le sépare du journal,
@@ -1192,7 +1191,7 @@ export function renderStatusBlock(
       links,
       help || (probe ? stateLine + p.dim("  ·  ") + probe : stateLine),
     ];
-    const room = columns - 1 - COMPACT_MARK_WIDTH - 2;
+    const room = columns - 1 - BRAND_MINI_LOGO_WIDTH - 2;
     return [
       statusRule(columns, p),
       ...mark.map((logo, i) => {

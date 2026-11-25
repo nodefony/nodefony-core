@@ -210,6 +210,42 @@ describe("LineEditor — collage (D1, D2)", () => {
   });
 });
 
+describe("LineEditor — la borne de 1 000 tient sur TOUS les chemins", () => {
+  it("une frappe de plus de 1 000 caractères (collage sans mode 2004) devient une pièce jointe", () => {
+    const editor = new LineEditor();
+    press(editor, "a".repeat(PASTE_ATTACH_CHARS + 1));
+    expect(editor.hasAttachment).to.equal(true);
+    expect(editor.cursor).to.equal(1);
+  });
+
+  it("un rappel ou setText de plus de 1 000 caractères revient en pièce jointe", () => {
+    const long = "b".repeat(5000);
+    const editor = new LineEditor();
+    press(editor, ctrl("p"), history([long]));
+    expect(editor.hasAttachment).to.equal(true);
+    expect(editor.text).to.equal(long);
+    const other = new LineEditor();
+    other.setText(long);
+    expect(other.cursor).to.equal(1);
+  });
+
+  it("la voie rapide ASCII rend les MÊMES graphèmes : marque combinante et keycap restent entières", () => {
+    const editor = new LineEditor();
+    // Une tabulation TAPÉE est la touche Tab : seul un collage l'apporte.
+    press(editor, paste("cafe\u0301 #\uFE0F\u20E3 a\tb"));
+    // c a f é ␠ #️⃣ ␠ a ⇥ b
+    expect(editor.cursor).to.equal(10);
+    expect(editor.text).to.equal("cafe\u0301 #\uFE0F\u20E3 a\tb");
+  });
+
+  it("display montre l'étiquette d'une pièce jointe, text la restitue", () => {
+    const editor = new LineEditor();
+    press(editor, paste("1\n2\n3\n4\n5\n6"));
+    expect(editor.display).to.equal("[Collé #1 · 6 lignes]");
+    expect(editor.text).to.equal("1\n2\n3\n4\n5\n6");
+  });
+});
+
 describe("LineEditor — historique prêté", () => {
   const source = history(["status", "inspect routes", "inspect modules"]);
 
@@ -288,6 +324,23 @@ describe("LineEditor — rendu", () => {
     // Ligne pleine, curseur en fin : une ligne de plus pour lui.
     expect(prompt.lines).to.deep.equal(["❯ abcd", "  efgh", "  "]);
     expect(prompt.cursor).to.deep.equal({ row: 2, column: 2 });
+  });
+
+  it("curseur sur la fin de ligne d'une ligne pleine : APRÈS le dernier caractère", () => {
+    const editor = new LineEditor();
+    press(editor, "abcd" + ALT_ENTER + "x" + LEFT + LEFT);
+    const prompt = editor.render(6, OPTIONS);
+    expect(prompt.lines[0]).to.equal("❯ abcd");
+    expect(prompt.cursor).to.deep.equal({ row: 0, column: 6 });
+  });
+
+  it("une tabulation repliée repart d'un taquet plein", () => {
+    const editor = new LineEditor();
+    press(editor, paste("abcdef\tx"));
+    // 6 colonnes de saisie : après abcdef, la tabulation (2 cases jusqu'au
+    // taquet) ne tient plus ; repliée, elle en prend 4, pas 2.
+    const prompt = editor.render(8, { ...OPTIONS, sigil: "> " });
+    expect(prompt.lines).to.deep.equal(["> abcdef", "      x"]);
   });
 
   it("un caractère large ne se coupe pas au bord", () => {

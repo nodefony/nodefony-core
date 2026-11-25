@@ -152,8 +152,9 @@ export class RestartCycle {
       await this.#steps.swap();
     } finally {
       this.#busy = false;
+      // Même en échec : une sauvegarde notée pendant la relance n'est pas perdue.
+      this.#replay();
     }
-    this.#replay();
     return true;
   }
 
