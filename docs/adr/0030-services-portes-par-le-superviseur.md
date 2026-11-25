@@ -229,7 +229,7 @@ protocole : il retient le Ctrl-C de toute la session.
 ### D8 — Journaux : par les tubes, jamais par l'IPC
 
 La sortie de l'hôte (son `customLogger` écrit sur sa sortie standard) entre dans le terminal du
-superviseur par ses tubes, source `held` (`devTranscript.ts#TranscriptSource`) : le superviseur
+superviseur par ses tubes, sur son propre canal (`devHistory.ts#DevHistory`) : le superviseur
 ne nomme aucun service, et chaque ligne porte déjà le sien (`[vite:<famille>]`). Hors rendu
 humain, elle part telle quelle sur la sortie du superviseur, là où le serveur l'aurait écrite.
 Le modèle en canaux de #903 la rangera dans `vite:<nom>` (la clé du service est déjà livrée avec
