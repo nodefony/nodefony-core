@@ -40,6 +40,82 @@ describe("visibleWidth", () => {
   });
 });
 
+describe("visibleWidth — l'ASCII sans segmenteur, même résultat (#903)", () => {
+  // La référence : chaque tranche sans séquence découpée ENTIÈRE en graphèmes,
+  // ce que faisait visibleWidth avant de compter l'ASCII sans segmenteur.
+  const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+  const reference = (text: string): number => {
+    let width = 0;
+    for (const part of text.split(/\x1b\[[0-9;]*m/)) {
+      for (const { segment } of segmenter.segment(part)) {
+        width += graphemeWidth(segment);
+      }
+    }
+    return width;
+  };
+  // Les pièges : marque combinante, marque espaçante, liant, émoji, chinois,
+  // drapeau, sélecteur, cabochon, préfixes (Cf et Lo), contrôles, couleur.
+  const ALPHABET = [
+    "a",
+    "e",
+    "#",
+    "1",
+    " ",
+    "·",
+    "✓",
+    "█",
+    "中",
+    "😀",
+    "🇫",
+    "🇷",
+    "́",
+    "ः",
+    "‍",
+    "️",
+    "⃣",
+    "؀",
+    "ൎ",
+    "\r",
+    "\n",
+    "\t",
+    "\x1b[31m",
+    "\x1b[0m",
+  ];
+
+  it("rend la largeur du découpage entier sur 20 000 textes tirés au hasard", () => {
+    // mulberry32 : entiers 32 bits exacts (`Math.imul`). Un générateur à
+    // multiplication flottante dépasse 2^53 et ne tirait que 6 lettres sur 24.
+    let seed = 903;
+    const next = (): number => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return (t ^ (t >>> 14)) >>> 0;
+    };
+    const drawn = new Set<string>();
+    for (let n = 0; n < 20_000; n++) {
+      let text = "";
+      const length = next() % 12;
+      for (let k = 0; k < length; k++) {
+        const letter = ALPHABET[next() % ALPHABET.length] ?? "";
+        drawn.add(letter);
+        text += letter;
+      }
+      expect(visibleWidth(text), JSON.stringify(text)).to.equal(
+        reference(text),
+      );
+    }
+    // Le tirage a couvert tout l'alphabet : sinon le test ne prouve rien.
+    expect(drawn.size).to.equal(ALPHABET.length);
+  });
+
+  it("un préfixe se soude à l'ASCII qui le suit", () => {
+    expect(visibleWidth("·ൎa")).to.equal(reference("·ൎa"));
+    expect(visibleWidth("é中")).to.equal(3);
+    expect(visibleWidth("cpu 3 % · elu 2 % ✓ prêt")).to.equal(24);
+  });
+});
+
 describe("fitToWidth", () => {
   it("ne coupe jamais un caractère large en deux, et ne dépasse jamais", () => {
     const fitted = fitToWidth("漢字漢字漢字", 6);
