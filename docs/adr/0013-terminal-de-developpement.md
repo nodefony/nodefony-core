@@ -641,7 +641,11 @@ image.**
 - **Image sautée sous contre-pression** : quand `write` rend `false`, aucune image ne part avant
   `drain` ; les mutations continuent de marquer leurs régions, et l'image suivante les rend
   toutes. Un seul écouteur `drain` en vol, retiré à `close`. C'est ce qui garde le relais des
-  enfants et l'agent (D6) vivants sous SSH ou sous Windows.
+  enfants et l'agent (D6) vivants sous SSH ou sous Windows. Livré à l'étape 6
+  (`DevTerminal.ts#DevTerminal.#drawFrame`) : l'image qui remplit le tampon part quand même (le
+  diff suivant se compare à elle), puis `#scheduleFrame` ne programme plus rien jusqu'à `drain`.
+  L'image d'après se calcule depuis le modèle, donc elle rend tout ce qui a changé entre-temps,
+  sans file d'attente. Un flux sans `once` (un test) ne retient jamais d'image.
 - **Régions sales** (§11) : une image ne recalcule que les régions marquées. Une graduation de la
   barre ne replie pas le journal ; une touche sans effet ne rebâtit rien.
 - **Largeur** : la fonction unique de largeur reste la seule règle, mais compte d'abord le

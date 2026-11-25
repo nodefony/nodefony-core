@@ -1738,3 +1738,85 @@ describe("plein écran — le mode de dessin, garde-fou ConPTY (#903, D3)", () =
     );
   });
 });
+
+describe("plein écran — image retenue tant que le terminal ne suit pas (#903, D6)", () => {
+  /** Un flux qui accepte, ou dit « plein » jusqu'au prochain `drain`. */
+  function slowOutput() {
+    const events = new EventEmitter();
+    const written: string[] = [];
+    let full = false;
+    return {
+      columns: COLS,
+      rows: ROWS,
+      written,
+      fill: () => (full = true),
+      drain: () => {
+        full = false;
+        events.emit("drain");
+      },
+      listeners: () => events.listenerCount("drain"),
+      write: (chunk: string | Uint8Array): boolean => {
+        written.push(String(chunk));
+        return !full;
+      },
+      once: (event: "drain", listener: () => void) =>
+        events.once(event, listener),
+      removeListener: (event: "drain", listener: () => void) =>
+        events.removeListener(event, listener),
+    };
+  }
+  function slowFullscreen() {
+    const stdout = slowOutput();
+    const terminal = new DevTerminal({
+      stdout,
+      color: false,
+      charset: "unicode",
+      mark: brandMark("unicode", false),
+      fullscreen: {
+        input: new FakeInput(),
+        synchronized: false,
+        onQuit: vi.fn(),
+      },
+    });
+    terminal.setStatus(null, ctx, "ready");
+    return { stdout, terminal };
+  }
+
+  it("write rend false : plus aucune image avant drain, puis UNE image qui rend tout", async () => {
+    const { stdout, terminal } = slowFullscreen();
+    terminal.ingest("server", "out", lines(3));
+    await nextFrame();
+    stdout.fill();
+    terminal.ingest("server", "out", lines(1, 4)); // cette image remplit le tampon
+    await nextFrame();
+    const held = stdout.written.length;
+    expect(stdout.listeners()).to.equal(1);
+    for (let i = 5; i < 9; i++) {
+      terminal.ingest("server", "out", lines(1, i));
+      await nextFrame();
+    }
+    expect(stdout.written.length, "image partie sans drain").to.equal(held);
+    stdout.drain();
+    await nextFrame();
+    expect(stdout.written.length).to.equal(held + 1);
+    expect((await screen(stdout.written)).slice(0, 8)).to.deep.equal(
+      Array.from({ length: 8 }, (_, i) => `ligne ${i + 1}`),
+    );
+    expect(stdout.listeners()).to.equal(0);
+    terminal.close();
+  });
+
+  it("fermé pendant l'attente : l'écouteur drain est retiré, un drain tardif ne dessine rien", async () => {
+    const { stdout, terminal } = slowFullscreen();
+    stdout.fill();
+    terminal.ingest("server", "out", lines(2));
+    await nextFrame();
+    expect(stdout.listeners()).to.equal(1);
+    terminal.close();
+    expect(stdout.listeners()).to.equal(0);
+    const after = stdout.written.length;
+    stdout.drain();
+    await nextFrame();
+    expect(stdout.written.length).to.equal(after);
+  });
+});

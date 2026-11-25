@@ -88,6 +88,12 @@ import { StatusLine, type IStatusStream } from "./statusLine";
 /** Un flux de sortie du terminal, injectable en test. */
 export interface IDevTerminalStream extends IStatusStream {
   rows?: number | undefined;
+  /**
+   * Le flux a vidé son tampon : `write` avait rendu `false`. Absent (flux
+   * de test), le plein écran ne retient jamais d'image.
+   */
+  once?(event: "drain", listener: () => void): unknown;
+  removeListener?(event: "drain", listener: () => void): unknown;
 }
 
 /** Réglages du terminal de développement. */
@@ -322,6 +328,13 @@ interface IFullscreenState {
   input: IDevTerminalInput;
   synchronized: boolean;
   paint: DevPaint;
+  /**
+   * `write` a rendu `false` : aucune image ne part avant `drain`. Les
+   * changements s'accumulent dans le modèle ; l'image d'après les rend tous.
+   */
+  awaitingDrain: boolean;
+  /** L'unique écouteur `drain`, posé une fois par attente, retiré à la sortie. */
+  onDrain: () => void;
   mouse: boolean;
   copy: ((text: string) => Promise<string>) | null;
   /** La sélection à la souris — `null` sans sélection. */
@@ -912,6 +925,12 @@ export class DevTerminal {
       input: options.input,
       synchronized: options.synchronized,
       paint: options.paint ?? "scroll",
+      awaitingDrain: false,
+      onDrain: () => {
+        full.awaitingDrain = false;
+        // Fermé entre-temps : `#scheduleFrame` ne trouve plus de plein écran.
+        this.#scheduleFrame();
+      },
       mouse: options.mouse === true,
       copy: options.copy ?? null,
       selection: null,
@@ -964,6 +983,10 @@ export class DevTerminal {
     if (full.noticeTimer) clearTimeout(full.noticeTimer);
     if (full.edgeTimer) clearInterval(full.edgeTimer);
     if (full.spinTimer) clearInterval(full.spinTimer);
+    if (full.awaitingDrain) {
+      full.awaitingDrain = false;
+      this.#stdout.removeListener?.("drain", full.onDrain);
+    }
     full.input.removeListener("data", full.onData);
     full.input.setRawMode?.(false);
     full.input.pause();
@@ -1603,7 +1626,7 @@ export class DevTerminal {
    */
   #scheduleFrame(): void {
     const full = this.#full;
-    if (full?.frameTimer !== null) return;
+    if (full?.frameTimer !== null || full.awaitingDrain) return;
     const wait = Math.max(
       0,
       FRAME_INTERVAL_MS - (Date.now() - full.lastFrameAt),
@@ -1660,7 +1683,14 @@ export class DevTerminal {
     }
     out += cursorSequence(frame);
     if (full.synchronized) out += "\x1b[?2026l";
-    this.#stdout.write(out);
+    // Le terminal ne suit pas (SSH lent, console Windows) : l'image est
+    // partie dans le tampon, les suivantes attendent qu'il se vide — le relais
+    // des enfants reste vivant, au lieu d'empiler des images que personne ne
+    // verra (ADR-0013, D6).
+    if (!this.#stdout.write(out) && this.#stdout.once !== undefined) {
+      full.awaitingDrain = true;
+      this.#stdout.once("drain", full.onDrain);
+    }
   }
 
   /** L'état d'affichage d'un couple (canal, flux), créé au premier paquet. */
