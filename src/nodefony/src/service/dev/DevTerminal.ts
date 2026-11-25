@@ -238,10 +238,24 @@ function spinnerFrame(charset: ScreenCharset): string {
   );
 }
 
-/** Avec Alt, une touche de 1 à 9 montre l'onglet de ce rang. */
-function isTabKey(key: string): boolean {
-  return key.length === 1 && key >= "1" && key <= "9";
+/**
+ * Le rang d'onglet (1 à 9) qu'une touche tapée avec Alt désigne, ou 0.
+ *
+ * Le chiffre, ou son symbole avec Maj sur un clavier AMÉRICAIN (`!` à `(`) :
+ * avec `macOptionIsMeta`, le terminal de VS Code (xterm.js) traduit par la
+ * POSITION de la touche sur ce clavier, si bien que Maj+Option+1 d'un clavier
+ * français y arrive en `ESC !` — quand Terminal.app et iTerm2 envoient
+ * `ESC 1`. Les deux mènent au même onglet.
+ */
+function tabRank(key: string): number {
+  if (key.length !== 1) return 0;
+  const digit = TAB_DIGITS.indexOf(key);
+  return digit >= 0 ? digit + 1 : TAB_SHIFTED_DIGITS.indexOf(key) + 1;
 }
+
+/** Les chiffres des onglets, et leurs symboles avec Maj (clavier américain). */
+const TAB_DIGITS = "123456789";
+const TAB_SHIFTED_DIGITS = "!@#$%^&*(";
 
 /** Délai entre deux clics au même endroit pour un double (ou triple) clic. */
 const MULTI_CLICK_MS = 400;
@@ -1309,8 +1323,9 @@ export class DevTerminal {
           this.#openHelp(full);
           return true;
         }
-        if (event.alt && !event.ctrl && isTabKey(event.key)) {
-          const view = this.#shownViews()[Number(event.key) - 1];
+        const rank = event.alt && !event.ctrl ? tabRank(event.key) : 0;
+        if (rank > 0) {
+          const view = this.#shownViews()[rank - 1];
           if (view !== undefined) this.#selectView(full, view);
           return true;
         }

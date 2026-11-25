@@ -741,8 +741,10 @@ interface IDevBand {
   `Alt` n'arrive que si le terminal envoie Échap pour Option — sous macOS, iTerm2 « Option = Esc+ »,
   Terminal.app « Utiliser Option comme touche méta », le terminal de VS Code
   `"terminal.integrated.macOptionIsMeta": true` ; le clic marche sans réglage (`--mouse`). Sur
-  un clavier AZERTY, le chiffre exige Maj : le geste est Maj+Option+1 (l'aide le dit), et le
-  terminal envoie bien `ESC 1`.
+  un clavier AZERTY, le chiffre exige Maj : le geste est Maj+Option+1 (l'aide le dit). Terminal.app et iTerm2 envoient
+  `ESC 1` ; le terminal de VS Code traduit par la position de la touche sur un clavier américain
+  et envoie `ESC !` — les symboles `!` à `(` valent donc aussi Alt+1 à Alt+9
+  (`DevTerminal.ts#tabRank`).
 - **Onglets livrés à l'étape 3** : un onglet est une DONNÉE (`devView.ts#DevView` : son filtre de
   canaux, sa position de lecture, sa page propre, son cache de repli, ce qu'il n'a pas montré),
   jamais une sous-classe. `serveur` est le complément de `vite` (`vite:*`) : aucun canal ne reste

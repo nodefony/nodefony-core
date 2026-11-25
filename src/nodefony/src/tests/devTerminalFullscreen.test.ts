@@ -1313,6 +1313,27 @@ describe("plein écran — onglets serveur et vite (#903)", () => {
     terminal.close();
   });
 
+  it("Alt+symbole de la rangée des chiffres (VS Code, clavier français) : même onglet que Alt+chiffre", async () => {
+    // Maj+Option+1 d'un clavier français arrive en `ESC !` sous VS Code
+    // (xterm.js traduit par la position de la touche sur un clavier américain).
+    const { input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(5));
+    terminal.ingest("vite:default", "out", vite(2));
+    await nextFrame();
+    input.type("\x1b@");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("vite");
+    input.type("\x1b!");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("server");
+    input.type("\x1b(");
+    await nextFrame();
+    expect(terminal.activeView, "un rang sans onglet ne change rien").to.equal(
+      "server",
+    );
+    terminal.close();
+  });
+
   it("le compteur d'un onglet caché repart de zéro une fois l'onglet vu ; un Vite ouvert plus tard y entre", async () => {
     const { stdout, input, terminal } = fullscreen();
     terminal.ingest("server", "out", lines(2));
