@@ -51,7 +51,11 @@ export function helpBand(options: {
 }): IDevBand {
   const ascii = options.charset === "ascii";
   const gestures: IGesture[] = [
-    { keys: ascii ? "Alt+1..9" : "Alt+1…9", does: "changer d'onglet" },
+    // Sur un clavier AZERTY, le chiffre exige Maj : Maj+Alt+1, pas Alt+1.
+    {
+      keys: ascii ? "Alt+1..9" : "Alt+1…9",
+      does: "changer d'onglet (AZERTY : +Maj)",
+    },
     { keys: "PgUp PgDn", does: "défiler d'une page" },
     { keys: ascii ? "haut bas" : "↑ ↓", does: "défiler d'une ligne" },
     { keys: "Début Fin", does: "haut / retour au direct" },

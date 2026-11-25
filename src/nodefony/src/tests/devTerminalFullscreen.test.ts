@@ -1514,6 +1514,8 @@ describe("plein écran — la bande (#903)", () => {
     let shown = await screen(stdout.written);
     expect(shown.join("\n")).to.include("Gestes");
     expect(shown.join("\n")).to.include("changer d'onglet");
+    // AZERTY : le chiffre exige Maj, l'aide le dit (sinon Alt+1 est introuvable).
+    expect(shown.join("\n")).to.include("AZERTY : +Maj");
     input.type("?");
     await nextFrame();
     expect((await screen(stdout.written)).join("\n")).to.not.include("Gestes");
