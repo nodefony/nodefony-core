@@ -52,7 +52,7 @@
   ],
   "dependencies": {
     "mongodb": "7.9.1",
-    "mongoose": "9.13.0",
+    "mongoose": "9.13.1",
     "tslib": "2.9.1",
     "zod": "^4.6.7"
   },
@@ -62,7 +62,7 @@
     "@nodefony/orm-core": "^10.0.2",
     "@nodefony/security": "^10.0.2",
     "@nodefony/user": "^10.0.2",
-    "@types/node": "26.6.6",
+    "@types/node": "26.6.7",
     "mongodb-memory-server": "11.4.0",
     "nodefony": "^10.0.2",
     "vitest": "5.1.1"
