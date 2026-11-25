@@ -139,7 +139,7 @@ Lus par le cœur, quelle que soit l'application.
 | `NF_ORM_HEARTBEAT_MS` | Période du battement de cœur qui surveille les connecteurs de l'ORM. | 30000 (0 le désactive) | variables de la plateforme |
 | `NF_MIGRATE_DATABASE_URL` | Base visée par `orm:migrate`, quand le compte qui migre n'est pas celui qui sert. | l'URL du connecteur | 🔒 gestionnaire de secrets |
 
-## Réglages du framework : poste et diagnostic (16)
+## Réglages du framework : poste et diagnostic (17)
 
 Utiles sur le poste du développeur ou pour une mesure ponctuelle.
 
@@ -149,6 +149,7 @@ Utiles sur le poste du développeur ou pour une mesure ponctuelle.
 | `NF_NO_UPDATE_CHECK` | Empêche `create app` de demander au registre npm si une version plus récente du CLI existe. | active (désactivée d'office quand `CI` est posée) | le poste seulement |
 | `NF_DEV_UI` | Plein écran du terminal de développement : `1` le demande, `0` l'interdit — défaut : oui hors Windows (`--ui` / `--no-ui` l'emportent). | oui, sauf sous Windows | le poste seulement |
 | `NF_DEV_MOUSE` | Capture de la souris en plein écran de développement : `1` la demande, `0` l'interdit — défaut : oui hors Windows (`--mouse` / `--no-mouse` l'emportent). | oui, sauf sous Windows | le poste seulement |
+| `NF_DEV_PAINT` | Dessin du plein écran de développement : `scroll` fait défiler le journal par le terminal, `diff` réécrit les lignes changées, `full` repeint toute l'image. | scroll, sauf sous Windows (full, garde-fou ConPTY) | le poste seulement |
 | `NF_DEV_PORTS` | Ports que le superviseur de développement doit libérer, imposés par l'opérateur. | les ports déclarés par l'application, sinon 5151,5152 | le poste seulement |
 | `NF_KERNEL_TRACE_FILE` | Fichier où le Kernel écrit sa trace de démarrage (diagnostic). | aucune trace | le poste seulement |
 | `NF_NO_TTY` | Force le rendu non interactif, quel que soit le terminal. | déduit du terminal | le poste seulement |

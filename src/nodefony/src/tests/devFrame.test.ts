@@ -9,6 +9,7 @@ import {
   FrameHeights,
   frameJournalRows,
   diffFrame,
+  diffFrameScrolled,
   renderFrame,
   scrollAnchor,
   StatusBarCache,
@@ -16,6 +17,8 @@ import {
   type IFrameModel,
   type IFrameStatus,
 } from "../service/dev/devFrame";
+import { helpBand } from "../service/dev/devBand";
+import { DevHistory } from "../service/dev/devHistory";
 import { DevTranscript } from "../service/dev/devTranscript";
 import type { IStartupView } from "../service/dev/startupScreen";
 
@@ -47,7 +50,7 @@ function transcriptOf(lines: string[], maxEntries?: number): DevTranscript {
 }
 
 function model(
-  transcript: DevTranscript,
+  transcript: IFrameModel["transcript"],
   patch: Partial<IFrameModel> = {},
 ): IFrameModel {
   return {
@@ -215,6 +218,30 @@ describe("renderFrame — fenêtre ancrée sur un seq", () => {
     ]);
   });
 
+  it("numérotation partagée entre canaux : l'indicateur compte les lignes du canal, pas l'écart des numéros", () => {
+    const history = new DevHistory();
+    for (const l of range(20)) {
+      history.ingest("server", "out", `${l}\n`);
+      history.ingest("vite:default", "out", `v${l}\n`);
+    }
+    const t = history.channel("server");
+    if (t === undefined) throw new Error("canal server absent");
+    // l10 porte le numéro 19 (deux canaux entrelacés) ; dix lignes du
+    // serveur le suivent, dont les numéros s'étalent jusqu'à 39.
+    const anchor = { seq: 19, below: 0 };
+    expect(t.at(t.indexOf(19))?.text).to.equal("l10");
+    const frame = renderFrame(model(t, { anchor, status: null }), {
+      columns: 40,
+      rows: 4,
+    });
+    expect(frame.lines).to.deep.equal([
+      "l8",
+      "l9",
+      "l10",
+      "↑ 10 nouvelles lignes — Fin",
+    ]);
+  });
+
   it("below cache les dernières lignes repliées de l'entrée d'ancrage", () => {
     const t = transcriptOf(["avant", "abcdefghij"]);
     const frame = renderFrame(
@@ -231,10 +258,13 @@ describe("renderFrame — fenêtre ancrée sur un seq", () => {
       model(t, { anchor: { seq: 2, below: 0 }, status: null }),
       { columns: 40, rows: 3 },
     );
+    // L'indicateur compte ce qui reste ATTEIGNABLE sous l'ancre (l6 à l10),
+    // pas les lignes évincées : un anneau qui partage sa numérotation avec
+    // d'autres canaux ne sait pas combien des numéros perdus étaient à lui.
     expect(frame.lines).to.deep.equal([
       "l6",
       "l7",
-      "↑ 8 nouvelles lignes — Fin",
+      "↑ 5 nouvelles lignes — Fin",
     ]);
   });
 
@@ -380,6 +410,31 @@ describe("StatusBarCache — la barre rejouée tant qu'elle ne change pas (#896)
     });
   });
 
+  it("recomposée, une ligne inchangée n'est reprise qu'à la MÊME largeur (#903)", () => {
+    // La ligne du projet ne dépend pas de la largeur : composée pareil à 120
+    // et à 24 colonnes, elle doit pourtant être recoupée à 24.
+    const t = transcriptOf(range(5));
+    const cache = new StatusBarCache();
+    const status = ready({ context: { ...ctx, runtime } });
+    for (const columns of [120, 24, 120]) {
+      const size = { columns, rows: 16 };
+      const cached = renderFrame(
+        model(t, { status, mark, statusBar: cache }),
+        size,
+      );
+      const fresh = renderFrame(model(t, { status, mark }), size);
+      expect(cached.lines, `${columns} colonnes`).to.deep.equal(fresh.lines);
+    }
+    // Le contrat lui-même : même composition, autre largeur → à remesurer.
+    const size = { columns: 80, rows: 16 };
+    const m = model(t, { status, mark, statusBar: cache });
+    const long = "x".repeat(60);
+    cache.store(m, size, undefined, [long], [long], 80);
+    expect(cache.fittedLine(0, long, 80)).to.equal(long);
+    expect(cache.fittedLine(0, long, 24)).to.equal(undefined);
+    expect(cache.fittedLine(0, "y", 80)).to.equal(undefined);
+  });
+
   it("serveur prêt : un statut reconstruit, même horloge ou toupie différente, rejoue la barre", () => {
     const t = transcriptOf(range(5));
     const cache = new StatusBarCache();
@@ -408,6 +463,81 @@ describe("diffFrame", () => {
     expect(diffFrame(a, b)).to.deep.equal([{ row: 1, text: "Y" }]);
     expect(diffFrame(a, a)).to.deep.equal([]);
     expect(diffFrame(a, { lines: ["x", "y"], cursor: null })).to.have.length(2);
+  });
+});
+
+describe("diffFrameScrolled — le terminal fait défiler le journal (#903, D2)", () => {
+  // Un journal de 4 lignes sur une image de 5 : la dernière est la barre.
+  const image = (seqs: readonly (number | null)[], bar = "barre") => ({
+    lines: [...seqs.map((n) => (n === null ? "" : `l${n}`)), bar],
+    cursor: null,
+    origins: [
+      ...seqs.map((n) => (n === null ? null : { seq: n, column: 0 })),
+      null,
+    ],
+    journalRows: seqs.length,
+  });
+
+  it("des lignes arrivent en direct : défiler vers le haut, n'écrire que les neuves", () => {
+    const d = diffFrameScrolled(image([1, 2, 3, 4]), image([3, 4, 5, 6]));
+    expect(d.shift).to.equal(2);
+    expect(d.changes).to.deep.equal([
+      { row: 2, text: "l5" },
+      { row: 3, text: "l6" },
+    ]);
+  });
+
+  it("on remonte : défiler vers le bas, seule la ligne du haut s'écrit", () => {
+    const d = diffFrameScrolled(image([5, 6, 7, 8]), image([4, 5, 6, 7]));
+    expect(d.shift).to.equal(-1);
+    expect(d.changes).to.deep.equal([{ row: 0, text: "l4" }]);
+  });
+
+  it("une ligne libérée par le défilement compte pour vide ; hors du journal, le diff ordinaire", () => {
+    const d = diffFrameScrolled(
+      image([1, 2, 3, 4]),
+      image([2, 3, 4, null], "autre barre"),
+    );
+    expect(d.shift).to.equal(1);
+    expect(d.changes).to.deep.equal([{ row: 4, text: "autre barre" }]);
+  });
+
+  it("défiler ne coûterait pas moins : pas de défilement, les lignes changées", () => {
+    const next = image([2, 3, 4, 5]);
+    // Tout le journal surligné : le décalage se retrouve, rien ne coïncide.
+    const lit = {
+      ...next,
+      lines: next.lines.map((l, i) => (i < 4 ? `[${l}]` : l)),
+    };
+    const d = diffFrameScrolled(image([1, 2, 3, 4]), lit);
+    expect(d.shift).to.equal(0);
+    expect(d.changes).to.deep.equal(diffFrame(image([1, 2, 3, 4]), lit));
+  });
+
+  it("premier dessin, autre hauteur, autre région ou rien de retrouvé : jamais de défilement", () => {
+    const a = image([1, 2, 3, 4]);
+    expect(diffFrameScrolled(null, a).shift).to.equal(0);
+    expect(diffFrameScrolled(null, a).changes).to.have.length(5);
+    expect(diffFrameScrolled(a, image([2, 3, 4])).shift).to.equal(0);
+    expect(
+      diffFrameScrolled(a, { ...image([2, 3, 4, 5]), journalRows: 3 }).shift,
+    ).to.equal(0);
+    expect(diffFrameScrolled(a, image([9, 10, 11, 12])).shift).to.equal(0);
+    const plain = { lines: a.lines, cursor: null };
+    expect(diffFrameScrolled(plain, plain).shift).to.equal(0);
+  });
+
+  it("renderFrame dit la hauteur du journal à l'écran, invite et barre exclues", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(30)), {
+        prompt: { lines: ["❯ "], cursor: { row: 0, column: 2 } },
+      }),
+      { columns: 30, rows: 10 },
+    );
+    const below = frame.lines.length - (frame.journalRows ?? 0);
+    expect(frame.journalRows).to.be.greaterThan(2);
+    expect(frame.lines[(frame.journalRows ?? 0) - 1]).to.equal("l30");
+    expect(below).to.be.greaterThan(1);
   });
 });
 
@@ -522,5 +652,301 @@ describe("frameJournalRows — la page de PgUp/PgDn", () => {
     expect(
       frameJournalRows(model(t, { status: null }), { columns: 40, rows: 5 }),
     ).to.equal(5);
+  });
+});
+
+describe("renderFrame — la vue unique lit les canaux fusionnés", () => {
+  it("même image que l'anneau unique d'avant, en direct comme remonté", () => {
+    const channels = ["server", "supervisor", "vite:default"];
+    const single = new DevTranscript({ now: () => 0 });
+    const history = new DevHistory({ now: () => 0 });
+    for (let p = 0; p < 120; p++) {
+      const channel = channels[(p * 7) % 3] ?? "server";
+      const text = p % 11 === 0 ? `${"x".repeat(70)} ${p}\n` : `l${p}\n`;
+      single.ingest(channel, "out", text);
+      history.ingest(channel, "out", text);
+    }
+    const merged = history.merge(() => true);
+    const size = { columns: 40, rows: 12 };
+    const anchors = [null, { seq: 5, below: 0 }, { seq: 60, below: 1 }];
+    for (const anchor of anchors) {
+      expect(
+        renderFrame(model(merged, { anchor, status: null }), size).lines,
+        JSON.stringify(anchor),
+      ).to.deep.equal(
+        renderFrame(model(single, { anchor, status: null }), size).lines,
+      );
+    }
+  });
+});
+
+describe("renderFrame — la ligne d'onglets (#903)", () => {
+  const tabs = {
+    active: 0,
+    items: [
+      { title: "serveur", unseen: 0, alert: false },
+      { title: "vite", unseen: 5, alert: false },
+    ],
+  };
+  const size = { columns: 40, rows: 10 };
+
+  it("en bas, sous le journal qui perd une ligne ; ses colonnes disent quel onglet un clic vise", () => {
+    const t = transcriptOf(range(30));
+    const frame = renderFrame(model(t, { status: null, tabs }), size);
+    expect(frame.lines).to.have.length(10);
+    expect(frame.tabs?.row).to.equal(9);
+    expect(frame.lines[9]).to.equal("[1 serveur]│ 2 vite ·5 │");
+    expect(frame.lines[8]).to.equal("l30");
+    expect(frame.origins?.[9]).to.equal(null);
+    expect(frame.tabs?.spans).to.deep.equal([
+      { start: 0, end: 11, index: 0 },
+      { start: 12, end: 23, index: 1 },
+    ]);
+    expect(frameJournalRows(model(t, { status: null, tabs }), size)).to.equal(
+      9,
+    );
+    expect(frameJournalRows(model(t, { status: null }), size)).to.equal(10);
+  });
+
+  it("en couleur, aux couleurs de la marque : numéro vert gras, titre sur gris ; l'actif numéro sur cyan, titre blanc gras sur bleu ; compteur caché rouge sur une erreur", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        color: true,
+        tabs: {
+          active: 1,
+          items: [
+            { title: "serveur", unseen: 2, alert: true },
+            { title: "vite", unseen: 0, alert: false },
+          ],
+        },
+      }),
+      size,
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      "\x1b[1;32m 1 \x1b[0;100m serveur\x1b[1;91m ·2\x1b[22;39m \x1b[0m \x1b[1;30;46m 2 \x1b[0;1;97;44m vite \x1b[0m ",
+    );
+  });
+
+  it("trop bas pour tout : la barre gagne, la ligne d'onglets part avant elle", () => {
+    const frame = renderFrame(model(transcriptOf(range(3)), { tabs }), {
+      columns: 40,
+      rows: 1,
+    });
+    expect(frame.lines).to.have.length(1);
+    expect(frame.tabs).to.equal(undefined);
+    expect(frame.lines.join("\n")).to.not.include("serveur");
+  });
+
+  const many = (active: number, alertAt = -1) => ({
+    active,
+    items: Array.from({ length: 6 }, (_, i) => ({
+      title: `a${i + 1}`,
+      unseen: i === alertAt ? 1 : 0,
+      alert: i === alertAt,
+    })),
+  });
+
+  it("trop d'onglets pour la largeur : une fenêtre autour de l'actif, « ‹ +2 » compte les cachés, et un clic sur la marque vise le voisin", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), { status: null, tabs: many(3) }),
+      { columns: 36, rows: 10 },
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      " ‹ +2 │ 3 a3 │[4 a4]│ 5 a5 │ 6 a6 │",
+    );
+    expect(frame.tabs?.spans).to.deep.equal([
+      { start: 0, end: 6, index: 1 },
+      { start: 7, end: 13, index: 2 },
+      { start: 14, end: 20, index: 3 },
+      { start: 21, end: 27, index: 4 },
+      { start: 28, end: 34, index: 5 },
+    ]);
+  });
+
+  it("l'actif au bout de la ligne : la fenêtre s'élargit vers la gauche", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), { status: null, tabs: many(5) }),
+      { columns: 34, rows: 10 },
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      " ‹ +3 │ 4 a4 │ 5 a5 │[6 a6]│",
+    );
+  });
+
+  it("une erreur dans un onglet caché par le débordement met sa marque au rouge", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        color: true,
+        tabs: many(0, 5),
+      }),
+      { columns: 24, rows: 10 },
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      "\x1b[1;30;46m 1 \x1b[0;1;97;44m a1 \x1b[0m \x1b[1;32m 2 \x1b[0;100m a2 \x1b[0m \x1b[1;31m +4 › \x1b[0m",
+    );
+  });
+
+  it("un onglet dont le travail est fini porte ✓ ou ✗ après son titre", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        tabs: {
+          active: 0,
+          items: [
+            { title: "serveur", unseen: 0, alert: false },
+            { title: "agent", unseen: 0, alert: false, outcome: "ok" },
+            { title: "build", unseen: 0, alert: false, outcome: "failed" },
+          ],
+        },
+      }),
+      size,
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      "[1 serveur]│ 2 agent ✓ │ 3 build ✗ │",
+    );
+  });
+
+  it("en couleur, ✓ en vert et ✗ en rouge, gras, le titre reprend sa teinte après", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        color: true,
+        tabs: {
+          active: 1,
+          items: [
+            { title: "serveur", unseen: 0, alert: false },
+            { title: "agent", unseen: 0, alert: false, outcome: "ok" },
+            { title: "build", unseen: 0, alert: false, outcome: "failed" },
+          ],
+        },
+      }),
+      size,
+    );
+    const line = frame.lines[frame.tabs?.row ?? -1] ?? "";
+    expect(line).to.include(
+      "\x1b[0;1;97;44m agent\x1b[1;92m ✓\x1b[97m \x1b[0m",
+    );
+    expect(line).to.include("\x1b[0;100m build\x1b[1;91m ✗\x1b[22;39m \x1b[0m");
+  });
+});
+
+describe("renderFrame — la bande (#903)", () => {
+  it("l'aide se replie sur une colonne quand deux ne tiennent pas, et demande alors toute sa hauteur", () => {
+    const help = helpBand({
+      charset: "unicode",
+      color: false,
+      mouse: true,
+      close: () => {},
+    });
+    expect(help.height(120)).to.equal(6);
+    expect(help.height(40)).to.equal(11);
+    const narrow = help.render({
+      kind: "band",
+      row: 0,
+      column: 0,
+      width: 40,
+      height: 11,
+    });
+    expect(narrow).to.have.length(11);
+    expect(narrow.join("\n")).to.include("arrêter le serveur");
+    const wide = help.render({
+      kind: "band",
+      row: 0,
+      column: 0,
+      width: 120,
+      height: 6,
+    });
+    expect(wide).to.have.length(6);
+    expect(wide.join("\n")).to.include("arrêter le serveur");
+  });
+
+  const band = (height: number, drawn: readonly string[]) => ({
+    height: () => height,
+    render: () => drawn,
+  });
+
+  it("sous le journal, de la hauteur demandée : une bande courte est complétée, jamais rendue au journal", () => {
+    const t = transcriptOf(range(30));
+    const frame = renderFrame(
+      model(t, { status: null, band: band(3, ["b1", "b2"]) }),
+      { columns: 40, rows: 12 },
+    );
+    expect(frame.lines).to.have.length(12);
+    expect(frame.lines.slice(8)).to.deep.equal(["l30", "b1", "b2", ""]);
+    expect(frame.band).to.deep.equal({ row: 9, height: 3 });
+    expect(frame.origins?.[9]).to.equal(null);
+  });
+
+  it("un tiers de l'écran au plus : une bande trop longue est coupée, l'image garde ses lignes", () => {
+    const drawn = Array.from({ length: 10 }, (_, i) => `b${i + 1}`);
+    const frame = renderFrame(
+      model(transcriptOf(range(30)), { status: null, band: band(10, drawn) }),
+      { columns: 40, rows: 12 },
+    );
+    expect(frame.lines).to.have.length(12);
+    expect(frame.lines.slice(8)).to.deep.equal(["b1", "b2", "b3", "b4"]);
+    expect(frame.band).to.deep.equal({ row: 8, height: 4 });
+  });
+
+  it("sous la ligne d'onglets, collée à elle ; la hauteur demandée lit la largeur", () => {
+    let asked = -1;
+    const frame = renderFrame(
+      model(transcriptOf(range(30)), {
+        status: null,
+        tabs: {
+          active: 0,
+          items: [
+            { title: "serveur", unseen: 0, alert: false },
+            { title: "vite", unseen: 0, alert: false },
+          ],
+        },
+        band: {
+          height: (width: number) => {
+            asked = width;
+            return 2;
+          },
+          render: () => ["b1", "b2"],
+        },
+      }),
+      { columns: 40, rows: 10 },
+    );
+    expect(asked).to.equal(39);
+    expect(frame.tabs?.row).to.equal(7);
+    expect(frame.band).to.deep.equal({ row: 8, height: 2 });
+    expect(frame.lines.slice(6)).to.deep.equal([
+      "l30",
+      "[1 serveur]│ 2 vite │",
+      "b1",
+      "b2",
+    ]);
+  });
+});
+
+describe("renderFrame — la mise en page gardée d'une image à l'autre (#903)", () => {
+  it("se refait dès qu'UNE entrée change : une image a toujours ses rows lignes, la bande sa largeur", () => {
+    const t = transcriptOf(range(30));
+    const widths: number[] = [];
+    const band = {
+      height: () => 1,
+      render: (region: { width: number }) => {
+        widths.push(region.width);
+        return ["b"];
+      },
+    };
+    const base = { status: null, band };
+    renderFrame(model(t, base), { columns: 40, rows: 9 });
+    let frame = renderFrame(model(t, base), { columns: 40, rows: 12 });
+    expect(frame.lines).to.have.length(12);
+    expect(frame.band).to.deep.equal({ row: 11, height: 1 });
+    renderFrame(model(t, base), { columns: 30, rows: 12 });
+    expect(widths).to.deep.equal([39, 39, 29]);
+    const prompt = { lines: ["❯"], cursor: { row: 0, column: 1 } };
+    // L'invite arrive avec une autre largeur, puis part SEULE.
+    renderFrame(model(t, { ...base, prompt }), { columns: 31, rows: 12 });
+    frame = renderFrame(model(t, base), { columns: 31, rows: 12 });
+    expect(frame.lines).to.have.length(12);
+    expect(frame.band).to.deep.equal({ row: 11, height: 1 });
   });
 });

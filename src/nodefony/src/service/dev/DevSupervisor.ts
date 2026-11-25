@@ -29,6 +29,7 @@ import {
   isDebugRequested,
   mouseCaptureBlocker,
   readDevMouseRequest,
+  readDevPaint,
   readDevUiRequest,
   readOutputFlag,
   resolveOutputMode,
@@ -54,7 +55,7 @@ import {
   type IDevHeldPlan,
   type IDevHeldPlanAck,
 } from "./devChannel";
-import { HeldServiceRegistry } from "./heldServices";
+import { HeldReadyAnnouncer, HeldServiceRegistry } from "./heldServices";
 import {
   DevTerminal,
   probeTerminal,
@@ -1496,9 +1497,17 @@ export class DevSupervisor {
       }
       return null;
     }
+    const paint = readDevPaint(process.env, process.platform);
+    if (paint.invalid !== null) {
+      this.#out.write(
+        `[dev] NF_DEV_PAINT=${paint.invalid} ignorée : scroll, diff ou full\n`,
+      );
+    }
+    if (paint.reason !== null) this.#out.write(`[dev] ${paint.reason}\n`);
     return {
       input: stdin,
       synchronized: probe.synchronized,
+      paint: paint.paint,
       onQuit: () => void this.#shutdown(),
       // La séquence OSC 52 part sur NOTRE terminal, par `DevTerminal` : une
       // copie qui finit après la sortie du plein écran n'écrit plus rien.
@@ -2212,14 +2221,16 @@ export class DevSupervisor {
 
   /**
    * Le registre des services portés, créé au premier plan. Ses états vont
-   * au serveur COURANT, sa sortie au terminal (source `held`), ou telle
+   * au serveur COURANT, sa sortie au terminal (un canal par service), ou telle
    * quelle sur la sortie du superviseur hors rendu humain — là où le serveur,
    * qui hérite alors du terminal, l'aurait écrite.
    *
    * @returns le registre.
    */
   #heldServices(): HeldServiceRegistry {
-    this.#held ??= new HeldServiceRegistry({
+    if (this.#held !== null) return this.#held;
+    const announcer = new HeldReadyAnnouncer();
+    this.#held = new HeldServiceRegistry({
       baseEnv: process.env,
       onState: (owner, status) => {
         sendToServer(this.#child, {
@@ -2228,12 +2239,24 @@ export class DevSupervisor {
           owner,
           status,
         });
+        // Dans SON canal : l'onglet du service paraît dès qu'il est prêt,
+        // même si l'hôte ne dit rien d'autre (Vite se tait jusqu'au HMR).
+        const terminal = this.#terminal;
+        const notice = terminal ? announcer.notice(status) : null;
+        if (terminal && notice !== null) {
+          terminal.ingest(
+            status.key,
+            "out",
+            `${ANSI.dim}[dev]${ANSI.reset} ${ANSI.green}${notice}${ANSI.reset}\n`,
+          );
+        }
       },
       onOutput: (key, stream, lines) => {
         const terminal = this.#terminal;
-        // Un couloir par service : la fin coupée d'un hôte (ligne trop longue,
-        // sortie à sa mort) ne se colle jamais à la ligne d'un autre.
-        if (terminal) terminal.ingest("held", stream, lines, undefined, key);
+        // Un canal par service, nommé par sa clé (`vite:<nom>`) : la fin
+        // coupée d'un hôte (ligne trop longue, sortie à sa mort) ne se colle
+        // jamais à la ligne d'un autre.
+        if (terminal) terminal.ingest(key, stream, lines);
         else (stream === "err" ? process.stderr : process.stdout).write(lines);
       },
     });

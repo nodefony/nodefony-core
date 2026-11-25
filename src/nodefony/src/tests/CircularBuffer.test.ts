@@ -53,3 +53,24 @@ describe("CircularBuffer", () => {
     expect(ring.toArray()).to.deep.equal([9]);
   });
 });
+
+describe("CircularBuffer — cases allouées à la demande", () => {
+  it("part de initialSlots et double sans perdre l'ordre, rotation comprise", () => {
+    const ring = new CircularBuffer<number>(10, 2);
+    for (let i = 1; i <= 3; i++) ring.push(i);
+    ring.shift(); // la tête n'est plus en 0 quand l'anneau grossit
+    for (let i = 4; i <= 9; i++) ring.push(i);
+    expect(ring.toArray()).to.deep.equal([2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(ring.at(-1)).to.equal(9);
+  });
+
+  it("ne dépasse jamais sa capacité : plein, il écrase comme avant", () => {
+    const ring = new CircularBuffer<number>(5, 1);
+    for (let i = 1; i <= 12; i++) ring.push(i);
+    expect(ring.length).to.equal(5);
+    expect(ring.toArray()).to.deep.equal([8, 9, 10, 11, 12]);
+    expect(ring.shift()).to.equal(8);
+    ring.push(13);
+    expect(ring.toArray()).to.deep.equal([9, 10, 11, 12, 13]);
+  });
+});

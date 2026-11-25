@@ -197,7 +197,11 @@ Les deux surfaces consomment le **même modèle** et rendent la **même** invite
 - **Garde-fou ConPTY** : sous Windows Terminal, des écritures positionnées peuvent laisser des
   fragments — Claude Code le documente et force une repeinte complète. Le plein écran y repeint
   donc toute image au lieu de la différencier, tant qu'un banc à la main n'a pas prouvé le diff.
-  Le plein écran par défaut sous Windows reste conditionné à cette preuve.
+  Le plein écran par défaut sous Windows reste conditionné à cette preuve. Livré à l'étape 6
+  (`outputMode.ts#readDevPaint`) : `"full"` sous Windows, `"scroll"` ailleurs, le repli DIT au
+  démarrage ; `NF_DEV_PAINT` (`scroll`, `diff`, `full`) l'emporte, c'est la porte de ce banc à la
+  main. Une DÉDUCTION assumée : rien ne distingue de l'intérieur une console ConPTY, et repeindre
+  est juste partout, seulement plus cher.
 
 ### 3. Le modèle d'écran est pur — quatre briques, sans terminal
 
@@ -219,8 +223,11 @@ interface ITranscriptEntry {
 // push(…) · at(i) · since(seq) → entrées postérieures · bytes / length
 ```
 
-- **Deux plafonds** : 10 000 entrées ET **8 Mio d'octets** — le second est celui qui compte
-  (10 000 × 16 Kio feraient 160 Mio). Éviction par la tête tant que l'un est dépassé.
+- **Deux plafonds** : 10 000 entrées ET **8 Mio de mémoire** — le second est celui qui compte
+  (10 000 × 16 Kio feraient 160 Mio). Éviction par la tête tant que l'un est dépassé. La mémoire
+  se compte par entrée (`devTranscript.ts#transcriptEntryCost`) : une surcharge fixe (objet, chaîne,
+  case) plus un octet par caractère, deux dès qu'une ligne sort de l'ASCII — compter les octets
+  UTF-8 du texte seul laissait passer huit fois le plafond sur des lignes courtes.
 
 **Amendement #903 (D1, D4) — un anneau PAR CANAL, le canal remplace la source fermée.**
 
@@ -233,8 +240,8 @@ interface ITranscriptEntry {
   de canaux existent. Un `seq` n'est donc plus contigu dans un anneau : `indexOf` passe par
   dichotomie (O(log n)).
 - **Plafond par canal ET plafond global de 8 Mio** : une rafale de Vite n'évince jamais la pile
-  d'un crash du serveur. Proposé : le plafond global évince d'abord dans le canal qui dépasse le
-  plus sa part ; le détail (part fixe ou proportionnelle) se règle au banc, l'invariant non.
+  d'un crash du serveur. Retenu : le plafond global évince dans le canal le plus GROS (parts
+  égales, `devHistory.ts#DevHistory`) ; une part pondérée se réglerait au banc, l'invariant non.
 - Les canaux sont le modèle de données du SUPERVISEUR, pas de l'écran : le terminal n'en est
   qu'un lecteur ; l'assistant en est un autre (il lit le serveur et Vite, écrit les siens) ; la
   console d'administration et le serveur MCP pourront l'être par le lot à la demande (§6).
@@ -614,6 +621,17 @@ image.**
   SEULEMENT — l'écran alternatif n'a pas d'historique à vider, ce qui lève l'objection de #533
   (voir « Alternatives écartées »). Les marges sont remises (`CSI r`) à chaque image qui ne
   défile pas, et à la sortie par le protocole unique.
+- **Livré à l'étape 6** (`devFrame.ts#diffFrameScrolled`) : le décalage se lit sur les origines
+  (`seq`, colonne) de la ligne du haut, dans les deux sens — `SU` quand des lignes arrivent en
+  direct, `SD` (`CSI N T`) quand on remonte d'une ligne. Le diff compare ensuite chaque ligne à
+  ce que l'écran montre APRÈS le défilement : le choix du décalage ne joue que sur le coût, jamais
+  sur l'exactitude, et il n'est retenu que s'il réécrit moins de lignes que sans lui. Attributs
+  remis (`CSI 0 m`) avant `SU`, pour que les lignes libérées prennent le fond par défaut ; marges
+  posées et remises DANS la même écriture, donc aucun état laissé au terminal entre deux images.
+  Le mode se choisit par `paint` (`"scroll"` par défaut, `"diff"`, `"full"` pour le garde-fou
+  ConPTY de D3). Mesuré au banc de #896 (rafale de 4 lignes par image, 7 tours entrelacés) :
+  3 300 → 439 octets par image, temps d'image −14 à −16 %. Le même scénario rejoué en `scroll` et
+  en `diff` donne le même écran xterm.js à chaque image (`devTerminalFullscreen.test.ts`).
 - **Limite constatée de la norme** : `DECSTBM` ne borne que des lignes. Deux volets CÔTE À CÔTE
   exigeraient des marges gauche/droite (`DECSLRM`, sous le mode `DECLRMM`), dont la prise en
   charge par les terminaux visés n'est pas relevée. Tant qu'elle ne l'est pas, des volets côte à
@@ -623,12 +641,28 @@ image.**
 - **Image sautée sous contre-pression** : quand `write` rend `false`, aucune image ne part avant
   `drain` ; les mutations continuent de marquer leurs régions, et l'image suivante les rend
   toutes. Un seul écouteur `drain` en vol, retiré à `close`. C'est ce qui garde le relais des
-  enfants et l'agent (D6) vivants sous SSH ou sous Windows.
+  enfants et l'agent (D6) vivants sous SSH ou sous Windows. Livré à l'étape 6
+  (`DevTerminal.ts#DevTerminal.#drawFrame`) : l'image qui remplit le tampon part quand même (le
+  diff suivant se compare à elle), puis `#scheduleFrame` ne programme plus rien jusqu'à `drain`.
+  L'image d'après se calcule depuis le modèle, donc elle rend tout ce qui a changé entre-temps,
+  sans file d'attente. Un flux sans `once` (un test) ne retient jamais d'image.
 - **Régions sales** (§11) : une image ne recalcule que les régions marquées. Une graduation de la
-  barre ne replie pas le journal ; une touche sans effet ne rebâtit rien.
+  barre ne replie pas le journal ; une touche sans effet ne rebâtit rien. **Mesuré à l'étape 7,
+  non retenu pour le journal** : sur le banc de #896, une graduation de la barre coûtait 241 µs,
+  dont ~6 % hors de la barre (journal compris, ~13 µs) — le repli du journal est déjà en cache
+  par vue. Ce qui coûtait, c'était la barre elle-même : elle se recompose à chaque graduation (ses
+  chiffres changent) et remesurait toutes ses lignes. La région sale s'applique donc À LA LIGNE de
+  la barre (`devFrame.ts#StatusBarCache.fittedLine`) : une ligne recomposée à l'identique, à la
+  même largeur, reprend sa version bornée sans être remesurée — le filet et la marque, presque
+  tout en non-ASCII, ne repassent plus par le segmenteur. Graduation −53 % (A/B entrelacé, 5
+  manches), octets inchangés.
 - **Largeur** : la fonction unique de largeur reste la seule règle, mais compte d'abord le
   préfixe ASCII sans segmenteur et saute les séquences de contrôle sans allouer ; le découpage
-  en graphèmes ne sert qu'au-delà. Gardé seulement si le banc de #896 le montre.
+  en graphèmes ne sert qu'au-delà. Gardé seulement si le banc de #896 le montre. **Livré à
+  l'étape 7** (`textWidth.ts#runWidth`) : dans une tranche mêlée, l'ASCII imprimable compte une
+  colonne sans segmenteur et seuls les morceaux non ASCII sont découpés — chacun avec l'ASCII qui
+  le suit, car un caractère préfixe (Unicode `Prepend`) s'y soude. Même résultat que le découpage
+  entier, prouvé sur 20 000 textes tirés d'un alphabet piégé. Image d'une rafale −17 % à −26 %.
 
 ### 10. Hors du rendu humain, rien ne change
 
@@ -646,14 +680,36 @@ AVANT eux, pour ne pas être repris.
 | Niveau | Ce qu'il porte                                                                     | Qui le possède                                        |
 | ------ | ---------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | Canal  | un anneau `DevTranscript`, un `seq` global, une ligne en cours par flux (§3)       | le superviseur — lu par le terminal, l'agent, Studio  |
-| Vue    | { canal, ancre, cache de repli, sélection, rendu de la ligne en cours } — légère   | le terminal ; deux vues peuvent montrer le même canal |
+| Vue    | { canaux, ancre, cache de repli, sélection, rendu de la ligne en cours } — légère  | le terminal ; deux vues peuvent montrer le même canal |
 | Région | un rectangle de l'écran (ligne, colonne, largeur, hauteur) et son drapeau « sale » | la mise en page, recalculée à la taille ou à l'état   |
 
-**Mise en page** : une fonction PURE `layout(taille, état) → régions`, rendant une liste PLATE
-de rectangles : onglets (1 ligne, absente avec une seule vue), volets (1 ou 2, empilés ou côte à
-côte), bande (menu, complétion, confirmation ; hauteur 0 si absente), invite, barre. Pas d'arbre
-générique tant que les volets sont peu nombreux. Avec UNE vue et aucune bande, la mise en page
-rend exactement les trois zones d'aujourd'hui : c'est la preuve d'équivalence de la refonte.
+**Direction de travail — non figée, validée sur pièce au fil du développement** (maquette vue
+par l'auteur, décisions N1 à N8 au ticket #903). L'écran partagé de la première version de ce
+paragraphe est abandonné : **un onglet occupe TOUTE la zone centrale**, changer d'onglet la
+remplace entière.
+
+**Mise en page** : une fonction PURE `layout(taille, état) → régions`
+(`src/nodefony/src/service/dev/devLayout.ts#layout`), rendant une liste PLATE de rectangles :
+vue (la zone centrale), onglets (1 ligne), bande (menu, complétion, confirmation ; hauteur 0 si
+absente, un tiers de l'écran au plus), invite, barre. Les onglets vivent **en bas, collés à
+l'invite** : onglet actif, bande et invite forment un bloc — on voit à qui on parle. Quand la
+hauteur manque, la priorité part du bas : barre, invite, bande, onglets ; la vue prend le reste.
+Sans onglets ni bande, la mise en page rend exactement les trois zones d'aujourd'hui : c'est la
+preuve d'équivalence de la refonte.
+
+**Une vue lit UN OU PLUSIEURS canaux** (validé à l'étape 2) : ils sont fusionnés dans l'ordre des
+numéros, sans copie (`src/nodefony/src/service/dev/devHistory.ts#MergedTranscript`), et un canal
+ouvert plus tard entre de lui-même dans la vue qui le retient. La vue unique d'avant les onglets
+lit tous les canaux — l'écran reste identique à l'octet près ; les onglets la scindent ensuite
+(serveur : `server` + `supervisor` ; vite : `vite:*`).
+
+**Une invite par onglet** : son préfixe, son brouillon, son historique, son menu ; changer
+d'onglet garde le brouillon. Le résultat d'une commande s'affiche dans l'onglet où elle a été
+tapée. **Plusieurs fenêtres ne vivent que DANS un onglet** : la vue reçoit son rectangle et des
+coordonnées locales, et le découpe comme elle veut (un onglet de supervision à graphes) ; le
+layout principal n'en sait rien. **Les onglets se créent et se détruisent à la volée** (un
+sous-agent ouvre le sien) : `addView` rend sa poignée — `close`, qui libère aussi l'historique du
+canal, et `finish`, qui marque l'issue ✓ / ✗ jusqu'à la fermeture.
 
 **Trois contrats de branchement**, dans `src/nodefony/src/service/dev/` :
 
@@ -665,9 +721,10 @@ interface IDevView {
   render(rect: IRegion): IViewFrame; // segments + origines (entrée, colonne) de chaque ligne
   handle?(event: InputEvent): boolean; // foyer local, coordonnées de la région
 }
+// addView(spec) rend sa poignée { finish, close } : qui crée l'onglet le détruit.
 interface IDevBand {
-  readonly height: number; // lignes demandées, bornées par la mise en page
-  render(rect: IRegion): IViewFrame;
+  height(width: number): number; // lignes demandées à cette largeur, bornées par la mise en page
+  render(rect: IRegion): readonly string[];
   handle(event: InputEvent): boolean; // modale : consomme tout ce qu'elle ne rend pas
 }
 // l'invite = une bande PERMANENTE : éditeur pur (tampon, curseur compté en graphèmes par la
@@ -675,26 +732,66 @@ interface IDevBand {
 ```
 
 - **Souris** : le test de région passe AVANT la chaîne de foyers (§4), et l'évènement arrive à
-  la région en coordonnées LOCALES. Un clic ne traverse pas une bande ; une sélection ne déborde
-  pas d'un volet — sélection et origines descendent dans la vue.
-- **Défilement** : par vue. Il lit la hauteur du volet dans la mise en page mémorisée, sans
-  rebâtir le modèle ; une touche qui ne défile pas ne coûte rien.
+  la région en coordonnées LOCALES. Un clic ne traverse pas une bande ; un clic sur un onglet
+  l'active — sélection et origines descendent dans la vue.
+- **Défilement** : par vue, gardé quand on change d'onglet. Il lit la hauteur de la vue dans la
+  mise en page mémorisée, sans rebâtir le modèle ; une touche qui ne défile pas ne coûte rien.
+- **Changer d'onglet** : clic, `Alt+1` à `Alt+9` (`Ctrl+Tab` n'est pas transmis par la plupart
+  des terminaux). Un onglet caché qui reçoit des lignes porte un compteur, rouge sur une erreur.
+  `Alt` n'arrive que si le terminal envoie Échap pour Option — sous macOS, iTerm2 « Option = Esc+ »,
+  Terminal.app « Utiliser Option comme touche méta », le terminal de VS Code
+  `"terminal.integrated.macOptionIsMeta": true` ; le clic marche sans réglage (`--mouse`). Sur
+  un clavier AZERTY, le geste dépend du terminal (l'aide le dit) :
+
+  | Terminal             | Onglet 1 · onglet 2            | Ce que le terminal envoie               |
+  | -------------------- | ------------------------------ | --------------------------------------- |
+  | Terminal.app, iTerm2 | Maj+Option+1 · Maj+Option+2    | `ESC 1` : le caractère tapé             |
+  | VS Code              | Option+1 · Option+2 (sans Maj) | `ESC 1` : la POSITION sur un clavier US |
+
+  Sous VS Code, Maj+Option+2 à 9 arrivent en `ESC @` à `ESC (` (le chiffre avec Maj sur un
+  clavier américain), qui valent aussi Alt+2 à Alt+9 (`DevTerminal.ts#tabRank`) ; Maj+Option+1
+  y tape `´`, un caractère du clavier français que macOS rend avant toute traduction — jamais pris
+  pour un onglet, il appartient à l'invite.
+
+- **Onglets livrés à l'étape 3** : un onglet est une DONNÉE (`devView.ts#DevView` : son filtre de
+  canaux, sa position de lecture, sa page propre, son cache de repli, ce qu'il n'a pas montré),
+  jamais une sous-classe. `serveur` est le complément de `vite` (`vite:*`) : aucun canal ne reste
+  sans onglet. La ligne d'onglets n'apparaît que quand un second onglet a quelque chose à montrer —
+  sans Vite, l'écran reste celui d'une seule vue. La page propre d'`ESC[2J` et l'indicateur du
+  superviseur restent dans l'onglet `serveur` ; changer d'onglet efface la sélection.
+- **Onglets à la volée livrés à l'étape 4** (`DevTerminal.ts#DevTerminal.addView`) : un onglet
+  ouvert par un producteur paraît dès l'ouverture, même vide, et prend ses canaux à `serveur`,
+  devenu le complément de TOUS les autres onglets. Sa poignée rend `finish` (✓ / ✗ après le
+  titre) et `close` (retour à `serveur` s'il était à l'écran, historique de ses canaux libéré).
+  Une poignée plutôt que la seule fermeture : l'issue appartient à qui a ouvert l'onglet, sans
+  chercher l'onglet par son identifiant. Trop d'onglets pour la largeur : une fenêtre autour de
+  l'actif, bordée de `‹ +3` / `+2 ›` — un clic sur la marque montre le voisin caché, et la
+  marque passe au gras ou au rouge quand un onglet qu'elle cache a reçu des lignes ou une erreur.
+- **Bande livrée à l'étape 4** (`devBand.ts#IDevBand`, `DevTerminal.ts#DevTerminal.openBand`) :
+  entre la ligne d'onglets et l'invite, de la hauteur qu'elle demande À CETTE LARGEUR (une bande
+  se replie sur un écran étroit), bornée à un tiers de l'écran, complétée ou coupée à la hauteur
+  donnée — le journal ne bouge pas d'une image à l'autre. La dernière ouverte reçoit le clavier
+  avant le défilement ; ce qu'elle rend (`false`) continue la chaîne ; Ctrl+C et Ctrl+D ne lui
+  parviennent jamais. La souris ne lui arrive que sur son rectangle, en coordonnées locales, et
+  s'y arrête ; hors d'elle, elle atteint la vue. Premier usage : l'aide des gestes (`?` ou F1 ;
+  `?`, `q`, Échap ou F1 la referment), qui laisse passer défilement et Alt+N. Avec l'invite
+  (#538), `?` deviendra une frappe : F1 reste.
 - **Régions sales** : chaque mutateur marque la sienne (§5) ; l'image ne rend que celles-là
   (§9).
 
 **Matrice de défilement — chaque case est un scénario rejoué sur l'écran obtenu.** Banc sous
 pseudo-terminal (`script`) et `@xterm/headless`, celui des Conséquences :
 
-| Scénario                           | Ce qui doit tenir                                   |
-| ---------------------------------- | --------------------------------------------------- |
-| molette captée, et traduite (1007) | trois lignes par cran dans les deux régimes         |
-| PgUp / PgDn / Début / Fin          | une page = la hauteur du volet, pas de l'écran      |
-| rafale pendant qu'on est remonté   | l'ancre (`seq`) ne bouge pas, l'indicateur compte   |
-| redimensionnement remonté          | même entrée en haut du volet                        |
-| glisser au bord                    | défile la vue qui porte la sélection, et elle seule |
-| crash pendant qu'on est remonté    | la pile reste lisible au retour au direct           |
-| deux volets défilés indépendamment | aucun ne bouge l'autre                              |
-| retour au direct                   | l'indicateur disparaît, `SU` reprend                |
+| Scénario                           | Ce qui doit tenir                                 |
+| ---------------------------------- | ------------------------------------------------- |
+| molette captée, et traduite (1007) | trois lignes par cran dans les deux régimes       |
+| PgUp / PgDn / Début / Fin          | une page = la hauteur de la vue, pas de l'écran   |
+| rafale pendant qu'on est remonté   | l'ancre (`seq`) ne bouge pas, l'indicateur compte |
+| redimensionnement remonté          | même entrée en haut de la vue                     |
+| glisser au bord                    | défile la vue qui porte la sélection              |
+| crash pendant qu'on est remonté    | la pile reste lisible au retour au direct         |
+| deux onglets défilés puis basculés | chacun retrouve sa position et son brouillon      |
+| retour au direct                   | l'indicateur disparaît, `SU` reprend              |
 
 Essais à la main, avec liste de contrôle : iTerm2, Terminal.app, tmux ; Windows Terminal à part.
 
@@ -717,8 +814,9 @@ Essais à la main, avec liste de contrôle : iTerm2, Terminal.app, tmux ; Window
   `CliIntegration.test.ts`, déclaré comme décor (une absence se dit, elle ne se saute pas en
   silence) et joué sur les jobs Linux et macOS. Windows Terminal se vérifie à la main.
 - **Amendement #903** — l'ordre des travaux devient une contrainte : banc et leviers à surface
-  constante (#896, preuve d'équivalence ancien / nouveau rendu), PUIS socle à plusieurs vues
-  (#903), PUIS Vite (#692) et l'invite (#538). Chaque étape est prouvée à l'écran sur la matrice
+  constante (#896, preuve d'équivalence ancien / nouveau rendu), PUIS Vite porté par le
+  superviseur (#692, sa sortie entre d'abord dans l'historique unique), PUIS socle à plusieurs
+  vues (#903, qui la range dans son canal), PUIS l'invite (#538). Chaque étape est prouvée à l'écran sur la matrice
   du §11 ; avec une seule vue, l'écran obtenu est identique à celui d'avant.
 - Le plafond mémoire reste 8 Mio au total, quel que soit le nombre de canaux.
 - Une seconde dépendance au terminal : `DECSTBM` + `SU` en plein écran. Leur restauration entre

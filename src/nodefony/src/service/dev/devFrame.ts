@@ -1,8 +1,8 @@
 /**
- * L'image du terminal de développement, calculée sans terminal : trois zones
- * fixes — le journal (une fenêtre de l'historique), l'invite, la barre d'état
- * — rendues en lignes, chacune bornée à `columns - 1` colonnes. Cf ADR-0013
- * §3 et §9.
+ * L'image du terminal de développement, calculée sans terminal : le journal
+ * (une fenêtre de l'historique de la vue active), la ligne d'onglets quand il
+ * y en a plusieurs, l'invite, la barre d'état — rendues en lignes, chacune
+ * bornée à `columns - 1` colonnes. Cf ADR-0013 §3, §9 et §11.
  *
  * `renderFrame` est pur : il lit le modèle et rend `{ lines, cursor }` ; qui
  * possède le terminal écrit l'image en UNE écriture, de préférence par
@@ -14,6 +14,11 @@
  * arrivé dessous (« ↑ N nouvelles lignes — Fin »).
  */
 import { fitToWidth, visibleWidth, wrapToWidth } from "../../runtime/textWidth";
+import {
+  layout as screenLayout,
+  type IRegion,
+  type TabsPlacement,
+} from "./devLayout";
 import { invertColumns, type ISelectionRange } from "./devSelection";
 import { sanitizeTerminalText, type ITranscriptEntry } from "./devTranscript";
 import {
@@ -35,6 +40,8 @@ export interface ITranscriptReader {
   readonly lastSeq: number;
   at(index: number): ITranscriptEntry | undefined;
   indexOf(seq: number): number;
+  /** Entrées retenues dont le numéro dépasse `seq` — les numéros croissent sans se suivre. */
+  countAfter(seq: number): number;
 }
 
 /**
@@ -77,6 +84,59 @@ export interface IFramePrompt {
   readonly cursor: { row: number; column: number };
 }
 
+/** L'issue d'un onglet dont le travail est fini (un sous-agent) : ✓ ou ✗. */
+export type ViewOutcome = "ok" | "failed";
+
+/** Un onglet, tel que sa ligne le montre. */
+export interface IFrameTab {
+  readonly title: string;
+  /** Entrées arrivées depuis qu'on l'a quitté — `0` pour l'onglet actif. */
+  readonly unseen: number;
+  /** L'une d'elles vient d'une sortie d'erreur : le compteur passe au rouge. */
+  readonly alert: boolean;
+  /** Son travail est fini : ✓ ou ✗ après le titre, jusqu'à sa fermeture. */
+  readonly outcome?: ViewOutcome | null;
+}
+
+/** La ligne d'onglets : les onglets dans l'ordre, et lequel est actif. */
+export interface IFrameTabs {
+  readonly items: readonly IFrameTab[];
+  readonly active: number;
+}
+
+/**
+ * Les colonnes d'une zone cliquable de la ligne, `[start, end)`, et le rang
+ * de l'onglet qu'elle montre — un onglet, ou une marque de débordement
+ * (`‹ +3`), qui montre le voisin caché le plus proche.
+ */
+export interface ITabSpan {
+  readonly start: number;
+  readonly end: number;
+  readonly index: number;
+}
+
+/**
+ * Une bande (menu, complétion, aide) telle que l'image la lit : la hauteur
+ * qu'elle demande, et ses lignes pour le rectangle que la mise en page lui
+ * donne (ADR-0013 §11).
+ */
+export interface IFrameBand {
+  /**
+   * Lignes demandées pour cette largeur (une bande se replie sur un écran
+   * étroit) ; la mise en page les borne à un tiers de l'écran.
+   *
+   * @param width - colonnes disponibles.
+   */
+  height(width: number): number;
+  /**
+   * Ses lignes, au plus `region.height` ; chacune est bornée à
+   * `region.width` par l'image.
+   *
+   * @param region - son rectangle.
+   */
+  render(region: IRegion): readonly string[];
+}
+
 /** Tout ce que l'image lit. */
 export interface IFrameModel {
   readonly transcript: ITranscriptReader;
@@ -106,6 +166,13 @@ export interface IFrameModel {
   readonly partial?: string;
   /** La sélection à surligner, normalisée (cf `selectionRange`). */
   readonly selection?: ISelectionRange | null;
+  /**
+   * La ligne d'onglets, en bas, collée à l'invite (ADR-0013 §11) — absente
+   * ou `null` : pas de ligne, l'écran d'une seule vue.
+   */
+  readonly tabs?: IFrameTabs | null;
+  /** La bande ouverte, entre les onglets et l'invite — absente : hauteur 0. */
+  readonly band?: IFrameBand | null;
 }
 
 /**
@@ -133,6 +200,15 @@ export interface IFrame {
    * cellule de l'historique.
    */
   readonly origins?: readonly (IRowOrigin | null)[];
+  /** La ligne d'onglets à l'écran : sa ligne, et les colonnes de chaque onglet. */
+  readonly tabs?: { readonly row: number; readonly spans: readonly ITabSpan[] };
+  /** La bande à l'écran : sa première ligne et sa hauteur — ce qu'un clic teste. */
+  readonly band?: { readonly row: number; readonly height: number };
+  /**
+   * Les lignes du journal à l'écran, depuis le haut : la région que le
+   * terminal peut faire défiler ({@link diffFrameScrolled}).
+   */
+  readonly journalRows?: number;
 }
 
 /** Une ligne à réécrire. */
@@ -335,6 +411,170 @@ function unseenLine(count: number, model: IFrameModel): string {
   return model.color ? `\x1b[7m ${text} \x1b[0m` : text;
 }
 
+/**
+ * La ligne d'onglets : chaque onglet est une PASTILLE, séparée de la
+ * suivante par une colonne de fond nu — sans pastille, les titres se
+ * lisaient comme une seule phrase. En couleur, deux blocs aux couleurs de la
+ * marque : le numéro (la touche Alt+N) en VERT Node gras sur le fond du
+ * terminal, le titre sur gris ; l'onglet actif, numéro sur un bloc CYAN,
+ * titre blanc gras sur BLEU — seul l'actif porte deux blocs, il ressort. Les
+ * couleurs sont celles des 16 du terminal, que son thème ajuste. ✓ en vert,
+ * ✗ en rouge ; le compteur d'un onglet caché en gras, en rouge quand une
+ * erreur y est arrivée. Sans couleur, l'actif entre crochets et un trait
+ * `│` après chaque onglet. Trop large : une
+ * fenêtre autour de l'actif, bordée de `‹ +3` / `+2 ›` (un onglet plus long
+ * que la ligne seul y reste, coupé par le terminal).
+ *
+ * @param tabs - les onglets.
+ * @param model - couleur et jeu de caractères.
+ * @param width - colonnes disponibles.
+ * @returns la ligne, et les zones cliquables avec l'onglet que chacune montre.
+ */
+function tabsLine(
+  tabs: IFrameTabs,
+  model: IFrameModel,
+  width: number,
+): { text: string; spans: ITabSpan[] } {
+  const ascii = model.charset === "ascii";
+  const dot = ascii ? "*" : "·";
+  // Ce qui suit chaque pastille : une colonne de fond nu, ou un trait.
+  const gap = model.color ? " " : ascii ? "|" : "│";
+  const count = tabs.items.length;
+  const labels: string[] = [];
+  const counters: string[] = [];
+  const widths = new Uint32Array(count);
+  // En couleur, le numéro a son propre bloc : une colonne de plus.
+  const frame = model.color ? 5 : 4;
+  let total = 0;
+  for (let i = 0; i < count; i++) {
+    const tab = tabs.items[i];
+    const label = sanitizeTerminalText(tab?.title ?? "");
+    const counter =
+      tab !== undefined && tab.unseen > 0 ? ` ${dot}${tab.unseen}` : "";
+    labels.push(label);
+    counters.push(counter);
+    widths[i] =
+      String(i + 1).length +
+      visibleWidth(label) +
+      (tab?.outcome ? 2 : 0) +
+      visibleWidth(counter) +
+      frame;
+    total += widths[i] ?? 0;
+  }
+  // Trop large : une fenêtre autour de l'actif, élargie tant qu'elle tient,
+  // et une marque de chaque côté qui compte les onglets cachés (`‹ +3`).
+  let lo = 0;
+  let hi = count - 1;
+  if (total > width && count > 1) {
+    const active = Math.min(Math.max(tabs.active, 0), count - 1);
+    const left = (hidden: number): number =>
+      hidden === 0 ? 0 : String(hidden).length + 6;
+    lo = active;
+    hi = active;
+    let used = widths[active] ?? 0;
+    for (;;) {
+      let grew = false;
+      const right = widths[hi + 1];
+      if (
+        right !== undefined &&
+        used + right + left(lo) + left(count - hi - 2) <= width
+      ) {
+        hi++;
+        used += right;
+        grew = true;
+      }
+      const before = lo > 0 ? (widths[lo - 1] ?? 0) : -1;
+      if (
+        before !== -1 &&
+        used + before + left(lo - 1) + left(count - hi - 1) <= width
+      ) {
+        lo--;
+        used += before;
+        grew = true;
+      }
+      if (!grew) break;
+    }
+  }
+  let text = "";
+  let column = 0;
+  const spans: ITabSpan[] = [];
+  if (lo > 0) {
+    const mark = ` ${ascii ? "<" : "‹"} +${lo} `;
+    spans.push({ start: 0, end: mark.length, index: lo - 1 });
+    column = mark.length + 1;
+    text += overflowMark(mark, tabs.items, 0, lo, model) + gap;
+  }
+  for (let i = lo; i <= hi; i++) {
+    const tab = tabs.items[i];
+    const label = labels[i] ?? "";
+    const counter = counters[i] ?? "";
+    const stride = widths[i] ?? 0;
+    const active = i === tabs.active;
+    spans.push({ start: column, end: column + stride - 1, index: i });
+    column += stride;
+    const glyph =
+      tab?.outcome === "ok"
+        ? ascii
+          ? " +"
+          : " ✓"
+        : tab?.outcome === "failed"
+          ? ascii
+            ? " x"
+            : " ✗"
+          : "";
+    if (!model.color) {
+      const body = `${i + 1} ${label}${glyph}${counter}`;
+      text += active ? `[${body}]` : ` ${body} `;
+    } else {
+      // Le bloc du titre : blanc gras sur bleu (actif), teinte du thème sur
+      // gris ; `fg` la rend après une coche ou un compteur colorés.
+      const fg = active ? "97" : "39";
+      text += active
+        ? `\x1b[1;30;46m ${i + 1} \x1b[0;1;97;44m ${label}`
+        : `\x1b[1;32m ${i + 1} \x1b[0;100m ${label}`;
+      if (glyph !== "") {
+        text += `\x1b[1;${tab?.outcome === "ok" ? "92" : "91"}m${glyph}\x1b[${active ? "" : "22;"}${fg}m`;
+      }
+      if (counter !== "") {
+        text += `${tab?.alert === true ? "\x1b[1;91m" : "\x1b[1m"}${counter}\x1b[22;39m`;
+      }
+      text += " \x1b[0m";
+    }
+    text += gap;
+  }
+  if (hi < count - 1) {
+    const hidden = count - 1 - hi;
+    const mark = ` +${hidden} ${ascii ? ">" : "›"} `;
+    spans.push({ start: column, end: column + mark.length, index: hi + 1 });
+    text += overflowMark(mark, tabs.items, hi + 1, count, model);
+  }
+  return { text, spans };
+}
+
+/**
+ * Une marque de débordement : en rouge si un onglet qu'elle cache a reçu une
+ * erreur, en gras s'il a reçu des lignes — un compteur caché reste vu.
+ */
+function overflowMark(
+  mark: string,
+  items: readonly IFrameTab[],
+  from: number,
+  to: number,
+  model: IFrameModel,
+): string {
+  if (!model.color) return mark;
+  let alert = false;
+  let unseen = false;
+  for (let i = from; i < to; i++) {
+    const tab = items[i];
+    if (tab === undefined) continue;
+    if (tab.alert) alert = true;
+    if (tab.unseen > 0) unseen = true;
+  }
+  if (alert) return `\x1b[1;31m${mark}\x1b[0m`;
+  return unseen ? `\x1b[1m${mark}\x1b[0m` : `\x1b[2m${mark}\x1b[0m`;
+}
+
 /** Les lignes du journal et, en parallèle, leur origine. */
 interface IJournalRows {
   lines: string[];
@@ -480,6 +720,11 @@ interface IFrameLayout {
   bar: readonly string[];
   promptLines: readonly string[];
   indicator: string[];
+  /** La ligne d'onglets (zéro ou une), et les colonnes de chaque onglet. */
+  tabLines: readonly string[];
+  tabSpans: readonly ITabSpan[];
+  /** Les lignes de la bande, exactement la hauteur que la mise en page lui donne. */
+  bandLines: readonly string[];
   journalHeight: number;
 }
 
@@ -495,10 +740,17 @@ function statusBar(
   const activity = model.status === null ? undefined : activityOf(model.status);
   const kept = model.statusBar?.lookup(model, size, activity);
   if (kept !== undefined) return kept;
-  const lines = statusLines(model, size, activity).map((line) =>
-    fitToWidth(line.replace(ERASE_IN_LINE, ""), width),
+  const cache = model.statusBar;
+  const composed = statusLines(model, size, activity);
+  // Recomposée, la barre ne remesure que ses lignes CHANGÉES : le filet et la
+  // marque, presque tout en non-ASCII, coûtaient le segmenteur à chaque
+  // graduation (#903).
+  const lines = composed.map(
+    (line, index) =>
+      cache?.fittedLine(index, line, width) ??
+      fitToWidth(line.replace(ERASE_IN_LINE, ""), width),
   );
-  model.statusBar?.store(model, size, activity, lines);
+  cache?.store(model, size, activity, lines, composed, width);
   return lines;
 }
 
@@ -532,6 +784,8 @@ export class StatusBarCache {
   #columns = -1;
   #rows = -1;
   #lines: readonly string[] = [];
+  #composed: readonly string[] = [];
+  #width = -1;
 
   /**
    * Les lignes retenues, si la barre de cette image est la même.
@@ -569,18 +823,42 @@ export class StatusBarCache {
   }
 
   /**
+   * La ligne bornée de l'image précédente à ce rang, si sa composition et la
+   * largeur n'ont pas changé : la barre recomposée ne remesure qu'ainsi ce qui
+   * a bougé.
+   *
+   * @param index - le rang de la ligne dans la barre.
+   * @param composed - la ligne composée, avant bornage.
+   * @param width - la largeur de la barre.
+   * @returns la ligne bornée retenue, ou `undefined` s'il faut la mesurer.
+   */
+  fittedLine(
+    index: number,
+    composed: string,
+    width: number,
+  ): string | undefined {
+    return width === this.#width && this.#composed[index] === composed
+      ? this.#lines[index]
+      : undefined;
+  }
+
+  /**
    * Retient la barre composée pour les images suivantes.
    *
    * @param model - le modèle de l'image.
    * @param size - dimensions du terminal.
    * @param activity - l'activité lue par la barre.
    * @param lines - les lignes bornées.
+   * @param composed - les mêmes lignes avant bornage.
+   * @param width - la largeur de la barre.
    */
   store(
     model: IFrameModel,
     size: IFrameSize,
     activity: IStatusActivity | undefined,
     lines: readonly string[],
+    composed: readonly string[],
+    width: number,
   ): void {
     this.#status = model.status;
     this.#activity = activity;
@@ -590,7 +868,56 @@ export class StatusBarCache {
     this.#columns = size.columns;
     this.#rows = size.rows;
     this.#lines = lines;
+    this.#composed = composed;
+    this.#width = width;
   }
+}
+
+/** Sans onglets : rien à allouer à chaque image. */
+const NO_TAB_LINES: readonly string[] = [];
+const NO_TAB_SPANS: readonly ITabSpan[] = [];
+
+/** La dernière mise en page et ses entrées : une image sur l'autre, elles ne changent pas. */
+const lastLayout = {
+  rows: -1,
+  columns: -1,
+  tabs: "none" as TabsPlacement,
+  band: -1,
+  prompt: -1,
+  bar: -1,
+  regions: [] as readonly IRegion[],
+};
+
+/**
+ * `screenLayout`, recalculée seulement quand une de ses entrées change : la
+ * fonction est PURE, et en rafale chaque image lui redemandait les mêmes
+ * rectangles (un tableau et cinq objets par image, mesuré au banc #896).
+ */
+function layoutOnce(
+  size: IFrameSize,
+  tabs: TabsPlacement,
+  band: number,
+  prompt: number,
+  bar: number,
+): readonly IRegion[] {
+  const last = lastLayout;
+  if (
+    last.rows !== size.rows ||
+    last.columns !== size.columns ||
+    last.tabs !== tabs ||
+    last.band !== band ||
+    last.prompt !== prompt ||
+    last.bar !== bar
+  ) {
+    last.rows = size.rows;
+    last.columns = size.columns;
+    last.tabs = tabs;
+    last.band = band;
+    last.prompt = prompt;
+    last.bar = bar;
+    last.regions = screenLayout(size, { tabs, band, prompt, bar });
+  }
+  return last.regions;
 }
 
 function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
@@ -603,13 +930,37 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   }
   const bar = statusBar(model, size, width);
   const promptLines = model.prompt?.lines ?? [];
+  // Un COMPTE d'entrées, jamais une différence de numéros : quand plusieurs
+  // canaux partagent la numérotation, deux lignes d'un anneau ne se suivent pas.
   const unseen =
-    model.anchor === null
-      ? 0
-      : Math.max(0, model.transcript.lastSeq - model.anchor.seq);
+    model.anchor === null ? 0 : model.transcript.countAfter(model.anchor.seq);
   const indicator = unseen > 0 ? [unseenLine(unseen, model)] : [];
-  const journalHeight =
-    rows - bar.length - promptLines.length - indicator.length;
+  const tabs = model.tabs ? tabsLine(model.tabs, model, width) : null;
+  // Les hauteurs viennent de la mise en page (`devLayout.ts`), seule source :
+  // la barre, l'invite puis les onglets d'abord, la vue prend le reste ;
+  // l'indicateur est DANS la vue. Négatif quand la hauteur manque — tout
+  // lecteur borne à 0.
+  const regions = layoutOnce(
+    size,
+    tabs === null ? "none" : "bottom",
+    model.band?.height(width) ?? 0,
+    promptLines.length,
+    bar.length,
+  );
+  let view: IRegion | undefined;
+  let bandLines: readonly string[] = NO_TAB_LINES;
+  for (const region of regions) {
+    if (region.kind === "view") view = region;
+    else if (region.kind === "band" && model.band) {
+      // Toujours la hauteur donnée : une bande courte ne rend pas de lignes au
+      // journal, une bande trop longue ne pousse pas l'invite.
+      const drawn = model.band.render(region);
+      const fixed: string[] = [];
+      for (let i = 0; i < region.height; i++) fixed.push(drawn[i] ?? "");
+      bandLines = fixed;
+    }
+  }
+  const journalHeight = (view?.height ?? 0) - indicator.length;
   return {
     rows,
     width,
@@ -617,6 +968,9 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
     bar,
     promptLines,
     indicator,
+    tabLines: tabs === null ? NO_TAB_LINES : [tabs.text],
+    tabSpans: tabs === null ? NO_TAB_SPANS : tabs.spans,
+    bandLines,
     journalHeight,
   };
 }
@@ -771,15 +1125,39 @@ export function topAnchor(
  *   colonnes, et le curseur (sur l'invite) ou `null`.
  */
 export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
-  const { rows, width, heights, bar, promptLines, indicator, journalHeight } =
-    frameLayout(model, size);
+  const {
+    rows,
+    width,
+    heights,
+    bar,
+    promptLines,
+    indicator,
+    tabLines,
+    tabSpans,
+    bandLines,
+    journalHeight,
+  } = frameLayout(model, size);
   const prompt = model.prompt ?? null;
   const journal = journalLines(model, heights, width, journalHeight);
-  const all = [...journal.lines, ...indicator, ...promptLines, ...bar];
+  const all = [
+    ...journal.lines,
+    ...indicator,
+    ...tabLines,
+    ...bandLines,
+    ...promptLines,
+    ...bar,
+  ];
   const allOrigins = [
     ...journal.origins,
     ...Array.from(
-      { length: indicator.length + promptLines.length + bar.length },
+      {
+        length:
+          indicator.length +
+          tabLines.length +
+          bandLines.length +
+          promptLines.length +
+          bar.length,
+      },
       () => null,
     ),
   ];
@@ -810,7 +1188,19 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
       cursor = { row, column: Math.min(prompt.cursor.column, width) };
     }
   }
-  return { lines, cursor, origins };
+  const tabRow = journal.lines.length + indicator.length - cut;
+  const bandRow = tabRow + tabLines.length;
+  const hasTabs = tabLines.length > 0 && tabRow >= 0;
+  const hasBand = bandLines.length > 0 && bandRow >= 0;
+  // Un littéral par cas : une forme fixe chacun, et le cas courant (ni
+  // onglets ni bande) n'alloue rien de plus que l'image.
+  if (!hasTabs && !hasBand) return { lines, cursor, origins, journalRows };
+  const band = { row: bandRow, height: bandLines.length };
+  if (!hasTabs) return { lines, cursor, origins, journalRows, band };
+  const tabs = { row: tabRow, spans: tabSpans };
+  return hasBand
+    ? { lines, cursor, origins, journalRows, tabs, band }
+    : { lines, cursor, origins, journalRows, tabs };
 }
 
 /**
@@ -830,4 +1220,106 @@ export function diffFrame(
     if (full || previous.lines[row] !== text) changes.push({ row, text });
   });
   return changes;
+}
+
+/** Le passage d'une image à la suivante, défilement du journal compris. */
+export interface IFrameDiff {
+  /**
+   * De combien la région du journal défile AVANT les écritures : `> 0` vers
+   * le haut (`SU`, des lignes arrivent en direct), `< 0` vers le bas (`SD`,
+   * on remonte dans l'historique), `0` sans défilement.
+   */
+  readonly shift: number;
+  /** Les lignes à réécrire, une fois le défilement fait. */
+  readonly changes: IFrameChange[];
+}
+
+const NO_SHIFT = 0;
+
+/**
+ * De combien le journal a glissé d'une image à l'autre, lu sur les origines
+ * (`seq`, colonne), uniques par ligne : la ligne du haut de la nouvelle image
+ * retrouvée plus bas dans l'ancienne (vers le haut), ou l'inverse (vers le
+ * bas). `0` quand rien ne se retrouve. Le choix ne touche que le COÛT : le
+ * diff compare ensuite à ce que l'écran montre après le défilement.
+ */
+function journalShift(
+  previous: readonly (IRowOrigin | null)[],
+  next: readonly (IRowOrigin | null)[],
+  rows: number,
+): number {
+  const top = next[0] ?? null;
+  if (top !== null) {
+    for (let row = 1; row < rows; row++) {
+      const origin = previous[row] ?? null;
+      if (origin?.seq === top.seq && origin.column === top.column) return row;
+    }
+  }
+  const oldTop = previous[0] ?? null;
+  if (oldTop !== null) {
+    for (let row = 1; row < rows; row++) {
+      const origin = next[row] ?? null;
+      if (origin?.seq === oldTop.seq && origin.column === oldTop.column) {
+        return -row;
+      }
+    }
+  }
+  return NO_SHIFT;
+}
+
+/**
+ * Comme {@link diffFrame}, mais le terminal fait défiler la région du journal
+ * quand c'est moins cher : seules les lignes neuves s'écrivent, au lieu de
+ * tout le journal (ADR-0013, amendement #903, D2). Une ligne libérée par le
+ * défilement compte pour vide — l'appelant remet les attributs avant.
+ *
+ * @param previous - l'image à l'écran, ou `null` (premier dessin).
+ * @param next - l'image à dessiner.
+ * @returns le défilement à faire, puis les lignes à réécrire — le défilement
+ *   n'est retenu que s'il réécrit MOINS de lignes que sans lui.
+ */
+export function diffFrameScrolled(
+  previous: IFrame | null,
+  next: IFrame,
+): IFrameDiff {
+  const rows = next.journalRows ?? 0;
+  if (
+    previous === null ||
+    previous.lines.length !== next.lines.length ||
+    previous.journalRows !== rows ||
+    rows < 2 ||
+    previous.origins === undefined ||
+    next.origins === undefined
+  ) {
+    return { shift: NO_SHIFT, changes: diffFrame(previous, next) };
+  }
+  const shift = journalShift(previous.origins, next.origins, rows);
+  if (shift === NO_SHIFT) {
+    return { shift, changes: diffFrame(previous, next) };
+  }
+  const before = previous.lines;
+  const after = next.lines;
+  // Deux comptes sans rien allouer, puis la liste du moins cher.
+  let plain = 0;
+  let scrolled = 0;
+  for (let row = 0; row < rows; row++) {
+    const text = after[row];
+    if (before[row] !== text) plain++;
+    const from = row + shift;
+    if ((from >= 0 && from < rows ? before[from] : "") !== text) scrolled++;
+  }
+  if (scrolled >= plain) {
+    return { shift: NO_SHIFT, changes: diffFrame(previous, next) };
+  }
+  const changes: IFrameChange[] = [];
+  for (let row = 0; row < after.length; row++) {
+    const text = after[row] ?? "";
+    let shown: string | undefined;
+    if (row < rows) {
+      const from = row + shift;
+      shown = from >= 0 && from < rows ? before[from] : "";
+    } else shown = before[row];
+    if (shown !== text) changes.push({ row, text });
+  }
+  return { shift, changes };
 }

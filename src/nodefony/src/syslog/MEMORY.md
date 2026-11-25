@@ -96,6 +96,7 @@ EMERGENCY=0  ALERT=1  CRITIC=2  ERROR=3  WARNING=4  NOTICE=5  INFO=6  DEBUG=7
 
 **`CircularBuffer<T>`** — `runtime/CircularBuffer.ts` (seul anneau du dépôt, non exporté du barrel)
 
+- `new CircularBuffer(capacity, initialSlots?)` : cases allouées d’emblée = `capacity` (Syslog) ; `initialSlots` → part petit, double jusqu’à `capacity` (historique par canal du terminal de dev)
 - `push(item)` : écrase le plus ancien si plein, avance `head`
 - `shift()` / `at(i)` (négatif = depuis la fin) : O(1), sans copie
 - `last()` : O(1) dernier élément

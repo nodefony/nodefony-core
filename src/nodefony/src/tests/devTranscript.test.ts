@@ -9,6 +9,7 @@ import {
   DevTranscript,
   TRUNCATION_MARK,
   sanitizeTerminalText,
+  transcriptEntryCost,
 } from "../service/dev/devTranscript";
 
 const texts = (t: DevTranscript): string[] => t.since(0).map((e) => e.text);
@@ -22,7 +23,7 @@ describe("DevTranscript — découpe", () => {
     expect(texts(t)).to.deep.equal(["un", "deux", "trois"]);
     expect(t.at(-1)).to.deep.equal({
       seq: 3,
-      source: "server",
+      channel: "server",
       stream: "out",
       text: "trois",
       at: 42,
@@ -39,19 +40,19 @@ describe("DevTranscript — découpe", () => {
     expect(texts(t)).to.deep.equal(["été 漢字 👍"]);
   });
 
-  it("une ligne en cours par couple (source, flux) : les fragments ne se mêlent pas", () => {
+  it("une ligne en cours par couple (canal, flux) : les fragments ne se mêlent pas", () => {
     const t = new DevTranscript();
     t.ingest("server", "out", "serv");
-    t.ingest("assistant", "out", "assis");
+    t.ingest("agent:1", "out", "assis");
     t.ingest("server", "err", "erreur\n");
     t.ingest("server", "out", "eur\n");
-    t.ingest("assistant", "out", "tant\n");
+    t.ingest("agent:1", "out", "tant\n");
     expect(
-      t.since(0).map((e) => `${e.source}/${e.stream}:${e.text}`),
+      t.since(0).map((e) => `${e.channel}/${e.stream}:${e.text}`),
     ).to.deep.equal([
       "server/err:erreur",
       "server/out:serveur",
-      "assistant/out:assistant",
+      "agent:1/out:assistant",
     ]);
   });
 
@@ -72,16 +73,25 @@ describe("DevTranscript — découpe", () => {
     ]);
   });
 
-  it("flush termine les lignes en cours, run relie une saisie à sa sortie", () => {
+  it("flush termine les lignes en cours d'un canal — la saisie et sa sortie partagent run:<n>", () => {
     const t = new DevTranscript();
-    t.ingest("user", "out", "❯ status\n", 7);
-    t.ingest("command", "out", "fin sans retour", 7);
+    t.ingest("run:7", "out", "❯ status\n");
+    t.ingest("run:7", "out", "fin sans retour");
     expect(t.length).to.equal(1);
-    t.flush("command");
-    expect(t.since(0).map((e) => [e.source, e.text, e.run])).to.deep.equal([
-      ["user", "❯ status", 7],
-      ["command", "fin sans retour", undefined],
+    t.flush("run:7");
+    expect(t.since(0).map((e) => [e.channel, e.text])).to.deep.equal([
+      ["run:7", "❯ status"],
+      ["run:7", "fin sans retour"],
     ]);
+  });
+
+  it("flush d'un canal ne touche pas un canal dont l'identifiant le prolonge", () => {
+    const t = new DevTranscript();
+    t.ingest("vite", "out", "court");
+    t.ingest("vite:admin", "out", "long");
+    t.flush("vite");
+    expect(t.since(0).map((e) => e.text)).to.deep.equal(["court"]);
+    expect(t.partial("vite:admin", "out")).to.equal("long");
   });
 
   it("ESC[2J devient un évènement, jamais un caractère de l'historique", () => {
@@ -93,30 +103,62 @@ describe("DevTranscript — découpe", () => {
   });
 });
 
+describe("DevTranscript — horloge", () => {
+  it("une lecture d'horloge par paquet : ses lignes partagent l'heure du paquet qui les finit", () => {
+    let ticks = 0;
+    const t = new DevTranscript({ now: () => ++ticks });
+    t.ingest("server", "out", "a\nb\nc\n");
+    t.ingest("server", "out", "sans fin");
+    expect(ticks, "un paquet sans ligne finie ne lit pas l'heure").to.equal(1);
+    t.ingest("server", "out", " d\n");
+    t.flush();
+    t.ingest("server", "out", "e");
+    t.flush("server");
+    expect(t.since(0).map((e) => `${e.text}@${e.at}`)).to.deep.equal([
+      "a@1",
+      "b@1",
+      "c@1",
+      "sans fin d@2",
+      "e@3",
+    ]);
+  });
+});
+
 describe("DevTranscript — plafonds", () => {
   it("plafond d'ENTRÉES : éviction par la tête, seq continue", () => {
     const t = new DevTranscript({ maxEntries: 3 });
     for (let i = 1; i <= 5; i++) t.ingest("server", "out", `l${i}\n`);
     expect(t.length).to.equal(3);
     expect(texts(t)).to.deep.equal(["l3", "l4", "l5"]);
-    // Les octets des entrées évincées sont rendus : le second plafond reste juste.
-    expect(t.bytes).to.equal(6);
+    // La mémoire des entrées évincées est rendue : le second plafond reste juste.
+    expect(t.bytes).to.equal(3 * transcriptEntryCost("l3"));
     expect(t.at(0)?.seq).to.equal(3);
     expect(t.since(4).map((e) => e.text)).to.deep.equal(["l5"]);
     expect(t.indexOf(2)).to.equal(-1);
     expect(t.indexOf(4)).to.equal(1);
   });
 
-  it("plafond d'OCTETS : éviction tant que la somme dépasse", () => {
-    const t = new DevTranscript({ maxBytes: 10 });
+  it("plafond de MÉMOIRE : éviction tant que la somme dépasse", () => {
+    const ascii = transcriptEntryCost("aaaa");
+    const t = new DevTranscript({ maxBytes: 2 * ascii + 2 });
     t.ingest("server", "out", "aaaa\nbbbb\n");
-    expect(t.bytes).to.equal(8);
+    expect(t.bytes).to.equal(2 * ascii);
     t.ingest("server", "out", "cccc\n");
     expect(texts(t)).to.deep.equal(["bbbb", "cccc"]);
-    expect(t.bytes).to.equal(8);
-    t.ingest("server", "out", "été\n"); // 5 octets UTF-8
+    expect(t.bytes).to.equal(2 * ascii);
+    // Trois caractères hors ASCII : deux octets chacun sous V8, soit deux de
+    // plus que « cccc » — tient sous le plafond, au prix de « bbbb ».
+    t.ingest("server", "out", "été\n");
     expect(texts(t)).to.deep.equal(["cccc", "été"]);
-    expect(t.bytes).to.equal(9);
+    expect(t.bytes).to.equal(2 * ascii + 2);
+  });
+
+  it("le coût d'une entrée est sa mémoire : surcharge fixe, deux octets par caractère hors ASCII", () => {
+    const overhead = transcriptEntryCost("");
+    expect(overhead).to.be.within(100, 200);
+    expect(transcriptEntryCost("abc")).to.equal(overhead + 3);
+    expect(transcriptEntryCost("✓✓✓")).to.equal(overhead + 6);
+    expect(transcriptEntryCost("a✓")).to.equal(overhead + 4);
   });
 
   it("plafond par ENTRÉE : tronquée avec marque, la suite ignorée jusqu'à la fin de ligne", () => {
@@ -159,7 +201,9 @@ describe("DevTranscript — plafonds", () => {
       }
       const retained = heap() - before;
       expect(t.length).to.equal(500);
-      expect(t.bytes).to.be.below(16_000);
+      expect(t.bytes).to.be.at.most(
+        500 * transcriptEntryCost("ligne-survivante-499"),
+      );
       // 500 × 60 Ko = 30 Mio si les paquets survivent ; quelques dizaines de Ko sinon.
       expect(retained, `${retained} octets retenus`).to.be.below(
         4 * 1024 * 1024,
@@ -220,6 +264,15 @@ describe("sanitizeTerminalText — une ligne de journal ne pilote pas le termina
     // Coupée en fin de texte : `ESC [` part comme séquence à deux octets.
     expect(sanitizeTerminalText("a\x1b[31")).to.equal("a31");
     expect(sanitizeTerminalText("a\x1b[")).to.equal("a");
+  });
+
+  it("voie rapide : une tabulation seule, ou une séquence de curseur seule, ne passe pas telle quelle", () => {
+    expect(sanitizeTerminalText("a\tb")).to.equal("a    b");
+    expect(sanitizeTerminalText("\x1b[32mok\x1b[0m\x1b[2A")).to.equal(
+      "\x1b[32mok\x1b[0m",
+    );
+    const clean = "\x1b[1mgras\x1b[22m et \x1b[K fin";
+    expect(sanitizeTerminalText(clean)).to.equal(clean);
   });
 
   it("retire les contrôles C0 et C1, rend les tabulations en espaces", () => {

@@ -188,12 +188,7 @@ export function visibleWidth(text: string): number {
     const esc = text.indexOf("\x1b", i);
     const end = esc === -1 ? text.length : esc;
     if (end > i) {
-      if (isPrintableAscii(text, i, end)) width += end - i;
-      else {
-        for (const { segment } of graphemes(text.slice(i, end))) {
-          width += graphemeWidth(segment);
-        }
-      }
+      width += runWidth(text, i, end);
       i = end;
       continue;
     }
@@ -203,21 +198,46 @@ export function visibleWidth(text: string): number {
 }
 
 /**
- * Dit si `text[start, end)` n'a que de l'ASCII imprimable : chaque caractère
- * y est alors un graphème d'UNE colonne (aucun ne se combine à un autre), et
- * la largeur est la longueur.
+ * Largeur de `text[start, end)`, tranche sans séquence de contrôle : l'ASCII
+ * imprimable compte une colonne sans segmenteur, seuls les morceaux non ASCII
+ * passent par `Intl.Segmenter`. Une barre d'état (`·`, `✓` entre deux
+ * chiffres) se payait sinon le découpage de toute la tranche à chaque
+ * graduation (#903).
+ *
+ * Même résultat que le découpage entier : un ASCII imprimable compte 1 même
+ * suivi d'une marque qui s'y combine (`graphemeWidth` lit le premier point de
+ * code), et la marque, isolée, compte 0. Seul un caractère PRÉFIXE (Unicode
+ * `Prepend`) se soude au caractère qui le SUIT : chaque morceau non ASCII est
+ * donc découpé avec l'ASCII qui le suit.
  *
  * @param text - le texte.
  * @param start - début, inclus.
  * @param end - fin, exclue.
- * @returns `true` si la tranche est entièrement ASCII imprimable.
+ * @returns la largeur en colonnes.
  */
-function isPrintableAscii(text: string, start: number, end: number): boolean {
-  for (let i = start; i < end; i++) {
-    const code = text.charCodeAt(i);
-    if (code < 0x20 || code > 0x7e) return false;
+function runWidth(text: string, start: number, end: number): number {
+  let width = 0;
+  let i = start;
+  while (i < end) {
+    if (isPrintableAsciiCode(text.charCodeAt(i))) {
+      width++;
+      i++;
+      continue;
+    }
+    let j = i + 1;
+    while (j < end && !isPrintableAsciiCode(text.charCodeAt(j))) j++;
+    if (j < end) j++;
+    for (const { segment } of graphemes(text.slice(i, j))) {
+      width += graphemeWidth(segment);
+    }
+    i = j;
   }
-  return true;
+  return width;
+}
+
+/** Un code ASCII imprimable : une colonne, sans segmenteur. */
+function isPrintableAsciiCode(code: number): boolean {
+  return code >= 0x20 && code <= 0x7e;
 }
 
 /**

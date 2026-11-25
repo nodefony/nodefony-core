@@ -25,9 +25,12 @@ import {
 } from "../service/dev/DevTerminal";
 import {
   mouseCaptureBlocker,
+  readDevPaint,
+  type DevPaint,
   readDevMouseRequest,
   readDevUiRequest,
 } from "../service/dev/outputMode";
+import type { IDevBand } from "../service/dev/devBand";
 import { invertColumns } from "../service/dev/devSelection";
 import type { IStartupView } from "../service/dev/startupScreen";
 import { TERMINAL_PROBE } from "../service/dev/terminalCapability";
@@ -78,6 +81,7 @@ function fullscreen(
     rows?: number;
     mouse?: boolean;
     copy?: (text: string) => Promise<string>;
+    paint?: DevPaint;
   } = {},
 ) {
   const stdout = output(options.columns, options.rows);
@@ -94,6 +98,7 @@ function fullscreen(
       onQuit: quit,
       ...(options.mouse === undefined ? {} : { mouse: options.mouse }),
       ...(options.copy === undefined ? {} : { copy: options.copy }),
+      ...(options.paint === undefined ? {} : { paint: options.paint }),
     },
   });
   return { stdout, input, quit, terminal };
@@ -1255,5 +1260,586 @@ describe("plein écran — jamais un écran vide", () => {
       "mon-app · construction…",
     );
     terminal.close();
+  });
+});
+
+describe("plein écran — onglets serveur et vite (#903)", () => {
+  const vite = (n: number, from = 1): string =>
+    Array.from({ length: n }, (_, i) => `vite ${i + from}\n`).join("");
+
+  it("tant que Vite n'a rien écrit, aucune ligne d'onglets : l'écran d'une seule vue", async () => {
+    const { stdout, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(3));
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.not.include("serveur");
+    terminal.close();
+  });
+
+  it("Vite écrit : la ligne d'onglets apparaît, le serveur reste à l'écran, vite compte ses lignes", async () => {
+    const { stdout, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(3));
+    terminal.ingest("vite:default", "out", vite(4));
+    await nextFrame();
+    const shown = await screen(stdout.written);
+    expect(shown).to.include("[1 serveur]│ 2 vite ·4 │");
+    expect(shown.join("\n")).to.include("ligne 3");
+    expect(shown.join("\n")).to.not.include("vite 1");
+    expect(terminal.activeView).to.equal("server");
+    terminal.close();
+  });
+
+  it("Alt+2 montre vite, Alt+1 revient : chaque onglet retrouve sa position de lecture", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(40));
+    terminal.ingest("vite:default", "out", vite(2));
+    await nextFrame();
+    input.type("\x1b[5~"); // PgUp : le serveur remonté
+    await nextFrame();
+    const anchor = terminal.anchor;
+    expect(anchor).to.not.equal(null);
+    input.type("\x1b2");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("vite");
+    expect(terminal.anchor).to.equal(null);
+    let shown = await screen(stdout.written);
+    expect(shown[0]).to.equal("vite 1");
+    expect(shown).to.include(" 1 serveur │[2 vite]│");
+    input.type("\x1b1");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("server");
+    expect(terminal.anchor).to.deep.equal(anchor);
+    shown = await screen(stdout.written);
+    expect(shown.join("\n")).to.not.include("vite 1");
+    terminal.close();
+  });
+
+  it("Alt+symbole de la rangée des chiffres (VS Code, clavier français) : même onglet que Alt+chiffre", async () => {
+    // Maj+Option+1 d'un clavier français arrive en `ESC !` sous VS Code
+    // (xterm.js traduit par la position de la touche sur un clavier américain).
+    const { input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(5));
+    terminal.ingest("vite:default", "out", vite(2));
+    await nextFrame();
+    input.type("\x1b@");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("vite");
+    input.type("\x1b!");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("server");
+    input.type("\x1b(");
+    await nextFrame();
+    expect(terminal.activeView, "un rang sans onglet ne change rien").to.equal(
+      "server",
+    );
+    terminal.close();
+  });
+
+  it("le compteur d'un onglet caché repart de zéro une fois l'onglet vu ; un Vite ouvert plus tard y entre", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(2));
+    terminal.ingest("vite:default", "out", vite(3));
+    await nextFrame();
+    expect(await screen(stdout.written)).to.include("[1 serveur]│ 2 vite ·3 │");
+    input.type("\x1b2");
+    await nextFrame();
+    input.type("\x1b1");
+    await nextFrame();
+    expect(await screen(stdout.written)).to.include("[1 serveur]│ 2 vite │");
+    terminal.ingest("vite:admin", "out", vite(2, 4));
+    await nextFrame();
+    expect(await screen(stdout.written)).to.include("[1 serveur]│ 2 vite ·2 │");
+    terminal.close();
+  });
+
+  it("l'onglet vite n'hérite ni de la page propre du serveur ni de l'indicateur du superviseur", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("vite:default", "out", vite(2));
+    terminal.ingest("server", "out", "ligne 1\n\x1b[2Jprêt\n");
+    terminal.ingest("supervisor", "out", "construction en cours");
+    await nextFrame();
+    const server = (await screen(stdout.written)).join("\n");
+    expect(server).to.include("construction en cours");
+    expect(server).to.not.include("ligne 1");
+    input.type("\x1b2");
+    await nextFrame();
+    const shown = await screen(stdout.written);
+    expect(shown.slice(0, 2)).to.deep.equal(["vite 1", "vite 2"]);
+    expect(shown.join("\n")).to.not.include("construction en cours");
+    terminal.close();
+  });
+
+  it("--mouse : un clic sur un onglet le montre", async () => {
+    const { stdout, input, terminal } = fullscreen({ mouse: true });
+    terminal.ingest("server", "out", lines(2));
+    terminal.ingest("vite:default", "out", vite(1));
+    await nextFrame();
+    const shown = await screen(stdout.written);
+    const row = shown.findIndex((l) => l.includes("2 vite"));
+    const column = (shown[row] ?? "").indexOf("2 vite") + 1;
+    expect(row).to.not.equal(-1);
+    input.type(press(column + 2, row + 1) + release(column + 2, row + 1));
+    await nextFrame();
+    expect(terminal.activeView).to.equal("vite");
+    expect((await screen(stdout.written))[0]).to.equal("vite 1");
+    terminal.close();
+  });
+
+  it("une erreur dans un onglet caché met son compteur au rouge ; le montrer l'efface", async () => {
+    const stdout = output();
+    const input = new FakeInput();
+    const terminal = new DevTerminal({
+      stdout,
+      color: true,
+      charset: "unicode",
+      mark: brandMark("unicode", true),
+      fullscreen: { input, synchronized: false, onQuit: () => {} },
+    });
+    terminal.ingest("server", "out", lines(1));
+    terminal.ingest("vite:default", "out", vite(1));
+    await nextFrame();
+    expect(stdout.written.join("")).to.include(
+      "\x1b[1;32m 2 \x1b[0;100m vite\x1b[1m ·1\x1b[22;39m",
+    );
+    terminal.ingest("vite:default", "err", "échec\n");
+    await nextFrame();
+    expect(stdout.written.at(-1)).to.include(
+      "\x1b[1;32m 2 \x1b[0;100m vite\x1b[1;91m ·2\x1b[22;39m",
+    );
+    input.type("\x1b2");
+    await nextFrame();
+    input.type("\x1b1");
+    await nextFrame();
+    terminal.ingest("vite:default", "out", vite(1, 2));
+    await nextFrame();
+    expect(stdout.written.at(-1)).to.include(
+      "\x1b[1;32m 2 \x1b[0;100m vite\x1b[1m ·1\x1b[22;39m",
+    );
+    terminal.close();
+  });
+});
+
+describe("plein écran — onglets ouverts à la volée (#903, N8)", () => {
+  it("addView : l'onglet paraît dès l'ouverture, même vide, et prend son canal au serveur — même déjà écrit", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(2));
+    terminal.ingest("agent:1", "out", "avant\n");
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.include("avant");
+    terminal.addView({ id: "agent:1", title: "agent", channels: "agent:1" });
+    terminal.addView({ id: "agent:2", title: "vide", channels: "agent:2" });
+    await nextFrame();
+    let shown = await screen(stdout.written);
+    expect(shown).to.include("[1 serveur]│ 2 agent ·1 │ 3 vide │");
+    expect(shown.join("\n")).to.not.include("avant");
+    input.type("\x1b2");
+    await nextFrame();
+    shown = await screen(stdout.written);
+    expect(terminal.activeView).to.equal("agent:1");
+    expect(shown[0]).to.equal("avant");
+    terminal.close();
+  });
+
+  it("finish marque l'issue ; close à l'écran ramène le serveur, retire l'onglet et libère l'historique du canal", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(2));
+    const view = terminal.addView({
+      id: "agent:1",
+      title: "agent",
+      channels: (channel) => channel.startsWith("agent:1"),
+    });
+    terminal.ingest("agent:1", "out", "travail\n");
+    terminal.ingest("agent:1/outil", "out", "outil\n");
+    await nextFrame();
+    input.type("\x1b2");
+    await nextFrame();
+    view.finish("failed");
+    await nextFrame();
+    expect(
+      (await screen(stdout.written)).find((l) => l.includes("agent")),
+    ).to.equal(" 1 serveur │[2 agent ✗]│");
+    view.close();
+    view.close();
+    await nextFrame();
+    expect(terminal.activeView).to.equal("server");
+    expect(terminal.history.channel("agent:1")).to.equal(undefined);
+    expect(terminal.history.channel("agent:1/outil")).to.equal(undefined);
+    const shown = (await screen(stdout.written)).join("\n");
+    expect(shown).to.not.include("agent");
+    expect(shown).to.include("ligne 2");
+    terminal.close();
+  });
+
+  it("un identifiant déjà ouvert est refusé en le nommant", () => {
+    const { terminal } = fullscreen();
+    terminal.addView({ id: "agent:1", title: "agent", channels: "agent:1" });
+    expect(() =>
+      terminal.addView({ id: "agent:1", title: "bis", channels: "agent:1" }),
+    ).to.throw("agent:1");
+    expect(() =>
+      terminal.addView({ id: "vite", title: "bis", channels: "x" }),
+    ).to.throw("vite");
+    terminal.close();
+  });
+
+  it("--mouse, trop d'onglets pour la largeur : un clic sur « ‹ +N » montre le voisin caché", async () => {
+    const { stdout, input, terminal } = fullscreen({
+      mouse: true,
+      columns: 30,
+    });
+    terminal.ingest("server", "out", lines(1));
+    for (let i = 1; i <= 6; i++) {
+      terminal.addView({ id: `a${i}`, title: `a${i}`, channels: `a${i}` });
+    }
+    await nextFrame();
+    input.type("\x1b7");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("a6");
+    const shown = await screen(stdout.written);
+    const row = shown.findIndex((l) => l.includes("‹ +"));
+    expect(row).to.not.equal(-1);
+    const column = (shown[row] ?? "").indexOf("‹") + 1;
+    input.type(press(column, row + 1) + release(column, row + 1));
+    await nextFrame();
+    expect(terminal.activeView).to.not.equal("a6");
+    expect(terminal.activeView).to.match(/^a\d$/);
+    terminal.close();
+  });
+});
+
+describe("plein écran — la bande (#903)", () => {
+  /** Une bande qui garde TOUT et note ce qu'elle reçoit. */
+  const greedy = () => {
+    const seen: { kind: string; row?: number; column?: number }[] = [];
+    const band: IDevBand = {
+      height: () => 2,
+      render: () => ["bande 1", "bande 2"],
+      handle: (event) => {
+        seen.push(
+          event.kind === "mouse" || event.kind === "wheel"
+            ? { kind: event.kind, row: event.row, column: event.column }
+            : { kind: event.kind },
+        );
+        return true;
+      },
+    };
+    return { seen, band };
+  };
+
+  it("? ouvre l'aide des gestes ; ?, q, Échap la referment, F1 aussi l'ouvre", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(20));
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.not.include("Gestes");
+    input.type("?");
+    await nextFrame();
+    let shown = await screen(stdout.written);
+    expect(shown.join("\n")).to.include("Gestes");
+    expect(shown.join("\n")).to.include("changer d'onglet");
+    // AZERTY : Maj+Alt hors VS Code, l'aide le dit (sinon Alt+1 est introuvable).
+    expect(shown.join("\n")).to.include("idem en AZERTY, hors VS Code");
+    input.type("?");
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.not.include("Gestes");
+    input.type("\x1bOP");
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.include("Gestes");
+    input.type("q");
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.not.include("Gestes");
+    input.type("?");
+    await nextFrame();
+    input.type("\x1b");
+    await new Promise((resolve) => setTimeout(resolve, 80)); // délai de l'Échap seul
+    await nextFrame();
+    shown = await screen(stdout.written);
+    expect(shown.join("\n")).to.not.include("Gestes");
+    expect(terminal.band).to.equal(null);
+    terminal.close();
+  });
+
+  it("l'aide ouverte, le défilement et Alt+N passent : elle rend ce qu'elle ne garde pas", async () => {
+    const { input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(40));
+    terminal.ingest("vite:default", "out", "vite 1\n");
+    await nextFrame();
+    input.type("?");
+    await nextFrame();
+    input.type("\x1b[5~");
+    await nextFrame();
+    expect(terminal.anchor).to.not.equal(null);
+    input.type("\x1b2");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("vite");
+    expect(terminal.band).to.not.equal(null);
+    terminal.close();
+  });
+
+  it("sous une autre bande, ? ne rouvre pas l'aide une seconde fois", async () => {
+    const { input, terminal } = fullscreen();
+    input.type("?");
+    const help = terminal.band;
+    const close = terminal.openBand({
+      height: () => 1,
+      render: () => ["dessus"],
+      handle: () => false,
+    });
+    input.type("?");
+    close();
+    expect(terminal.band).to.equal(help);
+    terminal.close();
+  });
+
+  it("une bande qui garde tout ne retient pas Ctrl+C ; la refermer deux fois est sans effet", async () => {
+    const { stdout, input, quit, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(20));
+    const { seen, band } = greedy();
+    const close = terminal.openBand(band);
+    await nextFrame();
+    expect(await screen(stdout.written)).to.include("bande 2");
+    input.type("x\x1b[5~");
+    expect(seen.map((e) => e.kind)).to.deep.equal(["text", "key"]);
+    expect(terminal.anchor).to.equal(null);
+    input.type("\x03");
+    expect(quit).toHaveBeenCalledTimes(1);
+    close();
+    close();
+    await nextFrame();
+    expect(terminal.band).to.equal(null);
+    const shown = await screen(stdout.written);
+    expect(shown.join("\n")).to.not.include("bande");
+    expect(shown.join("\n")).to.include("ligne 20");
+    terminal.close();
+  });
+
+  it("--mouse : un clic sur la bande lui arrive en coordonnées LOCALES et ne traverse pas ; la molette non plus ; hors d'elle, la souris atteint le journal", async () => {
+    const { stdout, input, terminal } = fullscreen({ mouse: true });
+    terminal.ingest("server", "out", lines(40));
+    const { seen, band } = greedy();
+    terminal.openBand(band);
+    await nextFrame();
+    const shown = await screen(stdout.written);
+    const row = shown.indexOf("bande 2") + 1;
+    expect(row).to.be.greaterThan(1);
+    input.type(press(4, row) + release(4, row) + `\x1b[<64;4;${row}M`);
+    await nextFrame();
+    expect(seen).to.deep.equal([
+      { kind: "mouse", row: 2, column: 4 },
+      { kind: "mouse", row: 2, column: 4 },
+      { kind: "wheel", row: 2, column: 4 },
+    ]);
+    expect(terminal.anchor).to.equal(null);
+    input.type("\x1b[<64;4;2M");
+    await nextFrame();
+    expect(terminal.anchor).to.not.equal(null);
+    expect(seen).to.have.length(3);
+    terminal.close();
+  });
+});
+
+describe("plein écran — le terminal fait défiler le journal (#903, D2)", () => {
+  /** Le même scénario sur deux terminaux : défilement confié, diff seul. */
+  async function both(
+    steps: ReadonlyArray<(t: ReturnType<typeof fullscreen>) => void>,
+  ): Promise<{ scroll: string[]; diff: string[] }> {
+    const scroll = fullscreen({ paint: "scroll", mouse: true });
+    const diff = fullscreen({ paint: "diff", mouse: true });
+    for (const t of [scroll, diff]) t.terminal.setStatus(null, ctx, "ready");
+    for (const [i, step] of steps.entries()) {
+      for (const t of [scroll, diff]) step(t);
+      await nextFrame();
+      expect(
+        await screen(scroll.stdout.written),
+        `écran différent après l'étape ${i}`,
+      ).to.deep.equal(await screen(diff.stdout.written));
+    }
+    scroll.terminal.close();
+    diff.terminal.close();
+    return { scroll: scroll.stdout.written, diff: diff.stdout.written };
+  }
+
+  it("rafales, molette, PgUp, Fin, sélection, onglet : l'écran est le MÊME, à chaque image", async () => {
+    const { scroll, diff } = await both([
+      (t) => t.terminal.ingest("server", "out", lines(30)),
+      (t) => t.terminal.ingest("server", "out", lines(1, 31)),
+      (t) => t.terminal.ingest("server", "out", lines(3, 32)),
+      (t) => t.terminal.ingest("server", "out", "en cours"),
+      (t) => t.terminal.ingest("server", "out", " fini\n"),
+      (t) => t.input.type("\x1b[A\x1b[A\x1b[A"),
+      (t) => t.terminal.ingest("server", "out", lines(5, 40)),
+      (t) => t.input.type("\x1b[5~"),
+      (t) => t.input.type("\x1b[B"),
+      (t) => t.input.type(press(3, 2) + drag(8, 4)),
+      (t) => t.input.type("\x1b[A"),
+      (t) => t.input.type(release(8, 4) + "\x1b"),
+      (t) => t.input.type("\x1b[F"),
+      (t) => t.terminal.ingest("vite:app", "out", "vite prêt\n"),
+      (t) => t.terminal.ingest("server", "out", lines(4, 50)),
+      (t) => t.input.type("\x1b2"),
+      (t) => t.input.type("\x1b1"),
+      (t) => t.terminal.ingest("server", "out", lines(20, 60)),
+    ]);
+    const bytes = (w: readonly string[]) => w.join("").length;
+    expect(bytes(scroll)).to.be.lessThan(bytes(diff));
+  });
+
+  it("une ligne arrive en direct : UN défilement borné au journal, une ligne écrite, marges remises", async () => {
+    const { stdout, terminal } = fullscreen({ paint: "scroll" });
+    terminal.setStatus(null, ctx, "ready");
+    terminal.ingest("server", "out", lines(30));
+    await nextFrame();
+    const before = stdout.written.length;
+    terminal.ingest("server", "out", lines(1, 31));
+    await nextFrame();
+    const redraw = stdout.written.slice(before).join("");
+    expect(redraw).to.match(/\x1b\[0m\x1b\[1;\d+r\x1b\[1S\x1b\[r/);
+    expect(redraw.match(/\x1b\[\d+;1H/g)).to.have.length(1);
+    expect(redraw).to.include("ligne 31");
+    terminal.close();
+  });
+
+  it("paint « full » repeint toute l'image ; « diff » ne défile jamais", async () => {
+    for (const paint of ["full", "diff"] as const) {
+      const { stdout, terminal } = fullscreen({ paint });
+      terminal.setStatus(null, ctx, "ready");
+      terminal.ingest("server", "out", lines(30));
+      await nextFrame();
+      const before = stdout.written.length;
+      terminal.ingest("server", "out", lines(1, 31));
+      await nextFrame();
+      const redraw = stdout.written.slice(before).join("");
+      expect(redraw, paint).to.not.match(/\x1b\[\d*S|\x1b\[1;\d+r/);
+      if (paint === "full") {
+        expect(redraw.match(/\x1b\[\d+;1H/g)).to.have.length(ROWS);
+      }
+      terminal.close();
+    }
+  });
+
+  it("la sortie remet les marges avant de quitter l'écran alternatif", () => {
+    const { stdout, terminal } = fullscreen();
+    terminal.close();
+    const out = stdout.written.join("");
+    expect(out.indexOf("\x1b[r")).to.be.greaterThan(-1);
+    expect(out.indexOf("\x1b[r")).to.be.lessThan(out.indexOf("\x1b[?1049l"));
+  });
+});
+
+describe("plein écran — le mode de dessin, garde-fou ConPTY (#903, D3)", () => {
+  it("rien demandé : défilement sous macOS et Linux ; sous Windows, image repeinte entière, et c'est DIT", () => {
+    for (const platform of ["darwin", "linux"]) {
+      expect(readDevPaint({}, platform)).to.deep.equal({
+        paint: "scroll",
+        reason: null,
+        invalid: null,
+      });
+    }
+    const windows = readDevPaint({}, "win32");
+    expect(windows.paint).to.equal("full");
+    expect(windows.reason).to.include("ConPTY");
+    expect(windows.reason).to.include("NF_DEV_PAINT=scroll");
+  });
+
+  it("NF_DEV_PAINT l'emporte, Windows compris — c'est la porte du banc à la main", () => {
+    for (const paint of ["scroll", "diff", "full"] as const) {
+      expect(readDevPaint({ NF_DEV_PAINT: paint }, "win32")).to.deep.equal({
+        paint,
+        reason: null,
+        invalid: null,
+      });
+    }
+  });
+
+  it("une valeur qui n'est pas un mode est NOMMÉE, et le défaut s'applique", () => {
+    expect(readDevPaint({ NF_DEV_PAINT: "rapide" }, "linux")).to.deep.equal({
+      paint: "scroll",
+      reason: null,
+      invalid: "rapide",
+    });
+    expect(readDevPaint({ NF_DEV_PAINT: "" }, "linux").invalid).to.equal(null);
+    expect(readDevPaint({ NF_DEV_PAINT: "rapide" }, "win32").paint).to.equal(
+      "full",
+    );
+  });
+});
+
+describe("plein écran — image retenue tant que le terminal ne suit pas (#903, D6)", () => {
+  /** Un flux qui accepte, ou dit « plein » jusqu'au prochain `drain`. */
+  function slowOutput() {
+    const events = new EventEmitter();
+    const written: string[] = [];
+    let full = false;
+    return {
+      columns: COLS,
+      rows: ROWS,
+      written,
+      fill: () => (full = true),
+      drain: () => {
+        full = false;
+        events.emit("drain");
+      },
+      listeners: () => events.listenerCount("drain"),
+      write: (chunk: string | Uint8Array): boolean => {
+        written.push(String(chunk));
+        return !full;
+      },
+      once: (event: "drain", listener: () => void) =>
+        events.once(event, listener),
+      removeListener: (event: "drain", listener: () => void) =>
+        events.removeListener(event, listener),
+    };
+  }
+  function slowFullscreen() {
+    const stdout = slowOutput();
+    const terminal = new DevTerminal({
+      stdout,
+      color: false,
+      charset: "unicode",
+      mark: brandMark("unicode", false),
+      fullscreen: {
+        input: new FakeInput(),
+        synchronized: false,
+        onQuit: vi.fn(),
+      },
+    });
+    terminal.setStatus(null, ctx, "ready");
+    return { stdout, terminal };
+  }
+
+  it("write rend false : plus aucune image avant drain, puis UNE image qui rend tout", async () => {
+    const { stdout, terminal } = slowFullscreen();
+    terminal.ingest("server", "out", lines(3));
+    await nextFrame();
+    stdout.fill();
+    terminal.ingest("server", "out", lines(1, 4)); // cette image remplit le tampon
+    await nextFrame();
+    const held = stdout.written.length;
+    expect(stdout.listeners()).to.equal(1);
+    for (let i = 5; i < 9; i++) {
+      terminal.ingest("server", "out", lines(1, i));
+      await nextFrame();
+    }
+    expect(stdout.written.length, "image partie sans drain").to.equal(held);
+    stdout.drain();
+    await nextFrame();
+    expect(stdout.written.length).to.equal(held + 1);
+    expect((await screen(stdout.written)).slice(0, 8)).to.deep.equal(
+      Array.from({ length: 8 }, (_, i) => `ligne ${i + 1}`),
+    );
+    expect(stdout.listeners()).to.equal(0);
+    terminal.close();
+  });
+
+  it("fermé pendant l'attente : l'écouteur drain est retiré, un drain tardif ne dessine rien", async () => {
+    const { stdout, terminal } = slowFullscreen();
+    stdout.fill();
+    terminal.ingest("server", "out", lines(2));
+    await nextFrame();
+    expect(stdout.listeners()).to.equal(1);
+    terminal.close();
+    expect(stdout.listeners()).to.equal(0);
+    const after = stdout.written.length;
+    stdout.drain();
+    await nextFrame();
+    expect(stdout.written.length).to.equal(after);
   });
 });

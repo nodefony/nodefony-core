@@ -123,7 +123,7 @@ describe("DevTerminal — un seul écrivain (#536)", () => {
     const { out, terminal } = make();
     terminal.ingest("server", "out", Buffer.from("\x1b[32mprêt\x1b[0m\n"));
     expect(out.written).to.deep.equal(["\x1b[32mprêt\x1b[0m\n"]);
-    expect(terminal.since(0).map((e) => [e.source, e.text])).to.deep.equal([
+    expect(terminal.since(0).map((e) => [e.channel, e.text])).to.deep.equal([
       ["server", "\x1b[32mprêt\x1b[0m"],
     ]);
   });
@@ -170,12 +170,12 @@ describe("DevTerminal — un seul écrivain (#536)", () => {
     expect(err.written).to.deep.equal(["Error: boom\n"]);
   });
 
-  it.each(["held", "command"] as const)(
-    "ESC[2J venu de la source %s n'efface RIEN : la séquence est retirée (ADR-0030 §D6)",
-    (source) => {
+  it.each(["vite:default", "run:1"])(
+    "ESC[2J venu du canal %s n'efface RIEN : la séquence est retirée (ADR-0030 §D6)",
+    (channel) => {
       const { out, terminal } = make();
       terminal.ingest("server", "out", "lu par le développeur\n");
-      terminal.ingest(source, "out", `${CLEAR_SCREEN}[vite:default] prêt\n`);
+      terminal.ingest(channel, "out", `${CLEAR_SCREEN}[vite:default] prêt\n`);
       expect(out.written.join("")).to.not.include(CLEAR_SCREEN);
       expect(terminal.since(0).map((e) => e.text)).to.deep.equal([
         "lu par le développeur",
@@ -227,22 +227,18 @@ describe("DevTerminal — un seul écrivain (#536)", () => {
   it("deux services portés : la fin coupée de l'un ne se colle jamais à la ligne de l'autre", () => {
     const { out, terminal } = make();
     const e = Buffer.from("é");
-    terminal.ingest("held", "out", Buffer.from("\x1b[3"), undefined, "a");
-    terminal.ingest("held", "out", Buffer.from("ligne-b\n"), undefined, "b");
+    terminal.ingest("vite:a", "out", Buffer.from("\x1b[3"));
+    terminal.ingest("vite:b", "out", Buffer.from("ligne-b\n"));
     terminal.ingest(
-      "held",
+      "vite:a",
       "out",
       Buffer.concat([Buffer.from("1mr"), e.subarray(0, 1)]),
-      undefined,
-      "a",
     );
-    terminal.ingest("held", "out", Buffer.from("x\n"), undefined, "b");
+    terminal.ingest("vite:b", "out", Buffer.from("x\n"));
     terminal.ingest(
-      "held",
+      "vite:a",
       "out",
       Buffer.concat([e.subarray(1), Buffer.from("\n")]),
-      undefined,
-      "a",
     );
     // L'écran est UN terminal : la ligne en cours de A y est déjà écrite quand
     // B arrive, B la suit. Mais aucun octet n'est mangé ni mal décodé — avant

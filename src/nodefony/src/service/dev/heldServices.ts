@@ -251,3 +251,32 @@ function planAck(plan: IDevHeldPlan, reason: string | null): IDevHeldPlanAck {
     reason,
   };
 }
+
+/**
+ * Ce que le superviseur annonce dans le canal d'un service porté quand son
+ * hôte devient prêt (`vite:admin prêt — port 5173`) : sans elle, un Vite
+ * silencieux ne laissait aucune trace, et son onglet restait caché.
+ *
+ * Une ligne par PROCESS d'hôte : un serveur qui redémarre rejoue l'état des
+ * hôtes restés chauds, et une preuve de vie republie un état déjà prêt —
+ * ni l'un ni l'autre ne se réannonce. Une relance (PID neuf) s'annonce.
+ */
+export class HeldReadyAnnouncer {
+  /** Clé du service → PID de l'hôte déjà annoncé. */
+  readonly #announced = new Map<string, number>();
+
+  /**
+   * @param status - l'état reçu.
+   * @returns la ligne à écrire (sans couleur ni fin de ligne), ou `null`.
+   */
+  notice(status: IHeldHostStatus): string | null {
+    if (status.state !== "ready" || status.pid === null) return null;
+    if (this.#announced.get(status.key) === status.pid) return null;
+    this.#announced.set(status.key, status.pid);
+    const port = status.data?.["port"];
+    const where = typeof port === "number" ? ` — port ${port}` : "";
+    const again =
+      status.restartCount > 0 ? ` (relance ${status.restartCount})` : "";
+    return `${status.key} prêt${where}${again}`;
+  }
+}

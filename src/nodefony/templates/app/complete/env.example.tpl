@@ -60,8 +60,8 @@
 #        NF_MIGRATE_DATABASE_URL
 #   10. Framework : poste et diagnostic
 #        NF_CLI_DEBUG, NF_NO_UPDATE_CHECK, NF_DEV_UI, NF_DEV_MOUSE,
-#        NF_DEV_PORTS, NF_KERNEL_TRACE_FILE, NF_NO_TTY, NF__DEBUG,
-#        NF_PERF_PROBE, NF_ORM_FLOW, NF_OUTPUT, NF_NO_PROGRESS,
+#        NF_DEV_PAINT, NF_DEV_PORTS, NF_KERNEL_TRACE_FILE, NF_NO_TTY,
+#        NF__DEBUG, NF_PERF_PROBE, NF_ORM_FLOW, NF_OUTPUT, NF_NO_PROGRESS,
 #        NF_BANNER_ASCII, NF_NODE_DIST_URL, NF_WITH_DEV_MODULES,
 #        NF_WITH_DEV_MODULES_TTL_MIN
 
@@ -655,6 +655,18 @@
 # @placement=workstation
 # @default="oui, sauf sous Windows"
 # NF_DEV_MOUSE=
+
+
+# ─── Dessin du plein écran de développement ─────────────────────────────────
+#
+# Dessin du plein écran de développement : `scroll` fait défiler le journal
+# par le terminal, `diff` réécrit les lignes changées, `full` repeint toute
+# l'image.
+#
+# @optional
+# @placement=workstation
+# @default="scroll, sauf sous Windows (full, garde-fou ConPTY)"
+# NF_DEV_PAINT=
 
 
 # ─── Ports libérés par le superviseur de développement ──────────────────────

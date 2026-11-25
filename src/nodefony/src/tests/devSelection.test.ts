@@ -20,7 +20,7 @@ import type { ITranscriptEntry } from "../service/dev/devTranscript";
 function reader(texts: readonly string[], first = 1): ISelectionReader {
   const entries: ITranscriptEntry[] = texts.map((text, i) => ({
     seq: first + i,
-    source: "server",
+    channel: "server",
     stream: "out",
     text,
     at: 0,

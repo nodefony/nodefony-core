@@ -228,7 +228,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_WIDTHS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:1035` |
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:66` |
-| `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2685` |
+| `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2818` |
 | `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:86` |
 | `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:84` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:142` |
@@ -264,7 +264,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/helpers/redisDecor.ts:8` |
 | `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/helpers/redisDecor.ts:7` |
 | `NF_REDIS_PORT` | `src/nodefony/src/tests/envShortcuts.test.ts:251` |
-| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:102` |
+| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:104` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:588` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/devkit/tests/integration/mcp-http.test.ts:67` |
 | `NF_TLS_CA_FILE` | `src/packages/@nodefony/http/nodefony/tests/unit/httpRegisterTrust.test.ts:62` |

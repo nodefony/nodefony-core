@@ -22,16 +22,20 @@
  * l'historique natif : l'écran alternatif est redessiné par IMAGES
  * (`renderFrame` → `diffFrame`), au plus une toutes les 16 ms, chacune en UNE
  * écriture. Le clavier passe en mode brut ; ses évènements traversent une
- * chaîne de foyers (§4) — défilement, puis global (Ctrl+C, Ctrl+D).
+ * chaîne de foyers (§4) — défilement, puis global (Ctrl+C, Ctrl+D, Alt+1 à
+ * Alt+9). L'écran montre un ONGLET à la fois (§11, #903) : `serveur` (tout
+ * canal qu'aucun autre onglet ne retient), `vite` (`vite:*`), et ceux qu'un
+ * producteur ouvre à la volée ({@link DevTerminal.addView}) ; la ligne
+ * d'onglets n'apparaît que quand un second a quelque chose à montrer.
  */
 import { StringDecoder } from "node:string_decoder";
 import { BRAILLE_FRAMES, LINE_FRAMES } from "../../cli/progress";
 import { isIncompleteControlSequence } from "../../runtime/textWidth";
 import { guardTerminal } from "../../runtime/terminalGuard";
 import {
-  FrameHeights,
   StatusBarCache,
   diffFrame,
+  diffFrameScrolled,
   frameJournalRows,
   renderFrame,
   scrollAnchor,
@@ -40,6 +44,7 @@ import {
   type IFrame,
   type IFrameModel,
   type IFrameSize,
+  type IFrameTabs,
   type IScrollAnchor,
 } from "./devFrame";
 import {
@@ -62,15 +67,15 @@ import {
   type IProbeResult,
 } from "./terminalCapability";
 import {
-  DevTranscript,
-  laneKey,
+  channelKey,
   sanitizeTerminalText,
-  type IDevTranscriptOptions,
   type ITranscriptEntry,
-  type TranscriptSource,
 } from "./devTranscript";
+import { DevHistory, type IDevHistoryOptions } from "./devHistory";
+import { DevView, type IDevViewHandle, type IDevViewSpec } from "./devView";
+import { helpBand, type IDevBand } from "./devBand";
 import type { ProcessOutputStream } from "./heldChannel";
-import { CLEAR_SCREEN } from "./outputMode";
+import { CLEAR_SCREEN, type DevPaint } from "./outputMode";
 import {
   renderStatusBar,
   type IRuntimeSample,
@@ -83,6 +88,12 @@ import { StatusLine, type IStatusStream } from "./statusLine";
 /** Un flux de sortie du terminal, injectable en test. */
 export interface IDevTerminalStream extends IStatusStream {
   rows?: number | undefined;
+  /**
+   * Le flux a vidé son tampon : `write` avait rendu `false`. Absent (flux
+   * de test), le plein écran ne retient jamais d'image.
+   */
+  once?(event: "drain", listener: () => void): unknown;
+  removeListener?(event: "drain", listener: () => void): unknown;
 }
 
 /** Réglages du terminal de développement. */
@@ -97,8 +108,8 @@ export interface IDevTerminalOptions {
   charset: ScreenCharset;
   /** Les lignes de la marque (`brandMark`). */
   mark: readonly string[];
-  /** Plafonds de l'historique. */
-  transcript?: Omit<IDevTranscriptOptions, "onClear">;
+  /** Plafonds de l'historique, global et par canal. */
+  history?: Omit<IDevHistoryOptions, "onClear">;
   /**
    * Le nom du projet, pour la barre du plein écran AVANT que le serveur ait
    * donné son bilan : pendant un premier build, elle dit déjà la phase.
@@ -136,6 +147,14 @@ export interface IDevFullscreenOptions {
    * Absente : la sélection se surligne, rien n'est copié.
    */
   copy?: (text: string) => Promise<string>;
+  /**
+   * Comment une image passe à l'écran : `"scroll"` (le défaut) fait défiler
+   * la région du journal par le terminal (`DECSTBM` + `SU`/`SD`) et n'écrit
+   * que les lignes neuves ; `"diff"` réécrit chaque ligne changée ;
+   * `"full"` repeint toute l'image — là où les écritures positionnées
+   * laissent des fragments (ConPTY, ADR-0013 D3).
+   */
+  paint?: DevPaint;
 }
 
 /** Le clavier du terminal, injectable en test. */
@@ -195,7 +214,7 @@ const MOUSE_CAPTURE = "\x1b[?1000h\x1b[?1002h\x1b[?1006h";
  * séquences à chaque clic.
  */
 const LEAVE_FULLSCREEN =
-  "\x1b[?1006l\x1b[?1002l\x1b[?1000l\x1b[?2004l\x1b[?1007l\x1b[?25h\x1b[?1049l";
+  "\x1b[r\x1b[?1006l\x1b[?1002l\x1b[?1000l\x1b[?2004l\x1b[?1007l\x1b[?25h\x1b[?1049l";
 
 /**
  * Lignes par cran de molette captée : ce qu'envoie un cran traduit par le
@@ -218,6 +237,25 @@ function spinnerFrame(charset: ScreenCharset): string {
     frames[Math.floor(Date.now() / SPIN_INTERVAL_MS) % frames.length] ?? ""
   );
 }
+
+/**
+ * Le rang d'onglet (1 à 9) qu'une touche tapée avec Alt désigne, ou 0.
+ *
+ * Le chiffre, ou son symbole avec Maj sur un clavier AMÉRICAIN (`!` à `(`) :
+ * avec `macOptionIsMeta`, le terminal de VS Code (xterm.js) traduit par la
+ * POSITION de la touche sur ce clavier, si bien que Maj+Option+1 d'un clavier
+ * français y arrive en `ESC !` — quand Terminal.app et iTerm2 envoient
+ * `ESC 1`. Les deux mènent au même onglet.
+ */
+function tabRank(key: string): number {
+  if (key.length !== 1) return 0;
+  const digit = TAB_DIGITS.indexOf(key);
+  return digit >= 0 ? digit + 1 : TAB_SHIFTED_DIGITS.indexOf(key) + 1;
+}
+
+/** Les chiffres des onglets, et leurs symboles avec Maj (clavier américain). */
+const TAB_DIGITS = "123456789";
+const TAB_SHIFTED_DIGITS = "!@#$%^&*(";
 
 /** Délai entre deux clics au même endroit pour un double (ou triple) clic. */
 const MULTI_CLICK_MS = 400;
@@ -303,6 +341,14 @@ export async function probeTerminal(
 interface IFullscreenState {
   input: IDevTerminalInput;
   synchronized: boolean;
+  paint: DevPaint;
+  /**
+   * `write` a rendu `false` : aucune image ne part avant `drain`. Les
+   * changements s'accumulent dans le modèle ; l'image d'après les rend tous.
+   */
+  awaitingDrain: boolean;
+  /** L'unique écouteur `drain`, posé une fois par attente, retiré à la sortie. */
+  onDrain: () => void;
   mouse: boolean;
   copy: ((text: string) => Promise<string>) | null;
   /** La sélection à la souris — `null` sans sélection. */
@@ -339,10 +385,9 @@ interface IFullscreenState {
   lastFrameAt: number;
   /** L'image à l'écran — `null` : tout redessiner. */
   frame: IFrame | null;
-  heights: FrameHeights;
+  /** Les onglets de la ligne à l'écran, dans son ordre — ce qu'un clic vise. */
+  tabViews: readonly DevView[];
   statusBar: StatusBarCache;
-  anchor: IScrollAnchor | null;
-  floorSeq: number | undefined;
   /** La chaîne de foyers, du premier servi au dernier. */
   foci: IInputFocus[];
   releaseGuard: () => void;
@@ -370,11 +415,16 @@ function journalRowsOf(frame: IFrame | null): number {
   return 0;
 }
 
-/** Ce qui reste d'un paquet, par couple (source, flux), pour le suivant. */
+/** Ce qui reste d'un paquet, par couple (canal, flux), pour le suivant. */
 interface IEchoState {
   decoder: StringDecoder;
   /** Une séquence de contrôle coupée par la fin du paquet. */
   carry: string;
+}
+
+/** Les services Vite : leur onglet (ADR-0013 §11, N4). */
+function isVite(channel: string): boolean {
+  return channel.startsWith("vite:");
 }
 
 /**
@@ -389,9 +439,25 @@ export class DevTerminal {
   readonly #mark: readonly string[];
   readonly #project: string | null;
   readonly #version: string | null;
-  readonly #transcript: DevTranscript;
+  /** L'historique, un anneau par canal. */
+  readonly #history: DevHistory;
+  /** Les onglets, dans leur ordre ; le premier (`serveur`) est toujours montré. */
+  readonly #views: DevView[];
+  /**
+   * L'onglet `serveur` : tout canal qu'aucun autre ne retient — serveur,
+   * superviseur, autres services portés. Aucun canal ne reste sans onglet.
+   */
+  readonly #server: DevView;
+  /** L'onglet à l'écran. */
+  #active: DevView;
+  /** Les onglets montrés, rebâtis seulement quand leur ensemble change. */
+  #shown: readonly DevView[] = [];
+  /** Les bandes ouvertes ; la dernière est à l'écran et reçoit les évènements. */
+  readonly #bands: IDevBand[] = [];
+  /** La fermeture de l'aide (`?`), `null` quand elle est fermée. */
+  #closeHelp: (() => void) | null = null;
   readonly #status: StatusLine;
-  /** États d'affichage par couple (source, flux) — une dizaine de clés au plus. */
+  /** États d'affichage par couple (canal, flux) — une dizaine de clés au plus. */
   readonly #echo: Record<string, IEchoState> = Object.create(null) as Record<
     string,
     IEchoState
@@ -425,7 +491,16 @@ export class DevTerminal {
     this.#mark = options.mark;
     this.#project = options.project ?? null;
     this.#version = options.version ?? null;
-    this.#transcript = new DevTranscript(options.transcript);
+    this.#history = new DevHistory(options.history);
+    const server = new DevView(
+      this.#history,
+      "server",
+      "serveur",
+      (channel) => !this.#claimed(channel),
+    );
+    this.#server = server;
+    this.#views = [server, new DevView(this.#history, "vite", "vite", isVite)];
+    this.#active = server;
     // Les DEUX flux sont surveillés : une écriture sur la sortie d'erreur
     // efface aussi la barre avant elle, sinon elle s'y collerait.
     this.#status = new StatusLine(
@@ -436,9 +511,9 @@ export class DevTerminal {
     if (options.fullscreen) this.#enterFullscreen(options.fullscreen);
   }
 
-  /** L'historique, en lecture. */
-  get transcript(): DevTranscript {
-    return this.#transcript;
+  /** L'historique par canal, en lecture. */
+  get history(): DevHistory {
+    return this.#history;
   }
 
   /** La surface courante — `inline` après la sortie du plein écran. */
@@ -446,9 +521,14 @@ export class DevTerminal {
     return this.#surface;
   }
 
-  /** L'ancre du journal en plein écran, `null` en direct. */
+  /** L'ancre du journal de l'onglet à l'écran, `null` en direct. */
   get anchor(): IScrollAnchor | null {
-    return this.#full?.anchor ?? null;
+    return this.#full === null ? null : this.#active.anchor;
+  }
+
+  /** L'onglet à l'écran (`server`, `vite`, ou celui d'un onglet ouvert à la volée). */
+  get activeView(): string {
+    return this.#active.id;
   }
 
   /** La phase courante du serveur. */
@@ -457,26 +537,22 @@ export class DevTerminal {
   }
 
   /**
-   * Verse un paquet d'une source : inscrit dans l'historique, affiché sur la
+   * Verse un paquet d'un canal : inscrit dans l'historique, affiché sur la
    * surface `inline`. Une séquence coupée entre deux paquets attend la suite.
    *
-   * @param source - qui écrit.
+   * @param channel - le canal qui écrit (`server`, `supervisor`,
+   *   `vite:<nom>`…) : chacun garde son reste de séquence et sa ligne en
+   *   cours, sans quoi la fin coupée de l'un se collerait à la ligne de l'autre.
    * @param stream - sur quel flux.
    * @param chunk - le paquet, octets bruts ou texte.
-   * @param run - l'exécution que ces lignes accompagnent, s'il y en a une.
-   * @param lane - l'écrivain, quand une source en compte plusieurs (la clé
-   *   d'un service porté) : chacun garde son reste de séquence et sa ligne en
-   *   cours, sans quoi la fin coupée de l'un se collerait à la ligne de l'autre.
    */
   ingest(
-    source: TranscriptSource,
+    channel: string,
     stream: ProcessOutputStream,
     chunk: Buffer | Uint8Array | string,
-    run?: number,
-    lane?: string,
   ): void {
     if (this.#closed) return;
-    const state = this.#echoOf(source, stream, lane);
+    const state = this.#echoOf(channel, stream);
     let text =
       state.carry +
       (typeof chunk === "string"
@@ -498,34 +574,34 @@ export class DevTerminal {
     // Seul le SERVEUR tourne la page (ADR-0030 §D6) : un service porté, une
     // commande lancée, n'effacent pas ce que le développeur est en train de
     // lire — la séquence est retirée, jamais exécutée ni recopiée.
-    if (source !== "server") {
+    if (channel !== "server") {
       if (text.includes(CLEAR)) text = text.replaceAll(CLEAR, "");
-      this.#show(source, stream, target, text, run, lane);
+      this.#show(channel, stream, target, text);
       return;
     }
     let start = 0;
     let clear = text.indexOf(CLEAR);
     while (clear !== -1) {
-      this.#show(source, stream, target, text.slice(start, clear), run, lane);
+      this.#show(channel, stream, target, text.slice(start, clear));
       this.clear();
       start = clear + CLEAR.length;
       clear = text.indexOf(CLEAR, start);
     }
-    this.#show(source, stream, target, text.slice(start), run, lane);
+    this.#show(channel, stream, target, text.slice(start));
   }
 
   /**
-   * Une source se tait (le serveur s'est arrêté) : sa ligne en cours entre
-   * dans l'historique, et ce qu'elle retenait est oublié — le prochain
+   * Un canal se tait (le serveur s'est arrêté) : sa ligne en cours entre
+   * dans l'historique, et ce qu'il retenait est oublié — le prochain
    * serveur repart d'un décodeur neuf.
    *
-   * @param source - la source qui s'arrête.
+   * @param channel - le canal qui s'arrête.
    */
-  flush(source: TranscriptSource): void {
-    this.#transcript.flush(source);
-    for (const key of Object.keys(this.#echo)) {
-      if (key.startsWith(`${source}:`)) Reflect.deleteProperty(this.#echo, key);
-    }
+  flush(channel: string): void {
+    this.#history.flush(channel);
+    // Clés exactes : un préfixe `vite:` effacerait aussi `vite:admin`.
+    Reflect.deleteProperty(this.#echo, channelKey(channel, "out"));
+    Reflect.deleteProperty(this.#echo, channelKey(channel, "err"));
   }
 
   /**
@@ -653,7 +729,10 @@ export class DevTerminal {
   clear(): void {
     if (this.#closed) return;
     if (this.#full) {
-      this.#full.floorSeq = this.#transcript.lastSeq;
+      // La page propre est celle de l'onglet qui montre le serveur.
+      for (const view of this.#views) {
+        if (view.match("server")) view.floorSeq = view.transcript.lastSeq;
+      }
       this.#scheduleFrame();
       return;
     }
@@ -674,6 +753,47 @@ export class DevTerminal {
     return () => {
       const index = full.foci.indexOf(focus);
       if (index !== -1) full.foci.splice(index, 1);
+    };
+  }
+
+  /**
+   * Ouvre un onglet à la volée — un sous-agent, une commande (ADR-0013 §11,
+   * N8). Il montre les canaux qu'il retient, que l'onglet `serveur` lui
+   * cède, et paraît dès son ouverture, même vide.
+   *
+   * @param spec - identifiant, libellé, canaux.
+   * @returns sa poignée : `finish` marque l'issue (✓ / ✗), `close` le
+   *   referme et libère l'historique de ses canaux. Un producteur qui écrit
+   *   encore après la fermeture rouvre son canal, dans l'onglet `serveur`.
+   * @throws Si l'identifiant est déjà pris.
+   */
+  addView(spec: IDevViewSpec): IDevViewHandle {
+    if (this.#views.some((view) => view.id === spec.id)) {
+      throw new Error(`onglet déjà ouvert : ${spec.id}`);
+    }
+    const only = spec.channels;
+    const view = new DevView(
+      this.#history,
+      spec.id,
+      spec.title,
+      typeof only === "string" ? (channel) => channel === only : only,
+      true,
+    );
+    this.#views.push(view);
+    this.#server.transcript.refresh();
+    this.#scheduleFrame();
+    let closed = false;
+    return {
+      finish: (outcome) => {
+        if (closed) return;
+        view.outcome = outcome;
+        this.#scheduleFrame();
+      },
+      close: () => {
+        if (closed) return;
+        closed = true;
+        this.#removeView(view);
+      },
     };
   }
 
@@ -741,7 +861,7 @@ export class DevTerminal {
    * @returns une copie bornée.
    */
   since(seq: number, limit?: number): ITranscriptEntry[] {
-    return this.#transcript.since(seq, limit);
+    return this.#history.since(seq, limit);
   }
 
   /**
@@ -752,22 +872,26 @@ export class DevTerminal {
     if (this.#closed) return;
     this.leaveFullscreen();
     this.#closed = true;
-    this.#transcript.flush();
+    this.#history.flush();
     this.#status.release();
   }
 
   /** Inscrit et affiche un segment sans `ESC[2J`. */
   #show(
-    source: TranscriptSource,
+    channel: string,
     stream: ProcessOutputStream,
     target: IDevTerminalStream,
     segment: string,
-    run: number | undefined,
-    lane: string | undefined,
   ): void {
     if (segment.length === 0) return;
-    this.#transcript.ingest(source, stream, segment, run, lane);
+    this.#history.ingest(channel, stream, segment);
     if (this.#full) {
+      // Une erreur dans un onglet caché : son compteur passe au rouge.
+      if (stream === "err") {
+        for (const view of this.#views) {
+          if (view !== this.#active && view.match(channel)) view.alert = true;
+        }
+      }
       this.#scheduleFrame();
       return;
     }
@@ -814,6 +938,13 @@ export class DevTerminal {
     const full: IFullscreenState = {
       input: options.input,
       synchronized: options.synchronized,
+      paint: options.paint ?? "scroll",
+      awaitingDrain: false,
+      onDrain: () => {
+        full.awaitingDrain = false;
+        // Fermé entre-temps : `#scheduleFrame` ne trouve plus de plein écran.
+        this.#scheduleFrame();
+      },
       mouse: options.mouse === true,
       copy: options.copy ?? null,
       selection: null,
@@ -835,15 +966,14 @@ export class DevTerminal {
       frameTimer: null,
       lastFrameAt: 0,
       frame: null,
-      heights: new FrameHeights(),
+      tabViews: [],
       statusBar: new StatusBarCache(),
-      anchor: null,
-      floorSeq: undefined,
       foci: [],
       releaseGuard: () => {},
     };
     if (full.mouse) full.foci.push(this.#mouseFocus(full));
     full.foci.push(this.#scrollFocus(full), this.#globalFocus(full));
+    full.foci.unshift(this.#bandFocus(full));
     this.#full = full;
     this.#surface = "fullscreen";
     full.releaseGuard = guardTerminal(() => this.#restoreTerminal(full));
@@ -867,6 +997,10 @@ export class DevTerminal {
     if (full.noticeTimer) clearTimeout(full.noticeTimer);
     if (full.edgeTimer) clearInterval(full.edgeTimer);
     if (full.spinTimer) clearInterval(full.spinTimer);
+    if (full.awaitingDrain) {
+      full.awaitingDrain = false;
+      this.#stdout.removeListener?.("drain", full.onDrain);
+    }
     full.input.removeListener("data", full.onData);
     full.input.setRawMode?.(false);
     full.input.pause();
@@ -911,6 +1045,11 @@ export class DevTerminal {
         if (event.kind !== "mouse") return false;
         if (event.button !== 0) return true;
         if (event.action === "press") {
+          const tab = this.#tabAt(full, event.row, event.column);
+          if (tab !== null) {
+            this.#selectView(full, tab);
+            return true;
+          }
           // Un clic hors du journal (barre, indicateur) ne vise aucune ligne.
           const point = this.#pointAt(full, event.row, event.column, true);
           const now = Date.now();
@@ -979,7 +1118,7 @@ export class DevTerminal {
     }
     const range = this.#range(full);
     if (range === null) return;
-    const text = extractSelection(this.#transcript, range);
+    const text = extractSelection(this.#active.transcript, range);
     if (text.length === 0) return;
     this.#copyText(full, text);
   }
@@ -1110,9 +1249,10 @@ export class DevTerminal {
       this.#stopEdge(full);
       return;
     }
-    const before = full.anchor;
+    const view = this.#active;
+    const before = view.anchor;
     this.#scrollBy(full, edge.direction * EDGE_LINES);
-    if (full.anchor === before) {
+    if (view.anchor === before) {
       // Bout de l'historique : plus rien à faire défiler. Le prochain
       // glisser au bord réarme.
       this.#stopEdge(full);
@@ -1153,24 +1293,40 @@ export class DevTerminal {
         else if (event.key === "pageup") this.#scrollBy(full, page);
         else if (event.key === "pagedown") this.#scrollBy(full, -page);
         else if (event.key === "home") {
-          this.#setAnchor(full, topAnchor(this.#model(full), size));
-        } else if (event.key === "end") this.#setAnchor(full, null);
+          this.#setAnchor(topAnchor(this.#model(full), size));
+        } else if (event.key === "end") this.#setAnchor(null);
         else return false;
         return true;
       },
     };
   }
 
-  /** Foyer global : Ctrl+C et Ctrl+D demandent l'arrêt au propriétaire. */
+  /**
+   * Foyer global : Ctrl+C et Ctrl+D demandent l'arrêt au propriétaire ;
+   * `?` et F1 ouvrent l'aide des gestes ; Alt+1 à Alt+9 montrent l'onglet
+   * de ce rang (`Ctrl+Tab` n'atteint pas
+   * l'application dans la plupart des terminaux).
+   */
   #globalFocus(full: IFullscreenState): IInputFocus {
     return {
       handle: (event) => {
-        if (
-          event.kind === "key" &&
-          event.ctrl &&
-          (event.key === "c" || event.key === "d")
-        ) {
+        if (event.kind === "text" && event.text === "?") {
+          this.#openHelp(full);
+          return true;
+        }
+        if (event.kind !== "key") return false;
+        if (event.ctrl && (event.key === "c" || event.key === "d")) {
           full.onQuit();
+          return true;
+        }
+        if (event.key === "f1" && !event.ctrl && !event.alt) {
+          this.#openHelp(full);
+          return true;
+        }
+        const rank = event.alt && !event.ctrl ? tabRank(event.key) : 0;
+        if (rank > 0) {
+          const view = this.#shownViews()[rank - 1];
+          if (view !== undefined) this.#selectView(full, view);
           return true;
         }
         return false;
@@ -1178,13 +1334,203 @@ export class DevTerminal {
     };
   }
 
-  /** Défile de `delta` lignes d'écran (positif = remonter). */
-  #scrollBy(full: IFullscreenState, delta: number): void {
-    this.#setAnchor(full, scrollAnchor(this.#model(full), this.#size(), delta));
+  /**
+   * Ouvre une bande modale entre la ligne d'onglets et l'invite — menu,
+   * complétion, confirmation, aide (ADR-0013 §11). La dernière ouverte est
+   * à l'écran et reçoit le clavier avant le défilement ; un clic sur elle ne
+   * traverse pas.
+   *
+   * @param band - la bande.
+   * @returns sa fermeture, sans effet la 2ᵉ fois.
+   */
+  openBand(band: IDevBand): () => void {
+    this.#bands.push(band);
+    this.#scheduleFrame();
+    return () => {
+      const index = this.#bands.indexOf(band);
+      if (index === -1) return;
+      this.#bands.splice(index, 1);
+      this.#scheduleFrame();
+    };
   }
 
-  #setAnchor(full: IFullscreenState, anchor: IScrollAnchor | null): void {
-    const before = full.anchor;
+  /** La bande à l'écran, ou `null`. */
+  get band(): IDevBand | null {
+    return this.#bands.at(-1) ?? null;
+  }
+
+  /**
+   * Foyer de la bande, en tête de chaîne : le clavier va à la bande ouverte,
+   * sauf Ctrl+C et Ctrl+D ; la souris seulement sur son rectangle, en
+   * coordonnées locales, et jamais plus loin.
+   */
+  #bandFocus(full: IFullscreenState): IInputFocus {
+    return {
+      handle: (event) => {
+        const band = this.#bands.at(-1);
+        if (band === undefined) return false;
+        if (event.kind === "mouse" || event.kind === "wheel") {
+          const region = full.frame?.band;
+          const row = event.row - 1 - (region?.row ?? 0);
+          if (region === undefined || row < 0 || row >= region.height) {
+            return false;
+          }
+          band.handle({ ...event, row: row + 1 });
+          return true;
+        }
+        if (
+          event.kind === "key" &&
+          event.ctrl &&
+          (event.key === "c" || event.key === "d")
+        ) {
+          return false;
+        }
+        return band.handle(event);
+      },
+    };
+  }
+
+  /**
+   * Ouvre l'aide des gestes. Ouverte, elle reçoit `?` et F1 avant ce foyer
+   * et se referme elle-même ; sous une autre bande, elle n'est pas rouverte.
+   */
+  #openHelp(full: IFullscreenState): void {
+    if (this.#closeHelp !== null) return;
+    const close = this.openBand(
+      helpBand({
+        charset: this.#charset,
+        color: this.#color,
+        mouse: full.mouse,
+        close: () => this.#closeHelp?.(),
+      }),
+    );
+    this.#closeHelp = () => {
+      this.#closeHelp = null;
+      close();
+    };
+  }
+
+  /** Un autre onglet que `serveur` retient ce canal. */
+  #claimed(channel: string): boolean {
+    for (let i = 1; i < this.#views.length; i++) {
+      if (this.#views[i]?.match(channel) === true) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Retire un onglet et libère les canaux que plus aucun autre ne retient ;
+   * s'il était à l'écran, `serveur` le remplace.
+   */
+  #removeView(view: DevView): void {
+    const index = this.#views.indexOf(view);
+    if (index <= 0) return;
+    this.#views.splice(index, 1);
+    for (const channel of this.#history.channels()) {
+      if (view.match(channel) && !this.#claimed(channel)) {
+        this.#history.drop(channel);
+      }
+    }
+    this.#server.transcript.refresh();
+    if (this.#active === view) {
+      const full = this.#full;
+      if (full) this.#selectView(full, this.#server);
+      else this.#active = this.#server;
+    }
+    this.#scheduleFrame();
+  }
+
+  /**
+   * Montre un onglet. Celui qu'on quitte garde sa position de lecture et
+   * compte ce que sa dernière image n'a pas montré ; la sélection, faite sur
+   * l'autre texte, est effacée.
+   */
+  #selectView(full: IFullscreenState, view: DevView): void {
+    // Un clic lu sur l'image précédente peut viser un onglet refermé depuis.
+    if (view === this.#active || !this.#views.includes(view)) return;
+    this.#active = view;
+    full.selecting = false;
+    this.#stopEdge(full);
+    full.selection = null;
+    full.range = null;
+    this.#scheduleFrame();
+  }
+
+  /** L'onglet sous un point de l'écran (depuis 1), lu sur l'image affichée. */
+  #tabAt(full: IFullscreenState, row: number, column: number): DevView | null {
+    const tabs = full.frame?.tabs;
+    if (tabs?.row !== row - 1) return null;
+    for (const span of tabs.spans) {
+      if (column - 1 >= span.start && column - 1 < span.end) {
+        return full.tabViews[span.index] ?? null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Les onglets montrés : `serveur` toujours, l'actif, un onglet ouvert à la
+   * volée, et tout onglet qui a quelque chose à montrer. Le tableau n'est
+   * rebâti que quand cet ensemble change — une image le lit, une touche de
+   * défilement aussi ; une image passée garde le sien (ce qu'un clic vise).
+   */
+  #shownViews(): readonly DevView[] {
+    const shown = this.#shown;
+    let count = 0;
+    let same = true;
+    for (let i = 0; i < this.#views.length; i++) {
+      const view = this.#views[i];
+      if (view === undefined || !this.#isShown(view, i)) continue;
+      if (shown[count] !== view) same = false;
+      count++;
+    }
+    if (same && count === shown.length) return shown;
+    this.#shown = this.#views.filter((view, i) => this.#isShown(view, i));
+    return this.#shown;
+  }
+
+  /** Un onglet a sa place sur la ligne. */
+  #isShown(view: DevView, index: number): boolean {
+    return (
+      index === 0 ||
+      view === this.#active ||
+      view.alwaysShown ||
+      view.transcript.length > 0
+    );
+  }
+
+  /** La ligne d'onglets de l'image — `null` quand un seul est montré. */
+  #tabs(views: readonly DevView[]): IFrameTabs | null {
+    if (views.length < 2) return null;
+    const active = this.#active;
+    return {
+      active: views.indexOf(active),
+      items: views.map((view) =>
+        view === active
+          ? {
+              title: view.title,
+              unseen: 0,
+              alert: false,
+              outcome: view.outcome,
+            }
+          : {
+              title: view.title,
+              unseen: view.unseen,
+              alert: view.alert,
+              outcome: view.outcome,
+            },
+      ),
+    };
+  }
+
+  /** Défile de `delta` lignes d'écran (positif = remonter). */
+  #scrollBy(full: IFullscreenState, delta: number): void {
+    this.#setAnchor(scrollAnchor(this.#model(full), this.#size(), delta));
+  }
+
+  #setAnchor(anchor: IScrollAnchor | null): void {
+    const view = this.#active;
+    const before = view.anchor;
     if (
       before === anchor ||
       (before !== null &&
@@ -1194,12 +1540,16 @@ export class DevTerminal {
     ) {
       return;
     }
-    full.anchor = anchor;
+    view.anchor = anchor;
     this.#scheduleFrame();
   }
 
-  /** Ce que l'image lit. */
-  #model(full: IFullscreenState): IFrameModel {
+  /** Ce que l'image lit : l'onglet à l'écran, la barre, la ligne d'onglets. */
+  #model(
+    full: IFullscreenState,
+    views: readonly DevView[] = this.#shownViews(),
+  ): IFrameModel {
+    const view = this.#active;
     // Avant le premier bilan du serveur (un build peut durer), la barre dit
     // déjà la phase : un écran alternatif vide ressemble à un programme figé.
     const context =
@@ -1213,8 +1563,8 @@ export class DevTerminal {
             ...(this.#version === null ? {} : { version: this.#version }),
           });
     return {
-      transcript: this.#transcript,
-      anchor: full.anchor,
+      transcript: view.transcript,
+      anchor: view.anchor,
       status:
         context === null
           ? null
@@ -1241,12 +1591,17 @@ export class DevTerminal {
       color: this.#color,
       charset: this.#charset,
       mark: this.#mark,
-      heights: full.heights,
+      heights: view.heights,
       statusBar: full.statusBar,
-      ...(full.floorSeq === undefined ? {} : { floorSeq: full.floorSeq }),
+      ...(view.floorSeq === undefined ? {} : { floorSeq: view.floorSeq }),
       // L'indicateur de build du superviseur se réécrit sur place, sans fin
       // de ligne : sans lui, un long build laissait l'écran figé.
-      partial: this.#transcript.partial("supervisor", "out"),
+      partial: view.match("supervisor")
+        ? (this.#history.channel("supervisor")?.partial("supervisor", "out") ??
+          "")
+        : "",
+      tabs: this.#tabs(views),
+      band: this.#bands.at(-1) ?? null,
       selection:
         full.selection === null ||
         (full.selection.unit === "char" && !full.dragged)
@@ -1266,7 +1621,7 @@ export class DevTerminal {
     if (full.range?.of !== selection) {
       full.range = {
         of: selection,
-        value: selectionRange(selection, this.#transcript),
+        value: selectionRange(selection, this.#active.transcript),
       };
     }
     return full.range.value;
@@ -1286,7 +1641,7 @@ export class DevTerminal {
    */
   #scheduleFrame(): void {
     const full = this.#full;
-    if (full?.frameTimer !== null) return;
+    if (full?.frameTimer !== null || full.awaitingDrain) return;
     const wait = Math.max(
       0,
       FRAME_INTERVAL_MS - (Date.now() - full.lastFrameAt),
@@ -1305,10 +1660,19 @@ export class DevTerminal {
   #drawFrame(full: IFullscreenState): void {
     if (this.#full !== full) return;
     full.lastFrameAt = Date.now();
-    const frame = renderFrame(this.#model(full), this.#size());
+    const views = this.#shownViews();
+    const frame = renderFrame(this.#model(full, views), this.#size());
     const previous = full.frame;
-    const changes = diffFrame(previous, frame);
+    const { shift, changes } =
+      full.paint === "scroll"
+        ? diffFrameScrolled(previous, frame)
+        : {
+            shift: 0,
+            changes: diffFrame(full.paint === "full" ? null : previous, frame),
+          };
     full.frame = frame;
+    full.tabViews = views;
+    this.#active.markSeen();
     const sameCursor =
       previous !== null &&
       (previous.cursor === frame.cursor ||
@@ -1316,9 +1680,16 @@ export class DevTerminal {
           frame.cursor !== null &&
           previous.cursor.row === frame.cursor.row &&
           previous.cursor.column === frame.cursor.column));
-    if (changes.length === 0 && sameCursor) return;
+    if (changes.length === 0 && shift === 0 && sameCursor) return;
     let out = full.synchronized ? "\x1b[?2026h\x1b[?25l" : "\x1b[?25l";
     if (previous === null) out += "\x1b[H\x1b[2J";
+    else if (shift !== 0) {
+      // Attributs remis AVANT : les lignes libérées prennent le fond par
+      // défaut, celui que le diff leur suppose. Les marges ne survivent pas
+      // à l'image — aucun état laissé au terminal entre deux écritures.
+      const rows = frame.journalRows ?? 0;
+      out += `\x1b[0m\x1b[1;${rows}r\x1b[${shift > 0 ? `${shift}S` : `${-shift}T`}\x1b[r`;
+    }
     for (const { row, text } of changes) {
       // Un lien qu'une ligne ouvre sans le fermer ne déborde ni sur les
       // lignes suivantes ni sur ce qu'écrira le shell après nous.
@@ -1327,16 +1698,19 @@ export class DevTerminal {
     }
     out += cursorSequence(frame);
     if (full.synchronized) out += "\x1b[?2026l";
-    this.#stdout.write(out);
+    // Le terminal ne suit pas (SSH lent, console Windows) : l'image est
+    // partie dans le tampon, les suivantes attendent qu'il se vide — le relais
+    // des enfants reste vivant, au lieu d'empiler des images que personne ne
+    // verra (ADR-0013, D6).
+    if (!this.#stdout.write(out) && this.#stdout.once !== undefined) {
+      full.awaitingDrain = true;
+      this.#stdout.once("drain", full.onDrain);
+    }
   }
 
-  /** L'état d'affichage d'un couple (et de son écrivain), créé au premier paquet. */
-  #echoOf(
-    source: TranscriptSource,
-    stream: ProcessOutputStream,
-    lane: string | undefined,
-  ): IEchoState {
-    const key = laneKey(source, stream, lane);
+  /** L'état d'affichage d'un couple (canal, flux), créé au premier paquet. */
+  #echoOf(channel: string, stream: ProcessOutputStream): IEchoState {
+    const key = channelKey(channel, stream);
     let state = this.#echo[key];
     if (state === undefined) {
       state = { decoder: new StringDecoder("utf8"), carry: "" };
