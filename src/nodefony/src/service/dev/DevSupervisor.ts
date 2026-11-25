@@ -54,7 +54,7 @@ import {
   type IDevHeldPlan,
   type IDevHeldPlanAck,
 } from "./devChannel";
-import { HeldServiceRegistry } from "./heldServices";
+import { HeldReadyAnnouncer, HeldServiceRegistry } from "./heldServices";
 import {
   DevTerminal,
   probeTerminal,
@@ -2219,7 +2219,9 @@ export class DevSupervisor {
    * @returns le registre.
    */
   #heldServices(): HeldServiceRegistry {
-    this.#held ??= new HeldServiceRegistry({
+    if (this.#held !== null) return this.#held;
+    const announcer = new HeldReadyAnnouncer();
+    this.#held = new HeldServiceRegistry({
       baseEnv: process.env,
       onState: (owner, status) => {
         sendToServer(this.#child, {
@@ -2228,6 +2230,17 @@ export class DevSupervisor {
           owner,
           status,
         });
+        // Dans SON canal : l'onglet du service paraît dès qu'il est prêt,
+        // même si l'hôte ne dit rien d'autre (Vite se tait jusqu'au HMR).
+        const terminal = this.#terminal;
+        const notice = terminal ? announcer.notice(status) : null;
+        if (terminal && notice !== null) {
+          terminal.ingest(
+            status.key,
+            "out",
+            `${ANSI.dim}[dev]${ANSI.reset} ${ANSI.green}${notice}${ANSI.reset}\n`,
+          );
+        }
       },
       onOutput: (key, stream, lines) => {
         const terminal = this.#terminal;

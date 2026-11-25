@@ -17,7 +17,10 @@ import {
   type IHeldServiceDeclaration,
 } from "../service/dev/devChannel";
 import { isPidAlive } from "../service/dev/devProcess";
-import { HeldServiceRegistry } from "../service/dev/heldServices";
+import {
+  HeldReadyAnnouncer,
+  HeldServiceRegistry,
+} from "../service/dev/heldServices";
 import type { IHeldHostStatus } from "../service/dev/HostHolder";
 import type { ChildProcess } from "node:child_process";
 import { HELD_HOST_CWD } from "./fixtures/held/hostCwd";
@@ -403,5 +406,38 @@ describe("canal nf-dev — messages held-*", () => {
     sendToServer(endpoint as unknown as ChildProcess, plan([]));
     expect(callbacks).toHaveLength(2);
     for (const cb of callbacks) expect(typeof cb).toBe("function");
+  });
+});
+
+describe("HeldReadyAnnouncer — un service porté prêt s'annonce dans son canal (#903)", () => {
+  const status = (over: Partial<IHeldHostStatus> = {}): IHeldHostStatus => ({
+    key: "vite:admin",
+    state: "ready",
+    pid: 4242,
+    data: { port: 5173, portRetries: 0 },
+    lastError: null,
+    restartCount: 0,
+    missedPongs: 0,
+    ...over,
+  });
+
+  it("une ligne par process d'hôte : ni le rejeu d'un serveur redémarré ni une preuve de vie ne la répètent ; une relance s'annonce", () => {
+    const announcer = new HeldReadyAnnouncer();
+    expect(announcer.notice(status({ state: "starting" }))).to.equal(null);
+    expect(announcer.notice(status())).to.equal("vite:admin prêt — port 5173");
+    expect(announcer.notice(status())).to.equal(null);
+    expect(announcer.notice(status({ missedPongs: 1 }))).to.equal(null);
+    expect(announcer.notice(status({ key: "vite:docs" }))).to.equal(
+      "vite:docs prêt — port 5173",
+    );
+    expect(announcer.notice(status({ pid: 4243, restartCount: 1 }))).to.equal(
+      "vite:admin prêt — port 5173 (relance 1)",
+    );
+  });
+
+  it("sans port rapporté (un service qui n'écoute pas), la ligne le tait", () => {
+    expect(
+      new HeldReadyAnnouncer().notice(status({ key: "llm:local", data: null })),
+    ).to.equal("llm:local prêt");
   });
 });
