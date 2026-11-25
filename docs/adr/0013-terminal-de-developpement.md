@@ -649,11 +649,26 @@ AVANT eux, pour ne pas être repris.
 | Vue    | { canal, ancre, cache de repli, sélection, rendu de la ligne en cours } — légère   | le terminal ; deux vues peuvent montrer le même canal |
 | Région | un rectangle de l'écran (ligne, colonne, largeur, hauteur) et son drapeau « sale » | la mise en page, recalculée à la taille ou à l'état   |
 
-**Mise en page** : une fonction PURE `layout(taille, état) → régions`, rendant une liste PLATE
-de rectangles : onglets (1 ligne, absente avec une seule vue), volets (1 ou 2, empilés ou côte à
-côte), bande (menu, complétion, confirmation ; hauteur 0 si absente), invite, barre. Pas d'arbre
-générique tant que les volets sont peu nombreux. Avec UNE vue et aucune bande, la mise en page
-rend exactement les trois zones d'aujourd'hui : c'est la preuve d'équivalence de la refonte.
+**Direction de travail — non figée, validée sur pièce au fil du développement** (maquette vue
+par l'auteur, décisions N1 à N8 au ticket #903). L'écran partagé de la première version de ce
+paragraphe est abandonné : **un onglet occupe TOUTE la zone centrale**, changer d'onglet la
+remplace entière.
+
+**Mise en page** : une fonction PURE `layout(taille, état) → régions`
+(`src/nodefony/src/service/dev/devLayout.ts#layout`), rendant une liste PLATE de rectangles :
+vue (la zone centrale), onglets (1 ligne), bande (menu, complétion, confirmation ; hauteur 0 si
+absente, un tiers de l'écran au plus), invite, barre. Les onglets vivent **en bas, collés à
+l'invite** : onglet actif, bande et invite forment un bloc — on voit à qui on parle. Quand la
+hauteur manque, la priorité part du bas : barre, invite, bande, onglets ; la vue prend le reste.
+Sans onglets ni bande, la mise en page rend exactement les trois zones d'aujourd'hui : c'est la
+preuve d'équivalence de la refonte.
+
+**Une invite par onglet** : son préfixe, son brouillon, son historique, son menu ; changer
+d'onglet garde le brouillon. Le résultat d'une commande s'affiche dans l'onglet où elle a été
+tapée. **Plusieurs fenêtres ne vivent que DANS un onglet** : la vue reçoit son rectangle et des
+coordonnées locales, et le découpe comme elle veut (un onglet de supervision à graphes) ; le
+layout principal n'en sait rien. **Les onglets se créent et se détruisent à la volée** (un
+sous-agent ouvre le sien) : `addView` rend sa fermeture, qui libère aussi l'historique du canal.
 
 **Trois contrats de branchement**, dans `src/nodefony/src/service/dev/` :
 
@@ -665,6 +680,7 @@ interface IDevView {
   render(rect: IRegion): IViewFrame; // segments + origines (entrée, colonne) de chaque ligne
   handle?(event: InputEvent): boolean; // foyer local, coordonnées de la région
 }
+// addView(view) rend sa fermeture, comme openBand : qui crée l'onglet le détruit.
 interface IDevBand {
   readonly height: number; // lignes demandées, bornées par la mise en page
   render(rect: IRegion): IViewFrame;
@@ -675,26 +691,28 @@ interface IDevBand {
 ```
 
 - **Souris** : le test de région passe AVANT la chaîne de foyers (§4), et l'évènement arrive à
-  la région en coordonnées LOCALES. Un clic ne traverse pas une bande ; une sélection ne déborde
-  pas d'un volet — sélection et origines descendent dans la vue.
-- **Défilement** : par vue. Il lit la hauteur du volet dans la mise en page mémorisée, sans
-  rebâtir le modèle ; une touche qui ne défile pas ne coûte rien.
+  la région en coordonnées LOCALES. Un clic ne traverse pas une bande ; un clic sur un onglet
+  l'active — sélection et origines descendent dans la vue.
+- **Défilement** : par vue, gardé quand on change d'onglet. Il lit la hauteur de la vue dans la
+  mise en page mémorisée, sans rebâtir le modèle ; une touche qui ne défile pas ne coûte rien.
+- **Changer d'onglet** : clic, `Alt+1` à `Alt+9` (`Ctrl+Tab` n'est pas transmis par la plupart
+  des terminaux). Un onglet caché qui reçoit des lignes porte un compteur, rouge sur une erreur.
 - **Régions sales** : chaque mutateur marque la sienne (§5) ; l'image ne rend que celles-là
   (§9).
 
 **Matrice de défilement — chaque case est un scénario rejoué sur l'écran obtenu.** Banc sous
 pseudo-terminal (`script`) et `@xterm/headless`, celui des Conséquences :
 
-| Scénario                           | Ce qui doit tenir                                   |
-| ---------------------------------- | --------------------------------------------------- |
-| molette captée, et traduite (1007) | trois lignes par cran dans les deux régimes         |
-| PgUp / PgDn / Début / Fin          | une page = la hauteur du volet, pas de l'écran      |
-| rafale pendant qu'on est remonté   | l'ancre (`seq`) ne bouge pas, l'indicateur compte   |
-| redimensionnement remonté          | même entrée en haut du volet                        |
-| glisser au bord                    | défile la vue qui porte la sélection, et elle seule |
-| crash pendant qu'on est remonté    | la pile reste lisible au retour au direct           |
-| deux volets défilés indépendamment | aucun ne bouge l'autre                              |
-| retour au direct                   | l'indicateur disparaît, `SU` reprend                |
+| Scénario                           | Ce qui doit tenir                                 |
+| ---------------------------------- | ------------------------------------------------- |
+| molette captée, et traduite (1007) | trois lignes par cran dans les deux régimes       |
+| PgUp / PgDn / Début / Fin          | une page = la hauteur de la vue, pas de l'écran   |
+| rafale pendant qu'on est remonté   | l'ancre (`seq`) ne bouge pas, l'indicateur compte |
+| redimensionnement remonté          | même entrée en haut de la vue                     |
+| glisser au bord                    | défile la vue qui porte la sélection              |
+| crash pendant qu'on est remonté    | la pile reste lisible au retour au direct         |
+| deux onglets défilés puis basculés | chacun retrouve sa position et son brouillon      |
+| retour au direct                   | l'indicateur disparaît, `SU` reprend              |
 
 Essais à la main, avec liste de contrôle : iTerm2, Terminal.app, tmux ; Windows Terminal à part.
 
@@ -717,8 +735,9 @@ Essais à la main, avec liste de contrôle : iTerm2, Terminal.app, tmux ; Window
   `CliIntegration.test.ts`, déclaré comme décor (une absence se dit, elle ne se saute pas en
   silence) et joué sur les jobs Linux et macOS. Windows Terminal se vérifie à la main.
 - **Amendement #903** — l'ordre des travaux devient une contrainte : banc et leviers à surface
-  constante (#896, preuve d'équivalence ancien / nouveau rendu), PUIS socle à plusieurs vues
-  (#903), PUIS Vite (#692) et l'invite (#538). Chaque étape est prouvée à l'écran sur la matrice
+  constante (#896, preuve d'équivalence ancien / nouveau rendu), PUIS Vite porté par le
+  superviseur (#692, sa sortie entre d'abord dans l'historique unique), PUIS socle à plusieurs
+  vues (#903, qui la range dans son canal), PUIS l'invite (#538). Chaque étape est prouvée à l'écran sur la matrice
   du §11 ; avec une seule vue, l'écran obtenu est identique à celui d'avant.
 - Le plafond mémoire reste 8 Mio au total, quel que soit le nombre de canaux.
 - Une seconde dépendance au terminal : `DECSTBM` + `SU` en plein écran. Leur restauration entre
