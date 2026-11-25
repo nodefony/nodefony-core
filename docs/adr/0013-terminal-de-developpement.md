@@ -741,12 +741,18 @@ interface IDevBand {
   `Alt` n'arrive que si le terminal envoie Échap pour Option — sous macOS, iTerm2 « Option = Esc+ »,
   Terminal.app « Utiliser Option comme touche méta », le terminal de VS Code
   `"terminal.integrated.macOptionIsMeta": true` ; le clic marche sans réglage (`--mouse`). Sur
-  un clavier AZERTY, le chiffre exige Maj : le geste est Maj+Option+1 (l'aide le dit). Terminal.app et iTerm2 envoient
-  `ESC 1` ; le terminal de VS Code traduit par la position de la touche sur un clavier américain
-  et envoie `ESC !` — les symboles `!` à `(` valent donc aussi Alt+1 à Alt+9
-  (`DevTerminal.ts#tabRank`). Sous VS Code, le geste sûr est Option+chiffre SANS Maj (Option+&,
-  Option+é) : Maj+Option+& y tape `´`, un caractère du clavier français que macOS rend avant
-  toute traduction — jamais pris pour un onglet, il appartient à l'invite.
+  un clavier AZERTY, le geste dépend du terminal (l'aide le dit) :
+
+  | Terminal             | Onglet 1 · onglet 2            | Ce que le terminal envoie               |
+  | -------------------- | ------------------------------ | --------------------------------------- |
+  | Terminal.app, iTerm2 | Maj+Option+1 · Maj+Option+2    | `ESC 1` : le caractère tapé             |
+  | VS Code              | Option+1 · Option+2 (sans Maj) | `ESC 1` : la POSITION sur un clavier US |
+
+  Sous VS Code, Maj+Option+2 à 9 arrivent en `ESC @` à `ESC (` (le chiffre avec Maj sur un
+  clavier américain), qui valent aussi Alt+2 à Alt+9 (`DevTerminal.ts#tabRank`) ; Maj+Option+1
+  y tape `´`, un caractère du clavier français que macOS rend avant toute traduction — jamais pris
+  pour un onglet, il appartient à l'invite.
+
 - **Onglets livrés à l'étape 3** : un onglet est une DONNÉE (`devView.ts#DevView` : son filtre de
   canaux, sa position de lecture, sa page propre, son cache de repli, ce qu'il n'a pas montré),
   jamais une sous-classe. `serveur` est le complément de `vite` (`vite:*`) : aucun canal ne reste

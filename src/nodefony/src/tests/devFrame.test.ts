@@ -841,15 +841,15 @@ describe("renderFrame — la bande (#903)", () => {
       close: () => {},
     });
     expect(help.height(120)).to.equal(6);
-    expect(help.height(40)).to.equal(10);
+    expect(help.height(40)).to.equal(11);
     const narrow = help.render({
       kind: "band",
       row: 0,
       column: 0,
       width: 40,
-      height: 10,
+      height: 11,
     });
-    expect(narrow).to.have.length(10);
+    expect(narrow).to.have.length(11);
     expect(narrow.join("\n")).to.include("arrêter le serveur");
     const wide = help.render({
       kind: "band",
