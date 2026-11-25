@@ -1245,8 +1245,8 @@ export class DevTerminal {
         else if (event.key === "pageup") this.#scrollBy(full, page);
         else if (event.key === "pagedown") this.#scrollBy(full, -page);
         else if (event.key === "home") {
-          this.#setAnchor(full, topAnchor(this.#model(full), size));
-        } else if (event.key === "end") this.#setAnchor(full, null);
+          this.#setAnchor(topAnchor(this.#model(full), size));
+        } else if (event.key === "end") this.#setAnchor(null);
         else return false;
         return true;
       },
@@ -1476,10 +1476,10 @@ export class DevTerminal {
 
   /** Défile de `delta` lignes d'écran (positif = remonter). */
   #scrollBy(full: IFullscreenState, delta: number): void {
-    this.#setAnchor(full, scrollAnchor(this.#model(full), this.#size(), delta));
+    this.#setAnchor(scrollAnchor(this.#model(full), this.#size(), delta));
   }
 
-  #setAnchor(full: IFullscreenState, anchor: IScrollAnchor | null): void {
+  #setAnchor(anchor: IScrollAnchor | null): void {
     const view = this.#active;
     const before = view.anchor;
     if (
