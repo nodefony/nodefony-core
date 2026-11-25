@@ -593,12 +593,12 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
     const frame = renderFrame(model(t, { status: null, tabs }), size);
     expect(frame.lines).to.have.length(10);
     expect(frame.tabs?.row).to.equal(9);
-    expect(frame.lines[9]).to.equal("[1 serveur] 2 vite ·5 ");
+    expect(frame.lines[9]).to.equal("[1 serveur]│ 2 vite ·5 │");
     expect(frame.lines[8]).to.equal("l30");
     expect(frame.origins?.[9]).to.equal(null);
     expect(frame.tabs?.spans).to.deep.equal([
       { start: 0, end: 11, index: 0 },
-      { start: 11, end: 22, index: 1 },
+      { start: 12, end: 23, index: 1 },
     ]);
     expect(frameJournalRows(model(t, { status: null, tabs }), size)).to.equal(
       9,
@@ -622,7 +622,7 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
       size,
     );
     expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
-      " 1 serveur\x1b[1;31m ·2\x1b[0m \x1b[7m 2 vite \x1b[0m",
+      "\x1b[100m 1 serveur\x1b[1;31m ·2\x1b[22;39m \x1b[0m \x1b[1;7m 2 vite \x1b[0m ",
     );
   });
 
@@ -645,29 +645,30 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
     })),
   });
 
-  it("trop d'onglets pour la largeur : une fenêtre autour de l'actif, « ‹ +3 » compte les cachés, et un clic sur la marque vise le voisin", () => {
+  it("trop d'onglets pour la largeur : une fenêtre autour de l'actif, « ‹ +2 » compte les cachés, et un clic sur la marque vise le voisin", () => {
     const frame = renderFrame(
       model(transcriptOf(range(3)), { status: null, tabs: many(3) }),
-      { columns: 27, rows: 10 },
+      { columns: 36, rows: 10 },
     );
     expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
-      " ‹ +3 [4 a4] 5 a5  6 a6 ",
+      " ‹ +2 │ 3 a3 │[4 a4]│ 5 a5 │ 6 a6 │",
     );
     expect(frame.tabs?.spans).to.deep.equal([
-      { start: 0, end: 6, index: 2 },
-      { start: 6, end: 12, index: 3 },
-      { start: 12, end: 18, index: 4 },
-      { start: 18, end: 24, index: 5 },
+      { start: 0, end: 6, index: 1 },
+      { start: 7, end: 13, index: 2 },
+      { start: 14, end: 20, index: 3 },
+      { start: 21, end: 27, index: 4 },
+      { start: 28, end: 34, index: 5 },
     ]);
   });
 
   it("l'actif au bout de la ligne : la fenêtre s'élargit vers la gauche", () => {
     const frame = renderFrame(
       model(transcriptOf(range(3)), { status: null, tabs: many(5) }),
-      { columns: 27, rows: 10 },
+      { columns: 34, rows: 10 },
     );
     expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
-      " ‹ +3  4 a4  5 a5 [6 a6]",
+      " ‹ +3 │ 4 a4 │ 5 a5 │[6 a6]│",
     );
   });
 
@@ -678,10 +679,10 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
         color: true,
         tabs: many(0, 5),
       }),
-      { columns: 21, rows: 10 },
+      { columns: 22, rows: 10 },
     );
     expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
-      "\x1b[7m 1 a1 \x1b[0m 2 a2 \x1b[1;31m +4 › \x1b[0m",
+      "\x1b[1;7m 1 a1 \x1b[0m \x1b[100m 2 a2 \x1b[0m \x1b[1;31m +4 › \x1b[0m",
     );
   });
 
@@ -701,7 +702,7 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
       size,
     );
     expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
-      "[1 serveur] 2 agent ✓  3 build ✗ ",
+      "[1 serveur]│ 2 agent ✓ │ 3 build ✗ │",
     );
   });
 });

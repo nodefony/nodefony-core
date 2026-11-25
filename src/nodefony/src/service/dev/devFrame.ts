@@ -377,12 +377,14 @@ function unseenLine(count: number, model: IFrameModel): string {
 }
 
 /**
- * La ligne d'onglets : ` 1 serveur  2 vite ·5 `. L'actif en vidéo inverse
- * (entre crochets sans couleur, à largeur égale) ; le compteur d'un onglet
- * caché en gras, en rouge quand une erreur y est arrivée ; ✓ / ✗ quand son
- * travail est fini. Trop large : une fenêtre autour de l'actif, bordée de
- * `‹ +3` / `+2 ›` (un onglet plus long que la ligne seul y reste, coupé par
- * le terminal).
+ * La ligne d'onglets : chaque onglet est une PASTILLE, séparée de la
+ * suivante — sur fond gris, l'actif en vidéo inverse grasse, une colonne de
+ * fond nu entre deux ; sans couleur, l'actif entre crochets et un trait
+ * `│` après chaque onglet. Sans pastille, les titres se lisaient comme une
+ * seule phrase. Le compteur d'un onglet caché en gras, en rouge quand une
+ * erreur y est arrivée ; ✓ / ✗ quand son travail est fini. Trop large : une
+ * fenêtre autour de l'actif, bordée de `‹ +3` / `+2 ›` (un onglet plus long
+ * que la ligne seul y reste, coupé par le terminal).
  *
  * @param tabs - les onglets.
  * @param model - couleur et jeu de caractères.
@@ -396,6 +398,8 @@ function tabsLine(
 ): { text: string; spans: ITabSpan[] } {
   const ascii = model.charset === "ascii";
   const dot = ascii ? "*" : "·";
+  // Ce qui suit chaque pastille : une colonne de fond nu, ou un trait.
+  const gap = model.color ? " " : ascii ? "|" : "│";
   const count = tabs.items.length;
   const heads: string[] = [];
   const counters: string[] = [];
@@ -418,7 +422,7 @@ function tabsLine(
       tab !== undefined && tab.unseen > 0 ? ` ${dot}${tab.unseen}` : "";
     heads.push(head);
     counters.push(counter);
-    widths[i] = visibleWidth(head) + visibleWidth(counter) + 2;
+    widths[i] = visibleWidth(head) + visibleWidth(counter) + 3;
     total += widths[i] ?? 0;
   }
   // Trop large : une fenêtre autour de l'actif, élargie tant qu'elle tient,
@@ -428,7 +432,7 @@ function tabsLine(
   if (total > width && count > 1) {
     const active = Math.min(Math.max(tabs.active, 0), count - 1);
     const left = (hidden: number): number =>
-      hidden === 0 ? 0 : String(hidden).length + 5;
+      hidden === 0 ? 0 : String(hidden).length + 6;
     lo = active;
     hi = active;
     let used = widths[active] ?? 0;
@@ -461,25 +465,28 @@ function tabsLine(
   if (lo > 0) {
     const mark = ` ${ascii ? "<" : "‹"} +${lo} `;
     spans.push({ start: 0, end: mark.length, index: lo - 1 });
-    column = mark.length;
-    text += overflowMark(mark, tabs.items, 0, lo, model);
+    column = mark.length + 1;
+    text += overflowMark(mark, tabs.items, 0, lo, model) + gap;
   }
   for (let i = lo; i <= hi; i++) {
     const tab = tabs.items[i];
     const head = heads[i] ?? "";
     const counter = counters[i] ?? "";
-    const end = column + (widths[i] ?? 0);
-    spans.push({ start: column, end, index: i });
-    column = end;
+    const stride = widths[i] ?? 0;
+    spans.push({ start: column, end: column + stride - 1, index: i });
+    column += stride;
     if (i === tabs.active) {
       text += model.color
-        ? `\x1b[7m ${head}${counter} \x1b[0m`
+        ? `\x1b[1;7m ${head}${counter} \x1b[0m`
         : `[${head}${counter}]`;
-    } else if (!model.color || counter === "") {
+    } else if (!model.color) {
       text += ` ${head}${counter} `;
+    } else if (counter === "") {
+      text += `\x1b[100m ${head} \x1b[0m`;
     } else {
-      text += ` ${head}${tab?.alert === true ? "\x1b[1;31m" : "\x1b[1m"}${counter}\x1b[0m `;
+      text += `\x1b[100m ${head}${tab?.alert === true ? "\x1b[1;31m" : "\x1b[1m"}${counter}\x1b[22;39m \x1b[0m`;
     }
+    text += gap;
   }
   if (hi < count - 1) {
     const hidden = count - 1 - hi;
