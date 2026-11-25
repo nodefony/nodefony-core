@@ -2423,7 +2423,11 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           s = startPty(
             flavor,
             ["development", "--ui", "--no-mouse"],
-            { ...process.env, NF_DEV_PAINT: "diff" },
+            // Décor ÉPINGLÉ monochrome : les crochets `[1 serveur]│` que le
+            // test lit sont le rendu SANS couleur. Hérité, le décor variait —
+            // `NO_COLOR` chez l'auteur, `FORCE_COLOR=1` en CI, où les onglets
+            // deviennent des pastilles colorées sans crochets (rouge vécu).
+            { ...process.env, NF_DEV_PAINT: "diff", NO_COLOR: "1" },
             true,
           );
           await waitFor(s, BAR_RE);
