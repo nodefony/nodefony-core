@@ -14,7 +14,11 @@
  * arrivé dessous (« ↑ N nouvelles lignes — Fin »).
  */
 import { fitToWidth, visibleWidth, wrapToWidth } from "../../runtime/textWidth";
-import { layout as screenLayout, type IRegion } from "./devLayout";
+import {
+  layout as screenLayout,
+  type IRegion,
+  type TabsPlacement,
+} from "./devLayout";
 import { invertColumns, type ISelectionRange } from "./devSelection";
 import { sanitizeTerminalText, type ITranscriptEntry } from "./devTranscript";
 import {
@@ -833,6 +837,49 @@ export class StatusBarCache {
 const NO_TAB_LINES: readonly string[] = [];
 const NO_TAB_SPANS: readonly ITabSpan[] = [];
 
+/** La dernière mise en page et ses entrées : une image sur l'autre, elles ne changent pas. */
+const lastLayout = {
+  rows: -1,
+  columns: -1,
+  tabs: "none" as TabsPlacement,
+  band: -1,
+  prompt: -1,
+  bar: -1,
+  regions: [] as readonly IRegion[],
+};
+
+/**
+ * `screenLayout`, recalculée seulement quand une de ses entrées change : la
+ * fonction est PURE, et en rafale chaque image lui redemandait les mêmes
+ * rectangles (un tableau et cinq objets par image, mesuré au banc #896).
+ */
+function layoutOnce(
+  size: IFrameSize,
+  tabs: TabsPlacement,
+  band: number,
+  prompt: number,
+  bar: number,
+): readonly IRegion[] {
+  const last = lastLayout;
+  if (
+    last.rows !== size.rows ||
+    last.columns !== size.columns ||
+    last.tabs !== tabs ||
+    last.band !== band ||
+    last.prompt !== prompt ||
+    last.bar !== bar
+  ) {
+    last.rows = size.rows;
+    last.columns = size.columns;
+    last.tabs = tabs;
+    last.band = band;
+    last.prompt = prompt;
+    last.bar = bar;
+    last.regions = screenLayout(size, { tabs, band, prompt, bar });
+  }
+  return last.regions;
+}
+
 function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   const rows = Math.max(0, Math.floor(size.rows));
   const width = Math.max(1, Math.floor(size.columns) - 1);
@@ -853,12 +900,13 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   // la barre, l'invite puis les onglets d'abord, la vue prend le reste ;
   // l'indicateur est DANS la vue. Négatif quand la hauteur manque — tout
   // lecteur borne à 0.
-  const regions = screenLayout(size, {
-    tabs: tabs === null ? "none" : "bottom",
-    band: model.band?.height(width) ?? 0,
-    prompt: promptLines.length,
-    bar: bar.length,
-  });
+  const regions = layoutOnce(
+    size,
+    tabs === null ? "none" : "bottom",
+    model.band?.height(width) ?? 0,
+    promptLines.length,
+    bar.length,
+  );
   let view: IRegion | undefined;
   let bandLines: readonly string[] = NO_TAB_LINES;
   for (const region of regions) {
@@ -1102,17 +1150,17 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
   }
   const tabRow = journal.lines.length + indicator.length - cut;
   const bandRow = tabRow + tabLines.length;
-  return {
-    lines,
-    cursor,
-    origins,
-    ...(tabLines.length === 0 || tabRow < 0
-      ? {}
-      : { tabs: { row: tabRow, spans: tabSpans } }),
-    ...(bandLines.length === 0 || bandRow < 0
-      ? {}
-      : { band: { row: bandRow, height: bandLines.length } }),
-  };
+  const hasTabs = tabLines.length > 0 && tabRow >= 0;
+  const hasBand = bandLines.length > 0 && bandRow >= 0;
+  // Un littéral par cas : une forme fixe chacun, et le cas courant (ni
+  // onglets ni bande) n'alloue rien de plus que l'image.
+  if (!hasTabs && !hasBand) return { lines, cursor, origins };
+  const band = { row: bandRow, height: bandLines.length };
+  if (!hasTabs) return { lines, cursor, origins, band };
+  const tabs = { row: tabRow, spans: tabSpans };
+  return hasBand
+    ? { lines, cursor, origins, tabs, band }
+    : { lines, cursor, origins, tabs };
 }
 
 /**

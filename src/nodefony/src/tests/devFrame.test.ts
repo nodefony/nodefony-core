@@ -822,3 +822,30 @@ describe("renderFrame — la bande (#903)", () => {
     ]);
   });
 });
+
+describe("renderFrame — la mise en page gardée d'une image à l'autre (#903)", () => {
+  it("se refait dès qu'UNE entrée change : une image a toujours ses rows lignes, la bande sa largeur", () => {
+    const t = transcriptOf(range(30));
+    const widths: number[] = [];
+    const band = {
+      height: () => 1,
+      render: (region: { width: number }) => {
+        widths.push(region.width);
+        return ["b"];
+      },
+    };
+    const base = { status: null, band };
+    renderFrame(model(t, base), { columns: 40, rows: 9 });
+    let frame = renderFrame(model(t, base), { columns: 40, rows: 12 });
+    expect(frame.lines).to.have.length(12);
+    expect(frame.band).to.deep.equal({ row: 11, height: 1 });
+    renderFrame(model(t, base), { columns: 30, rows: 12 });
+    expect(widths).to.deep.equal([39, 39, 29]);
+    const prompt = { lines: ["❯"], cursor: { row: 0, column: 1 } };
+    // L'invite arrive avec une autre largeur, puis part SEULE.
+    renderFrame(model(t, { ...base, prompt }), { columns: 31, rows: 12 });
+    frame = renderFrame(model(t, base), { columns: 31, rows: 12 });
+    expect(frame.lines).to.have.length(12);
+    expect(frame.band).to.deep.equal({ row: 11, height: 1 });
+  });
+});
