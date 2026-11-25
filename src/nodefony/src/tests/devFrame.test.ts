@@ -410,6 +410,31 @@ describe("StatusBarCache — la barre rejouée tant qu'elle ne change pas (#896)
     });
   });
 
+  it("recomposée, une ligne inchangée n'est reprise qu'à la MÊME largeur (#903)", () => {
+    // La ligne du projet ne dépend pas de la largeur : composée pareil à 120
+    // et à 24 colonnes, elle doit pourtant être recoupée à 24.
+    const t = transcriptOf(range(5));
+    const cache = new StatusBarCache();
+    const status = ready({ context: { ...ctx, runtime } });
+    for (const columns of [120, 24, 120]) {
+      const size = { columns, rows: 16 };
+      const cached = renderFrame(
+        model(t, { status, mark, statusBar: cache }),
+        size,
+      );
+      const fresh = renderFrame(model(t, { status, mark }), size);
+      expect(cached.lines, `${columns} colonnes`).to.deep.equal(fresh.lines);
+    }
+    // Le contrat lui-même : même composition, autre largeur → à remesurer.
+    const size = { columns: 80, rows: 16 };
+    const m = model(t, { status, mark, statusBar: cache });
+    const long = "x".repeat(60);
+    cache.store(m, size, undefined, [long], [long], 80);
+    expect(cache.fittedLine(0, long, 80)).to.equal(long);
+    expect(cache.fittedLine(0, long, 24)).to.equal(undefined);
+    expect(cache.fittedLine(0, "y", 80)).to.equal(undefined);
+  });
+
   it("serveur prêt : un statut reconstruit, même horloge ou toupie différente, rejoue la barre", () => {
     const t = transcriptOf(range(5));
     const cache = new StatusBarCache();

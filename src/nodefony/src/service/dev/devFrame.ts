@@ -740,10 +740,17 @@ function statusBar(
   const activity = model.status === null ? undefined : activityOf(model.status);
   const kept = model.statusBar?.lookup(model, size, activity);
   if (kept !== undefined) return kept;
-  const lines = statusLines(model, size, activity).map((line) =>
-    fitToWidth(line.replace(ERASE_IN_LINE, ""), width),
+  const cache = model.statusBar;
+  const composed = statusLines(model, size, activity);
+  // Recomposée, la barre ne remesure que ses lignes CHANGÉES : le filet et la
+  // marque, presque tout en non-ASCII, coûtaient le segmenteur à chaque
+  // graduation (#903).
+  const lines = composed.map(
+    (line, index) =>
+      cache?.fittedLine(index, line, width) ??
+      fitToWidth(line.replace(ERASE_IN_LINE, ""), width),
   );
-  model.statusBar?.store(model, size, activity, lines);
+  cache?.store(model, size, activity, lines, composed, width);
   return lines;
 }
 
@@ -777,6 +784,8 @@ export class StatusBarCache {
   #columns = -1;
   #rows = -1;
   #lines: readonly string[] = [];
+  #composed: readonly string[] = [];
+  #width = -1;
 
   /**
    * Les lignes retenues, si la barre de cette image est la même.
@@ -814,18 +823,42 @@ export class StatusBarCache {
   }
 
   /**
+   * La ligne bornée de l'image précédente à ce rang, si sa composition et la
+   * largeur n'ont pas changé : la barre recomposée ne remesure qu'ainsi ce qui
+   * a bougé.
+   *
+   * @param index - le rang de la ligne dans la barre.
+   * @param composed - la ligne composée, avant bornage.
+   * @param width - la largeur de la barre.
+   * @returns la ligne bornée retenue, ou `undefined` s'il faut la mesurer.
+   */
+  fittedLine(
+    index: number,
+    composed: string,
+    width: number,
+  ): string | undefined {
+    return width === this.#width && this.#composed[index] === composed
+      ? this.#lines[index]
+      : undefined;
+  }
+
+  /**
    * Retient la barre composée pour les images suivantes.
    *
    * @param model - le modèle de l'image.
    * @param size - dimensions du terminal.
    * @param activity - l'activité lue par la barre.
    * @param lines - les lignes bornées.
+   * @param composed - les mêmes lignes avant bornage.
+   * @param width - la largeur de la barre.
    */
   store(
     model: IFrameModel,
     size: IFrameSize,
     activity: IStatusActivity | undefined,
     lines: readonly string[],
+    composed: readonly string[],
+    width: number,
   ): void {
     this.#status = model.status;
     this.#activity = activity;
@@ -835,6 +868,8 @@ export class StatusBarCache {
     this.#columns = size.columns;
     this.#rows = size.rows;
     this.#lines = lines;
+    this.#composed = composed;
+    this.#width = width;
   }
 }
 

@@ -647,10 +647,22 @@ image.**
   L'image d'après se calcule depuis le modèle, donc elle rend tout ce qui a changé entre-temps,
   sans file d'attente. Un flux sans `once` (un test) ne retient jamais d'image.
 - **Régions sales** (§11) : une image ne recalcule que les régions marquées. Une graduation de la
-  barre ne replie pas le journal ; une touche sans effet ne rebâtit rien.
+  barre ne replie pas le journal ; une touche sans effet ne rebâtit rien. **Mesuré à l'étape 7,
+  non retenu pour le journal** : sur le banc de #896, une graduation de la barre coûtait 241 µs,
+  dont ~6 % hors de la barre (journal compris, ~13 µs) — le repli du journal est déjà en cache
+  par vue. Ce qui coûtait, c'était la barre elle-même : elle se recompose à chaque graduation (ses
+  chiffres changent) et remesurait toutes ses lignes. La région sale s'applique donc À LA LIGNE de
+  la barre (`devFrame.ts#StatusBarCache.fittedLine`) : une ligne recomposée à l'identique, à la
+  même largeur, reprend sa version bornée sans être remesurée — le filet et la marque, presque
+  tout en non-ASCII, ne repassent plus par le segmenteur. Graduation −53 % (A/B entrelacé, 5
+  manches), octets inchangés.
 - **Largeur** : la fonction unique de largeur reste la seule règle, mais compte d'abord le
   préfixe ASCII sans segmenteur et saute les séquences de contrôle sans allouer ; le découpage
-  en graphèmes ne sert qu'au-delà. Gardé seulement si le banc de #896 le montre.
+  en graphèmes ne sert qu'au-delà. Gardé seulement si le banc de #896 le montre. **Livré à
+  l'étape 7** (`textWidth.ts#runWidth`) : dans une tranche mêlée, l'ASCII imprimable compte une
+  colonne sans segmenteur et seuls les morceaux non ASCII sont découpés — chacun avec l'ASCII qui
+  le suit, car un caractère préfixe (Unicode `Prepend`) s'y soude. Même résultat que le découpage
+  entier, prouvé sur 20 000 textes tirés d'un alphabet piégé. Image d'une rafale −17 % à −26 %.
 
 ### 10. Hors du rendu humain, rien ne change
 

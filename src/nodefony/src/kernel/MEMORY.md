@@ -199,7 +199,7 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
     TOUJOURS (molette → flèches), collage, mode brut ; souris CAPTÉE par défaut hors Windows,
     `--mouse` / `NF_DEV_MOUSE=1` sous Windows (`readDevMouseRequest` ; 1000+1002+1006, jamais 1003/1004 ; refusée sous
     Windows si Node < 24.2, `mouseCaptureBlocker`) ; `LEAVE_FULLSCREEN` coupe tous les modes, posés
-    ou non ; images `renderFrame`→`diffFrameScrolled` (journal défilé par `DECSTBM`+`SU`/`SD`, option `paint`) ≤ 1/16 ms, UNE écriture, sortie
+    ou non ; images `renderFrame`→`diffFrameScrolled` (journal défilé par `DECSTBM`+`SU`/`SD`, option `paint` ; barre recomposée ne remesure que ses lignes changées, `StatusBarCache.fittedLine`) ≤ 1/16 ms, UNE écriture, sortie
     synchronisée si vue ; foyers (`addFocus` en tête, `dispatch`) souris (si captée) puis défilement
     (↑↓ et molette captée 3 lignes/cran, PgUp/PgDn, Début, Fin — l'invite prendra Ctrl+P/Ctrl+N)
     puis global (Ctrl+C/Ctrl+D → `onQuit`
@@ -225,7 +225,7 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
     Windows classique (ni ✓⚠ℹ⬢↻➜ ni braille du spinner).
 - Modèle d'écran PUR (ADR-0013 §3, sans terminal, tout testable) : `runtime/textWidth.ts`
   (`visibleWidth` en COLONNES — graphèmes `Intl.Segmenter`, East Asian Width, émoji 2, combinant
-  0, contrôles 0 ; `fitToWidth`, `wrapToWidth` qui referme/rouvre la couleur ; SEULE règle de
+  0, contrôles 0 ; ASCII imprimable compté sans segmenteur, morceau non ASCII découpé AVEC l'ASCII qui suit (`Prepend`) ; `fitToWidth`, `wrapToWidth` qui referme/rouvre la couleur ; SEULE règle de
   largeur, `fitStatus` s'en sert) · `runtime/CircularBuffer.ts` (seul anneau : `at(i)`/`shift()`
   O(1)) · `service/dev/devTranscript.ts` (`DevTranscript` : lignes par couple source/flux,
   découpe sur `Buffer` + `StringDecoder`, `\r` repart de zéro, 10 000 entrées ET 8 Mio, 16 Kio
