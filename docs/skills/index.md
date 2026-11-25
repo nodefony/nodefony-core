@@ -195,7 +195,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "upgrade", "href": "nodefony-upgrade.md",
     "desc": "Monte une application Nodefony vers une nouvelle version du framework sans rien laisser derrière : tous les paquets ensemble et sous le bon canal, puis `nodefony upgrade` pour la documentation des agents, les skills et les fichiers livrés qu'un `npm install` ne refait pas, puis les ruptures…",
-    "meta": "🟢 conforme v1.2.0" }
+    "meta": "🟢 conforme v1.3.2" }
 ]
 ```
 
@@ -242,7 +242,7 @@ source: "docs/skills/index.md"
 | [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 474 | 2 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 357 | 0 | 0 | ✅ |
 | [`nodefony-troubleshoot`](nodefony-troubleshoot.md) | 1.1.0 | 208 | 0 | 1 | ✅ |
-| [`nodefony-upgrade`](nodefony-upgrade.md) | 1.2.0 | 124 | 0 | 0 | ✅ |
+| [`nodefony-upgrade`](nodefony-upgrade.md) | 1.3.2 | 125 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

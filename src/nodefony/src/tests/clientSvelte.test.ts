@@ -484,6 +484,30 @@ describe("noyau client — Svelte", () => {
     expect(off.mock.calls).toEqual(on.mock.calls);
   });
 
+  it("🔴 sans temps réel (realtime: false) : le noyau se pose, nodefony() lève en nommant la cause", () => {
+    const kernel = new NodefonyKernel({
+      realtime: false,
+      browserEvents: false,
+      banner: false,
+    });
+    expect(() => configureNodefony({ kernel })).not.toThrow();
+    expect(nodefonyKernel()).toBe(kernel);
+    // La socket d'un appel précédent ne survit pas : la page n'en a plus.
+    expect(() => nodefony()).toThrow(/aucune socket temps réel/);
+
+    const el = cible();
+    const app = mount(LitValeur, {
+      target: el,
+      props: { source: nodefonyKernelIdentity() },
+    });
+    flushSync();
+    expect(affiche(el)).toBeNull();
+    kernel.setIdentity({ key: "alice" });
+    flushSync();
+    expect(affiche(el)).toEqual({ key: "alice" });
+    void unmount(app);
+  });
+
   it("sans noyau fourni : `null` partout", () => {
     configureNodefony({ client: newClient() });
     expect(nodefonyKernel()).toBeNull();

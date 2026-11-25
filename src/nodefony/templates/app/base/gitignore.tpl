@@ -30,6 +30,11 @@ vite.config.generated.mjs
 # instant : elles se refont, elles ne se versionnent pas.
 tmp/
 
+# Nouvelle version d'un fichier livré que l'application a retouché, posée À
+# CÔTÉ par `nodefony upgrade` (le geste de `.rpmnew`) : un brouillon à
+# comparer à sa copie, puis à supprimer — jamais à versionner.
+*.nodefony-new
+
 # Fichiers d'environnement — la convention Node (celle du .gitignore Node de
 # GitHub) : `.env` porte les valeurs du POSTE, secrets de dev compris, et ne se
 # commite JAMAIS ; seule sa notice `.env.example` est versionnée. Les clés de
