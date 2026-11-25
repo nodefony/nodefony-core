@@ -82,6 +82,8 @@ export interface IFrameStatus {
 export interface IFramePrompt {
   readonly lines: readonly string[];
   readonly cursor: { row: number; column: number };
+  /** Le focus est au journal : l'invite reste dessinée, son curseur masqué. */
+  readonly hidden?: boolean;
 }
 
 /** L'issue d'un onglet dont le travail est fini (un sous-agent) : ✓ ou ✗. */
@@ -1208,7 +1210,7 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
       : highlightRow(fitted, origin, range);
   });
   let cursor: IFrame["cursor"] = null;
-  if (prompt !== null) {
+  if (prompt !== null && prompt.hidden !== true) {
     const top = lines.length - bar.length - promptLines.length;
     const row = top + prompt.cursor.row;
     if (row >= 0 && row < lines.length) {

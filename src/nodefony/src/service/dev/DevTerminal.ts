@@ -141,6 +141,32 @@ export interface IDevPromptOptions {
   readonly actions: readonly IPromptAction[];
 }
 
+/**
+ * Une rafale de flèches identiques (↑ ou ↓, sans modificateur) dans UN
+ * paquet : ce qu'envoie un cran de molette traduit par le terminal.
+ *
+ * @param events - les évènements d'un paquet.
+ * @returns `true` pour au moins deux flèches identiques et rien d'autre.
+ */
+function isArrowBurst(events: readonly InputEvent[]): boolean {
+  if (events.length < 2) return false;
+  let key: string | null = null;
+  for (const event of events) {
+    if (
+      event.kind !== "key" ||
+      event.ctrl ||
+      event.alt ||
+      event.shift ||
+      (event.key !== "up" && event.key !== "down") ||
+      (key !== null && event.key !== key)
+    ) {
+      return false;
+    }
+    key = event.key;
+  }
+  return true;
+}
+
 /** Le canal où l'invite écrit : l'écho de la saisie et la sortie des actions. */
 const PROMPT_CHANNEL = "prompt";
 
@@ -165,6 +191,13 @@ interface IPromptState {
   frameWidth: number;
   /** L'action en cours, qu'un Ctrl+C interrompt. */
   running: AbortController | null;
+  /**
+   * L'invite a le focus : ↑/↓ y parcourent l'historique. Au journal (clic,
+   * molette, PgUp/PgDn), ils le font défiler ; la frappe le rend à l'invite.
+   */
+  focused: boolean;
+  /** Le focus de l'image `frame`. */
+  frameFocused: boolean;
 }
 
 /** Ce que le plein écran exige — rien n'y est deviné. */
@@ -433,6 +466,12 @@ interface IFullscreenState {
   statusBar: StatusBarCache;
   /** La chaîne de foyers, du premier servi au dernier. */
   foci: IInputFocus[];
+  /**
+   * Le paquet en cours est une RAFALE de flèches identiques : un cran de
+   * molette que le terminal a traduit (mode 1007, souris non captée) — une
+   * touche, même répétée, arrive une par paquet.
+   */
+  wheelBurst: boolean;
   releaseGuard: () => void;
 }
 
@@ -841,6 +880,8 @@ export class DevTerminal {
       frame: null,
       frameWidth: -1,
       running: null,
+      focused: true,
+      frameFocused: true,
     };
     this.#prompt = state;
     const focus = this.#promptFocus(full, state);
@@ -1097,6 +1138,7 @@ export class DevTerminal {
       tabViews: [],
       statusBar: new StatusBarCache(),
       foci: [],
+      wheelBurst: false,
       releaseGuard: () => {},
     };
     if (full.mouse) full.foci.push(this.#mouseFocus(full));
@@ -1145,7 +1187,10 @@ export class DevTerminal {
       clearTimeout(full.escapeTimer);
       full.escapeTimer = null;
     }
-    for (const event of full.decoder.feed(chunk)) this.dispatch(event);
+    const events = full.decoder.feed(chunk);
+    full.wheelBurst = isArrowBurst(events);
+    for (const event of events) this.dispatch(event);
+    full.wheelBurst = false;
     // Un Échap seul est indiscernable d'un début de séquence : il attend un
     // court instant sans octet avant d'être rendu.
     if (full.decoder.pending) {
@@ -1513,12 +1558,37 @@ export class DevTerminal {
   #promptFocus(full: IFullscreenState, state: IPromptState): IInputFocus {
     return {
       handle: (event) => {
+        // La souris décide du focus, sans rien consommer : le clic sélectionne
+        // ou montre un onglet comme avant, la molette défile.
+        if (event.kind === "wheel") {
+          this.#setPromptFocus(state, false);
+          return false;
+        }
+        if (event.kind === "mouse") {
+          if (event.action === "press" && event.button === 0) {
+            const origin = full.frame?.origins?.[event.row - 1] ?? null;
+            this.#setPromptFocus(state, origin === null);
+          }
+          return false;
+        }
         if (
           event.kind !== "text" &&
           event.kind !== "paste" &&
           event.kind !== "key"
         ) {
           return false;
+        }
+        if (event.kind === "key" && !event.ctrl && !event.alt) {
+          const arrow = event.key === "up" || event.key === "down";
+          if (arrow && (full.wheelBurst || !state.focused)) {
+            // Un cran de molette traduit, ou le focus au journal : il défile.
+            this.#setPromptFocus(state, false);
+            return false;
+          }
+          if (event.key === "pageup" || event.key === "pagedown") {
+            this.#setPromptFocus(state, false);
+            return false;
+          }
         }
         if (
           event.kind === "key" &&
@@ -1543,12 +1613,21 @@ export class DevTerminal {
           state.history.history.source(this.#active.id),
         );
         if (result === "submit") {
+          this.#setPromptFocus(state, true);
           this.#submit(full, state, editor);
           return true;
         }
         if (result === "changed") {
+          this.#setPromptFocus(state, true);
           this.#scheduleFrame();
           return true;
+        }
+        // Début/Fin sur une invite vide : la navigation du journal.
+        if (
+          event.kind === "key" &&
+          (event.key === "home" || event.key === "end")
+        ) {
+          this.#setPromptFocus(state, false);
         }
         return (
           event.kind === "key" &&
@@ -1560,6 +1639,13 @@ export class DevTerminal {
         );
       },
     };
+  }
+
+  /** Donne le focus à l'invite (`true`) ou au journal ; l'image suit. */
+  #setPromptFocus(state: IPromptState, focused: boolean): void {
+    if (state.focused === focused) return;
+    state.focused = focused;
+    this.#scheduleFrame();
   }
 
   /** L'historique lu (première frappe) : la suggestion est à recalculer. */
@@ -1680,7 +1766,8 @@ export class DevTerminal {
     if (
       state.frame !== null &&
       state.frameSource === drawn &&
-      state.frameWidth === width
+      state.frameWidth === width &&
+      state.frameFocused === state.focused
     ) {
       return state.frame;
     }
@@ -1692,9 +1779,11 @@ export class DevTerminal {
     state.frame = {
       lines,
       cursor: { row: drawn.cursor.row + 1, column: drawn.cursor.column },
+      hidden: !state.focused,
     };
     state.frameSource = drawn;
     state.frameWidth = width;
+    state.frameFocused = state.focused;
     return state.frame;
   }
 

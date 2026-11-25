@@ -300,6 +300,64 @@ describe("plein écran — l'invite (#538)", () => {
     terminal.close();
   });
 
+  it("souris NON captée (iTerm2 sans « mouse reporting ») : un cran de molette — une rafale de flèches — défile le journal, pas l'historique", async () => {
+    const { input, terminal } = prompted();
+    for (let i = 0; i < 40; i++)
+      terminal.ingest("server", "out", `ligne ${i}\n`);
+    input.type("clear" + ENTER);
+    await terminal.flushPrompt();
+    // Un cran traduit par le terminal : trois flèches dans UN paquet.
+    input.type(UP + UP + UP);
+    expect(terminal.anchor).to.not.equal(null);
+    await nextFrame();
+    // La flèche suivante, tapée seule, défile encore : le focus est au journal.
+    const before = terminal.anchor;
+    input.type(UP);
+    expect(terminal.anchor).to.not.deep.equal(before);
+    terminal.close();
+  });
+
+  it("focus : la frappe le rend à l'invite, ↑ y rappelle l'historique ; curseur masqué quand il est au journal", async () => {
+    const { written, input, terminal } = prompted();
+    for (let i = 0; i < 200; i++)
+      terminal.ingest("server", "out", `ligne ${i}\n`);
+    input.type("clear" + ENTER);
+    await terminal.flushPrompt();
+    input.type(PGUP);
+    await nextFrame();
+    const hidden = written.length;
+    input.type(UP);
+    await nextFrame();
+    expect(written.slice(hidden).join("")).to.not.contain("\x1b[?25h");
+    input.type("x");
+    await nextFrame();
+    expect(written.slice(hidden).join("")).to.contain("\x1b[?25h");
+    // Saisie « x » : rien ne la prolonge, ↑ reste à l'invite.
+    input.type(CTRL_C + UP);
+    await nextFrame();
+    expect((await screen(written)).at(-1)).to.equal("❯ clear");
+    terminal.close();
+  });
+
+  it("souris captée : un clic dans le journal y met le focus, un clic sur l'invite l'y rend", async () => {
+    const { written, input, terminal } = prompted(true);
+    for (let i = 0; i < 40; i++)
+      terminal.ingest("server", "out", `ligne ${i}\n`);
+    input.type("clear" + ENTER);
+    await terminal.flushPrompt();
+    await nextFrame();
+    // Clic au milieu du journal, relâché aussitôt.
+    input.type("\x1b[<0;5;5M\x1b[<0;5;5m");
+    input.type(UP);
+    expect(terminal.anchor).to.not.equal(null);
+    // Clic sur la ligne de l'invite (la dernière).
+    input.type(`\x1b[<0;5;${ROWS}M\x1b[<0;5;${ROWS}m`);
+    input.type(UP);
+    await nextFrame();
+    expect((await screen(written)).at(-1)).to.equal("❯ clear");
+    terminal.close();
+  });
+
   it("retirée, l'invite rend la place et les touches au journal", async () => {
     const { input, terminal, detach } = prompted();
     for (let i = 0; i < 40; i++)

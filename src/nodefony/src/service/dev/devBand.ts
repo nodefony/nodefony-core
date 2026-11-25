@@ -68,6 +68,10 @@ export function helpBand(options: {
         keys: ascii ? "haut bas Ctrl+P/N" : "↑ ↓ Ctrl+P/N",
         does: "historique de l'invite",
       },
+      {
+        keys: ascii ? "molette clic PgUp" : "molette · clic · PgUp",
+        does: "focus au journal (↑ ↓ y défilent)",
+      },
       { keys: ascii ? "droite" : "→", does: "accepter la suggestion" },
       { keys: "Alt+Entrée", does: "saut de ligne" },
       { keys: "Ctrl+W Ctrl+U", does: "effacer le mot / la ligne" },
