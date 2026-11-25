@@ -75,7 +75,7 @@ import { DevHistory, type IDevHistoryOptions } from "./devHistory";
 import { DevView, type IDevViewHandle, type IDevViewSpec } from "./devView";
 import { helpBand, type IDevBand } from "./devBand";
 import type { ProcessOutputStream } from "./heldChannel";
-import { CLEAR_SCREEN } from "./outputMode";
+import { CLEAR_SCREEN, type DevPaint } from "./outputMode";
 import {
   renderStatusBar,
   type IRuntimeSample,
@@ -150,9 +150,6 @@ export interface IDevFullscreenOptions {
    */
   paint?: DevPaint;
 }
-
-/** Comment une image passe à l'écran ({@link IDevFullscreenOptions.paint}). */
-export type DevPaint = "scroll" | "diff" | "full";
 
 /** Le clavier du terminal, injectable en test. */
 export interface IDevTerminalInput {

@@ -264,7 +264,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/helpers/redisDecor.ts:8` |
 | `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/helpers/redisDecor.ts:7` |
 | `NF_REDIS_PORT` | `src/nodefony/src/tests/envShortcuts.test.ts:251` |
-| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:102` |
+| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:104` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:588` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/devkit/tests/integration/mcp-http.test.ts:67` |
 | `NF_TLS_CA_FILE` | `src/packages/@nodefony/http/nodefony/tests/unit/httpRegisterTrust.test.ts:62` |

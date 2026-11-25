@@ -29,6 +29,7 @@ import {
   isDebugRequested,
   mouseCaptureBlocker,
   readDevMouseRequest,
+  readDevPaint,
   readDevUiRequest,
   readOutputFlag,
   resolveOutputMode,
@@ -1496,9 +1497,17 @@ export class DevSupervisor {
       }
       return null;
     }
+    const paint = readDevPaint(process.env, process.platform);
+    if (paint.invalid !== null) {
+      this.#out.write(
+        `[dev] NF_DEV_PAINT=${paint.invalid} ignorée : scroll, diff ou full\n`,
+      );
+    }
+    if (paint.reason !== null) this.#out.write(`[dev] ${paint.reason}\n`);
     return {
       input: stdin,
       synchronized: probe.synchronized,
+      paint: paint.paint,
       onQuit: () => void this.#shutdown(),
       // La séquence OSC 52 part sur NOTRE terminal, par `DevTerminal` : une
       // copie qui finit après la sortie du plein écran n'écrit plus rien.

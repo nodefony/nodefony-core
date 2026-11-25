@@ -193,6 +193,15 @@ export const RESERVED_ENV = Object.freeze({
       placement: "workstation",
     },
   },
+  NF_DEV_PAINT: {
+    name: "NF_DEV_PAINT",
+    role: "dessin du plein écran de développement : `scroll` fait défiler le journal par le terminal, `diff` réécrit les lignes changées, `full` repeint toute l'image",
+    tunable: {
+      title: "Dessin du plein écran de développement",
+      defaultNote: "scroll, sauf sous Windows (full, garde-fou ConPTY)",
+      placement: "workstation",
+    },
+  },
   NF_DEV_PORTS: {
     name: "NF_DEV_PORTS",
     role: "ports que le superviseur de développement doit libérer, imposés par l'opérateur",

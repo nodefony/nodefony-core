@@ -21,11 +21,12 @@ import { brandMark } from "../cli/brand";
 import {
   DevTerminal,
   probeTerminal,
-  type DevPaint,
   type IInputFocus,
 } from "../service/dev/DevTerminal";
 import {
   mouseCaptureBlocker,
+  readDevPaint,
+  type DevPaint,
   readDevMouseRequest,
   readDevUiRequest,
 } from "../service/dev/outputMode";
@@ -1697,5 +1698,43 @@ describe("plein écran — le terminal fait défiler le journal (#903, D2)", () 
     const out = stdout.written.join("");
     expect(out.indexOf("\x1b[r")).to.be.greaterThan(-1);
     expect(out.indexOf("\x1b[r")).to.be.lessThan(out.indexOf("\x1b[?1049l"));
+  });
+});
+
+describe("plein écran — le mode de dessin, garde-fou ConPTY (#903, D3)", () => {
+  it("rien demandé : défilement sous macOS et Linux ; sous Windows, image repeinte entière, et c'est DIT", () => {
+    for (const platform of ["darwin", "linux"]) {
+      expect(readDevPaint({}, platform)).to.deep.equal({
+        paint: "scroll",
+        reason: null,
+        invalid: null,
+      });
+    }
+    const windows = readDevPaint({}, "win32");
+    expect(windows.paint).to.equal("full");
+    expect(windows.reason).to.include("ConPTY");
+    expect(windows.reason).to.include("NF_DEV_PAINT=scroll");
+  });
+
+  it("NF_DEV_PAINT l'emporte, Windows compris — c'est la porte du banc à la main", () => {
+    for (const paint of ["scroll", "diff", "full"] as const) {
+      expect(readDevPaint({ NF_DEV_PAINT: paint }, "win32")).to.deep.equal({
+        paint,
+        reason: null,
+        invalid: null,
+      });
+    }
+  });
+
+  it("une valeur qui n'est pas un mode est NOMMÉE, et le défaut s'applique", () => {
+    expect(readDevPaint({ NF_DEV_PAINT: "rapide" }, "linux")).to.deep.equal({
+      paint: "scroll",
+      reason: null,
+      invalid: "rapide",
+    });
+    expect(readDevPaint({ NF_DEV_PAINT: "" }, "linux").invalid).to.equal(null);
+    expect(readDevPaint({ NF_DEV_PAINT: "rapide" }, "win32").paint).to.equal(
+      "full",
+    );
   });
 });

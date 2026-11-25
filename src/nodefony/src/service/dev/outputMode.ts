@@ -228,6 +228,61 @@ export function mouseCaptureBlocker(
 }
 
 /**
+ * Comment une image du plein écran passe au terminal : `"scroll"` fait
+ * défiler la région du journal (`DECSTBM` + `SU`/`SD`) et n'écrit que les
+ * lignes neuves, `"diff"` réécrit les lignes changées, `"full"` repeint
+ * toute l'image (ADR-0013, #903).
+ */
+export type DevPaint = "scroll" | "diff" | "full";
+
+const DEV_PAINTS: readonly DevPaint[] = ["scroll", "diff", "full"];
+
+/** Le mode de dessin retenu, et ce qu'il faut en dire au démarrage. */
+export interface IDevPaintChoice {
+  readonly paint: DevPaint;
+  /** Pourquoi ce n'est pas le défaut, à afficher ; `null` sinon. */
+  readonly reason: string | null;
+  /** La valeur de `NF_DEV_PAINT` qui n'est pas un mode, ou `null`. */
+  readonly invalid: string | null;
+}
+
+/**
+ * Le mode de dessin du plein écran : `NF_DEV_PAINT` (`scroll`, `diff` ou
+ * `full`) l'emporte ; sinon `"full"` sous Windows, `"scroll"` ailleurs.
+ *
+ * ⚠️ Sous Windows, c'est une DÉDUCTION, assumée : Windows Terminal et le
+ * terminal de VS Code passent par ConPTY, où des écritures positionnées
+ * peuvent laisser des fragments (Claude Code le documente et repeint tout).
+ * Rien ne distingue de l'intérieur une console ConPTY d'une autre, et
+ * repeindre est juste partout, seulement plus cher. Le diff y redeviendra le
+ * défaut quand un banc à la main l'aura prouvé — `NF_DEV_PAINT=scroll` sert
+ * à ce banc (ADR-0013, D3).
+ *
+ * @param env - l'environnement.
+ * @param platform - `process.platform`.
+ * @returns le mode, la raison d'un repli, la valeur rejetée.
+ */
+export function readDevPaint(
+  env: Readonly<Record<string, string | undefined>>,
+  platform: string,
+): IDevPaintChoice {
+  const raw = env.NF_DEV_PAINT;
+  const asked = DEV_PAINTS.find((paint) => paint === raw);
+  const invalid =
+    raw === undefined || raw === "" || asked !== undefined ? null : raw;
+  if (asked !== undefined) return { paint: asked, reason: null, invalid };
+  if (platform === "win32") {
+    return {
+      paint: "full",
+      reason:
+        "sous Windows (ConPTY), chaque image est repeinte entière — NF_DEV_PAINT=scroll pour éprouver le défilement",
+      invalid,
+    };
+  }
+  return { paint: "scroll", reason: null, invalid };
+}
+
+/**
  * Efface l'écran VISIBLE et ramène le curseur en haut — l'historique du
  * terminal reste intact : on doit pouvoir remonter dans ce qui a précédé.
  * (`ED 2` + `CUP`, rendus aussi par l'émulation de libuv sous Windows.)

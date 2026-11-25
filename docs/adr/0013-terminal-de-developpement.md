@@ -197,7 +197,11 @@ Les deux surfaces consomment le **même modèle** et rendent la **même** invite
 - **Garde-fou ConPTY** : sous Windows Terminal, des écritures positionnées peuvent laisser des
   fragments — Claude Code le documente et force une repeinte complète. Le plein écran y repeint
   donc toute image au lieu de la différencier, tant qu'un banc à la main n'a pas prouvé le diff.
-  Le plein écran par défaut sous Windows reste conditionné à cette preuve.
+  Le plein écran par défaut sous Windows reste conditionné à cette preuve. Livré à l'étape 6
+  (`outputMode.ts#readDevPaint`) : `"full"` sous Windows, `"scroll"` ailleurs, le repli DIT au
+  démarrage ; `NF_DEV_PAINT` (`scroll`, `diff`, `full`) l'emporte, c'est la porte de ce banc à la
+  main. Une DÉDUCTION assumée : rien ne distingue de l'intérieur une console ConPTY, et repeindre
+  est juste partout, seulement plus cher.
 
 ### 3. Le modèle d'écran est pur — quatre briques, sans terminal
 
