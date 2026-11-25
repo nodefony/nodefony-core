@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/ai",
-  "version": "10.0.2",
+  "version": "10.0.3",
   "description": "Model Context Protocol (MCP) for Nodefony: MCP server, tool collection from modules and access control for AI agents",
   "contributors": [],
   "type": "module",
@@ -43,9 +43,9 @@
     "stability": "experimental"
   },
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.2",
-    "@nodefony/http": "^10.0.2",
-    "nodefony": "^10.0.2",
+    "@nodefony/framework": "^10.0.3",
+    "@nodefony/http": "^10.0.3",
+    "nodefony": "^10.0.3",
     "zod": "^4.6.7"
   },
   "dependencies": {
@@ -53,10 +53,10 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
-    "@nodefony/framework": "^10.0.2",
-    "@nodefony/http": "^10.0.2",
+    "@nodefony/framework": "^10.0.3",
+    "@nodefony/http": "^10.0.3",
     "@types/node": "26.6.7",
-    "nodefony": "^10.0.2",
+    "nodefony": "^10.0.3",
     "vitest": "5.1.1"
   },
   "repository": {
