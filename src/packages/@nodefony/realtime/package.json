@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/realtime",
-  "version": "10.0.2",
+  "version": "10.0.3",
   "nodefony": {
     "configSchema": "./dist/nodefony/config/configSchema.js"
   },
@@ -47,21 +47,21 @@
     "binary-websocket"
   ],
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.2",
-    "@nodefony/http": "^10.0.2",
-    "nodefony": "^10.0.2",
+    "@nodefony/framework": "^10.0.3",
+    "@nodefony/http": "^10.0.3",
+    "nodefony": "^10.0.3",
     "reflect-metadata": "0.2.2",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@nodefony/drizzle": "^10.0.2",
-    "@nodefony/framework": "^10.0.2",
-    "@nodefony/http": "^10.0.2",
-    "@nodefony/orm-core": "^10.0.2",
-    "@nodefony/security": "^10.0.2",
+    "@nodefony/drizzle": "^10.0.3",
+    "@nodefony/framework": "^10.0.3",
+    "@nodefony/http": "^10.0.3",
+    "@nodefony/orm-core": "^10.0.3",
+    "@nodefony/security": "^10.0.3",
     "@types/node": "26.6.7",
     "@vitest/coverage-v8": "5.1.1",
-    "nodefony": "^10.0.2",
+    "nodefony": "^10.0.3",
     "reflect-metadata": "0.2.2",
     "vitest": "5.1.1"
   },
