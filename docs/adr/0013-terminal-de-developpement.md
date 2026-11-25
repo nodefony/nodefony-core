@@ -744,7 +744,9 @@ interface IDevBand {
   un clavier AZERTY, le chiffre exige Maj : le geste est Maj+Option+1 (l'aide le dit). Terminal.app et iTerm2 envoient
   `ESC 1` ; le terminal de VS Code traduit par la position de la touche sur un clavier américain
   et envoie `ESC !` — les symboles `!` à `(` valent donc aussi Alt+1 à Alt+9
-  (`DevTerminal.ts#tabRank`).
+  (`DevTerminal.ts#tabRank`). Sous VS Code, le geste sûr est Option+chiffre SANS Maj (Option+&,
+  Option+é) : Maj+Option+& y tape `´`, un caractère du clavier français que macOS rend avant
+  toute traduction — jamais pris pour un onglet, il appartient à l'invite.
 - **Onglets livrés à l'étape 3** : un onglet est une DONNÉE (`devView.ts#DevView` : son filtre de
   canaux, sa position de lecture, sa page propre, son cache de repli, ce qu'il n'a pas montré),
   jamais une sous-classe. `serveur` est le complément de `vite` (`vite:*`) : aucun canal ne reste
