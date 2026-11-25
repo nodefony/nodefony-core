@@ -3,9 +3,14 @@
  * l'anneau (`devTranscript.ts`) : numérotation commune, recherche par
  * dichotomie, fil fusionné, plafond global qui épargne le petit canal.
  */
+import { setFlagsFromString } from "node:v8";
+import { runInNewContext } from "node:vm";
 import { describe, it, expect } from "vitest";
 import { DevHistory } from "../service/dev/devHistory";
-import { DevTranscript } from "../service/dev/devTranscript";
+import {
+  DevTranscript,
+  transcriptEntryCost,
+} from "../service/dev/devTranscript";
 
 /** Un anneau dont les numéros sautent : 10, 20, 30… */
 function sparse(count: number): DevTranscript {
@@ -116,7 +121,7 @@ describe("DevHistory — un anneau par canal, une numérotation commune", () => 
     const before = h.bytes;
     expect(h.drop("agent:1")).to.equal(true);
     expect(h.channel("agent:1")).to.equal(undefined);
-    expect(h.bytes).to.equal(before - Buffer.byteLength("réponse"));
+    expect(h.bytes).to.equal(before - transcriptEntryCost("réponse"));
     expect(h.drop("agent:1")).to.equal(false);
   });
 
@@ -133,24 +138,64 @@ describe("DevHistory — un anneau par canal, une numérotation commune", () => 
 });
 
 describe("DevHistory — plafond global", () => {
-  const line = (c: string) => `${c.repeat(99)}\n`; // 99 octets retenus
+  const line = (c: string) => `${c.repeat(99)}\n`;
+  const cost = transcriptEntryCost("s".repeat(99)); // mémoire d'une ligne retenue
 
   it("une rafale d'un canal n'évince jamais la pile d'un plus petit", () => {
-    const h = new DevHistory({ maxBytes: 99 * 40 });
+    const h = new DevHistory({ maxBytes: cost * 40 });
     for (let i = 0; i < 5; i++) h.ingest("server", "err", line("s"));
     for (let i = 0; i < 500; i++) h.ingest("vite:default", "out", line("v"));
-    expect(h.bytes).to.be.at.most(99 * 40);
+    expect(h.bytes).to.be.at.most(cost * 40);
     expect(h.channel("server")?.length).to.equal(5);
     expect(h.channel("vite:default")?.length).to.equal(35);
   });
 
   it("le plafond tient quelle que soit la répartition entre canaux", () => {
-    const h = new DevHistory({ maxBytes: 99 * 30 });
+    const h = new DevHistory({ maxBytes: cost * 30 });
     for (let i = 0; i < 300; i++) h.ingest(`run:${i % 7}`, "out", line("r"));
-    expect(h.bytes).to.equal(99 * 30);
+    expect(h.bytes).to.equal(cost * 30);
     let sum = 0;
     for (const c of h.channels()) sum += h.channel(c)?.bytes ?? 0;
     expect(sum).to.equal(h.bytes);
+  });
+
+  // Compter les octets UTF-8 du texte laissait passer la mémoire de l'objet,
+  // de la chaîne et de la case : 100 000 lignes courtes sur dix canaux
+  // retenaient huit fois le plafond (mesuré : 16 Mo pour 2 Mo comptés).
+  it("le plafond borne la MÉMOIRE réellement retenue, lignes courtes sur dix canaux", () => {
+    setFlagsFromString("--expose-gc");
+    const gc = runInNewContext("gc") as () => void;
+    const heap = (): number => {
+      gc();
+      gc();
+      return process.memoryUsage().heapUsed;
+    };
+    const cap = 1024 * 1024;
+    const h = new DevHistory({ maxBytes: cap });
+    const before = heap();
+    for (let i = 0; i < 100_000; i++) {
+      h.ingest(
+        `run:${i % 10}`,
+        "out",
+        `ligne ${String(i).padStart(12, "0")}\n`,
+      );
+    }
+    const retained = heap() - before;
+    expect(h.bytes).to.be.at.most(cap);
+    expect(retained, `${retained} octets retenus`).to.be.below(2 * cap);
+  });
+
+  it("un onClear qui vide l'historique ne fausse pas le compteur", () => {
+    const h: DevHistory = new DevHistory({ onClear: () => h.clear() });
+    h.ingest("server", "out", "avant\n");
+    // Le canal qui efface portait déjà une ligne : son delta, pris avant
+    // l'effacement, rendrait le compteur faux (négatif dans le cas mesuré).
+    h.ingest("vite:default", "out", "déjà là\n");
+    h.ingest("vite:default", "out", "x\x1b[2Jy\n");
+    let sum = 0;
+    for (const c of h.channels()) sum += h.channel(c)?.bytes ?? 0;
+    expect(h.bytes).to.equal(sum);
+    expect(h.bytes).to.be.above(0);
   });
 
   it("le plafond par canal tient sous le plafond global", () => {

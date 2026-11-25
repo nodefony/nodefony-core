@@ -219,8 +219,11 @@ interface ITranscriptEntry {
 // push(…) · at(i) · since(seq) → entrées postérieures · bytes / length
 ```
 
-- **Deux plafonds** : 10 000 entrées ET **8 Mio d'octets** — le second est celui qui compte
-  (10 000 × 16 Kio feraient 160 Mio). Éviction par la tête tant que l'un est dépassé.
+- **Deux plafonds** : 10 000 entrées ET **8 Mio de mémoire** — le second est celui qui compte
+  (10 000 × 16 Kio feraient 160 Mio). Éviction par la tête tant que l'un est dépassé. La mémoire
+  se compte par entrée (`devTranscript.ts#transcriptEntryCost`) : une surcharge fixe (objet, chaîne,
+  case) plus un octet par caractère, deux dès qu'une ligne sort de l'ASCII — compter les octets
+  UTF-8 du texte seul laissait passer huit fois le plafond sur des lignes courtes.
 
 **Amendement #903 (D1, D4) — un anneau PAR CANAL, le canal remplace la source fermée.**
 

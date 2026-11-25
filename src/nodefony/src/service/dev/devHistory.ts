@@ -15,9 +15,29 @@ import {
   type ITranscriptEntry,
 } from "./devTranscript";
 
+/**
+ * Ce qu'un lecteur voit d'un canal : lire, jamais écrire ni vider — toute
+ * écriture passe par {@link DevHistory}, qui tient le plafond global et la
+ * version.
+ */
+export type IChannelReader = Pick<
+  DevTranscript,
+  | "length"
+  | "bytes"
+  | "lastSeq"
+  | "at"
+  | "indexOf"
+  | "countAfter"
+  | "since"
+  | "partial"
+>;
+
 /** Réglages de l'historique par canal. */
 export interface IDevHistoryOptions {
-  /** Octets UTF-8 retenus au plus, TOUS canaux confondus (défaut 8 Mio). */
+  /**
+   * Mémoire retenue au plus, TOUS canaux confondus (défaut 8 Mio) — estimée
+   * par `transcriptEntryCost`.
+   */
   maxBytes?: number;
   /**
    * Plafonds d'UN canal : entrées (défaut 10 000), octets (défaut : le
@@ -56,6 +76,10 @@ export class DevHistory {
   #bytes = 0;
   /** Change à chaque écriture, fermeture ou effacement — ce qu'un lecteur fusionné surveille. */
   #version = 0;
+  /** Change quand un canal s'ouvre ou se ferme — un lecteur fusionné ne refait sa liste qu'alors. */
+  #layout = 0;
+  /** Change à chaque `clear` ou `drop` : une écriture qui en a vu un ne reporte pas son delta. */
+  #resets = 0;
 
   /**
    * @param options - plafonds global et par canal, horloge, effacement.
@@ -72,7 +96,7 @@ export class DevHistory {
     };
   }
 
-  /** Octets UTF-8 retenus, tous canaux confondus. */
+  /** Mémoire retenue, tous canaux confondus. */
   get bytes(): number {
     return this.#bytes;
   }
@@ -88,6 +112,11 @@ export class DevHistory {
    */
   get version(): number {
     return this.#version;
+  }
+
+  /** Change quand un canal s'ouvre ou se ferme. */
+  get layout(): number {
+    return this.#layout;
   }
 
   /** Les canaux ouverts, dans leur ordre d'ouverture. */
@@ -114,7 +143,7 @@ export class DevHistory {
    * @param match - dit si un canal est retenu.
    * @param into - le tableau à remplir.
    */
-  collect(match: (channel: string) => boolean, into: DevTranscript[]): void {
+  collect(match: (channel: string) => boolean, into: IChannelReader[]): void {
     into.length = 0;
     for (const [id, transcript] of this.#channels) {
       if (match(id)) into.push(transcript);
@@ -128,7 +157,7 @@ export class DevHistory {
    * @returns son historique, ou `undefined` s'il n'a jamais rien reçu (ou a
    *   été fermé).
    */
-  channel(channel: string): DevTranscript | undefined {
+  channel(channel: string): IChannelReader | undefined {
     return this.#channels.get(channel);
   }
 
@@ -150,11 +179,13 @@ export class DevHistory {
     if (transcript === undefined) {
       transcript = new DevTranscript(this.#channelOptions);
       this.#channels.set(channel, transcript);
+      this.#layout++;
     }
     const before = transcript.bytes;
+    const resets = this.#resets;
     transcript.ingest(channel, stream, chunk);
     this.#version++;
-    this.#settle(transcript.bytes - before);
+    this.#settle(transcript, before, resets);
   }
 
   /**
@@ -166,8 +197,9 @@ export class DevHistory {
     for (const [id, transcript] of this.#channels) {
       if (channel !== undefined && id !== channel) continue;
       const before = transcript.bytes;
+      const resets = this.#resets;
       transcript.flush();
-      this.#settle(transcript.bytes - before);
+      this.#settle(transcript, before, resets);
     }
     this.#version++;
   }
@@ -184,6 +216,8 @@ export class DevHistory {
     if (transcript === undefined) return false;
     this.#bytes -= transcript.bytes;
     this.#version++;
+    this.#layout++;
+    this.#resets++;
     return this.#channels.delete(channel);
   }
 
@@ -234,19 +268,28 @@ export class DevHistory {
     for (const transcript of this.#channels.values()) transcript.clear();
     this.#bytes = 0;
     this.#version++;
+    this.#resets++;
   }
 
   /**
    * Reporte la variation d'un canal, puis tient le plafond global en
-   * évinçant dans le canal le plus gros.
+   * évinçant dans le canal le plus gros. Un `clear` ou un `drop` survenu
+   * PENDANT l'écriture (un `onClear` qui vide l'historique) a remis le
+   * compteur à zéro sous le delta : il se recompte alors sur les canaux.
    */
-  #settle(delta: number): void {
-    this.#bytes += delta;
+  #settle(transcript: DevTranscript, before: number, resets: number): void {
+    if (resets === this.#resets) {
+      this.#bytes += transcript.bytes - before;
+    } else {
+      let sum = 0;
+      for (const channel of this.#channels.values()) sum += channel.bytes;
+      this.#bytes = sum;
+    }
     while (this.#bytes > this.#maxBytes) {
       let largest: DevTranscript | undefined;
-      for (const transcript of this.#channels.values()) {
-        if (largest === undefined || transcript.bytes > largest.bytes) {
-          largest = transcript;
+      for (const ring of this.#channels.values()) {
+        if (largest === undefined || ring.bytes > largest.bytes) {
+          largest = ring;
         }
       }
       const freed = largest?.evictOldest() ?? 0;
@@ -271,12 +314,21 @@ export class DevHistory {
 export class MergedTranscript {
   readonly #history: DevHistory;
   readonly #match: (channel: string) => boolean;
-  /** Les anneaux retenus, rafraîchis quand l'historique change. */
-  readonly #rings: DevTranscript[] = [];
-  /** Par anneau, l'index de la première entrée à la position `#position` ou après. */
-  #heads: number[] = [];
+  /** Les anneaux retenus, rafraîchis quand un canal s'ouvre ou se ferme. */
+  readonly #rings: IChannelReader[] = [];
+  /**
+   * Par anneau, l'index de la première entrée à la position `#position` ou
+   * après — entiers denses, dix au plus : `Int32Array`.
+   */
+  #heads = new Int32Array(0);
   #position = 0;
   #version = -1;
+  #layout = -1;
+  /** Longueur et dernier numéro, recalculés une fois par mutation, pas par lecture. */
+  #length = 0;
+  #lastSeq = 0;
+  /** L'anneau seul quand la vue n'en lit qu'un : lu en direct, sans curseur. */
+  #single: IChannelReader | null = null;
 
   /**
    * @param history - l'historique lu.
@@ -290,18 +342,13 @@ export class MergedTranscript {
   /** Nombre d'entrées retenues, tous canaux fusionnés. */
   get length(): number {
     this.#sync();
-    let length = 0;
-    for (const ring of this.#rings) length += ring.length;
-    return length;
+    return this.#length;
   }
 
   /** Numéro de la dernière entrée écrite dans l'un des canaux fusionnés. */
   get lastSeq(): number {
     this.#sync();
-    let last = 0;
-    for (const ring of this.#rings)
-      if (ring.lastSeq > last) last = ring.lastSeq;
-    return last;
+    return this.#lastSeq;
   }
 
   /**
@@ -311,9 +358,22 @@ export class MergedTranscript {
    * @returns l'entrée, ou `undefined` hors bornes.
    */
   at(index: number): ITranscriptEntry | undefined {
-    const length = this.length;
+    this.#sync();
+    if (this.#single !== null) return this.#single.at(index);
+    const length = this.#length;
     const i = index < 0 ? length + index : index;
     if (!Number.isInteger(i) || i < 0 || i >= length) return undefined;
+    // Le pas arrière (une image se lit de la fin vers le haut) trouve
+    // l'entrée en reculant : la rendre, sans rebalayer les têtes.
+    if (i === this.#position - 1) {
+      const back = this.#largestBeforeHead();
+      if (back !== -1) {
+        const head = (this.#heads[back] ?? 0) - 1;
+        this.#heads[back] = head;
+        this.#position = i;
+        return this.#rings[back]?.at(head);
+      }
+    }
     this.#moveTo(i, length);
     const ring = this.#smallestHead();
     return ring === -1
@@ -329,6 +389,7 @@ export class MergedTranscript {
    */
   indexOf(seq: number): number {
     this.#sync();
+    if (this.#single !== null) return this.#single.indexOf(seq);
     let found = false;
     for (const ring of this.#rings) {
       if (ring.indexOf(seq) !== -1) {
@@ -362,17 +423,33 @@ export class MergedTranscript {
     return count;
   }
 
-  /** Rafraîchit les anneaux et périme le curseur si l'historique a changé. */
+  /**
+   * Périme le curseur si l'historique a changé ; ne refait la liste des
+   * anneaux que si un canal s'est ouvert ou fermé.
+   */
   #sync(): void {
     const version = this.#history.version;
     if (version === this.#version) return;
     this.#version = version;
-    this.#history.collect(this.#match, this.#rings);
-    if (this.#heads.length !== this.#rings.length) {
-      this.#heads = new Array<number>(this.#rings.length);
+    const layout = this.#history.layout;
+    if (layout !== this.#layout) {
+      this.#layout = layout;
+      this.#history.collect(this.#match, this.#rings);
+      if (this.#heads.length !== this.#rings.length) {
+        this.#heads = new Int32Array(this.#rings.length);
+      }
+      this.#single = this.#rings.length === 1 ? (this.#rings[0] ?? null) : null;
     }
     this.#heads.fill(0);
     this.#position = 0;
+    let length = 0;
+    let last = 0;
+    for (const ring of this.#rings) {
+      length += ring.length;
+      if (ring.lastSeq > last) last = ring.lastSeq;
+    }
+    this.#length = length;
+    this.#lastSeq = last;
   }
 
   /** Amène le curseur à `target`, depuis la position, le début ou la fin. */

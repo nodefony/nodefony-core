@@ -56,7 +56,7 @@ export interface ITranscriptEntry {
   readonly stream: ProcessOutputStream;
   /** UNE ligne, assainie, sans `\n`, bornée (cf `maxEntryBytes`). */
   readonly text: string;
-  /** `Date.now()` à la réception de la fin de ligne. */
+  /** `Date.now()` à la réception du paquet qui a fini la ligne. */
   readonly at: number;
 }
 
@@ -64,7 +64,10 @@ export interface ITranscriptEntry {
 export interface IDevTranscriptOptions {
   /** Nombre maximal d'entrées retenues (défaut 10 000). */
   maxEntries?: number;
-  /** Octets UTF-8 retenus au plus, toutes entrées confondues (défaut 8 Mio). */
+  /**
+   * Mémoire retenue au plus, toutes entrées confondues (défaut 8 Mio) —
+   * estimée par {@link transcriptEntryCost}, pas comptée en octets UTF-8.
+   */
   maxBytes?: number;
   /** Octets UTF-8 au plus par entrée, au-delà tronquée avec marque (défaut 16 Kio). */
   maxEntryBytes?: number;
@@ -84,6 +87,32 @@ export interface IDevTranscriptOptions {
 
 /** Cases de l'anneau allouées d'emblée ; il double ensuite à la demande. */
 const INITIAL_SLOTS = 64;
+
+/**
+ * Ce qu'une entrée retient AU-DELÀ de ses caractères : l'objet, la chaîne
+ * aplatie et sa tranche, la case de l'anneau. Mesuré sous V8 (100 000
+ * entrées) : 141 à 147 octets selon la longueur.
+ */
+const ENTRY_OVERHEAD = 144;
+
+/**
+ * Mémoire qu'une ligne retient une fois dans l'historique — ce que le plafond
+ * `maxBytes` compte. V8 range une chaîne sur un octet par caractère, ou sur
+ * deux dès qu'un caractère sort de Latin-1 (`✓`, `—`, cadres) : compter les
+ * octets UTF-8 sous-estimait la mémoire de trois à huit fois. Une ligne qui
+ * n'est pas en ASCII est comptée sur deux octets par caractère — majorant pour
+ * le Latin-1 accentué, exact au-delà.
+ *
+ * @param text - la ligne, assainie.
+ * @returns les octets estimés.
+ */
+export function transcriptEntryCost(text: string): number {
+  const length = text.length;
+  return (
+    ENTRY_OVERHEAD +
+    (Buffer.byteLength(text, "utf8") === length ? length : 2 * length)
+  );
+}
 
 /** Ce qui remplace la fin d'une ligne trop longue. */
 export const TRUNCATION_MARK = " … [ligne tronquée]";
@@ -144,6 +173,9 @@ function keptSequenceEnd(text: string, index: number): number {
     : -1;
 }
 
+/** Les contrôles C0 et C1 autres que `ESC`, `\r` et `\n` — tabulation comprise. */
+const OTHER_CONTROL = /[\x00-\x09\x0b\x0c\x0e-\x1a\x1c-\x1f\x7f-\x9f]/;
+
 /**
  * Assainit un texte destiné au terminal : garde les couleurs, l'effacement
  * de ligne et les hyperliens `http`/`https`/`file` ; retire tout le reste —
@@ -156,6 +188,23 @@ function keptSequenceEnd(text: string, index: number): number {
  * @returns le texte sans aucune séquence qui piloterait le terminal.
  */
 export function sanitizeTerminalText(text: string): string {
+  // Voie rapide, la plus fréquente : aucun contrôle hors `ESC`, et chaque
+  // `ESC` ouvre une couleur ou un effacement de ligne gardés — le texte
+  // revient tel quel, sans boucle par caractère (−10 % sur une rafale, mesuré).
+  if (!OTHER_CONTROL.test(text)) {
+    let escape = text.indexOf("\x1b");
+    while (escape !== -1) {
+      const end = keptSequenceEnd(text, escape);
+      if (end === -1) return sanitizeSlow(text);
+      escape = text.indexOf("\x1b", end);
+    }
+    return text;
+  }
+  return sanitizeSlow(text);
+}
+
+/** {@link sanitizeTerminalText}, caractère par caractère. */
+function sanitizeSlow(text: string): string {
   let out = "";
   let start = 0;
   for (let i = 0; i < text.length; i++) {
@@ -201,6 +250,41 @@ interface IPendingLine {
   carriageReturn: boolean;
 }
 
+/**
+ * Une entrée retenue : forme fixe, déclarée au constructeur, et son coût
+ * mémoire en champ PRIVÉ — ni sérialisé, ni visible des lecteurs, qui ne
+ * voient qu'un {@link ITranscriptEntry}.
+ */
+class TranscriptEntry implements ITranscriptEntry {
+  readonly seq: number;
+  readonly channel: string;
+  readonly stream: ProcessOutputStream;
+  readonly text: string;
+  readonly at: number;
+  readonly #cost: number;
+
+  constructor(
+    seq: number,
+    channel: string,
+    stream: ProcessOutputStream,
+    text: string,
+    at: number,
+    cost: number,
+  ) {
+    this.seq = seq;
+    this.channel = channel;
+    this.stream = stream;
+    this.text = text;
+    this.at = at;
+    this.#cost = cost;
+  }
+
+  /** Le coût mémoire retenu pour une entrée (cf {@link transcriptEntryCost}). */
+  static cost(entry: TranscriptEntry): number {
+    return entry.#cost;
+  }
+}
+
 let encoder: TextEncoder | null = null;
 let scratch: Uint8Array | null = null;
 
@@ -224,10 +308,10 @@ function cutToBytes(text: string, maxBytes: number): string {
  * L'historique borné d'un terminal de développement — un anneau.
  *
  * Coût : un objet par ligne logique, rien par paquet reçu au-delà des
- * tranches décodées ; l'éviction est en O(1) par entrée (anneau), et l'anneau
- * part de {@link INITIAL_SLOTS} cases. La taille d'une entrée n'est pas
- * retenue : elle se recompte à son éviction, une fois dans sa vie — un second
- * anneau de nombres coûterait autant de cases que le premier.
+ * tranches décodées et d'UNE lecture d'horloge ; l'éviction est en O(1) par
+ * entrée (anneau), et l'anneau part de {@link INITIAL_SLOTS} cases. Le coût
+ * mémoire d'une entrée est retenu DANS l'entrée (champ privé) : le recompter
+ * à l'éviction relisait la chaîne une seconde fois.
  *
  * Les numéros (`seq`) croissent mais ne se suivent pas forcément quand
  * plusieurs anneaux partagent la numérotation ({@link IDevTranscriptOptions.nextSeq}) :
@@ -241,7 +325,7 @@ export class DevTranscript {
   readonly #now: () => number;
   readonly #nextSeq: () => number;
   readonly #onClear: ((channel: string) => void) | null;
-  readonly #ring: CircularBuffer<ITranscriptEntry>;
+  readonly #ring: CircularBuffer<TranscriptEntry>;
   /** Lignes en cours, par couple (canal, flux) — une dizaine de clés au plus. */
   readonly #pending: Record<string, IPendingLine> = Object.create(
     null,
@@ -249,6 +333,8 @@ export class DevTranscript {
   #bytes = 0;
   /** Numéro de la dernière entrée écrite DANS cet anneau. */
   #lastSeq = 0;
+  /** L'heure du paquet en cours, lue à sa première ligne finie ; `-1` = pas encore lue. */
+  #stamp = -1;
 
   /**
    * @param options - plafonds, horloge, numérotation, et qui prévenir d'un
@@ -266,7 +352,7 @@ export class DevTranscript {
       this.#nextSeq = () => ++seq;
     }
     this.#onClear = options.onClear ?? null;
-    this.#ring = new CircularBuffer<ITranscriptEntry>(
+    this.#ring = new CircularBuffer<TranscriptEntry>(
       this.#maxEntries,
       INITIAL_SLOTS,
     );
@@ -293,7 +379,7 @@ export class DevTranscript {
     return this.#ring.length;
   }
 
-  /** Octets UTF-8 retenus, toutes entrées confondues. */
+  /** Mémoire retenue, toutes entrées confondues (cf {@link transcriptEntryCost}). */
   get bytes(): number {
     return this.#bytes;
   }
@@ -374,6 +460,7 @@ export class DevTranscript {
     chunk: Buffer | Uint8Array | string,
   ): void {
     const pending = this.#pendingOf(channel, stream);
+    this.#stamp = -1;
     if (typeof chunk === "string") {
       let start = 0;
       let nl = chunk.indexOf("\n");
@@ -409,6 +496,7 @@ export class DevTranscript {
    * @param channel - le canal à terminer ; tous si absent.
    */
   flush(channel?: string): void {
+    this.#stamp = -1;
     for (const key of Object.keys(this.#pending)) {
       const pending = this.#pending[key];
       if (!pending) continue;
@@ -423,14 +511,14 @@ export class DevTranscript {
    * Évince l'entrée la plus ancienne — pour un plafond tenu au-dessus de
    * l'anneau (le plafond global de `DevHistory`).
    *
-   * @returns les octets libérés, `0` si l'anneau est vide.
+   * @returns la mémoire libérée, `0` si l'anneau est vide.
    */
   evictOldest(): number {
     const entry = this.#ring.shift();
     if (entry === undefined) return 0;
-    const size = Buffer.byteLength(entry.text, "utf8");
-    this.#bytes -= size;
-    return size;
+    const cost = TranscriptEntry.cost(entry);
+    this.#bytes -= cost;
+    return cost;
   }
 
   /** Vide l'historique et les lignes en cours ; la numérotation continue. */
@@ -499,7 +587,8 @@ export class DevTranscript {
     // Un `\r` final ne sait pas encore s'il précède `\n` : il attend.
     const trailing = text.endsWith("\r");
     if (trailing) text = text.slice(0, -1);
-    const cr = text.lastIndexOf("\r");
+    // `lastIndexOf` est lent sous V8 ; `includes` dit d'abord s'il y a lieu.
+    const cr = text.includes("\r") ? text.lastIndexOf("\r") : -1;
     if (pending.carriageReturn || cr !== -1) {
       pending.text = "";
       pending.truncated = false;
@@ -531,26 +620,30 @@ export class DevTranscript {
     // la tranche — une copie, là où un aller-retour par un tampon en faisait
     // deux et allouait le tampon.
     const text = (" " + sanitizeTerminalText(pending.text)).slice(1);
-    const size = Buffer.byteLength(text, "utf8");
+    const cost = transcriptEntryCost(text);
     pending.text = "";
     pending.truncated = false;
     pending.carriageReturn = false;
     while (
       this.#ring.length > 0 &&
       (this.#ring.length >= this.#maxEntries ||
-        this.#bytes + size > this.#maxBytes)
+        this.#bytes + cost > this.#maxBytes)
     ) {
       this.evictOldest();
     }
     const seq = this.#nextSeq();
     this.#lastSeq = seq;
-    this.#ring.push({
-      seq,
-      channel: pending.channel,
-      stream: pending.stream,
-      text,
-      at: this.#now(),
-    });
-    this.#bytes += size;
+    if (this.#stamp === -1) this.#stamp = this.#now();
+    this.#ring.push(
+      new TranscriptEntry(
+        seq,
+        pending.channel,
+        pending.stream,
+        text,
+        this.#stamp,
+        cost,
+      ),
+    );
+    this.#bytes += cost;
   }
 }
