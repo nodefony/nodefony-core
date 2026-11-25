@@ -577,3 +577,62 @@ describe("renderFrame — la vue unique lit les canaux fusionnés", () => {
     }
   });
 });
+
+describe("renderFrame — la ligne d'onglets (#903)", () => {
+  const tabs = {
+    active: 0,
+    items: [
+      { title: "serveur", unseen: 0, alert: false },
+      { title: "vite", unseen: 5, alert: false },
+    ],
+  };
+  const size = { columns: 40, rows: 10 };
+
+  it("en bas, sous le journal qui perd une ligne ; ses colonnes disent quel onglet un clic vise", () => {
+    const t = transcriptOf(range(30));
+    const frame = renderFrame(model(t, { status: null, tabs }), size);
+    expect(frame.lines).to.have.length(10);
+    expect(frame.tabs?.row).to.equal(9);
+    expect(frame.lines[9]).to.equal("[1 serveur] 2 vite ·5 ");
+    expect(frame.lines[8]).to.equal("l30");
+    expect(frame.origins?.[9]).to.equal(null);
+    expect(frame.tabs?.spans).to.deep.equal([
+      { start: 0, end: 11 },
+      { start: 11, end: 22 },
+    ]);
+    expect(frameJournalRows(model(t, { status: null, tabs }), size)).to.equal(
+      9,
+    );
+    expect(frameJournalRows(model(t, { status: null }), size)).to.equal(10);
+  });
+
+  it("en couleur : l'actif en vidéo inverse, le compteur caché en gras, rouge sur une erreur", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        color: true,
+        tabs: {
+          active: 1,
+          items: [
+            { title: "serveur", unseen: 2, alert: true },
+            { title: "vite", unseen: 0, alert: false },
+          ],
+        },
+      }),
+      size,
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      " 1 serveur\x1b[1;31m ·2\x1b[0m \x1b[7m 2 vite \x1b[0m",
+    );
+  });
+
+  it("trop bas pour tout : la barre gagne, la ligne d'onglets part avant elle", () => {
+    const frame = renderFrame(model(transcriptOf(range(3)), { tabs }), {
+      columns: 40,
+      rows: 1,
+    });
+    expect(frame.lines).to.have.length(1);
+    expect(frame.tabs).to.equal(undefined);
+    expect(frame.lines.join("\n")).to.not.include("serveur");
+  });
+});

@@ -22,14 +22,16 @@
  * l'historique natif : l'écran alternatif est redessiné par IMAGES
  * (`renderFrame` → `diffFrame`), au plus une toutes les 16 ms, chacune en UNE
  * écriture. Le clavier passe en mode brut ; ses évènements traversent une
- * chaîne de foyers (§4) — défilement, puis global (Ctrl+C, Ctrl+D).
+ * chaîne de foyers (§4) — défilement, puis global (Ctrl+C, Ctrl+D, Alt+1 à
+ * Alt+9). L'écran montre un ONGLET à la fois (§11, #903) : `serveur` (tout
+ * sauf Vite) et `vite` (`vite:*`) ; la ligne d'onglets n'apparaît que quand
+ * le second a quelque chose à montrer.
  */
 import { StringDecoder } from "node:string_decoder";
 import { BRAILLE_FRAMES, LINE_FRAMES } from "../../cli/progress";
 import { isIncompleteControlSequence } from "../../runtime/textWidth";
 import { guardTerminal } from "../../runtime/terminalGuard";
 import {
-  FrameHeights,
   StatusBarCache,
   diffFrame,
   frameJournalRows,
@@ -40,6 +42,7 @@ import {
   type IFrame,
   type IFrameModel,
   type IFrameSize,
+  type IFrameTabs,
   type IScrollAnchor,
 } from "./devFrame";
 import {
@@ -66,11 +69,8 @@ import {
   sanitizeTerminalText,
   type ITranscriptEntry,
 } from "./devTranscript";
-import {
-  DevHistory,
-  type IDevHistoryOptions,
-  type MergedTranscript,
-} from "./devHistory";
+import { DevHistory, type IDevHistoryOptions } from "./devHistory";
+import { DevView } from "./devView";
 import type { ProcessOutputStream } from "./heldChannel";
 import { CLEAR_SCREEN } from "./outputMode";
 import {
@@ -221,6 +221,11 @@ function spinnerFrame(charset: ScreenCharset): string {
   );
 }
 
+/** Avec Alt, une touche de 1 à 9 montre l'onglet de ce rang. */
+function isTabKey(key: string): boolean {
+  return key.length === 1 && key >= "1" && key <= "9";
+}
+
 /** Délai entre deux clics au même endroit pour un double (ou triple) clic. */
 const MULTI_CLICK_MS = 400;
 
@@ -341,10 +346,9 @@ interface IFullscreenState {
   lastFrameAt: number;
   /** L'image à l'écran — `null` : tout redessiner. */
   frame: IFrame | null;
-  heights: FrameHeights;
+  /** Les onglets de la ligne à l'écran, dans son ordre — ce qu'un clic vise. */
+  tabViews: readonly DevView[];
   statusBar: StatusBarCache;
-  anchor: IScrollAnchor | null;
-  floorSeq: number | undefined;
   /** La chaîne de foyers, du premier servi au dernier. */
   foci: IInputFocus[];
   releaseGuard: () => void;
@@ -379,9 +383,17 @@ interface IEchoState {
   carry: string;
 }
 
-/** La vue unique montre tous les canaux. */
-function everyChannel(): boolean {
-  return true;
+/** Les services Vite : leur onglet (ADR-0013 §11, N4). */
+function isVite(channel: string): boolean {
+  return channel.startsWith("vite:");
+}
+
+/**
+ * Tout le reste — serveur, superviseur, autres services portés : l'onglet
+ * `serveur` est le complément des autres, aucun canal ne reste sans onglet.
+ */
+function isNotVite(channel: string): boolean {
+  return !channel.startsWith("vite:");
 }
 
 /**
@@ -398,11 +410,13 @@ export class DevTerminal {
   readonly #version: string | null;
   /** L'historique, un anneau par canal. */
   readonly #history: DevHistory;
-  /**
-   * Ce que montre la vue unique : TOUS les canaux fusionnés, comme l'écran
-   * d'avant les onglets (ADR-0013 §11, #903) — les onglets le scinderont.
-   */
-  readonly #screen: MergedTranscript;
+  /** Les onglets, dans leur ordre ; le premier (`serveur`) est toujours montré. */
+  readonly #views: readonly DevView[];
+  /** L'onglet à l'écran. */
+  #active: DevView;
+  /** Les onglets montrés, rebâtis seulement quand leur ensemble change. */
+  #shown: DevView[] = [];
+  #shownMask = -1;
   readonly #status: StatusLine;
   /** États d'affichage par couple (canal, flux) — une dizaine de clés au plus. */
   readonly #echo: Record<string, IEchoState> = Object.create(null) as Record<
@@ -439,7 +453,9 @@ export class DevTerminal {
     this.#project = options.project ?? null;
     this.#version = options.version ?? null;
     this.#history = new DevHistory(options.history);
-    this.#screen = this.#history.merge(everyChannel);
+    const server = new DevView(this.#history, "server", "serveur", isNotVite);
+    this.#views = [server, new DevView(this.#history, "vite", "vite", isVite)];
+    this.#active = server;
     // Les DEUX flux sont surveillés : une écriture sur la sortie d'erreur
     // efface aussi la barre avant elle, sinon elle s'y collerait.
     this.#status = new StatusLine(
@@ -460,9 +476,14 @@ export class DevTerminal {
     return this.#surface;
   }
 
-  /** L'ancre du journal en plein écran, `null` en direct. */
+  /** L'ancre du journal de l'onglet à l'écran, `null` en direct. */
   get anchor(): IScrollAnchor | null {
-    return this.#full?.anchor ?? null;
+    return this.#full === null ? null : this.#active.anchor;
+  }
+
+  /** L'onglet à l'écran (`server`, `vite`). */
+  get activeView(): string {
+    return this.#active.id;
   }
 
   /** La phase courante du serveur. */
@@ -663,7 +684,10 @@ export class DevTerminal {
   clear(): void {
     if (this.#closed) return;
     if (this.#full) {
-      this.#full.floorSeq = this.#screen.lastSeq;
+      // La page propre est celle de l'onglet qui montre le serveur.
+      for (const view of this.#views) {
+        if (view.match("server")) view.floorSeq = view.transcript.lastSeq;
+      }
       this.#scheduleFrame();
       return;
     }
@@ -776,6 +800,12 @@ export class DevTerminal {
     if (segment.length === 0) return;
     this.#history.ingest(channel, stream, segment);
     if (this.#full) {
+      // Une erreur dans un onglet caché : son compteur passe au rouge.
+      if (stream === "err") {
+        for (const view of this.#views) {
+          if (view !== this.#active && view.match(channel)) view.alert = true;
+        }
+      }
       this.#scheduleFrame();
       return;
     }
@@ -843,10 +873,8 @@ export class DevTerminal {
       frameTimer: null,
       lastFrameAt: 0,
       frame: null,
-      heights: new FrameHeights(),
+      tabViews: [],
       statusBar: new StatusBarCache(),
-      anchor: null,
-      floorSeq: undefined,
       foci: [],
       releaseGuard: () => {},
     };
@@ -919,6 +947,11 @@ export class DevTerminal {
         if (event.kind !== "mouse") return false;
         if (event.button !== 0) return true;
         if (event.action === "press") {
+          const tab = this.#tabAt(full, event.row, event.column);
+          if (tab !== null) {
+            this.#selectView(full, tab);
+            return true;
+          }
           // Un clic hors du journal (barre, indicateur) ne vise aucune ligne.
           const point = this.#pointAt(full, event.row, event.column, true);
           const now = Date.now();
@@ -987,7 +1020,7 @@ export class DevTerminal {
     }
     const range = this.#range(full);
     if (range === null) return;
-    const text = extractSelection(this.#screen, range);
+    const text = extractSelection(this.#active.transcript, range);
     if (text.length === 0) return;
     this.#copyText(full, text);
   }
@@ -1118,9 +1151,10 @@ export class DevTerminal {
       this.#stopEdge(full);
       return;
     }
-    const before = full.anchor;
+    const view = this.#active;
+    const before = view.anchor;
     this.#scrollBy(full, edge.direction * EDGE_LINES);
-    if (full.anchor === before) {
+    if (view.anchor === before) {
       // Bout de l'historique : plus rien à faire défiler. Le prochain
       // glisser au bord réarme.
       this.#stopEdge(full);
@@ -1169,20 +1203,95 @@ export class DevTerminal {
     };
   }
 
-  /** Foyer global : Ctrl+C et Ctrl+D demandent l'arrêt au propriétaire. */
+  /**
+   * Foyer global : Ctrl+C et Ctrl+D demandent l'arrêt au propriétaire ;
+   * Alt+1 à Alt+9 montrent l'onglet de ce rang (`Ctrl+Tab` n'atteint pas
+   * l'application dans la plupart des terminaux).
+   */
   #globalFocus(full: IFullscreenState): IInputFocus {
     return {
       handle: (event) => {
-        if (
-          event.kind === "key" &&
-          event.ctrl &&
-          (event.key === "c" || event.key === "d")
-        ) {
+        if (event.kind !== "key") return false;
+        if (event.ctrl && (event.key === "c" || event.key === "d")) {
           full.onQuit();
+          return true;
+        }
+        if (event.alt && !event.ctrl && isTabKey(event.key)) {
+          const view = this.#shownViews()[Number(event.key) - 1];
+          if (view !== undefined) this.#selectView(full, view);
           return true;
         }
         return false;
       },
+    };
+  }
+
+  /**
+   * Montre un onglet. Celui qu'on quitte garde sa position de lecture et
+   * compte ce que sa dernière image n'a pas montré ; la sélection, faite sur
+   * l'autre texte, est effacée.
+   */
+  #selectView(full: IFullscreenState, view: DevView): void {
+    if (view === this.#active) return;
+    this.#active = view;
+    full.selecting = false;
+    this.#stopEdge(full);
+    full.selection = null;
+    full.range = null;
+    this.#scheduleFrame();
+  }
+
+  /** L'onglet sous un point de l'écran (depuis 1), lu sur l'image affichée. */
+  #tabAt(full: IFullscreenState, row: number, column: number): DevView | null {
+    const tabs = full.frame?.tabs;
+    if (tabs?.row !== row - 1) return null;
+    for (let i = 0; i < tabs.spans.length; i++) {
+      const span = tabs.spans[i];
+      if (
+        span !== undefined &&
+        column - 1 >= span.start &&
+        column - 1 < span.end
+      ) {
+        return full.tabViews[i] ?? null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Les onglets montrés : `serveur` toujours, l'actif, et tout onglet qui a
+   * quelque chose à montrer. Le tableau n'est rebâti que quand cet ensemble
+   * change — une image le lit, une touche de défilement aussi.
+   */
+  #shownViews(): readonly DevView[] {
+    let mask = 0;
+    for (let i = 0; i < this.#views.length; i++) {
+      const view = this.#views[i];
+      if (
+        view !== undefined &&
+        (i === 0 || view === this.#active || view.transcript.length > 0)
+      ) {
+        mask |= 1 << i;
+      }
+    }
+    if (mask !== this.#shownMask) {
+      this.#shownMask = mask;
+      this.#shown = this.#views.filter((_, i) => (mask & (1 << i)) !== 0);
+    }
+    return this.#shown;
+  }
+
+  /** La ligne d'onglets de l'image — `null` quand un seul est montré. */
+  #tabs(views: readonly DevView[]): IFrameTabs | null {
+    if (views.length < 2) return null;
+    const active = this.#active;
+    return {
+      active: views.indexOf(active),
+      items: views.map((view) =>
+        view === active
+          ? { title: view.title, unseen: 0, alert: false }
+          : { title: view.title, unseen: view.unseen, alert: view.alert },
+      ),
     };
   }
 
@@ -1192,7 +1301,8 @@ export class DevTerminal {
   }
 
   #setAnchor(full: IFullscreenState, anchor: IScrollAnchor | null): void {
-    const before = full.anchor;
+    const view = this.#active;
+    const before = view.anchor;
     if (
       before === anchor ||
       (before !== null &&
@@ -1202,12 +1312,16 @@ export class DevTerminal {
     ) {
       return;
     }
-    full.anchor = anchor;
+    view.anchor = anchor;
     this.#scheduleFrame();
   }
 
-  /** Ce que l'image lit. */
-  #model(full: IFullscreenState): IFrameModel {
+  /** Ce que l'image lit : l'onglet à l'écran, la barre, la ligne d'onglets. */
+  #model(
+    full: IFullscreenState,
+    views: readonly DevView[] = this.#shownViews(),
+  ): IFrameModel {
+    const view = this.#active;
     // Avant le premier bilan du serveur (un build peut durer), la barre dit
     // déjà la phase : un écran alternatif vide ressemble à un programme figé.
     const context =
@@ -1221,8 +1335,8 @@ export class DevTerminal {
             ...(this.#version === null ? {} : { version: this.#version }),
           });
     return {
-      transcript: this.#screen,
-      anchor: full.anchor,
+      transcript: view.transcript,
+      anchor: view.anchor,
       status:
         context === null
           ? null
@@ -1249,13 +1363,16 @@ export class DevTerminal {
       color: this.#color,
       charset: this.#charset,
       mark: this.#mark,
-      heights: full.heights,
+      heights: view.heights,
       statusBar: full.statusBar,
-      ...(full.floorSeq === undefined ? {} : { floorSeq: full.floorSeq }),
+      ...(view.floorSeq === undefined ? {} : { floorSeq: view.floorSeq }),
       // L'indicateur de build du superviseur se réécrit sur place, sans fin
       // de ligne : sans lui, un long build laissait l'écran figé.
-      partial:
-        this.#history.channel("supervisor")?.partial("supervisor", "out") ?? "",
+      partial: view.match("supervisor")
+        ? (this.#history.channel("supervisor")?.partial("supervisor", "out") ??
+          "")
+        : "",
+      tabs: this.#tabs(views),
       selection:
         full.selection === null ||
         (full.selection.unit === "char" && !full.dragged)
@@ -1275,7 +1392,7 @@ export class DevTerminal {
     if (full.range?.of !== selection) {
       full.range = {
         of: selection,
-        value: selectionRange(selection, this.#screen),
+        value: selectionRange(selection, this.#active.transcript),
       };
     }
     return full.range.value;
@@ -1314,10 +1431,13 @@ export class DevTerminal {
   #drawFrame(full: IFullscreenState): void {
     if (this.#full !== full) return;
     full.lastFrameAt = Date.now();
-    const frame = renderFrame(this.#model(full), this.#size());
+    const views = this.#shownViews();
+    const frame = renderFrame(this.#model(full, views), this.#size());
     const previous = full.frame;
     const changes = diffFrame(previous, frame);
     full.frame = frame;
+    full.tabViews = views;
+    this.#active.markSeen();
     const sameCursor =
       previous !== null &&
       (previous.cursor === frame.cursor ||

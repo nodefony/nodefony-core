@@ -1,8 +1,8 @@
 /**
- * L'image du terminal de développement, calculée sans terminal : trois zones
- * fixes — le journal (une fenêtre de l'historique), l'invite, la barre d'état
- * — rendues en lignes, chacune bornée à `columns - 1` colonnes. Cf ADR-0013
- * §3 et §9.
+ * L'image du terminal de développement, calculée sans terminal : le journal
+ * (une fenêtre de l'historique de la vue active), la ligne d'onglets quand il
+ * y en a plusieurs, l'invite, la barre d'état — rendues en lignes, chacune
+ * bornée à `columns - 1` colonnes. Cf ADR-0013 §3, §9 et §11.
  *
  * `renderFrame` est pur : il lit le modèle et rend `{ lines, cursor }` ; qui
  * possède le terminal écrit l'image en UNE écriture, de préférence par
@@ -80,6 +80,27 @@ export interface IFramePrompt {
   readonly cursor: { row: number; column: number };
 }
 
+/** Un onglet, tel que sa ligne le montre. */
+export interface IFrameTab {
+  readonly title: string;
+  /** Entrées arrivées depuis qu'on l'a quitté — `0` pour l'onglet actif. */
+  readonly unseen: number;
+  /** L'une d'elles vient d'une sortie d'erreur : le compteur passe au rouge. */
+  readonly alert: boolean;
+}
+
+/** La ligne d'onglets : les onglets dans l'ordre, et lequel est actif. */
+export interface IFrameTabs {
+  readonly items: readonly IFrameTab[];
+  readonly active: number;
+}
+
+/** Les colonnes d'un onglet sur sa ligne, `[start, end)` — ce qu'un clic vise. */
+export interface ITabSpan {
+  readonly start: number;
+  readonly end: number;
+}
+
 /** Tout ce que l'image lit. */
 export interface IFrameModel {
   readonly transcript: ITranscriptReader;
@@ -109,6 +130,11 @@ export interface IFrameModel {
   readonly partial?: string;
   /** La sélection à surligner, normalisée (cf `selectionRange`). */
   readonly selection?: ISelectionRange | null;
+  /**
+   * La ligne d'onglets, en bas, collée à l'invite (ADR-0013 §11) — absente
+   * ou `null` : pas de ligne, l'écran d'une seule vue.
+   */
+  readonly tabs?: IFrameTabs | null;
 }
 
 /**
@@ -136,6 +162,8 @@ export interface IFrame {
    * cellule de l'historique.
    */
   readonly origins?: readonly (IRowOrigin | null)[];
+  /** La ligne d'onglets à l'écran : sa ligne, et les colonnes de chaque onglet. */
+  readonly tabs?: { readonly row: number; readonly spans: readonly ITabSpan[] };
 }
 
 /** Une ligne à réécrire. */
@@ -338,6 +366,44 @@ function unseenLine(count: number, model: IFrameModel): string {
   return model.color ? `\x1b[7m ${text} \x1b[0m` : text;
 }
 
+/**
+ * La ligne d'onglets : ` 1 serveur  2 vite ·5 `. L'actif en vidéo inverse
+ * (entre crochets sans couleur, à largeur égale) ; le compteur d'un onglet
+ * caché en gras, en rouge quand une erreur y est arrivée.
+ *
+ * @param tabs - les onglets.
+ * @param model - couleur et jeu de caractères.
+ * @returns la ligne, et les colonnes de chaque onglet.
+ */
+function tabsLine(
+  tabs: IFrameTabs,
+  model: IFrameModel,
+): { text: string; spans: ITabSpan[] } {
+  const dot = model.charset === "ascii" ? "*" : "·";
+  let text = "";
+  let column = 0;
+  const spans: ITabSpan[] = [];
+  for (let i = 0; i < tabs.items.length; i++) {
+    const tab = tabs.items[i];
+    if (tab === undefined) continue;
+    const head = `${i + 1} ${sanitizeTerminalText(tab.title)}`;
+    const counter = tab.unseen > 0 ? ` ${dot}${tab.unseen}` : "";
+    const width = visibleWidth(head) + visibleWidth(counter) + 2;
+    spans.push({ start: column, end: column + width });
+    column += width;
+    if (i === tabs.active) {
+      text += model.color
+        ? `\x1b[7m ${head}${counter} \x1b[0m`
+        : `[${head}${counter}]`;
+    } else if (!model.color || counter === "") {
+      text += ` ${head}${counter} `;
+    } else {
+      text += ` ${head}${tab.alert ? "\x1b[1;31m" : "\x1b[1m"}${counter}\x1b[0m `;
+    }
+  }
+  return { text, spans };
+}
+
 /** Les lignes du journal et, en parallèle, leur origine. */
 interface IJournalRows {
   lines: string[];
@@ -483,6 +549,9 @@ interface IFrameLayout {
   bar: readonly string[];
   promptLines: readonly string[];
   indicator: string[];
+  /** La ligne d'onglets (zéro ou une), et les colonnes de chaque onglet. */
+  tabLines: readonly string[];
+  tabSpans: readonly ITabSpan[];
   journalHeight: number;
 }
 
@@ -596,6 +665,10 @@ export class StatusBarCache {
   }
 }
 
+/** Sans onglets : rien à allouer à chaque image. */
+const NO_TAB_LINES: readonly string[] = [];
+const NO_TAB_SPANS: readonly ITabSpan[] = [];
+
 function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   const rows = Math.max(0, Math.floor(size.rows));
   const width = Math.max(1, Math.floor(size.columns) - 1);
@@ -611,11 +684,13 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   const unseen =
     model.anchor === null ? 0 : model.transcript.countAfter(model.anchor.seq);
   const indicator = unseen > 0 ? [unseenLine(unseen, model)] : [];
+  const tabs = model.tabs ? tabsLine(model.tabs, model) : null;
   // Les hauteurs viennent de la mise en page (`devLayout.ts`), seule source :
-  // la barre puis l'invite d'abord, la vue prend le reste ; l'indicateur est
-  // DANS la vue. Négatif quand la hauteur manque — tout lecteur borne à 0.
+  // la barre, l'invite puis les onglets d'abord, la vue prend le reste ;
+  // l'indicateur est DANS la vue. Négatif quand la hauteur manque — tout
+  // lecteur borne à 0.
   const view = screenLayout(size, {
-    tabs: "none",
+    tabs: tabs === null ? "none" : "bottom",
     band: 0,
     prompt: promptLines.length,
     bar: bar.length,
@@ -628,6 +703,8 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
     bar,
     promptLines,
     indicator,
+    tabLines: tabs === null ? NO_TAB_LINES : [tabs.text],
+    tabSpans: tabs === null ? NO_TAB_SPANS : tabs.spans,
     journalHeight,
   };
 }
@@ -782,15 +859,33 @@ export function topAnchor(
  *   colonnes, et le curseur (sur l'invite) ou `null`.
  */
 export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
-  const { rows, width, heights, bar, promptLines, indicator, journalHeight } =
-    frameLayout(model, size);
+  const {
+    rows,
+    width,
+    heights,
+    bar,
+    promptLines,
+    indicator,
+    tabLines,
+    tabSpans,
+    journalHeight,
+  } = frameLayout(model, size);
   const prompt = model.prompt ?? null;
   const journal = journalLines(model, heights, width, journalHeight);
-  const all = [...journal.lines, ...indicator, ...promptLines, ...bar];
+  const all = [
+    ...journal.lines,
+    ...indicator,
+    ...tabLines,
+    ...promptLines,
+    ...bar,
+  ];
   const allOrigins = [
     ...journal.origins,
     ...Array.from(
-      { length: indicator.length + promptLines.length + bar.length },
+      {
+        length:
+          indicator.length + tabLines.length + promptLines.length + bar.length,
+      },
       () => null,
     ),
   ];
@@ -821,7 +916,10 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
       cursor = { row, column: Math.min(prompt.cursor.column, width) };
     }
   }
-  return { lines, cursor, origins };
+  const tabRow = journal.lines.length + indicator.length - cut;
+  return tabLines.length === 0 || tabRow < 0
+    ? { lines, cursor, origins }
+    : { lines, cursor, origins, tabs: { row: tabRow, spans: tabSpans } };
 }
 
 /**

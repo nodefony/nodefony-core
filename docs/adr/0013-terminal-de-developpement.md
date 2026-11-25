@@ -706,6 +706,14 @@ interface IDevBand {
   mise en page mémorisée, sans rebâtir le modèle ; une touche qui ne défile pas ne coûte rien.
 - **Changer d'onglet** : clic, `Alt+1` à `Alt+9` (`Ctrl+Tab` n'est pas transmis par la plupart
   des terminaux). Un onglet caché qui reçoit des lignes porte un compteur, rouge sur une erreur.
+  `Alt` n'arrive que si le terminal envoie Échap pour Option — sous macOS, iTerm2 « Option = Esc+ »,
+  Terminal.app « Utiliser Option comme touche méta » ; le clic marche sans réglage (`--mouse`).
+- **Onglets livrés à l'étape 3** : un onglet est une DONNÉE (`devView.ts#DevView` : son filtre de
+  canaux, sa position de lecture, sa page propre, son cache de repli, ce qu'il n'a pas montré),
+  jamais une sous-classe. `serveur` est le complément de `vite` (`vite:*`) : aucun canal ne reste
+  sans onglet. La ligne d'onglets n'apparaît que quand un second onglet a quelque chose à montrer —
+  sans Vite, l'écran reste celui d'une seule vue. La page propre d'`ESC[2J` et l'indicateur du
+  superviseur restent dans l'onglet `serveur` ; changer d'onglet efface la sélection.
 - **Régions sales** : chaque mutateur marque la sienne (§5) ; l'image ne rend que celles-là
   (§9).
 

@@ -1257,3 +1257,131 @@ describe("plein écran — jamais un écran vide", () => {
     terminal.close();
   });
 });
+
+describe("plein écran — onglets serveur et vite (#903)", () => {
+  const vite = (n: number, from = 1): string =>
+    Array.from({ length: n }, (_, i) => `vite ${i + from}\n`).join("");
+
+  it("tant que Vite n'a rien écrit, aucune ligne d'onglets : l'écran d'une seule vue", async () => {
+    const { stdout, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(3));
+    await nextFrame();
+    expect((await screen(stdout.written)).join("\n")).to.not.include("serveur");
+    terminal.close();
+  });
+
+  it("Vite écrit : la ligne d'onglets apparaît, le serveur reste à l'écran, vite compte ses lignes", async () => {
+    const { stdout, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(3));
+    terminal.ingest("vite:default", "out", vite(4));
+    await nextFrame();
+    const shown = await screen(stdout.written);
+    expect(shown).to.include("[1 serveur] 2 vite ·4 ");
+    expect(shown.join("\n")).to.include("ligne 3");
+    expect(shown.join("\n")).to.not.include("vite 1");
+    expect(terminal.activeView).to.equal("server");
+    terminal.close();
+  });
+
+  it("Alt+2 montre vite, Alt+1 revient : chaque onglet retrouve sa position de lecture", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(40));
+    terminal.ingest("vite:default", "out", vite(2));
+    await nextFrame();
+    input.type("\x1b[5~"); // PgUp : le serveur remonté
+    await nextFrame();
+    const anchor = terminal.anchor;
+    expect(anchor).to.not.equal(null);
+    input.type("\x1b2");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("vite");
+    expect(terminal.anchor).to.equal(null);
+    let shown = await screen(stdout.written);
+    expect(shown[0]).to.equal("vite 1");
+    expect(shown).to.include(" 1 serveur [2 vite]");
+    input.type("\x1b1");
+    await nextFrame();
+    expect(terminal.activeView).to.equal("server");
+    expect(terminal.anchor).to.deep.equal(anchor);
+    shown = await screen(stdout.written);
+    expect(shown.join("\n")).to.not.include("vite 1");
+    terminal.close();
+  });
+
+  it("le compteur d'un onglet caché repart de zéro une fois l'onglet vu ; un Vite ouvert plus tard y entre", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("server", "out", lines(2));
+    terminal.ingest("vite:default", "out", vite(3));
+    await nextFrame();
+    expect(await screen(stdout.written)).to.include("[1 serveur] 2 vite ·3 ");
+    input.type("\x1b2");
+    await nextFrame();
+    input.type("\x1b1");
+    await nextFrame();
+    expect(await screen(stdout.written)).to.include("[1 serveur] 2 vite ");
+    terminal.ingest("vite:admin", "out", vite(2, 4));
+    await nextFrame();
+    expect(await screen(stdout.written)).to.include("[1 serveur] 2 vite ·2 ");
+    terminal.close();
+  });
+
+  it("l'onglet vite n'hérite ni de la page propre du serveur ni de l'indicateur du superviseur", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.ingest("vite:default", "out", vite(2));
+    terminal.ingest("server", "out", "ligne 1\n\x1b[2Jprêt\n");
+    terminal.ingest("supervisor", "out", "construction en cours");
+    await nextFrame();
+    const server = (await screen(stdout.written)).join("\n");
+    expect(server).to.include("construction en cours");
+    expect(server).to.not.include("ligne 1");
+    input.type("\x1b2");
+    await nextFrame();
+    const shown = await screen(stdout.written);
+    expect(shown.slice(0, 2)).to.deep.equal(["vite 1", "vite 2"]);
+    expect(shown.join("\n")).to.not.include("construction en cours");
+    terminal.close();
+  });
+
+  it("--mouse : un clic sur un onglet le montre", async () => {
+    const { stdout, input, terminal } = fullscreen({ mouse: true });
+    terminal.ingest("server", "out", lines(2));
+    terminal.ingest("vite:default", "out", vite(1));
+    await nextFrame();
+    const shown = await screen(stdout.written);
+    const row = shown.findIndex((l) => l.includes("2 vite"));
+    const column = (shown[row] ?? "").indexOf("2 vite") + 1;
+    expect(row).to.not.equal(-1);
+    input.type(press(column + 2, row + 1) + release(column + 2, row + 1));
+    await nextFrame();
+    expect(terminal.activeView).to.equal("vite");
+    expect((await screen(stdout.written))[0]).to.equal("vite 1");
+    terminal.close();
+  });
+
+  it("une erreur dans un onglet caché met son compteur au rouge ; le montrer l'efface", async () => {
+    const stdout = output();
+    const input = new FakeInput();
+    const terminal = new DevTerminal({
+      stdout,
+      color: true,
+      charset: "unicode",
+      mark: brandMark("unicode", true),
+      fullscreen: { input, synchronized: false, onQuit: () => {} },
+    });
+    terminal.ingest("server", "out", lines(1));
+    terminal.ingest("vite:default", "out", vite(1));
+    await nextFrame();
+    expect(stdout.written.join("")).to.include("2 vite\x1b[1m ·1\x1b[0m");
+    terminal.ingest("vite:default", "err", "échec\n");
+    await nextFrame();
+    expect(stdout.written.at(-1)).to.include("2 vite\x1b[1;31m ·2\x1b[0m");
+    input.type("\x1b2");
+    await nextFrame();
+    input.type("\x1b1");
+    await nextFrame();
+    terminal.ingest("vite:default", "out", vite(1, 2));
+    await nextFrame();
+    expect(stdout.written.at(-1)).to.include("2 vite\x1b[1m ·1\x1b[0m");
+    terminal.close();
+  });
+});
