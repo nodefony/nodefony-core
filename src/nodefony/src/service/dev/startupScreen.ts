@@ -1100,6 +1100,11 @@ const STATUS_BLOCK_MIN_COLUMNS = 72;
 /** Hauteur minimale du terminal pour le bloc d'état — en deçà, une ligne. */
 const STATUS_BLOCK_MIN_ROWS = 20;
 
+/** Une marque de 3 lignes au plus demande le bloc RESSERRÉ (`brandMiniMark`). */
+const COMPACT_MARK_ROWS = 3;
+/** Largeur visible de la marque réduite. */
+const COMPACT_MARK_WIDTH = 4;
+
 /**
  * Le bloc d'état figé en bas du terminal : un filet qui le sépare du journal,
  * puis la MARQUE du logo à gauche (6 lignes) et une information par ligne à
@@ -1116,7 +1121,9 @@ const STATUS_BLOCK_MIN_ROWS = 20;
  * @param view - le bilan.
  * @param ctx - projet, heure, rechargements.
  * @param options - couleur, largeur, hauteur, jeu de caractères.
- * @param mark - les 6 lignes de la marque (`brandMark`), largeur visible 8.
+ * @param mark - les 6 lignes de la marque (`brandMark`), largeur visible 8 ;
+ *   ou les 3 de la marque réduite (`brandMiniMark`, largeur 4) pour le bloc
+ *   resserré sous l'invite.
  * @returns les lignes du bloc, ou `null` si la place manque.
  */
 export function renderStatusBlock(
@@ -1143,42 +1150,61 @@ export function renderStatusBlock(
   const help = ctx.help ? p.dim(ctx.help) : "";
   // Avant le premier bilan (un build peut durer) : le logo, le projet, la
   // version du framework et la phase — jamais un écran vide.
+  const head =
+    view === null
+      ? `${badge}  ${p.dim(`Nodefony ${ctx.version ?? ""}`.trimEnd())}`
+      : `${badge}  ${p.dim(`Nodefony ${view.version} · ${startMode(view)}`)}`;
+  const app = view?.open.find((l) => l.id === "app")?.url;
+  const appLine = app ? `${p.ok(sym.open)} ${p.action(app)}` : "";
+  // Le DÉTAIL des points vit dans le corps (« À regarder ») : la barre
+  // n'en garde que le compte, sur la ligne d'état. Ici, les autres
+  // adresses à ouvrir.
+  const others =
+    view === null
+      ? ""
+      : view.open
+          .filter((l) => l.id !== "app")
+          .map((l) => `${p.dim(l.label)} ${p.action(l.url)}`)
+          .join(p.dim("  ·  "));
+  const stateLine =
+    view === null
+      ? state
+      : state +
+        (ctx.activity
+          ? ""
+          : p.dim(
+              `  ·  ${ctx.reloads > 0 ? "rechargé" : "démarré"} en ${formatSeconds(view.durationMs)}`,
+            )) +
+        (ctx.reloads > 0 ? p.dim(`  ·  ${sym.reload} ${ctx.reloads}`) : "");
+  const probe = view?.inspector
+    ? p.warning(`débogueur ${view.inspector}`)
+    : view !== null && ctx.runtime
+      ? renderRuntime(ctx.runtime, p)
+      : "";
+  // Marque de 3 lignes : le bloc RESSERRÉ sous l'invite (#538) — projet,
+  // adresses, état ; un message passager prend la dernière ligne.
+  if (mark.length <= COMPACT_MARK_ROWS) {
+    const links = [appLine, others]
+      .filter((l) => l !== "")
+      .join(p.dim("  ·  "));
+    const info = [
+      head,
+      links,
+      help || (probe ? stateLine + p.dim("  ·  ") + probe : stateLine),
+    ];
+    const room = columns - 1 - COMPACT_MARK_WIDTH - 2;
+    return [
+      statusRule(columns, p),
+      ...mark.map((logo, i) => {
+        const text = info[i] ?? "";
+        return text ? `${logo}  ${fitStatus(text, room + 1)}` : logo;
+      }),
+    ];
+  }
   const info =
     view === null
-      ? [
-          `${badge}  ${p.dim(`Nodefony ${ctx.version ?? ""}`.trimEnd())}`,
-          "",
-          state,
-          "",
-          "",
-          help,
-        ]
-      : [
-          `${badge}  ${p.dim(`Nodefony ${view.version} · ${startMode(view)}`)}`,
-          view.open.find((l) => l.id === "app")?.url
-            ? `${p.ok(sym.open)} ${p.action(view.open.find((l) => l.id === "app")?.url ?? "")}`
-            : "",
-          state +
-            (ctx.activity
-              ? ""
-              : p.dim(
-                  `  ·  ${ctx.reloads > 0 ? "rechargé" : "démarré"} en ${formatSeconds(view.durationMs)}`,
-                )) +
-            (ctx.reloads > 0 ? p.dim(`  ·  ${sym.reload} ${ctx.reloads}`) : ""),
-          view.inspector
-            ? p.warning(`débogueur ${view.inspector}`)
-            : ctx.runtime
-              ? renderRuntime(ctx.runtime, p)
-              : "",
-          // Le DÉTAIL des points vit dans le corps (« À regarder ») : la barre
-          // n'en garde que le compte, sur la ligne d'état. Ici, les autres
-          // adresses à ouvrir.
-          view.open
-            .filter((l) => l.id !== "app")
-            .map((l) => `${p.dim(l.label)} ${p.action(l.url)}`)
-            .join(p.dim("  ·  ")),
-          help,
-        ];
+      ? [head, "", state, "", "", help]
+      : [head, appLine, stateLine, probe, others, help];
   // Chaque ligne bornée à la place qui reste à droite du logo : une ligne
   // repliée décalerait tout le bloc, et l'effacement en remontant raterait.
   const room = columns - 1 - 8 - 3;

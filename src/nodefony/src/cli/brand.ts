@@ -15,23 +15,26 @@
  * paramètres, ce qui rend chaque disposition éprouvable sans terminal.
  */
 
-/** Le logo, tiré du PNG officiel en braille. 6 lignes × 8 colonnes. */
+/**
+ * Le logo en braille, rastérisé depuis `assets/nodefony-logo.svg` (seuil 0,4).
+ * 6 lignes × 8 colonnes.
+ */
 export const BRAND_LOGO: readonly string[] = [
-  "   ⢀⡤⠖⠂ ",
-  " ⣠⠞⢉⣤⠶⢛⠁",
-  "⣸⡏⢠⣿⢁⣶⠟⠁",
-  "⢻⣇⠸⣿⡈⢿⣄⡀",
-  " ⠙⢦⣈⠻⢦⣌⡁",
-  "   ⠉⠓⠦⣄ ",
+  "   ⣠⡴⠞⠋ ",
+  " ⣰⠞⢁⣤⠞⢋⡀",
+  "⣸⡏⢠⣿⠁⣴⠋⠁",
+  "⢹⣇⠘⣿⡀⠻⣄⡀",
+  " ⠹⢦⡈⠛⢦⣌⠁",
+  "   ⠙⠳⢦⣄ ",
 ];
 
 /** Couleur de chaque caractère du logo : `b` arc extérieur bleu, `g` vert, `c` bleu ciel. */
 export const BRAND_LOGO_COLORS: readonly string[] = [
   "   bbbb ",
-  " bbbgggg",
+  " bbbgggc",
   "bbgggccc",
   "bbgggccc",
-  " bbbgggg",
+  " bbbgggc",
   "   bbbb ",
 ];
 
@@ -55,6 +58,33 @@ export const BRAND_LOGO_ASCII_COLORS: readonly string[] = [
   "b  g  c ",
   " bb ggg ",
   "   bbbb ",
+];
+
+/**
+ * Le logo RÉDUIT, 3 lignes × 4 colonnes, rastérisé depuis le même SVG : la
+ * barre resserrée sous l'invite du superviseur (#538) le pose à côté de ses
+ * trois lignes d'état.
+ */
+export const BRAND_LOGO_MINI: readonly string[] = ["⢀⡴⡪⠅", "⣿⢾⢸⡁", "⠈⠳⢕⡂"];
+
+/** Couleur de chaque caractère du logo réduit (cf {@link BRAND_LOGO_COLORS}). */
+export const BRAND_LOGO_MINI_COLORS: readonly string[] = [
+  "bbgg",
+  "bgcc",
+  "bbgg",
+];
+
+/** Le logo réduit en ASCII pur. */
+export const BRAND_LOGO_MINI_ASCII: readonly string[] = [
+  " ,-'",
+  "| ( ",
+  " `-.",
+];
+
+export const BRAND_LOGO_MINI_ASCII_COLORS: readonly string[] = [
+  " bgg",
+  "b c ",
+  " bgg",
 ];
 
 /** Le mot « nodefony » : police figlet Standard, lettres à pleine largeur, figé ici. */
@@ -100,6 +130,7 @@ const GAP = "  ";
 const PANEL_GAP = "   ";
 const INDENT = "  ";
 const LOGO_WIDTH = 8;
+const MINI_LOGO_WIDTH = 4;
 const WORD_WIDTH = (BRAND_WORDMARK[0] ?? "").length;
 const ART_WIDTH = LOGO_WIDTH + GAP.length + WORD_WIDTH;
 
@@ -143,6 +174,24 @@ export function brandMark(charset: BrandCharset, color: boolean): string[] {
     charset === "ascii" ? BRAND_LOGO_ASCII_COLORS : BRAND_LOGO_COLORS;
   return logo.map((line, i) =>
     paintLogoLine(line.padEnd(LOGO_WIDTH), colors[i] ?? "", color),
+  );
+}
+
+/**
+ * La marque RÉDUITE, colorée — 3 lignes de 4 colonnes, pour la barre
+ * resserrée sous l'invite. Une marque de 3 lignes est ce qui demande à
+ * `renderStatusBlock` son bloc resserré.
+ *
+ * @param charset - jeu de caractères (`resolveBrandCharset`).
+ * @param color - émettre les couleurs.
+ * @returns les 3 lignes, de largeur visible constante (4).
+ */
+export function brandMiniMark(charset: BrandCharset, color: boolean): string[] {
+  const logo = charset === "ascii" ? BRAND_LOGO_MINI_ASCII : BRAND_LOGO_MINI;
+  const colors =
+    charset === "ascii" ? BRAND_LOGO_MINI_ASCII_COLORS : BRAND_LOGO_MINI_COLORS;
+  return logo.map((line, i) =>
+    paintLogoLine(line.padEnd(MINI_LOGO_WIDTH), colors[i] ?? "", color),
   );
 }
 

@@ -11,6 +11,10 @@ import {
   BRAND_LOGO_ASCII,
   BRAND_LOGO_ASCII_COLORS,
   BRAND_LOGO_COLORS,
+  BRAND_LOGO_MINI,
+  BRAND_LOGO_MINI_ASCII,
+  BRAND_LOGO_MINI_ASCII_COLORS,
+  BRAND_LOGO_MINI_COLORS,
   BRAND_WORDMARK,
   renderBrand,
   resolveBrandCharset,
@@ -85,6 +89,8 @@ describe("constantes du dessin", () => {
     for (const [logo, colors] of [
       [BRAND_LOGO, BRAND_LOGO_COLORS],
       [BRAND_LOGO_ASCII, BRAND_LOGO_ASCII_COLORS],
+      [BRAND_LOGO_MINI, BRAND_LOGO_MINI_COLORS],
+      [BRAND_LOGO_MINI_ASCII, BRAND_LOGO_MINI_ASCII_COLORS],
     ] as const) {
       assert.lengthOf(colors, logo.length);
       logo.forEach((line, i) =>
@@ -99,7 +105,13 @@ describe("constantes du dessin", () => {
 
   it("logo et mot ont la même hauteur et des lignes de largeur égale", () => {
     assert.lengthOf(BRAND_WORDMARK, BRAND_LOGO.length);
-    for (const set of [BRAND_LOGO, BRAND_LOGO_ASCII, BRAND_WORDMARK]) {
+    for (const set of [
+      BRAND_LOGO,
+      BRAND_LOGO_ASCII,
+      BRAND_WORDMARK,
+      BRAND_LOGO_MINI,
+      BRAND_LOGO_MINI_ASCII,
+    ]) {
       const widths = new Set(set.map((l) => Array.from(l).length));
       assert.strictEqual(widths.size, 1, set[0]);
     }
