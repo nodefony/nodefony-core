@@ -287,4 +287,45 @@ describe("RestartCycle — cycle de rechargement du superviseur", () => {
     assert.strictEqual(fake.swaps.length, 0);
     assert.strictEqual(fake.builds.length, 1);
   });
+
+  it("restartNow (le verbe restart) : relance sans build, jamais pendant un cycle, et rejoue une sauvegarde arrivée pendant lui", async () => {
+    const fake = fakeSteps();
+    const cycle = new RestartCycle(fake.steps, {
+      debounceMs: DEBOUNCE,
+      recheckMs: RECHECK,
+    });
+    const first = cycle.restartNow();
+    assert.strictEqual(fake.builds.length, 0, "aucun build");
+    assert.strictEqual(fake.swaps.length, 1);
+    assert.ok(cycle.busy);
+    // Pendant la relance : un second restart est refusé, une sauvegarde notée.
+    assert.strictEqual(await cycle.restartNow(), false);
+    cycle.mark("a.ts");
+    await vi.advanceTimersByTimeAsync(DEBOUNCE * 4);
+    assert.strictEqual(fake.builds.length, 0, "aucun cycle concurrent");
+    fake.swaps[0]?.resolve();
+    assert.strictEqual(await first, true);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE);
+    assert.strictEqual(fake.builds.length, 1, "la sauvegarde est rejouée");
+    assert.strictEqual(fake.maxSwapsInFlight, 1);
+  });
+
+  it("restartNow refuse pendant un build, une suspension ou un arrêt", async () => {
+    const fake = fakeSteps();
+    const cycle = new RestartCycle(fake.steps, {
+      debounceMs: DEBOUNCE,
+      recheckMs: RECHECK,
+    });
+    cycle.mark("a.ts");
+    await vi.advanceTimersByTimeAsync(DEBOUNCE);
+    assert.strictEqual(await cycle.restartNow(), false, "build en vol");
+    fake.builds[0]?.done.resolve(false);
+    await vi.advanceTimersByTimeAsync(0);
+    fake.state.suspended = true;
+    assert.strictEqual(await cycle.restartNow(), false, "suspendu");
+    fake.state.suspended = false;
+    fake.state.stopping = true;
+    assert.strictEqual(await cycle.restartNow(), false, "arrêt demandé");
+    assert.strictEqual(fake.swaps.length, 0);
+  });
 });

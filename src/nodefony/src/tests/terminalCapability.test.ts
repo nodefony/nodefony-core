@@ -10,8 +10,20 @@ import {
 } from "../service/dev/terminalCapability";
 
 describe("interpretProbe", () => {
-  it("la sonde demande DECRQM 2026 puis la position du curseur, en dernier", () => {
-    expect(TERMINAL_PROBE).to.equal("\x1b[?2026$p\x1b[6n");
+  it("la sonde demande DECRQM 2026, la couleur de fond, puis la position du curseur, en dernier", () => {
+    expect(TERMINAL_PROBE).to.equal("\x1b[?2026$p\x1b]11;?\x07\x1b[6n");
+  });
+
+  it("la couleur de fond (OSC 11) est relevée ; une autre réponse OSC n'en est pas une", () => {
+    const events = new InputDecoder().feed(
+      "\x1b]10;rgb:ffff/ffff/ffff\x07\x1b]11;rgb:1e1e/1e1e/1e1e\x1b\\\x1b[3;1R",
+    );
+    expect(interpretProbe(events)).to.deep.include({
+      background: [30, 30, 30],
+      complete: true,
+    });
+    const silent = new InputDecoder().feed("\x1b]10;rgb:ffff/ffff/ffff\x07");
+    expect(interpretProbe(silent).background).to.equal(null);
   });
 
   it("position du curseur ⇒ plein écran, sonde finie ; DECRQM 2026 ⇒ synchronisé", () => {
@@ -20,6 +32,7 @@ describe("interpretProbe", () => {
       fullscreen: true,
       synchronized: true,
       complete: true,
+      background: null,
     });
   });
 
@@ -28,6 +41,7 @@ describe("interpretProbe", () => {
       fullscreen: false,
       synchronized: false,
       complete: false,
+      background: null,
     });
     const events = new InputDecoder().feed("\x1b[?2026;0$y\x1b[1;1R");
     expect(interpretProbe(events).synchronized).to.equal(false);

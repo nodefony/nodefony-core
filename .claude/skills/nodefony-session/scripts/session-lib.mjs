@@ -286,8 +286,10 @@ export function netAddedDates(diff) {
 }
 
 /**
- * Retire de l'index mémoire les pointeurs d'état anciens : seuls les `keep` premiers
- * (les plus récents, la clôture les écrit en tête) restent.
+ * Retire de l'index mémoire les pointeurs d'état anciens : seuls les `keep` plus
+ * récents restent. « Récent » se lit sur le NOM du fichier (`2026-11-26b` > `2026-11-26`
+ * > `2026-11-25b`), jamais sur la place de la ligne : un pointeur neuf écrit sous un
+ * ancien était retiré, et l'ancien gardé.
  *
  * L'index est chargé à CHAQUE session, et chaque pointeur périmé s'y relit à chaque
  * tour ; la reprise, elle, lit le dernier `_state` SUR LE DISQUE, jamais l'index.
@@ -301,11 +303,17 @@ export function netAddedDates(diff) {
 export function pruneStatePointers(text, keep) {
   const pointer =
     /^- \[[^\]]*État[^\]]*\]\((project_session_[^)]+_state\.md)\)/u;
+  const names = [];
+  for (const l of text.split("\n")) {
+    const m = pointer.exec(l);
+    if (m) names.push(m[1]);
+  }
+  // Dates complétées de zéros, lettre de rang après : l'ordre du texte EST l'ordre du temps.
+  const kept = new Set(names.sort().reverse().slice(0, keep));
   const removed = [];
-  let seen = 0;
   const lines = text.split("\n").filter((l) => {
     const m = pointer.exec(l);
-    if (!m || seen++ < keep) return true;
+    if (!m || kept.has(m[1])) return true;
     removed.push(m[1]);
     return false;
   });

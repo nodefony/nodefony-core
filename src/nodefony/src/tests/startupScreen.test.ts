@@ -50,7 +50,7 @@ import {
 } from "../service/dev/statusLine";
 import { DEV_CHANNEL, isDevChannelMessage } from "../service/dev/devChannel";
 import { visibleWidth } from "../runtime/textWidth";
-import { brandMark } from "../cli/brand";
+import { brandMark, brandMiniMark } from "../cli/brand";
 import { createPalette } from "../kernel/checks/report";
 import {
   collectBootNotices,
@@ -866,7 +866,7 @@ describe("bloc d'état avec le logo — et le canal qui le nourrit", () => {
     expect(block).to.have.length(7);
     const lines = block ?? [];
     expect(lines[0]).to.equal("─".repeat(99));
-    expect(lines[3]?.startsWith("⣸⡏⢠⣿⢁⣶⠟⠁")).to.equal(true);
+    expect(lines[3]?.startsWith("⣸⡏⢠⣿⠁⣴⠋⠁")).to.equal(true);
     const text = lines.join("\n");
     expect(text).to.contain(" ⬢ mon-app ");
     expect(text).to.contain("development · rechargement auto");
@@ -882,6 +882,45 @@ describe("bloc d'état avec le logo — et le canal qui le nourrit", () => {
     expect(text).to.contain(`Studio ${studio?.url ?? ""}`);
     // Aucune ligne ne se replie : l'effacement en remontant raterait sinon.
     for (const l of lines) expect(visible(l)).to.be.at.most(99);
+  });
+
+  it("marque réduite : le bloc RESSERRÉ — filet, puis 3 lignes (projet, adresses, état)", () => {
+    const block = renderStatusBlock(
+      view(),
+      {
+        ...ctx,
+        runtime: { rssBytes: 64 * 1024 * 1024, cpuPercent: 3, eluPercent: 1 },
+      },
+      { color: false, columns: 100, rows: 40 },
+      brandMiniMark("unicode", false),
+    );
+    expect(block).to.have.length(4);
+    const lines = block ?? [];
+    expect(lines[0]).to.equal("─".repeat(99));
+    expect(lines[1]?.startsWith("⢀⡴⡪⠅   ⬢ mon-app ")).to.equal(true);
+    expect(lines[1]).to.contain("development · rechargement auto");
+    // L'application ET les autres adresses, sur la même ligne.
+    const studio = view().open.find((l) => l.id === "studio");
+    expect(lines[2]).to.contain("➜ https://localhost:5152/");
+    expect(lines[2]).to.contain(`Studio ${studio?.url ?? ""}`);
+    // L'état, puis la mesure du serveur.
+    expect(lines[3]).to.contain("⚠ 2 à regarder");
+    expect(lines[3]).to.contain("↻ 2");
+    expect(lines[3]).to.contain("64");
+    for (const l of lines) expect(visible(l)).to.be.at.most(99);
+  });
+
+  it("marque réduite : un message passager prend la DERNIÈRE ligne", () => {
+    const lines =
+      renderStatusBlock(
+        view(),
+        { ...ctx, help: "copié : 3 lignes" },
+        { color: false, columns: 100, rows: 40 },
+        brandMiniMark("ascii", false),
+      ) ?? [];
+    expect(lines).to.have.length(4);
+    expect(lines[3]).to.contain("copié : 3 lignes");
+    expect(lines[3]).to.not.contain("à regarder");
   });
 
   it("en débogage : le socket complet sous l'état, et les points à regarder restent", () => {

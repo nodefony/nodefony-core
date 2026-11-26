@@ -1,0 +1,336 @@
+/**
+ * Une action de l'invite — le contrat que partagent les verbes du
+ * superviseur, les commandes du CLI et l'assistant (ADR-0013 §7, #538).
+ * Figé par l'ADR : il ne bouge pas d'un lot à l'autre, chacun l'implémente.
+ */
+import { computeCompletions, type ICliManifest } from "../../cli/completion";
+
+/** Une demande de confirmation, posée par une action avant d'agir. */
+export interface IConfirmRequest {
+  readonly title: string;
+  readonly detail?: string;
+  readonly action?: {
+    tool: string;
+    arguments: Readonly<Record<string, unknown>>;
+  };
+  readonly risk: "read" | "write" | "destructive";
+}
+
+/**
+ * La réponse à une confirmation — le même triplet que l'élicitation MCP.
+ * `decline` est rendu au modèle ; `cancel` arrête le tour. Une approbation
+ * ne vaut que pour l'appel qu'elle accompagne, jamais « pour la session ».
+ */
+export interface IConfirmDecision {
+  readonly action: "accept" | "decline" | "cancel";
+  readonly id: string;
+  readonly at: number;
+}
+
+/** Ce que l'invite prête à une action pendant qu'elle tourne. */
+export interface IPromptIO {
+  /** Vers l'historique, au fil de l'eau (jeton par jeton). */
+  write(text: string, stream?: "out" | "err"): void;
+  confirm(request: IConfirmRequest): Promise<IConfirmDecision>;
+  /** Une commande interactive prend le terminal, puis le rend. */
+  suspend<T>(task: () => Promise<T>): Promise<T>;
+  readonly columns: number;
+}
+
+/** Une action que l'invite sait lancer. */
+export interface IPromptAction {
+  readonly id: string;
+  /** La saisie lui revient-elle ? */
+  matches(input: string): boolean;
+  /**
+   * Les saisies ENTIÈRES qui prolongent `prefix` (Tab) : `/re` → `/restart`,
+   * `/nodefony build --f` → `/nodefony build --force`.
+   *
+   * @param prefix - la saisie, du début au curseur.
+   */
+  complete?(prefix: string): readonly string[] | Promise<readonly string[]>;
+  /**
+   * Lance l'action.
+   *
+   * @returns son code de sortie.
+   */
+  run(input: string, io: IPromptIO, signal: AbortSignal): Promise<number>;
+}
+
+/** Ce que les verbes du superviseur font faire — fournis par lui. */
+export interface ISupervisorVerbs {
+  /**
+   * Relance le serveur sans reconstruire.
+   *
+   * @returns `false` si un rechargement est déjà en cours.
+   */
+  restart(): Promise<boolean>;
+  /** Vide l'onglet affiché. */
+  clear(): void;
+  /** Ouvre l'aide. */
+  help(): void;
+  /**
+   * Relève l'état des process et des ports, et l'ouvre en panneau.
+   *
+   * @param signal - l'interruption de l'invite (Ctrl+C) : levée, rien ne
+   *   s'ouvre.
+   */
+  status(signal: AbortSignal): Promise<void>;
+  /** Arrête proprement le serveur et ses enfants. */
+  quit(): void;
+}
+
+/**
+ * Le préfixe d'une commande de l'invite, à la manière de Claude Code :
+ * `/help`, `/quit`. Une saisie sans lui n'est pas une commande — elle
+ * reste libre pour l'assistant (#539).
+ */
+export const PROMPT_COMMAND_PREFIX = "/";
+
+/**
+ * Les verbes du superviseur, ce qu'ils font et leurs autres noms — l'aide, le
+ * texte d'invite et la complétion les lisent.
+ */
+export const SUPERVISOR_VERBS: readonly {
+  readonly id: "status" | "restart" | "clear" | "help" | "quit";
+  /** Autres noms reconnus, sans le préfixe. */
+  readonly aliases: readonly string[];
+  readonly does: string;
+}[] = [
+  {
+    id: "status",
+    aliases: [],
+    does: "l'état des process et des ports, en panneau",
+  },
+  {
+    id: "restart",
+    aliases: ["reboot"],
+    does: "relancer le serveur, sans reconstruire",
+  },
+  { id: "clear", aliases: [], does: "vider l'onglet affiché" },
+  { id: "help", aliases: [], does: "l'aide complète, en rubriques (F1)" },
+  { id: "quit", aliases: ["exit"], does: "arrêter proprement" },
+];
+
+/**
+ * La porte des commandes du CLI dans l'invite : `/nodefony <commande>`, la
+ * ligne qu'on taperait dans un terminal, préfixée. La bande la propose dès
+ * le `/` (`devMenuBand.ts`).
+ */
+export const CLI_PROMPT_COMMAND = {
+  id: "nodefony",
+  usage: `${PROMPT_COMMAND_PREFIX}nodefony <commande>`,
+  does: "une commande du CLI — la bande les propose dès le « / »",
+} as const;
+
+/**
+ * Les commandes du CLI qui ne se lancent JAMAIS depuis l'invite : elles
+ * démarrent ou arrêtent un runtime — celui que ce superviseur fait déjà
+ * tourner — ou ouvrent le menu interactif, qui prendrait le terminal. Noms
+ * ET alias (le manifeste ne voyage pas jusqu'à l'action) : le refus porte
+ * sur ce que l'on tape. La bande ne les propose pas.
+ */
+export const PROMPT_EXCLUDED_COMMANDS: ReadonlySet<string> = new Set([
+  "development",
+  "dev",
+  "debug",
+  "production",
+  "prod",
+  "start",
+  "cluster",
+  "stop",
+  "menu",
+]);
+
+/**
+ * Une commande du CLI que l'invite propose : ni une commande de runtime
+ * ({@link PROMPT_EXCLUDED_COMMANDS}), ni une commande qu'un verbe porte déjà
+ * (`status`). La bande et Tab lisent cette seule règle.
+ *
+ * @param name - le nom de la commande.
+ * @returns `true` si l'invite la propose.
+ */
+export function isPromptCommand(name: string): boolean {
+  if (PROMPT_EXCLUDED_COMMANDS.has(name)) return false;
+  for (const verb of SUPERVISOR_VERBS) if (verb.id === name) return false;
+  return true;
+}
+
+/** Longueur au plus d'une ligne de commande citée dans un message. */
+const PROMPT_LINE_MAX = 200;
+
+/**
+ * L'action `/nodefony <commande>`. Elle reconnaît la forme et la refuse en
+ * disant pourquoi : une commande de runtime jamais, les autres pas encore —
+ * l'exécution en sous-processus est le lot 2 de #538 —, avec la ligne à
+ * taper dans un terminal en attendant.
+ *
+ * Tab complète la ligne par `computeCompletions` — la complétion du shell,
+ * sur le même manifeste : le nom de la commande, puis ses arguments, ses
+ * options et les valeurs qu'elles attendent.
+ *
+ * @param manifest - le manifeste du CLI, relu à chaque Tab (`null` s'il
+ *   n'est pas écrit). Absent : Tab ne complète que `/nodefony`.
+ * @returns l'action.
+ */
+export function cliCommandAction(
+  manifest?: () => ICliManifest | null,
+): IPromptAction {
+  const head = `${PROMPT_COMMAND_PREFIX}${CLI_PROMPT_COMMAND.id}`;
+  return {
+    id: CLI_PROMPT_COMMAND.id,
+    matches: (input: string): boolean => {
+      const trimmed = input.trim();
+      return (
+        trimmed.startsWith(head) &&
+        (trimmed.length === head.length ||
+          /\s/.test(trimmed.charAt(head.length)))
+      );
+    },
+    complete: (prefix: string): readonly string[] => {
+      const line = prefix.trimStart();
+      if (!line.startsWith(PROMPT_COMMAND_PREFIX)) return [];
+      if (line.length <= head.length)
+        return head.startsWith(line) ? [head] : [];
+      if (!/\s/.test(line.charAt(head.length)) || !line.startsWith(head)) {
+        return [];
+      }
+      const read = manifest?.() ?? null;
+      if (read === null) return [];
+      // Le protocole du shell : tous les mots, le dernier (en cours) même vide.
+      const words = line.slice(head.length).trimStart().split(/\s+/);
+      const typed = words[words.length - 1] ?? "";
+      const before = words.slice(0, -1);
+      const lead = before.length === 0 ? head : `${head} ${before.join(" ")}`;
+      const seen = new Set<string>();
+      const out: string[] = [];
+      // La forme courte (`-f`) seulement si l'on tape `-x` : sinon elle
+      // double la longue, et leur début commun tombe à `-`.
+      const short = /^-[^-]?$|^-[^-]/.test(typed);
+      for (const word of computeCompletions(read, words)) {
+        if (!word.startsWith(typed) || seen.has(word)) continue;
+        if (!short && /^-[^-]/.test(word)) continue;
+        if (before.length === 0 && !isPromptCommand(word)) continue;
+        seen.add(word);
+        out.push(`${lead} ${word}`);
+      }
+      return out;
+    },
+    run: async (input: string, io: IPromptIO): Promise<number> => {
+      const whole = input.trim().slice(head.length).trim();
+      const line =
+        whole.length > PROMPT_LINE_MAX
+          ? `${whole.slice(0, PROMPT_LINE_MAX)}…`
+          : whole;
+      const name = line.split(/\s/, 1)[0] ?? "";
+      if (name === "") {
+        io.write(
+          `${CLI_PROMPT_COMMAND.usage} — la bande propose les commandes, Tab complète\n`,
+          "err",
+        );
+        return 64;
+      }
+      if (PROMPT_EXCLUDED_COMMANDS.has(name)) {
+        io.write(
+          `« nodefony ${name} » ne se lance jamais depuis l'invite : elle démarre, arrête ou prend le terminal que ce superviseur tient\n`,
+          "err",
+        );
+        return 1;
+      }
+      io.write(
+        `« nodefony ${line} » ne se lance pas encore depuis l'invite — en attendant, dans un autre terminal : npx nodefony ${line}\n`,
+        "err",
+      );
+      return 1;
+    },
+  };
+}
+
+/**
+ * Le premier mot d'une saisie, sans le préfixe `/` d'une commande.
+ *
+ * @param input - la saisie.
+ * @returns le mot, ou `""`.
+ */
+export function promptVerb(input: string): string {
+  const trimmed = input.trim();
+  const start = trimmed.startsWith(PROMPT_COMMAND_PREFIX)
+    ? PROMPT_COMMAND_PREFIX.length
+    : 0;
+  const space = trimmed.slice(start).search(/\s/);
+  const word =
+    space === -1 ? trimmed.slice(start) : trimmed.slice(start, start + space);
+  // Cité dans un message : borné, un collage sans espace ne s'y recopie pas.
+  return word.length > PROMPT_VERB_MAX
+    ? `${word.slice(0, PROMPT_VERB_MAX)}…`
+    : word;
+}
+
+/** Longueur au plus du mot cité par {@link promptVerb}. */
+const PROMPT_VERB_MAX = 64;
+
+/**
+ * Ce que l'invite répond à une saisie qu'aucune action ne reconnaît : la
+ * commande inconnue nommée, ou — sans le préfixe — la règle rappelée.
+ *
+ * @param input - la saisie refusée.
+ * @returns le message, fin de ligne comprise.
+ */
+export function describeUnmatchedInput(input: string): string {
+  const help = `${PROMPT_COMMAND_PREFIX}help pour l'aide`;
+  return input.trim().startsWith(PROMPT_COMMAND_PREFIX)
+    ? `commande inconnue : ${PROMPT_COMMAND_PREFIX}${promptVerb(input)} — ${help}\n`
+    : `les commandes commencent par « ${PROMPT_COMMAND_PREFIX} » — ${help}\n`;
+}
+
+/**
+ * Les verbes du superviseur comme actions de l'invite : `/status`, `/restart` (ou
+ * `/reboot`), `/clear`, `/help`, `/quit` (ou `/exit`). Le préfixe est
+ * exigé, et aucun ne prend d'argument : un verbe suivi d'autre chose n'est
+ * pas le verbe.
+ *
+ * @param verbs - ce qu'ils font faire.
+ * @returns les actions, dans l'ordre de {@link SUPERVISOR_VERBS}.
+ */
+export function supervisorActions(verbs: ISupervisorVerbs): IPromptAction[] {
+  return SUPERVISOR_VERBS.map(({ id, aliases }) => {
+    // Petit ensemble fixe (≤ 2 noms), lu à chaque Entrée : un tableau suffit.
+    const names = [id, ...aliases].map((n) => `${PROMPT_COMMAND_PREFIX}${n}`);
+    return {
+      id,
+      matches: (input: string): boolean => names.includes(input.trim()),
+      // Le nom principal d'abord ; un autre nom seulement s'il est le seul à
+      // prolonger le préfixe (`/ex` → `/exit`), jamais les deux à la fois.
+      complete: (prefix: string): readonly string[] => {
+        const hit = names.find((n) => n.startsWith(prefix));
+        return hit === undefined ? [] : [hit];
+      },
+      run: async (
+        _input: string,
+        io: IPromptIO,
+        signal: AbortSignal,
+      ): Promise<number> => {
+        switch (id) {
+          case "status":
+            await verbs.status(signal);
+            return 0;
+          case "restart":
+            if (!(await verbs.restart())) {
+              io.write("un rechargement est déjà en cours\n", "err");
+              return 1;
+            }
+            return 0;
+          case "clear":
+            verbs.clear();
+            return 0;
+          case "help":
+            verbs.help();
+            return 0;
+          case "quit":
+            verbs.quit();
+            return 0;
+        }
+      },
+    };
+  });
+}

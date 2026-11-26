@@ -87,7 +87,8 @@ Faits ajoutés par l'audit de #896 (amendement #903) :
 
 - `src/nodefony/src/service/dev/DevTerminal.ts#DevTerminal` — un seul historique pour toutes les
   sources, un seul état de défilement (ancre, hauteurs, plancher, sélection).
-- `src/nodefony/src/service/dev/devTranscript.ts#TranscriptSource` — union FERMÉE de cinq
+- `TranscriptSource` (retiré par #932, remplacé par les canaux de
+  `src/nodefony/src/service/dev/devHistory.ts#DevHistory`) — union FERMÉE de cinq
   sources, sans Vite ni identifiant d'agent ; `devTranscript.ts#DevTranscript.indexOf` suppose
   des `seq` contigus, donc aucune vue filtrée.
 - `src/nodefony/src/service/dev/devFrame.ts#frameLayout` — trois zones pleine largeur ;
@@ -146,10 +147,10 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
   sortie synchronisée (mode `2026`) est demandée EN PLUS par DECRQM et reste optionnelle. Le plein
   écran n'est jamais conditionné à DECRQM, extension que tous les terminaux n'implémentent pas.
 - **La souris** — deux régimes, un interrupteur (`--mouse` / `--no-mouse` / `NF_DEV_MOUSE`) :
-  - **laissée au terminal** (le défaut) : seul le défilement alterné (mode `1007`) est posé ; le
+  - **laissée au terminal** (`--no-mouse`, et le défaut sous Windows) : seul le défilement alterné (mode `1007`) est posé ; le
     terminal traduit la molette en flèches, la sélection native marche sans touche. Ce régime
     perd la molette là où le terminal ne traduit pas : Terminal.app par défaut, tmux, JediTerm ;
-  - **captée** (`--mouse`) : clics (`1000`), glisser bouton tenu (`1002`), coordonnées SGR
+  - **captée** (le défaut hors Windows, `--mouse`) : clics (`1000`), glisser bouton tenu (`1002`), coordonnées SGR
     (`1006`) — jamais `1003` (tout mouvement : une inondation) ni `1004`. C'est le seul régime
     qui rend la molette uniforme partout où la souris est rapportée. La sélection est alors
     DESSINÉE par l'application (patron Claude Code, opencode, Textual) : extrémités en (entrée,
@@ -166,7 +167,9 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
     porte pas d'aide permanente.
   - `1007` est posé dans les deux régimes : là où la capture est refusée par un réglage du
     terminal (iTerm2, Terminal.app, Warp), la molette arrive encore, en flèches. Un cran capté
-    défile de trois lignes, comme un cran traduit.
+    défile de trois lignes, comme un cran traduit. Ce refus se CONSTATE : capture demandée, aucun
+    évènement souris reçu, et une molette traduite — la barre le dit une fois, avec le repli
+    `Alt+1…9` pour les onglets (`DevTerminal.ts#DevTerminal.#observeMouse`).
   - **Le presse-papiers se choisit sur le contexte** : session SSH ⇒ OSC 52 seule (un outil
     distant copierait sur la MAUVAISE machine, sans erreur) ; tmux ⇒ son tampon d'abord ;
     poste ⇒ `pbcopy`, `wl-copy`, `xclip`, `xsel`, PowerShell `Set-Clipboard` (jamais
@@ -322,9 +325,17 @@ interface IInputFocus {
 
 #537 pose trois foyers : **souris** quand elle est captée (sélection, Échap l'efface),
 **défilement** (molette, flèches, PgUp/PgDn, Début, Fin) et **global** (Ctrl+C, Ctrl+D ⇒ arrêt
-propre). #538 insère l'**invite** en tête. ↑↓ restent au défilement — sans capture, la molette
-ARRIVE en ↑↓, et la confier à l'historique de l'invite rejouerait des commandes à chaque cran ;
-l'historique de l'invite prend Ctrl+P / Ctrl+N, et l'aide le dit. La chaîne est atteignable hors clavier
+propre). #538 insère l'**invite** juste APRÈS la bande (une bande ouverte garde le clavier),
+avant la souris et le défilement (`DevTerminal.ts#DevTerminal.attachPrompt`).
+
+**Amendement #538 — un FOCUS, journal ou invite.** ↑↓ parcourent l'historique de l'invite quand
+elle a le focus, et font défiler le journal sinon ; Ctrl+P / Ctrl+N vont toujours à l'historique.
+Le focus va au journal par un clic dans le journal, la molette, PgUp/PgDn, Début/Fin sur une
+invite vide ; il revient à l'invite par la frappe, l'envoi ou un clic hors du journal. Le curseur
+de l'invite n'est montré que quand elle a le focus. La molette ne rejoue donc jamais l'historique :
+captée, elle arrive en évènement `wheel` ; traduite par le terminal (souris non captée), un cran
+arrive en RAFALE de flèches identiques dans un seul paquet — une touche, même répétée, en envoie
+une par paquet — et la rafale défile le journal (`DevTerminal.ts#isArrowBurst`). La chaîne est atteignable hors clavier
 (`DevTerminal.dispatch`) : une entrée venue d'ailleurs, plus tard, y entre sans rien rouvrir.
 
 ### 5. Une classe compose le tout : `DevTerminal`
@@ -500,7 +511,11 @@ interface IConfirmDecision {
 
 - `decline` est rendu au modèle ; `cancel` arrête le tour. Une approbation ne vaut que pour
   l'appel qu'elle accompagne, jamais « pour la session ».
-- Implémentations : **verbes du superviseur** (`restart`, `clear`, `help`, `quit`) et **commandes
+- **Une commande commence par `/`** (`/help`, `/quit`), à la manière de Claude Code : une saisie
+  sans préfixe n'est pas une commande, elle reste libre pour l'assistant (#539), et l'invite le
+  dit au lieu de deviner (`src/nodefony/src/service/dev/promptAction.ts#describeUnmatchedInput`).
+- Implémentations : **verbes du superviseur** (`/restart` ou `/reboot`, `/clear`, `/help`, `/quit`
+  ou `/exit` — `src/nodefony/src/service/dev/promptAction.ts#SUPERVISOR_VERBS`) et **commandes
   du CLI** (`nodefony <cmd>` en sous-processus, complétion par `readCliManifest` /
   `computeCompletions`, `src/nodefony/src/cli/completion.ts#readCliManifest` et `src/nodefony/src/cli/completion.ts#computeCompletions`) en #538 ;
   **assistant** en #539.
@@ -728,7 +743,7 @@ interface IDevBand {
   handle(event: InputEvent): boolean; // modale : consomme tout ce qu'elle ne rend pas
 }
 // l'invite = une bande PERMANENTE : éditeur pur (tampon, curseur compté en graphèmes par la
-// fonction de largeur, historique Ctrl+P / Ctrl+N)
+// fonction de largeur, historique ↑/↓ quand elle a le focus, Ctrl+P / Ctrl+N toujours — §4)
 ```
 
 - **Souris** : le test de région passe AVANT la chaîne de foyers (§4), et l'évènement arrive à

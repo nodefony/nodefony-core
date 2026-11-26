@@ -28,9 +28,72 @@ export interface IDevBand extends IFrameBand {
 }
 
 /** Une ligne de l'aide : le geste, et ce qu'il fait. */
-interface IGesture {
+/** Un geste de l'écran : ses touches et ce qu'il fait. */
+export interface IGesture {
   readonly keys: string;
   readonly does: string;
+}
+
+/**
+ * Les gestes du plein écran — la SEULE liste : la bande d'aide (`?`) et le
+ * panneau d'aide (`/help`, F1) la lisent, jamais une copie.
+ *
+ * @param options - jeu de caractères, souris captée, invite branchée.
+ * @returns les gestes, dans l'ordre de lecture.
+ */
+export function screenGestures(options: {
+  readonly charset: ScreenCharset;
+  readonly mouse: boolean;
+  readonly prompt?: boolean;
+}): IGesture[] {
+  const ascii = options.charset === "ascii";
+  const gestures: IGesture[] = [
+    { keys: ascii ? "Alt+1..9" : "Alt+1…9", does: "changer d'onglet" },
+    // Sur un clavier AZERTY, Terminal.app et iTerm2 demandent Maj pour le
+    // chiffre ; VS Code lit la position de la touche, donc Option seule.
+    {
+      keys: ascii ? "Maj+Alt+1..9" : "Maj+Alt+1…9",
+      does: "idem en AZERTY, hors VS Code",
+    },
+    { keys: "PgUp PgDn", does: "défiler d'une page" },
+  ];
+  if (options.prompt === true) {
+    gestures.push(
+      {
+        keys: ascii ? "haut bas Ctrl+P/N" : "↑ ↓ Ctrl+P/N",
+        does: "historique de l'invite",
+      },
+      {
+        keys: ascii ? "molette clic PgUp" : "molette · clic · PgUp",
+        does: "focus au journal (↑ ↓ y défilent)",
+      },
+      { keys: ascii ? "droite" : "→", does: "accepter la suggestion" },
+      { keys: "Tab", does: "compléter la commande et ses options" },
+      { keys: "Ctrl+R", does: "chercher dans l'historique" },
+      { keys: "Alt+Entrée", does: "saut de ligne" },
+      { keys: "Ctrl+W Ctrl+U", does: "effacer le mot / la ligne" },
+      { keys: "Début Fin", does: "invite vide : haut / direct" },
+    );
+  } else {
+    gestures.push(
+      { keys: ascii ? "haut bas" : "↑ ↓", does: "défiler d'une ligne" },
+      { keys: "Début Fin", does: "haut / retour au direct" },
+    );
+  }
+  if (options.mouse) {
+    gestures.push(
+      { keys: "clic", does: "montrer un onglet" },
+      { keys: "glisser", does: "copier une sélection" },
+      { keys: "molette", does: "défiler" },
+    );
+  }
+  gestures.push(
+    { keys: "Échap", does: "effacer la sélection" },
+    options.prompt === true
+      ? { keys: "Ctrl+C", does: "effacer ; invite vide : arrêter" }
+      : { keys: "Ctrl+C", does: "arrêter le serveur" },
+  );
+  return gestures;
 }
 
 /**
@@ -47,32 +110,11 @@ export function helpBand(options: {
   readonly charset: ScreenCharset;
   readonly color: boolean;
   readonly mouse: boolean;
+  /** L'invite est branchée : ↑ ↓ y parcourent l'historique, plus le journal. */
+  readonly prompt?: boolean;
   readonly close: () => void;
 }): IDevBand {
-  const ascii = options.charset === "ascii";
-  const gestures: IGesture[] = [
-    { keys: ascii ? "Alt+1..9" : "Alt+1…9", does: "changer d'onglet" },
-    // Sur un clavier AZERTY, Terminal.app et iTerm2 demandent Maj pour le
-    // chiffre ; VS Code lit la position de la touche, donc Option seule.
-    {
-      keys: ascii ? "Maj+Alt+1..9" : "Maj+Alt+1…9",
-      does: "idem en AZERTY, hors VS Code",
-    },
-    { keys: "PgUp PgDn", does: "défiler d'une page" },
-    { keys: ascii ? "haut bas" : "↑ ↓", does: "défiler d'une ligne" },
-    { keys: "Début Fin", does: "haut / retour au direct" },
-  ];
-  if (options.mouse) {
-    gestures.push(
-      { keys: "clic", does: "montrer un onglet" },
-      { keys: "glisser", does: "copier une sélection" },
-      { keys: "molette", does: "défiler" },
-    );
-  }
-  gestures.push(
-    { keys: "Échap", does: "effacer la sélection" },
-    { keys: "Ctrl+C", does: "arrêter le serveur" },
-  );
+  const gestures = screenGestures(options);
   const half = Math.ceil(gestures.length / 2);
   const keyWidth = gestures.reduce((w, g) => Math.max(w, g.keys.length), 0);
   const cellWidth =

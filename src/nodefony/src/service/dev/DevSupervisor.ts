@@ -1,3 +1,4 @@
+import { tabPalette } from "./tabPalette";
 import { spawn, type ChildProcess } from "node:child_process";
 import {
   existsSync,
@@ -63,6 +64,9 @@ import {
 } from "./DevTerminal";
 import { shouldColorize } from "../../kernel/checks/report";
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
+import { readCliManifest } from "../../cli/completion";
+import { buildStatusPanel } from "./devStatusPanel";
+import { collectDevStatus } from "./devStatusReport";
 import { childExecArgv } from "./detachedStart";
 import { refreshProjectSymbols } from "../../cli/symbolsGenerate";
 import {
@@ -91,6 +95,9 @@ import {
 } from "./devProcess";
 import { installShutdownSignals } from "./shutdownSignals";
 import { RestartCycle } from "./restartCycle";
+import { cliCommandAction, supervisorActions } from "./promptAction";
+import { buildPromptMenu } from "./devMenuBand";
+import { INSPECT_SUBJECTS } from "../../kernel/inspect/adminSubjects";
 import { ANSI } from "./ansi";
 import {
   describeTurboFreeze,
@@ -1417,6 +1424,34 @@ export class DevSupervisor {
     });
     this.#terminal = terminal;
     process.once("exit", () => terminal.close());
+    // L'invite (#538) : les verbes du superviseur, `/nodefony <commande>`,
+    // la bande qui les propose, l'historique du projet.
+    terminal.attachPrompt({
+      root: this.#cwd,
+      cliManifest: () => readCliManifest(this.#cwd),
+      menu: () =>
+        buildPromptMenu({
+          manifest: readCliManifest(this.#cwd),
+          inspectSubjects: INSPECT_SUBJECTS,
+        }),
+      actions: [
+        ...supervisorActions({
+          restart: () => this.#restartFromPrompt(),
+          clear: () => terminal.clearView(),
+          help: () => terminal.showHelp(),
+          // Le rapport de `nodefony status`, tel quel (D10) ; le superviseur se
+          // compte lui-même, comme le data plane compte le serveur.
+          status: async (signal) => {
+            const report = await collectDevStatus(this.#cwd, {
+              includeSelf: true,
+            });
+            if (!signal.aborted) terminal.openPanel(buildStatusPanel(report));
+          },
+          quit: () => void this.#shutdown(),
+        }),
+        cliCommandAction(() => readCliManifest(this.#cwd)),
+      ],
+    });
     // Le serveur écrit dans un tube : il ne reçoit pas `SIGWINCH`. La barre
     // se recompose ici, et la taille lui est relayée.
     process.stdout.on("resize", () => {
@@ -1507,6 +1542,7 @@ export class DevSupervisor {
     return {
       input: stdin,
       synchronized: probe.synchronized,
+      tabPalette: tabPalette(probe.background, process.stdout.getColorDepth()),
       paint: paint.paint,
       onQuit: () => void this.#shutdown(),
       // La séquence OSC 52 part sur NOTRE terminal, par `DevTerminal` : une
@@ -2631,6 +2667,26 @@ export class DevSupervisor {
     return true;
   }
 
+  /**
+   * Le verbe `restart` de l'invite : relance le serveur sans reconstruire,
+   * sous la garde du cycle — jamais pendant un rechargement en vol.
+   *
+   * @returns `false` si rien n'a été lancé.
+   */
+  async #restartFromPrompt(): Promise<boolean> {
+    if (this.#cycle.busy || this.#isStopping()) return false;
+    const before = this.#terminal?.phase ?? null;
+    this.#terminal?.setPhase("restarting");
+    let restarted = false;
+    try {
+      restarted = await this.#cycle.restartNow();
+    } finally {
+      // Refusé ou en échec : la barre ne reste pas sur « redémarrage ».
+      if (!restarted && before !== null) this.#terminal?.setPhase(before);
+    }
+    return restarted;
+  }
+
   /** Étape « remplacement » du cycle : tue le groupe de l'enfant, attend les ports, relance. */
   async #swapChild(): Promise<void> {
     this.#terminal?.setActivity("arrêt du serveur");
@@ -2944,7 +3000,12 @@ export class DevSupervisor {
     await this.#killBuild();
     // Le serveur et les services portés s'arrêtent ensemble : ce sont des
     // arbres distincts, et chacun attend la mort effective du sien.
-    await Promise.all([this.#killChild(), heldStopped]);
+    await Promise.all([
+      this.#killChild(),
+      heldStopped,
+      // La dernière saisie de l'invite est écrite avant de quitter.
+      this.#terminal?.flushPrompt(),
+    ]);
     this.#terminal?.close();
     this.#releaseLock();
     process.exit(0);

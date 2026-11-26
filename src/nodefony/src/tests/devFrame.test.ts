@@ -708,7 +708,7 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
     expect(frameJournalRows(model(t, { status: null }), size)).to.equal(10);
   });
 
-  it("en couleur, aux couleurs de la marque : numéro vert gras, titre sur gris ; l'actif numéro sur cyan, titre blanc gras sur bleu ; compteur caché rouge sur une erreur", () => {
+  it("en couleur, sans voile connu : les autres atténués, l'actif ▎ bleu et titre gras, une barre │ après chacun ; compteur caché rouge sur une erreur", () => {
     const frame = renderFrame(
       model(transcriptOf(range(3)), {
         status: null,
@@ -724,7 +724,7 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
       size,
     );
     expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
-      "\x1b[1;32m 1 \x1b[0;100m serveur\x1b[1;91m ·2\x1b[22;39m \x1b[0m \x1b[1;30;46m 2 \x1b[0;1;97;44m vite \x1b[0m ",
+      " \x1b[2m1 serveur\x1b[22m\x1b[31m ·2\x1b[39m \x1b[2m│\x1b[22m\x1b[34m▎\x1b[39m\x1b[2m2\x1b[22m \x1b[1mvite\x1b[22m \x1b[2m│\x1b[22m\x1b[0m",
     );
   });
 
@@ -784,11 +784,11 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
       { columns: 24, rows: 10 },
     );
     expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
-      "\x1b[1;30;46m 1 \x1b[0;1;97;44m a1 \x1b[0m \x1b[1;32m 2 \x1b[0;100m a2 \x1b[0m \x1b[1;31m +4 › \x1b[0m",
+      "\x1b[34m▎\x1b[39m\x1b[2m1\x1b[22m \x1b[1ma1\x1b[22m \x1b[2m│\x1b[22m \x1b[2m2 a2\x1b[22m \x1b[2m│\x1b[22m\x1b[1;31m +4 › \x1b[0m",
     );
   });
 
-  it("un onglet dont le travail est fini porte ✓ ou ✗ après son titre", () => {
+  it("un onglet dont le travail est fini porte ✓ ou ✗ DEVANT son titre", () => {
     const frame = renderFrame(
       model(transcriptOf(range(3)), {
         status: null,
@@ -804,11 +804,11 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
       size,
     );
     expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
-      "[1 serveur]│ 2 agent ✓ │ 3 build ✗ │",
+      "[1 serveur]│ ✓ 2 agent │ ✗ 3 build │",
     );
   });
 
-  it("en couleur, ✓ en vert et ✗ en rouge, gras, le titre reprend sa teinte après", () => {
+  it("en couleur, ✓ en vert et ✗ en rouge, devant le titre — sans gras", () => {
     const frame = renderFrame(
       model(transcriptOf(range(3)), {
         status: null,
@@ -826,9 +826,99 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
     );
     const line = frame.lines[frame.tabs?.row ?? -1] ?? "";
     expect(line).to.include(
-      "\x1b[0;1;97;44m agent\x1b[1;92m ✓\x1b[97m \x1b[0m",
+      "\x1b[34m▎\x1b[39m\x1b[32m✓ \x1b[39m\x1b[2m2\x1b[22m \x1b[1magent\x1b[22m ",
     );
-    expect(line).to.include("\x1b[0;100m build\x1b[1;91m ✗\x1b[22;39m \x1b[0m");
+    expect(line).to.include(" \x1b[31m✗ \x1b[39m\x1b[2m3 build\x1b[22m ");
+  });
+
+  it("voile connu : toute la ligne sous le voile de la barre, l'actif sous le sien, jusqu'au bout de la ligne", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        color: true,
+        tabPalette: { bar: "48;2;48;48;48", active: "48;2;32;57;84" },
+        tabs: {
+          active: 1,
+          items: [
+            { title: "serveur", unseen: 0, alert: false },
+            { title: "vite", unseen: 0, alert: false },
+          ],
+        },
+      }),
+      { columns: 40, rows: 10 },
+    );
+    const line = frame.lines[frame.tabs?.row ?? -1] ?? "";
+    expect(line.startsWith("\x1b[48;2;48;48;48m")).to.equal(true);
+    expect(line).to.include(
+      "\x1b[48;2;32;57;84m\x1b[34m▎\x1b[39m\x1b[2m2\x1b[22m \x1b[1mvite\x1b[22m \x1b[48;2;48;48;48m",
+    );
+    // Aucune remise à zéro avant la fin : le voile tient toute la ligne.
+    expect(line.indexOf("\x1b[0m")).to.equal(line.length - 4);
+    expect(visibleWidth(line)).to.equal(39);
+  });
+
+  it("frontière des groupes : ┃ entre les onglets fixes et ceux ouverts à la volée", () => {
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        tabs: {
+          active: 0,
+          items: [
+            { title: "serveur", unseen: 0, alert: false },
+            { title: "vite", unseen: 0, alert: false },
+            { title: "build", unseen: 0, alert: false, adHoc: true },
+            { title: "env", unseen: 0, alert: false, adHoc: true },
+          ],
+        },
+      }),
+      size,
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      "[1 serveur]│ 2 vite ┃ 3 build │ 4 env │",
+    );
+  });
+
+  it("le filet de l'invite, collé à la ligne d'onglets, se raccorde à ses barres (┴, ┸) — jamais à travers une bande", () => {
+    const tabs = {
+      active: 0,
+      items: [
+        { title: "serveur", unseen: 0, alert: false },
+        { title: "build", unseen: 0, alert: false, adHoc: true },
+      ],
+    };
+    const prompt = {
+      lines: ["─".repeat(30), "❯ "],
+      cursor: { row: 1, column: 2 },
+      ruled: true,
+    };
+    const frame = renderFrame(
+      model(transcriptOf(range(3)), { status: null, tabs, prompt }),
+      { columns: 31, rows: 10 },
+    );
+    const row = frame.tabs?.row ?? -1;
+    expect(frame.lines[row]).to.equal("[1 serveur]┃ 2 build │");
+    expect(frame.lines[row + 1]).to.equal("───────────┸─────────┴────────");
+    // Une bande entre les deux : le filet reste droit.
+    const banded = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        tabs,
+        prompt,
+        band: { height: () => 1, render: () => ["bande"] },
+      }),
+      { columns: 31, rows: 10 },
+    );
+    expect(banded.lines).to.include("─".repeat(30));
+    // Une invite sans filet déclaré : rien n'est redessiné.
+    const plain = renderFrame(
+      model(transcriptOf(range(3)), {
+        status: null,
+        tabs,
+        prompt: { lines: ["❯ "], cursor: { row: 0, column: 2 } },
+      }),
+      { columns: 31, rows: 10 },
+    );
+    expect(plain.lines.some((l) => l.includes("┸"))).to.equal(false);
   });
 });
 
