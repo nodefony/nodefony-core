@@ -9,6 +9,7 @@
  * rectangle et déplacer son curseur.
  */
 import { fitToWidth, visibleWidth, wrapToWidth } from "../../runtime/textWidth";
+import type { IFramePanel } from "./devFrame";
 import type { InputEvent } from "./inputDecoder";
 import type { ScreenCharset } from "./startupScreen";
 
@@ -58,7 +59,7 @@ const WHEEL_STEP = 3;
  * gardé pour la largeur où il a été calculé — un panneau ne change pas
  * d'une image à l'autre, seule la fenêtre bouge.
  */
-export class PanelCursor {
+export class PanelCursor implements IFramePanel {
   page = 0;
   scroll = 0;
   /** Hauteur du corps à la dernière image — PgUp/PgDn s'en servent. */
@@ -89,8 +90,19 @@ export class PanelCursor {
   }
 
   /**
+   * Ses lignes pour un rectangle — {@link renderPanel}.
+   *
+   * @param width - colonnes.
+   * @param height - lignes.
+   */
+  render(width: number, height: number): readonly string[] {
+    return renderPanel(this, width, height);
+  }
+
+  /**
    * Applique une touche : ←→ changent de rubrique, ↑↓ PgUp PgDn Début Fin
-   * et la molette défilent, Échap ou `q` referment. Le reste passe.
+   * et la molette défilent, Échap referme. Le reste passe — la frappe va à
+   * l'invite de l'onglet.
    *
    * @param event - l'évènement décodé.
    * @returns ce qu'il en a fait.
@@ -100,7 +112,6 @@ export class PanelCursor {
       this.scroll += event.direction === "up" ? -WHEEL_STEP : WHEEL_STEP;
       return "handled";
     }
-    if (event.kind === "text") return event.text === "q" ? "close" : "pass";
     if (event.kind !== "key" || event.ctrl || event.alt) return "pass";
     const key = event.key;
     if (key === "escape") return "close";

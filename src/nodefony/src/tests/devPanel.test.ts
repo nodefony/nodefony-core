@@ -180,10 +180,10 @@ describe("PanelCursor — les touches", () => {
     expect(cursor.scroll).to.equal(3);
   });
 
-  it("Échap et `q` referment ; une autre frappe et Alt+flèche passent", () => {
+  it("Échap referme ; la frappe (`q` compris, elle va à l’invite) et Alt+flèche passent", () => {
     const cursor = new PanelCursor(spec(), plain);
     expect(cursor.handle(key("escape"))).to.equal("close");
-    expect(cursor.handle({ kind: "text", text: "q" })).to.equal("close");
+    expect(cursor.handle({ kind: "text", text: "q" })).to.equal("pass");
     expect(cursor.handle({ kind: "text", text: "a" })).to.equal("pass");
     expect(
       cursor.handle({

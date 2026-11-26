@@ -75,6 +75,7 @@ import {
 import { DevHistory, type IDevHistoryOptions } from "./devHistory";
 import { DevView, type IDevViewHandle, type IDevViewSpec } from "./devView";
 import { helpBand, type IDevBand } from "./devBand";
+import { PanelCursor, type IPanelSpec } from "./devPanel";
 import type { ProcessOutputStream } from "./heldChannel";
 import { CLEAR_SCREEN, type DevPaint } from "./outputMode";
 import {
@@ -261,6 +262,9 @@ export interface IInputFocus {
 
 /** La surface d'affichage du terminal. */
 export type DevSurface = "inline" | "fullscreen";
+
+/** Le filtre d'un onglet sans canal (un panneau). */
+const noChannel = (): boolean => false;
 
 /** Effacement d'écran : la seule séquence retirée qui garde un sens. */
 const CLEAR = "\x1b[2J";
@@ -576,6 +580,8 @@ export class DevTerminal {
   #prompt: IPromptState | null = null;
   /** Le foyer de la bande : l'invite se pose JUSTE APRÈS lui (D9). */
   #bandHandle: IInputFocus | null = null;
+  /** Le foyer du panneau (#538, D9) — l'invite se range APRÈS lui. */
+  #panelHandle: IInputFocus | null = null;
 
   /**
    * @param options - flux, rendu de la barre, plafonds de l'historique, et
@@ -896,9 +902,11 @@ export class DevTerminal {
     };
     this.#prompt = state;
     const focus = this.#promptFocus(full, state);
-    const band =
-      this.#bandHandle === null ? -1 : full.foci.indexOf(this.#bandHandle);
-    full.foci.splice(band + 1, 0, focus);
+    // Après la bande ET le panneau : une bande ouverte garde le clavier
+    // (D9), et le panneau de l'onglet affiché prend ses touches avant elle.
+    const before = this.#panelHandle ?? this.#bandHandle;
+    const at = before === null ? -1 : full.foci.indexOf(before);
+    full.foci.splice(at + 1, 0, focus);
     this.#scheduleFrame();
     return () => {
       if (this.#prompt !== state) return;
@@ -927,6 +935,37 @@ export class DevTerminal {
   clearView(): void {
     if (this.#closed || !this.#full) return;
     this.#active.floorSeq = this.#active.transcript.lastSeq;
+    this.#scheduleFrame();
+  }
+
+  /**
+   * Ouvre un panneau à rubriques dans un onglet à la volée (#538, D9) et le
+   * montre. Déjà ouvert sous ce même identifiant : son contenu est remplacé
+   * — `/status` relancé montre l'état du moment — et la rubrique affichée
+   * est gardée si elle existe encore. Échap le referme. Sans plein écran :
+   * rien, aucun clavier n'est lu en surface `inline`.
+   *
+   * @param spec - identifiant, libellé et rubriques.
+   */
+  openPanel(spec: IPanelSpec): void {
+    const full = this.#full;
+    if (!full) return;
+    const cursor = new PanelCursor(spec, {
+      color: this.#color,
+      charset: this.#charset,
+    });
+    let view = this.#views.find((candidate) => candidate.id === spec.id);
+    if (view === undefined) {
+      // Aucun canal : l'onglet ne montre que son panneau.
+      view = new DevView(this.#history, spec.id, spec.label, noChannel, true);
+      this.#views.push(view);
+    } else if (view.panel !== null) {
+      cursor.page = Math.min(view.panel.page, spec.pages.length - 1);
+    } else {
+      throw new Error(`onglet déjà ouvert sans panneau : ${spec.id}`);
+    }
+    view.panel = cursor;
+    this.#selectView(full, view);
     this.#scheduleFrame();
   }
 
@@ -1157,7 +1196,9 @@ export class DevTerminal {
     full.foci.push(this.#scrollFocus(full), this.#globalFocus(full));
     const band = this.#bandFocus(full);
     this.#bandHandle = band;
-    full.foci.unshift(band);
+    const panel = this.#panelFocus();
+    this.#panelHandle = panel;
+    full.foci.unshift(band, panel);
     this.#full = full;
     this.#surface = "fullscreen";
     full.releaseGuard = guardTerminal(() => this.#restoreTerminal(full));
@@ -1580,6 +1621,34 @@ export class DevTerminal {
       state.editors.set(id, editor);
     }
     return editor;
+  }
+
+  /**
+   * Foyer du panneau de l'onglet affiché : ←→ rubrique, ↑↓ PgUp PgDn Début
+   * Fin et la molette défilent, Échap referme — tant que la saisie de
+   * l'onglet est VIDE. Dès qu'on tape, les flèches reviennent à l'éditeur
+   * (le même partage que Début/Fin, D4) ; l'historique reste à Ctrl+P/N.
+   */
+  #panelFocus(): IInputFocus {
+    return {
+      handle: (event) => {
+        const view = this.#active;
+        const panel = view.panel;
+        if (panel === null) return false;
+        if (event.kind !== "wheel" && !this.#activeDraftEmpty()) return false;
+        const verdict = panel.handle(event);
+        if (verdict === "pass") return false;
+        if (verdict === "close") this.#removeView(view);
+        else this.#scheduleFrame();
+        return true;
+      },
+    };
+  }
+
+  /** La saisie de l'onglet affiché est vide (ou l'invite absente). */
+  #activeDraftEmpty(): boolean {
+    const editor = this.#prompt?.editors.get(this.#active.id);
+    return editor === undefined || editor.empty;
   }
 
   /**
@@ -2066,6 +2135,7 @@ export class DevTerminal {
         : "",
       tabs: this.#tabs(views),
       band: this.#bands.at(-1) ?? null,
+      panel: view.panel,
       prompt: this.#promptFrame(),
       selection:
         full.selection === null ||

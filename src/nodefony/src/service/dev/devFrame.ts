@@ -139,6 +139,19 @@ export interface IFrameBand {
   render(region: IRegion): readonly string[];
 }
 
+/**
+ * Un panneau à la place du journal (#538, D9) : ses lignes pour le rectangle
+ * du journal, chacune déjà bornée à la largeur.
+ */
+export interface IFramePanel {
+  /**
+   * @param width - colonnes.
+   * @param height - lignes du journal.
+   * @returns exactement `height` lignes.
+   */
+  render(width: number, height: number): readonly string[];
+}
+
 /** Tout ce que l'image lit. */
 export interface IFrameModel {
   readonly transcript: ITranscriptReader;
@@ -175,6 +188,8 @@ export interface IFrameModel {
   readonly tabs?: IFrameTabs | null;
   /** La bande ouverte, entre les onglets et l'invite — absente : hauteur 0. */
   readonly band?: IFrameBand | null;
+  /** Un panneau occupe le rectangle du journal — absent : le journal. */
+  readonly panel?: IFramePanel | null;
 }
 
 /**
@@ -1144,6 +1159,19 @@ export function topAnchor(
 }
 
 /**
+ * Le panneau dans le rectangle du journal : aucune ligne n'a d'origine dans
+ * l'historique (rien à sélectionner, aucun clic n'y vise une entrée).
+ */
+function panelRows(
+  panel: IFramePanel,
+  width: number,
+  height: number,
+): IJournalRows {
+  const lines = height > 0 ? [...panel.render(width, height)] : [];
+  return { lines, origins: Array.from({ length: lines.length }, () => null) };
+}
+
+/**
  * Calcule l'image du terminal.
  *
  * @param model - historique, ancre, barre, invite, rendu.
@@ -1165,7 +1193,10 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
     journalHeight,
   } = frameLayout(model, size);
   const prompt = model.prompt ?? null;
-  const journal = journalLines(model, heights, width, journalHeight);
+  const journal =
+    model.panel === undefined || model.panel === null
+      ? journalLines(model, heights, width, journalHeight)
+      : panelRows(model.panel, width, journalHeight);
   const all = [
     ...journal.lines,
     ...indicator,

@@ -9,6 +9,7 @@
  */
 import type { DevHistory, MergedTranscript } from "./devHistory";
 import { FrameHeights, type IScrollAnchor, type ViewOutcome } from "./devFrame";
+import type { PanelCursor } from "./devPanel";
 
 /** Ce qu'on donne pour ouvrir un onglet à la volée (`DevTerminal.addView`). */
 export interface IDevViewSpec {
@@ -51,6 +52,8 @@ export class DevView {
   alert = false;
   /** L'issue de son travail, `null` tant qu'il tourne. */
   outcome: ViewOutcome | null = null;
+  /** Un panneau à rubriques l'occupe au lieu de ses canaux (#538, D9). */
+  panel: PanelCursor | null = null;
 
   /**
    * @param history - l'historique par canal.

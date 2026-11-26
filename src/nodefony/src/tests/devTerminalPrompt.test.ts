@@ -404,3 +404,73 @@ describe("plein écran — l'invite (#538)", () => {
     terminal.close();
   });
 });
+
+describe("plein écran — le panneau à rubriques (#538, D9)", () => {
+  const RIGHT = "\x1b[C";
+  const LEFT = "\x1b[D";
+  const ESC = "\x1b";
+  const panel = (value = "un", module = "chargé") => ({
+    id: "status",
+    label: "status",
+    pages: [
+      {
+        title: "Serveur",
+        rows: [{ kind: "entry" as const, key: "état", value }],
+      },
+      {
+        title: "Modules",
+        rows: [{ kind: "entry" as const, key: "http", value: module }],
+      },
+    ],
+  });
+
+  it("s'ouvre dans un onglet à la volée, à la place du journal ; Échap le referme", async () => {
+    const { written, input, terminal } = prompted();
+    terminal.ingest("server", "out", "prêt\n");
+    terminal.openPanel(panel());
+    await nextFrame();
+    let lines = await screen(written);
+    expect(lines.slice(0, 3)).to.deep.equal([
+      " Serveur   Modules ",
+      "─".repeat(COLS - 1),
+      "  état  un",
+    ]);
+    expect(lines).to.include("←→ rubrique · Échap fermer");
+    expect(lines).to.include(" 1 serveur ·1 │[2 status]│");
+    expect(lines.some((l) => l.includes("prêt"))).to.equal(false);
+    // Un Échap seul attend la fin du délai d'ambiguïté du décodeur.
+    input.type(ESC);
+    await nextFrame();
+    await nextFrame();
+    lines = await screen(written);
+    expect(lines.some((l) => l.includes("prêt"))).to.equal(true);
+    expect(lines.some((l) => l.includes("status"))).to.equal(false);
+    terminal.close();
+  });
+
+  it("→ change de rubrique sur une saisie vide ; dès qu'on tape, ←→ reviennent à l'éditeur", async () => {
+    const { written, input, terminal } = prompted();
+    terminal.openPanel(panel());
+    input.type(RIGHT);
+    await nextFrame();
+    expect(await screen(written)).to.include("  http  chargé");
+    input.type("ab" + LEFT + LEFT + "c");
+    await nextFrame();
+    const lines = await screen(written);
+    expect(lines.at(-1)).to.equal("❯ cab");
+    expect(lines).to.include("  http  chargé");
+    terminal.close();
+  });
+
+  it("rouvert sous le même identifiant : un seul onglet, contenu remplacé, rubrique gardée", async () => {
+    const { written, input, terminal } = prompted();
+    terminal.openPanel(panel("un"));
+    input.type(RIGHT);
+    terminal.openPanel(panel("deux", "rechargé"));
+    await nextFrame();
+    const lines = await screen(written);
+    expect(lines).to.include("  http  rechargé");
+    expect(lines.filter((l) => l.includes("status"))).to.have.length(1);
+    terminal.close();
+  });
+});
