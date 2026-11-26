@@ -139,9 +139,8 @@ describe("promptMenuView — le filtre à la frappe", () => {
     const cli = choices(menu(), "/nodefony");
     expect(cli.length).to.be.greaterThan(0);
     expect(cli.every((v) => v.startsWith("/nodefony "))).to.equal(true);
-    expect(choices(menu(), "/nodefony compile")).to.deep.equal([
-      "/nodefony build",
-    ]);
+    // Le début de la ligne, jamais la description (« Compile … » de build).
+    expect(choices(menu(), "/nodefony compile")).to.deep.equal([]);
   });
 
   it("`/nodefony inspect …` : le sous-menu des sujets, filtré", () => {
@@ -183,7 +182,7 @@ describe("promptMenuView — le filtre à la frappe", () => {
 describe("PromptMenuBand — la bande ouverte", () => {
   it("la commande tapée en entier est choisie d'office ; ↓ ↑ déplacent le choix", () => {
     const { band } = opened("/nodefony build");
-    expect(band.view().choices[0]?.value).to.equal("/nodefony doctor");
+    expect(band.view().choices[0]?.value).to.equal("/nodefony build");
     expect(band.selection()?.value).to.equal("/nodefony build");
     const first = opened("/");
     first.band.view();
@@ -242,7 +241,7 @@ describe("PromptMenuBand — la bande ouverte", () => {
     vague.band.view();
     expect(vague.band.handle(key("enter"))).to.equal(false);
     expect(vague.hooks.submit).not.toHaveBeenCalled();
-    // Filtre par la description, pas par le début : pas d'office non plus.
+    // Rien ne commence par « compile » : la bande est vide, Entrée passe.
     const fuzzy = opened("/nodefony compile");
     fuzzy.band.view();
     expect(fuzzy.band.handle(key("enter"))).to.equal(false);
@@ -255,8 +254,9 @@ describe("PromptMenuBand — la bande ouverte", () => {
 
   it("un début de /nodefony (« /nod ») montre les commandes du CLI, pas un filtre sur les descriptions", () => {
     expect(choices(menu(), "/nod")).to.deep.equal(choices(menu(), "/nodefony"));
-    expect(choices(menu(), "/no").length).to.be.lessThan(
-      choices(menu(), "/nodefony").length,
+    // « /no » prolonge aussi « /nodefony … » : ses commandes y sont toutes.
+    expect(choices(menu(), "/no")).to.include.members(
+      choices(menu(), "/nodefony"),
     );
   });
 
@@ -278,8 +278,24 @@ describe("PromptMenuBand — la bande ouverte", () => {
     expect(band.handle({ kind: "text", text: "a" })).to.equal(false);
   });
 
+  it("filtre de shell : seules les entrées dont la ligne COMMENCE par la saisie", () => {
+    // Le défaut vu : « /dd » montrait des commandes /nodefony, par leur description.
+    expect(opened("/dd").band.view().choices).to.have.length(0);
+    const s = opened("/s").band.view();
+    expect(s.choices.length).to.be.greaterThan(0);
+    expect(s.choices.every((c) => c.value.startsWith("/s"))).to.equal(true);
+    const bu = opened("/nodefony  BU").band.view();
+    expect(bu.choices.map((c) => c.value)).to.include("/nodefony build");
+    expect(
+      bu.choices.every((c) => c.value.startsWith("/nodefony bu")),
+    ).to.equal(true);
+    // Une rubrique sans entrée disparaît avec elles.
+    const groups = bu.items.filter((i) => i.kind === "separator").length;
+    expect(groups).to.be.at.most(bu.choices.length);
+  });
+
   it("rendu : exactement la hauteur donnée, l'en-tête, le choix marqué, son conseil en pied", () => {
-    const { band } = opened("/nodefony compile");
+    const { band } = opened("/nodefony bu");
     const lines = band.render(region(6));
     expect(lines).to.have.length(6);
     expect(lines[0]).to.contain("/nodefony · ↑↓ choisir");

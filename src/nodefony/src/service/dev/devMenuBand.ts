@@ -2,10 +2,11 @@
  * La bande `/nodefony` de l'invite (#538, D9, D10) : dès qu'une saisie
  * commence par `/`, une bande modale propose ce qu'on peut taper — les verbes
  * de l'invite, puis les commandes du CLI rangées comme dans `nodefony menu` —
- * et se filtre à la frappe.
+ * se filtre à la frappe : ne restent que les entrées dont la ligne commence
+ * par ce qui est tapé.
  *
  * Elle ne recopie aucune liste : le menu vient de `cli/startMenu.ts`
- * (`buildStartMenu`, `filterStartMenu`, `buildInspectMenu`), les commandes du
+ * (`buildStartMenu`, `buildInspectMenu`), les commandes du
  * manifeste du CLI, les verbes de `SUPERVISOR_VERBS`. Ce module ne fait que
  * traduire un choix en ligne d'invite (`/status`, `/nodefony build`) et
  * dessiner la bande.
@@ -17,7 +18,6 @@ import type { ICliManifest } from "../../cli/completion";
 import {
   buildInspectMenu,
   buildStartMenu,
-  filterStartMenu,
   type StartMenuItem,
 } from "../../cli/startMenu";
 import { fitToWidth, visibleWidth } from "../../runtime/textWidth";
@@ -169,9 +169,16 @@ export interface IPromptMenuView {
 }
 
 /**
- * Les entrées que la bande montre pour la saisie `draft` : `/x` filtre tout
- * le menu, `/nodefony x` les seules commandes du CLI, `/nodefony inspect x`
- * les sujets d'`inspect` — par `filterStartMenu`, le filtre de `nodefony menu`.
+ * Les entrées que la bande montre pour la saisie `draft` : celles dont la
+ * ligne d'invite COMMENCE par ce qui est tapé, comme la complétion d'un
+ * shell — `/dd` ne montre rien, `/nodefony bu` montre `build`. `/x` puise
+ * dans tout le menu, `/nodefony x` dans les seules commandes du CLI,
+ * `/nodefony inspect x` dans les sujets d'`inspect`. Une rubrique suit ses
+ * entrées : vide, elle disparaît avec elles.
+ *
+ * Jamais le filtre de `nodefony menu` (`filterStartMenu`), qui cherche aussi
+ * dans le résumé et la description : une bande qui complète la saisie ne
+ * propose que ce qui la prolonge.
  *
  * @param menu - le menu de l'invite.
  * @param draft - la saisie, `/` compris.
@@ -185,9 +192,23 @@ export function promptMenuView(
   // Passé le mot que la bande choisit, la ligne n'est plus à elle : Entrée ne
   // doit jamais remplacer `/nodefony build --force` par `/nodefony build`.
   if (isPast(level)) return { items: [], choices: [], inspect: level.inspect };
-  const items = filterStartMenu([...level.source], level.term.trim());
+  const typed = draft.trimStart().replace(/\s+/g, " ").toLowerCase();
+  const items: StartMenuItem[] = [];
   const choices: MenuChoice[] = [];
-  for (const item of items) if (item.kind === "choice") choices.push(item);
+  let group: StartMenuItem | null = null;
+  for (const item of level.source) {
+    if (item.kind === "separator") {
+      group = item;
+      continue;
+    }
+    if (!item.value.toLowerCase().startsWith(typed)) continue;
+    if (group !== null) {
+      items.push(group);
+      group = null;
+    }
+    items.push(item);
+    choices.push(item);
+  }
   return { items, choices, inspect: level.inspect };
 }
 
