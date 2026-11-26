@@ -1,6 +1,7 @@
 /**
  * La sonde du terminal : ce que le superviseur CONSTATE du terminal qu'il
- * possède (plein écran, sortie synchronisée). Cf ADR-0013 §1 et §3.
+ * possède (plein écran, sortie synchronisée, couleur de fond). Cf ADR-0013
+ * §1 et §3.
  *
  * Le verdict TRANSMIS au serveur (`NF_DEV_TERMINAL`) a UN codec, dans la porte
  * `runtime/isTerminal.ts` : c'est elle que le serveur lit. Ce qui s'y ajoute
@@ -14,17 +15,19 @@
  * l'affaire de qui possède le terminal.
  */
 import type { InputEvent } from "./inputDecoder";
+import { BACKGROUND_QUERY, parseBackgroundReply, type Rgb } from "./tabPalette";
 
 /** Mode de la sortie synchronisée. */
 const SYNCHRONIZED_OUTPUT_MODE = 2026;
 
 /**
  * La sonde, à écrire sur le terminal en mode brut : DECRQM du mode 2026
- * d'abord, puis la requête de position du curseur. La réponse de position
- * arrive en DERNIER chez tous les terminaux qui répondent : elle sert de
- * sentinelle — reçue, la sonde est finie, que DECRQM ait répondu ou non.
+ * d'abord, la couleur de fond (OSC 11) ensuite, puis la requête de position
+ * du curseur. La réponse de position arrive en DERNIER chez tous les
+ * terminaux qui répondent : elle sert de sentinelle — reçue, la sonde est
+ * finie, que les deux premières aient répondu ou non.
  */
-export const TERMINAL_PROBE = `\x1b[?${SYNCHRONIZED_OUTPUT_MODE}$p\x1b[6n`;
+export const TERMINAL_PROBE = `\x1b[?${SYNCHRONIZED_OUTPUT_MODE}$p${BACKGROUND_QUERY}\x1b[6n`;
 
 /** Ce que la sonde a établi. */
 export interface IProbeResult {
@@ -34,6 +37,8 @@ export interface IProbeResult {
   synchronized: boolean;
   /** La sentinelle (position du curseur) est arrivée : plus rien à attendre. */
   complete: boolean;
+  /** La couleur de fond rendue par OSC 11, `null` sans réponse. */
+  background: Rgb | null;
 }
 
 /**
@@ -49,8 +54,14 @@ export function interpretProbe(events: readonly InputEvent[]): IProbeResult {
     fullscreen: false,
     synchronized: false,
     complete: false,
+    background: null,
   };
   for (const event of events) {
+    if (event.kind === "unknown") {
+      result.background =
+        parseBackgroundReply(event.bytes) ?? result.background;
+      continue;
+    }
     if (event.kind !== "report") continue;
     if (event.report === "cursor-position") {
       result.fullscreen = true;

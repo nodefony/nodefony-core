@@ -901,14 +901,17 @@ describe("sonde du terminal — constatée, jamais déduite", () => {
     return { input, output, writes };
   }
 
-  it("le terminal répond : plein écran, sortie synchronisée si DECRQM l'a vue", async () => {
-    const { input, output, writes } = answering("\x1b[?2026;2$y\x1b[12;1R");
+  it("le terminal répond : plein écran, sortie synchronisée si DECRQM l'a vue, sa couleur de fond", async () => {
+    const { input, output, writes } = answering(
+      "\x1b[?2026;2$y\x1b]11;rgb:1e1e/1e1e/1e1e\x07\x1b[12;1R",
+    );
     const result = await probeTerminal(input, output, 1000);
     expect(writes).to.deep.equal([TERMINAL_PROBE]);
     expect(result).to.deep.equal({
       fullscreen: true,
       synchronized: true,
       complete: true,
+      background: [30, 30, 30],
     });
     expect(input.raw).to.equal(false);
     expect(input.paused).to.equal(true);
