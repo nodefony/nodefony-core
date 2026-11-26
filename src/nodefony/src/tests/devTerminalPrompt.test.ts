@@ -670,17 +670,33 @@ describe("plein écran — Tab et Ctrl+R (#538, D11, D12)", () => {
     input.type(TAB);
     await nextFrame();
     expect(await promptLine(written, 120, 30)).to.equal("❯ /nodefony ");
-    // Tab encore : la liste ; « b » la filtre ; Tab prend la dernière.
-    input.type(TAB);
-    await nextFrame();
-    expect(
-      (await screen(written, 120, 30)).some((l) =>
-        l.startsWith("── Tab · 2 propositions"),
-      ),
-    ).to.equal(true);
+    // « b » filtre la bande ; Tab écrit la seule qui reste.
     input.type("b" + TAB);
     await nextFrame();
     expect(await promptLine(written, 120, 30)).to.equal("❯ /nodefony build ");
+    terminal.close();
+  });
+
+  it("plus rien à compléter : Tab PARCOURT la bande /nodefony — une seule liste, jamais deux", async () => {
+    const { written, input, terminal } = prompted(false, 120, 30, true);
+    input.type("/nodefony ");
+    const band = terminal.band;
+    input.type(TAB);
+    await nextFrame();
+    const first = await promptLine(written, 120, 30);
+    expect(first).to.match(/^❯ \/nodefony (build|inspect)$/);
+    // La même bande, pas une seconde liste par-dessus.
+    expect(terminal.band).to.equal(band);
+    const lines = await screen(written, 120, 30);
+    expect(lines.some((l) => l.startsWith("── Tab ·"))).to.equal(false);
+    input.type(TAB);
+    await nextFrame();
+    const second = await promptLine(written, 120, 30);
+    expect(second).to.match(/^❯ \/nodefony (build|inspect)$/);
+    expect(second).to.not.equal(first);
+    input.type("\x1b[Z");
+    await nextFrame();
+    expect(await promptLine(written, 120, 30)).to.equal(first);
     terminal.close();
   });
 

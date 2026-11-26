@@ -1731,6 +1731,13 @@ export class DevTerminal {
     const editor = this.#editorOf(state);
     const prefix = editor.text;
     if (editor.hasAttachment || !editor.atEnd || prefix.includes("\n")) return;
+    // Tab parcourt déjà la liste de la bande : il continue.
+    const menu = this.#menu?.band ?? null;
+    if (menu?.cycling(prefix) === true) {
+      menu.cycle(1);
+      this.#scheduleFrame();
+      return;
+    }
     const version = editor.version;
     const answers: (readonly string[] | Promise<readonly string[]>)[] = [];
     let pending = false;
@@ -1766,6 +1773,12 @@ export class DevTerminal {
             : commonPrefix(candidates);
         if (common.length > prefix.length) editor.setText(common);
         else {
+          // La bande `/nodefony` est ouverte : Tab parcourt SA liste, au lieu
+          // d'en ouvrir une seconde.
+          if (this.#menu?.band.cycle(1) === true) {
+            this.#scheduleFrame();
+            return;
+          }
           this.#openCompletion(full, state, candidates);
           return;
         }
@@ -1975,6 +1988,21 @@ export class DevTerminal {
         if (!state.loading) {
           state.loading = true;
           void this.#loadPromptHistory(state);
+        }
+        if (
+          event.kind === "key" &&
+          event.key === "tab" &&
+          event.shift &&
+          !event.ctrl &&
+          !event.alt
+        ) {
+          // Maj+Tab : revenir dans la liste que Tab parcourt.
+          const band = this.#menu?.band ?? null;
+          if (band?.cycling(this.#editorOf(state).text) === true) {
+            band.cycle(-1);
+            this.#scheduleFrame();
+          }
+          return true;
         }
         if (event.kind === "key" && !event.alt && !event.shift) {
           if (event.ctrl && event.key === "r") {

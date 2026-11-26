@@ -274,7 +274,9 @@ export interface IPromptMenuHooks {
  * choisissent ; Entrée lance l'entrée choisie seulement si on l'a choisie,
  * ou si elle est la seule à prolonger la saisie (`/cl` → `/clear`) — sinon
  * la saisie part telle quelle, jamais remplacée par une entrée qu'on n'a pas
- * désignée. Tab n'est pas à elle : il complète le mot tapé, comme un shell.
+ * désignée. Tab n'est pas à elle : il complète le mot tapé, comme un shell —
+ * et quand il n'a plus rien à compléter, il PARCOURT cette liste
+ * ({@link PromptMenuBand.cycle}) : une seule liste à l'écran, jamais deux.
  * Échap la retire. La frappe passe à l'invite : la bande se refiltre.
  */
 export class PromptMenuBand implements IDevBand {
@@ -287,6 +289,8 @@ export class PromptMenuBand implements IDevBand {
   #view: IPromptMenuView = { items: [], choices: [], inspect: false };
   /** L'entrée sous chaque ligne de la dernière image (souris). */
   #rows: (MenuChoice | null)[] = [];
+  /** La saisie que le dernier Tab a écrite en parcourant la liste, ou `null`. */
+  #cycled: string | null = null;
 
   constructor(
     readonly menu: IPromptMenu,
@@ -305,6 +309,9 @@ export class PromptMenuBand implements IDevBand {
   view(): IPromptMenuView {
     const draft = this.hooks.draft();
     if (draft !== this.#draft) {
+      // Tab parcourt la liste : elle reste celle d'avant le premier Tab.
+      if (draft === this.#cycled) return this.#view;
+      this.#cycled = null;
       const kept = this.selection()?.value;
       this.#draft = draft;
       this.#designated = false;
@@ -332,6 +339,39 @@ export class PromptMenuBand implements IDevBand {
     for (const c of this.#view.choices)
       if (c.value.startsWith(typed)) prolong++;
     return prolong === 1;
+  }
+
+  /**
+   * La saisie est celle que le dernier Tab a écrite en parcourant la liste.
+   *
+   * @param draft - la saisie.
+   * @returns `true` si le prochain Tab doit continuer le parcours.
+   */
+  cycling(draft: string): boolean {
+    return this.#cycled !== null && draft === this.#cycled;
+  }
+
+  /**
+   * Tab quand il n'y a plus rien à compléter : écrit dans la saisie l'entrée
+   * mise en avant, puis la suivante à chaque Tab (la précédente avec
+   * Maj+Tab), en boucle — le menu de zsh. Une frappe garde le choix.
+   *
+   * @param step - `1` (Tab) ou `-1` (Maj+Tab).
+   * @returns `false` si la liste est vide.
+   */
+  cycle(step: 1 | -1): boolean {
+    const { choices } = this.view();
+    if (choices.length === 0) return false;
+    if (this.#cycled !== null) {
+      this.#selected =
+        (this.#selected + step + choices.length) % choices.length;
+    }
+    const chosen = choices[this.#selected];
+    if (chosen === undefined) return false;
+    this.#designated = true;
+    this.#cycled = chosen.value;
+    this.hooks.fill(chosen.value);
+    return true;
   }
 
   /** L'entrée choisie, ou `null` quand rien ne répond à la saisie. */

@@ -207,6 +207,35 @@ describe("PromptMenuBand — la bande ouverte", () => {
     expect(tab.state.draft).to.equal("/nodefony compile");
   });
 
+  it("cycle : écrit l'entrée mise en avant, puis la suivante, en boucle ; la liste reste figée", () => {
+    const { band, state } = opened("/nodefony ");
+    const values = band.view().choices.map((c) => c.value);
+    expect(band.cycle(1)).to.equal(true);
+    expect(state.draft).to.equal(values[0]);
+    expect(band.cycling(state.draft)).to.equal(true);
+    // Figée : la saisie « /nodefony doctor » ne refiltre pas la liste.
+    expect(band.view().choices.map((c) => c.value)).to.deep.equal(values);
+    band.cycle(1);
+    expect(state.draft).to.equal(values[1]);
+    band.cycle(-1);
+    band.cycle(-1);
+    expect(state.draft).to.equal(values.at(-1));
+    // Entrée lance l'entrée parcourue : elle est désignée.
+    band.handle(key("enter"));
+    expect(band.cycling(state.draft)).to.equal(true);
+  });
+
+  it("une frappe garde le choix et rend la liste au filtre", () => {
+    const { band, state } = opened("/nodefony ");
+    band.view();
+    band.cycle(1);
+    state.draft = `${state.draft}x`;
+    expect(band.cycling(state.draft)).to.equal(false);
+    band.view();
+    expect(band.cycling(state.draft)).to.equal(false);
+    expect(opened("/zzz").band.cycle(1)).to.equal(false);
+  });
+
   it("Entrée ne remplace JAMAIS la saisie par une entrée qu'on n'a pas désignée", () => {
     // Le défaut vu : « /nodefon » choisissait une commande au hasard du filtre.
     const vague = opened("/nodefony ");
