@@ -1005,6 +1005,23 @@ export class DevTerminal {
   }
 
   /**
+   * Ferme l'onglet AFFICHÉ (le verbe `close`) s'il est de ceux qui se
+   * referment — une commande lancée depuis l'invite, un panneau — et rend
+   * l'onglet `serveur`. Une commande qui tourne encore n'arrive pas ici :
+   * l'invite refuse toute saisie dans son onglet tant qu'elle vit.
+   *
+   * @returns `false` si l'onglet affiché ne se ferme pas (`serveur`, un
+   *   journal), ou hors plein écran.
+   */
+  closeView(): boolean {
+    if (this.#closed || !this.#full) return false;
+    const view = this.#active;
+    if (view.kind === "log") return false;
+    this.#removeView(view);
+    return true;
+  }
+
+  /**
    * Ouvre un panneau à rubriques dans un onglet à la volée (#538, D9) et le
    * montre. Déjà ouvert sous ce même identifiant : son contenu est remplacé
    * — `/status` relancé montre l'état du moment — et la rubrique affichée
@@ -1307,7 +1324,7 @@ export class DevTerminal {
     this.#bandHandle = band;
     const panel = this.#panelFocus();
     this.#panelHandle = panel;
-    full.foci.unshift(band, panel);
+    full.foci.unshift(band, panel, this.#finishedRunFocus());
     this.#full = full;
     this.#surface = "fullscreen";
     full.releaseGuard = guardTerminal(() => this.#restoreTerminal(full));
@@ -1730,6 +1747,27 @@ export class DevTerminal {
       state.editors.set(id, editor);
     }
     return editor;
+  }
+
+  /**
+   * Foyer de l'onglet d'une commande FINIE : Échap, sur une saisie vide, le
+   * referme et rend l'onglet `serveur` — le geste qui referme un panneau.
+   * Sans lui, un onglet de lancement ne se fermait qu'au-delà du plafond, et
+   * l'on restait devant une commande terminée sans moyen de la retirer.
+   * Pendant qu'elle tourne, Échap ne fait rien : Ctrl+C l'interrompt.
+   */
+  #finishedRunFocus(): IInputFocus {
+    return {
+      handle: (event) => {
+        const view = this.#active;
+        if (view.kind !== "run" || view.running !== null) return false;
+        if (event.kind !== "key" || event.key !== "escape") return false;
+        if (event.ctrl || event.alt || event.shift) return false;
+        if (!this.#activeDraftEmpty()) return false;
+        this.#removeView(view);
+        return true;
+      },
+    };
   }
 
   /**
@@ -2276,6 +2314,14 @@ export class DevTerminal {
     // L'issue se lit sur l'onglet du lancement, tant qu'il est ouvert.
     if (view.kind === "run" && this.#views.includes(view)) {
       view.outcome = code === 0 ? "ok" : "failed";
+      // Le geste qui retire l'onglet se dit là où l'on regarde.
+      const full = this.#full;
+      if (full !== null && this.#active === view) {
+        this.#notify(
+          full,
+          `${code === 0 ? "terminée" : `échec (code ${code})`} — Échap ferme cet onglet`,
+        );
+      }
       this.#scheduleFrame();
     }
     if (entry !== null) {

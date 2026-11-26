@@ -99,6 +99,7 @@ function prompted(
   const verbs = {
     restart: vi.fn(async () => true),
     clear: vi.fn(),
+    close: vi.fn(() => terminal.closeView()),
     help: vi.fn(() => terminal.showHelp()),
     quit: vi.fn(),
     status: vi.fn(async () => {}),
@@ -593,9 +594,14 @@ describe("plein écran — la bande /nodefony (#538, D9, D10)", () => {
     terminal.close();
   });
 
-  it("Entrée lance l'entrée choisie : « /cl » envoie /clear, la bande se referme", async () => {
+  it("Entrée lance l'entrée choisie : « /cle » envoie /clear, la bande se referme", async () => {
     const { written, input, terminal, verbs } = withMenu();
+    // « /cl » prolonge /clear ET /close : Entrée n'y choisit pas à notre place.
     input.type("/cl" + ENTER);
+    await nextFrame();
+    expect(verbs.clear).not.toHaveBeenCalled();
+    expect(verbs.close).not.toHaveBeenCalled();
+    input.type("\x15/cle" + ENTER);
     await nextFrame();
     expect(verbs.clear).toHaveBeenCalledTimes(1);
     expect(terminal.band).to.equal(null);
@@ -1001,6 +1007,62 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     // L'onglet affiché est le neuf : la saisie de « build » n'y est pas.
     expect(lines.some((l) => l === "❯ /fake build")).to.equal(false);
     expect(lines.some((l) => l === "❯ /fake test")).to.equal(true);
+    terminal.close();
+  });
+
+  it("fini : la barre dit qu'Échap ferme l'onglet ; Échap sur l'invite vide le ferme et rend serveur", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
+    input.type("/fake inspect" + ENTER);
+    await settle();
+    // Tant qu'elle tourne, Échap ne ferme rien.
+    input.type("\x1b");
+    await settle();
+    await settle();
+    expect(tabs(await screen(written))).to.contain("inspect");
+    runs[0]?.done(1);
+    await settle();
+    expect((await screen(written)).join("\n")).to.contain(
+      "Échap ferme cet onglet",
+    );
+    // Une saisie en cours garde Échap pour elle.
+    input.type("x");
+    input.type("\x1b");
+    await settle();
+    await settle();
+    expect(tabs(await screen(written))).to.contain("inspect");
+    input.type("\x15");
+    input.type("\x1b");
+    await vi.waitFor(async () =>
+      expect(tabs(await screen(written))).to.not.contain("inspect"),
+    );
+    terminal.close();
+  });
+
+  it("/close ferme l'onglet d'une commande finie ; sur serveur, il refuse en le disant", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/close" + ENTER);
+    await settle();
+    expect((await screen(written)).join("\n")).to.contain(
+      "cet onglet ne se ferme pas",
+    );
+    input.type("/fake build" + ENTER);
+    await settle();
+    runs[0]?.done(0);
+    await settle();
+    input.type("/close" + ENTER);
+    await settle();
+    expect(tabs(await screen(written))).to.not.contain("build");
     terminal.close();
   });
 

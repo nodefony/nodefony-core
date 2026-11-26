@@ -50,7 +50,7 @@ describe("buildHelpPanel — l'aide en rubriques", () => {
     expect(invite?.rows).to.deep.include({
       kind: "entry",
       key: "/quit · /exit",
-      value: "arrêter proprement",
+      value: "tout arrêter : serveur et superviseur",
     });
     expect(invite?.rows).to.deep.include({
       kind: "entry",

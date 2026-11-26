@@ -1486,6 +1486,7 @@ export class DevSupervisor {
         ...supervisorActions({
           restart: () => this.#restartFromPrompt(),
           clear: () => terminal.clearView(),
+          close: () => terminal.closeView(),
           help: () => terminal.showHelp(),
           // Le rapport de `nodefony status`, tel quel (D10) ; le superviseur se
           // compte lui-même, comme le data plane compte le serveur.

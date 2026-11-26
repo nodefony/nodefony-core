@@ -73,6 +73,7 @@ export function screenGestures(options: {
       { keys: "Alt+Entrée", does: "saut de ligne" },
       { keys: "Ctrl+W Ctrl+U", does: "effacer le mot / la ligne" },
       { keys: "Début Fin", does: "invite vide : haut / direct" },
+      { keys: "Échap", does: "invite vide : fermer une commande finie" },
     );
   } else {
     gestures.push(

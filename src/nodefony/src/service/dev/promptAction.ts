@@ -83,6 +83,12 @@ export interface ISupervisorVerbs {
   restart(): Promise<boolean>;
   /** Vide l'onglet affiché. */
   clear(): void;
+  /**
+   * Ferme l'onglet affiché — une commande finie, un panneau.
+   *
+   * @returns `false` s'il ne se ferme pas (`serveur`, un journal).
+   */
+  close(): boolean;
   /** Ouvre l'aide. */
   help(): void;
   /**
@@ -92,7 +98,7 @@ export interface ISupervisorVerbs {
    *   s'ouvre.
    */
   status(signal: AbortSignal): Promise<void>;
-  /** Arrête proprement le serveur et ses enfants. */
+  /** Arrête proprement le superviseur, le serveur et ses enfants. */
   quit(): void;
 }
 
@@ -108,7 +114,7 @@ export const PROMPT_COMMAND_PREFIX = "/";
  * texte d'invite et la complétion les lisent.
  */
 export const SUPERVISOR_VERBS: readonly {
-  readonly id: "status" | "restart" | "clear" | "help" | "quit";
+  readonly id: "status" | "restart" | "clear" | "close" | "help" | "quit";
   /** Autres noms reconnus, sans le préfixe. */
   readonly aliases: readonly string[];
   readonly does: string;
@@ -124,8 +130,17 @@ export const SUPERVISOR_VERBS: readonly {
     does: "relancer le serveur — force un rechargement différé",
   },
   { id: "clear", aliases: [], does: "vider l'onglet affiché" },
+  {
+    id: "close",
+    aliases: [],
+    does: "fermer l'onglet d'une commande finie (Échap)",
+  },
   { id: "help", aliases: [], does: "l'aide complète, en rubriques (F1)" },
-  { id: "quit", aliases: ["exit"], does: "arrêter proprement" },
+  {
+    id: "quit",
+    aliases: ["exit"],
+    does: "tout arrêter : serveur et superviseur",
+  },
 ];
 
 /**
@@ -398,7 +413,7 @@ export function describeUnmatchedInput(input: string): string {
 
 /**
  * Les verbes du superviseur comme actions de l'invite : `/status`, `/restart` (ou
- * `/reboot`), `/clear`, `/help`, `/quit` (ou `/exit`). Le préfixe est
+ * `/reboot`), `/clear`, `/close`, `/help`, `/quit` (ou `/exit`). Le préfixe est
  * exigé, et aucun ne prend d'argument : un verbe suivi d'autre chose n'est
  * pas le verbe.
  *
@@ -435,6 +450,15 @@ export function supervisorActions(verbs: ISupervisorVerbs): IPromptAction[] {
             return 0;
           case "clear":
             verbs.clear();
+            return 0;
+          case "close":
+            if (!verbs.close()) {
+              io.write(
+                "cet onglet ne se ferme pas — seuls ceux d'une commande finie ou d'un panneau\n",
+                "err",
+              );
+              return 1;
+            }
             return 0;
           case "help":
             verbs.help();
