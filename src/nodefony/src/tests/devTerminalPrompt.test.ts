@@ -1032,12 +1032,17 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     expect((await screen(written)).join("\n")).to.contain(
       "Échap ferme cet onglet",
     );
-    // Une saisie en cours garde Échap pour elle.
+    // Une saisie en cours n'est pas effacée : la barre dit le geste.
     input.type("x");
     input.type("\x1b");
-    await settle();
-    await settle();
-    expect(tabs(await screen(written))).to.contain("inspect");
+    await vi.waitFor(async () =>
+      expect((await screen(written)).join("\n")).to.contain(
+        "saisie en cours — Ctrl+C l'efface",
+      ),
+    );
+    const kept = await screen(written);
+    expect(tabs(kept)).to.contain("inspect");
+    expect(kept.some((l) => l === "❯ x")).to.equal(true);
     input.type("\x15");
     input.type("\x1b");
     await vi.waitFor(async () =>

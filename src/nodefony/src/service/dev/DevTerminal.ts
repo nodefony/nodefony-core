@@ -1754,7 +1754,9 @@ export class DevTerminal {
    * referme et rend l'onglet `serveur` — le geste qui referme un panneau.
    * Sans lui, un onglet de lancement ne se fermait qu'au-delà du plafond, et
    * l'on restait devant une commande terminée sans moyen de la retirer.
-   * Pendant qu'elle tourne, Échap ne fait rien : Ctrl+C l'interrompt.
+   * Pendant qu'elle tourne, Échap ne fait rien : Ctrl+C l'interrompt. Une
+   * saisie en cours n'est jamais effacée par Échap : la barre dit le geste
+   * (Ctrl+C l'efface), au lieu d'un Échap muet.
    */
   #finishedRunFocus(): IInputFocus {
     return {
@@ -1763,7 +1765,16 @@ export class DevTerminal {
         if (view.kind !== "run" || view.running !== null) return false;
         if (event.kind !== "key" || event.key !== "escape") return false;
         if (event.ctrl || event.alt || event.shift) return false;
-        if (!this.#activeDraftEmpty()) return false;
+        if (!this.#activeDraftEmpty()) {
+          const full = this.#full;
+          if (full !== null) {
+            this.#notify(
+              full,
+              "saisie en cours — Ctrl+C l'efface, puis Échap ferme l'onglet",
+            );
+          }
+          return true;
+        }
         this.#removeView(view);
         return true;
       },
