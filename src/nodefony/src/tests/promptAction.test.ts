@@ -9,6 +9,7 @@ import {
   describeUnmatchedInput,
   isPromptCommand,
   promptVerb,
+  splitPromptLine,
   supervisorActions,
   type IPromptIO,
 } from "../service/dev/promptAction";
@@ -110,7 +111,7 @@ describe("cliCommandAction — `/nodefony <commande>`", () => {
     expect(action.complete?.("/nod")).to.deep.equal(["/nodefony"]);
   });
 
-  it("une commande de runtime ne se lance jamais ; une autre pas encore, avec la ligne à taper", async () => {
+  it("une commande de runtime ne se lance jamais ; sans lanceur, une autre donne la ligne à taper", async () => {
     const runtime = io();
     expect(await action.run("/nodefony dev", runtime, signal)).to.equal(1);
     expect(runtime.out[0]).to.contain("ne se lance jamais depuis l'invite");
@@ -125,6 +126,83 @@ describe("cliCommandAction — `/nodefony <commande>`", () => {
     const sink = io();
     expect(await action.run("/nodefony", sink, signal)).to.equal(64);
     expect(sink.out[0]).to.contain("/nodefony <commande>");
+  });
+
+  it("sans lanceur, aucun onglet : le refus se dit là où l'on tape", () => {
+    expect(action.tabTitle?.("/nodefony build")).to.equal(null);
+  });
+});
+
+describe("cliCommandAction — lancée en sous-processus, dans son onglet (#538, lot 2a)", () => {
+  const signal = new AbortController().signal;
+  const launch = vi.fn(async () => 0);
+  const action = cliCommandAction(undefined, launch);
+
+  it("son onglet porte le nom de la commande ; un refus ou une erreur d'usage n'en ouvre pas", () => {
+    expect(action.tabTitle?.("/nodefony build --force")).to.equal("build");
+    expect(action.tabTitle?.("/nodefony dev")).to.equal(null);
+    expect(action.tabTitle?.("/nodefony")).to.equal(null);
+    expect(action.tabTitle?.('/nodefony build "ouvert')).to.equal(null);
+  });
+
+  it("lance les arguments découpés et rend le code du lanceur", async () => {
+    launch.mockResolvedValueOnce(3);
+    const sink = io();
+    expect(
+      await action.run(
+        `/nodefony create service "Mon Service" --force`,
+        sink,
+        signal,
+      ),
+    ).to.equal(3);
+    expect(launch).toHaveBeenLastCalledWith(
+      ["create", "service", "Mon Service", "--force"],
+      sink,
+      signal,
+    );
+  });
+
+  it("une commande de runtime n'atteint jamais le lanceur", async () => {
+    launch.mockClear();
+    expect(await action.run("/nodefony production", io(), signal)).to.equal(1);
+    expect(launch).not.toHaveBeenCalled();
+  });
+
+  it("un guillemet ouvert : 64, dit, rien de lancé", async () => {
+    launch.mockClear();
+    const sink = io();
+    expect(await action.run('/nodefony build "x', sink, signal)).to.equal(64);
+    expect(sink.out[0]).to.contain("guillemet non fermé");
+    expect(launch).not.toHaveBeenCalled();
+  });
+});
+
+describe("splitPromptLine — la ligne en arguments, sans shell", () => {
+  it("blancs, guillemets doubles et simples, échappement", () => {
+    expect(splitPromptLine("  build   --force ")).to.deep.equal([
+      "build",
+      "--force",
+    ]);
+    expect(splitPromptLine(`a "b c" 'd e' f\\ g`)).to.deep.equal([
+      "a",
+      "b c",
+      "d e",
+      "f g",
+    ]);
+    expect(splitPromptLine(`"a \\"b\\"" '\\n'`)).to.deep.equal([
+      'a "b"',
+      "\\n",
+    ]);
+    expect(splitPromptLine(`x "" y`)).to.deep.equal(["x", "", "y"]);
+  });
+
+  it("aucune substitution : $VAR, * et ~ restent tels quels", () => {
+    expect(splitPromptLine("$HOME * ~")).to.deep.equal(["$HOME", "*", "~"]);
+  });
+
+  it("un guillemet ouvert : null", () => {
+    expect(splitPromptLine('build "ouvert')).to.equal(null);
+    expect(splitPromptLine("build 'ouvert")).to.equal(null);
   });
 });
 

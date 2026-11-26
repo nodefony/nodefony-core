@@ -95,7 +95,12 @@ import {
 } from "./devProcess";
 import { installShutdownSignals } from "./shutdownSignals";
 import { RestartCycle } from "./restartCycle";
-import { cliCommandAction, supervisorActions } from "./promptAction";
+import {
+  cliCommandAction,
+  type PromptCommandLauncher,
+  supervisorActions,
+} from "./promptAction";
+import { launchPromptCommand } from "./promptLaunch";
 import { buildPromptMenu } from "./devMenuBand";
 import { INSPECT_SUBJECTS } from "../../kernel/inspect/adminSubjects";
 import { ANSI } from "./ansi";
@@ -1449,7 +1454,10 @@ export class DevSupervisor {
           },
           quit: () => void this.#shutdown(),
         }),
-        cliCommandAction(() => readCliManifest(this.#cwd)),
+        cliCommandAction(
+          () => readCliManifest(this.#cwd),
+          this.#promptLauncher(),
+        ),
       ],
     });
     // Le serveur écrit dans un tube : il ne reçoit pas `SIGWINCH`. La barre
@@ -2297,6 +2305,36 @@ export class DevSupervisor {
       },
     });
     return this.#held;
+  }
+
+  /**
+   * Le lanceur des commandes de l'invite (#538, lot 2a) : le MÊME bin que
+   * celui par lequel on est entré — le lanceur a déjà tranché entre CLI
+   * global et CLI local —, les mêmes drapeaux `node` que le serveur, et le
+   * verdict de terminal relayé (largeur, couleurs) que le serveur reçoit.
+   * Sans bin connu : aucun lanceur, l'invite donne la ligne à taper.
+   */
+  #promptLauncher(): PromptCommandLauncher | undefined {
+    const bin = process.argv[1];
+    if (bin === undefined) return undefined;
+    return (argv, io, signal) =>
+      launchPromptCommand(
+        {
+          file: process.execPath,
+          args: [...childExecArgv(process.execArgv), bin, ...argv],
+          cwd: this.#cwd,
+          env: {
+            ...process.env,
+            ...relayedTerminalEnv(
+              process.env,
+              { columns: io.columns, rows: process.stdout.rows },
+              process.stdout.getColorDepth(),
+            ),
+          },
+        },
+        io,
+        signal,
+      );
   }
 
   /** (Re)lance le serveur enfant — même commande + flag enfant, en leader de groupe. */

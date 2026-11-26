@@ -100,6 +100,12 @@ export class DevView {
    * `/status` ailleurs.
    */
   running: AbortController | null = null;
+  /**
+   * Onglet `run` : le libellé de la commande qu'il porte, AVANT tout suffixe
+   * de doublon (`build` pour l'onglet `build 2`). Une saisie n'y relance que
+   * la même commande ; une autre ouvre son propre onglet.
+   */
+  launch: string | null = null;
 
   /**
    * @param history - l'historique par canal.

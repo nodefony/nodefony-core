@@ -50,15 +50,16 @@ export interface IPromptAction {
    */
   complete?(prefix: string): readonly string[] | Promise<readonly string[]>;
   /**
-   * Présent : l'action ouvre SON onglet (`run`), titré par ce que rend la
-   * fonction — sa sortie y reste, à l'abri du trafic du serveur, et son
-   * issue ✓ / ✗ s'y lit. Absent : elle écrit dans l'onglet d'où elle part.
-   * Additif au contrat de l'ADR-0013 §7 (#538, lot 2).
+   * Un libellé : l'action ouvre SON onglet (`run`), titré ainsi — sa sortie y
+   * reste, à l'abri du trafic du serveur, et son issue ✓ / ✗ s'y lit. Absent,
+   * ou `null` pour cette saisie (un refus, une erreur d'usage) : elle écrit
+   * dans l'onglet d'où elle part. Additif au contrat de l'ADR-0013 §7 (#538,
+   * lot 2).
    *
    * @param input - la saisie qu'elle va lancer.
-   * @returns le libellé de l'onglet (`build`).
+   * @returns le libellé de l'onglet (`build`), ou `null`.
    */
-  tabTitle?(input: string): string;
+  tabTitle?(input: string): string | null;
   /**
    * Lance l'action.
    *
@@ -170,10 +171,61 @@ export function isPromptCommand(name: string): boolean {
 const PROMPT_LINE_MAX = 200;
 
 /**
- * L'action `/nodefony <commande>`. Elle reconnaît la forme et la refuse en
- * disant pourquoi : une commande de runtime jamais, les autres pas encore —
- * l'exécution en sous-processus est le lot 2 de #538 —, avec la ligne à
- * taper dans un terminal en attendant.
+ * Découpe une ligne de commande en arguments, comme un shell le ferait pour
+ * l'essentiel : blancs entre les mots, `"…"` et `'…'` pour en garder un
+ * entier, `\` devant un caractère pour le prendre tel quel (hors `'…'`).
+ * Aucune substitution (`$VAR`, `*`, `~`) : la ligne part sans shell.
+ *
+ * @param line - la ligne, sans le `/nodefony` de tête.
+ * @returns les arguments, ou `null` si un guillemet reste ouvert.
+ */
+export function splitPromptLine(line: string): string[] | null {
+  const out: string[] = [];
+  let word = "";
+  let started = false;
+  let quote: '"' | "'" | null = null;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line.charAt(i);
+    if (quote !== null) {
+      if (ch === quote) quote = null;
+      else if (ch === "\\" && quote === '"' && i + 1 < line.length) {
+        word += line.charAt(++i);
+      } else word += ch;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+      started = true;
+    } else if (ch === "\\" && i + 1 < line.length) {
+      word += line.charAt(++i);
+      started = true;
+    } else if (/\s/.test(ch)) {
+      if (started) out.push(word);
+      word = "";
+      started = false;
+    } else {
+      word += ch;
+      started = true;
+    }
+  }
+  if (quote !== null) return null;
+  if (started) out.push(word);
+  return out;
+}
+
+/**
+ * Lance une commande du CLI — ses arguments, sans `nodefony` — et rend son
+ * code de sortie (`promptLaunch.ts#launchPromptCommand`, posé par le
+ * superviseur).
+ */
+export type PromptCommandLauncher = (
+  argv: readonly string[],
+  io: IPromptIO,
+  signal: AbortSignal,
+) => Promise<number>;
+
+/**
+ * L'action `/nodefony <commande>` : la commande du CLI, en sous-processus,
+ * dans SON onglet (`tabTitle` = le nom de la commande). Une commande de
+ * runtime est refusée, en disant pourquoi, dans l'onglet d'où l'on tape.
  *
  * Tab complète la ligne par `computeCompletions` — la complétion du shell,
  * sur le même manifeste : le nom de la commande, puis ses arguments, ses
@@ -181,14 +233,28 @@ const PROMPT_LINE_MAX = 200;
  *
  * @param manifest - le manifeste du CLI, relu à chaque Tab (`null` s'il
  *   n'est pas écrit). Absent : Tab ne complète que `/nodefony`.
+ * @param launch - le lanceur. Absent : la commande est refusée avec la ligne
+ *   à taper dans un autre terminal.
  * @returns l'action.
  */
 export function cliCommandAction(
   manifest?: () => ICliManifest | null,
+  launch?: PromptCommandLauncher,
 ): IPromptAction {
   const head = `${PROMPT_COMMAND_PREFIX}${CLI_PROMPT_COMMAND.id}`;
+  const nameOf = (input: string): string =>
+    input.trim().slice(head.length).trim().split(/\s/, 1)[0] ?? "";
   return {
     id: CLI_PROMPT_COMMAND.id,
+    tabTitle: (input: string): string | null => {
+      const name = nameOf(input);
+      if (launch === undefined || name === "") return null;
+      if (PROMPT_EXCLUDED_COMMANDS.has(name)) return null;
+      // Un guillemet ouvert est une erreur d'usage : elle se dit sur place.
+      return splitPromptLine(input.trim().slice(head.length)) === null
+        ? null
+        : name.slice(0, PROMPT_VERB_MAX);
+    },
     matches: (input: string): boolean => {
       const trimmed = input.trim();
       return (
@@ -226,13 +292,17 @@ export function cliCommandAction(
       }
       return out;
     },
-    run: async (input: string, io: IPromptIO): Promise<number> => {
+    run: async (
+      input: string,
+      io: IPromptIO,
+      signal: AbortSignal,
+    ): Promise<number> => {
       const whole = input.trim().slice(head.length).trim();
       const line =
         whole.length > PROMPT_LINE_MAX
           ? `${whole.slice(0, PROMPT_LINE_MAX)}…`
           : whole;
-      const name = line.split(/\s/, 1)[0] ?? "";
+      const name = nameOf(input);
       if (name === "") {
         io.write(
           `${CLI_PROMPT_COMMAND.usage} — la bande propose les commandes, Tab complète\n`,
@@ -247,11 +317,19 @@ export function cliCommandAction(
         );
         return 1;
       }
-      io.write(
-        `« nodefony ${line} » ne se lance pas encore depuis l'invite — en attendant, dans un autre terminal : npx nodefony ${line}\n`,
-        "err",
-      );
-      return 1;
+      const argv = splitPromptLine(whole);
+      if (argv === null) {
+        io.write(`guillemet non fermé : ${line}\n`, "err");
+        return 64;
+      }
+      if (launch === undefined) {
+        io.write(
+          `« nodefony ${line} » ne se lance pas depuis cette invite — dans un autre terminal : npx nodefony ${line}\n`,
+          "err",
+        );
+        return 1;
+      }
+      return launch(argv, io, signal);
     },
   };
 }

@@ -1032,8 +1032,10 @@ export class DevTerminal {
         "panel",
       );
       this.#views.push(view);
-    } else if (view.panel !== null) {
-      cursor.page = Math.min(view.panel.page, spec.pages.length - 1);
+    } else if (view.kind === "panel") {
+      if (view.panel !== null) {
+        cursor.page = Math.min(view.panel.page, spec.pages.length - 1);
+      }
     } else {
       throw new Error(`onglet déjà ouvert sans panneau : ${spec.id}`);
     }
@@ -2123,10 +2125,16 @@ export class DevTerminal {
     // L'écho et la sortie restent dans l'onglet qui a le focus À L'ENVOI :
     // une commande longue y écrit encore si l'on change d'onglet entre-temps.
     // Un panneau ne montre pas de journal : son écho va au serveur.
-    const here = this.#active.panel === null ? this.#active : this.#server;
-    const ownTab = action?.tabTitle !== undefined;
-    // `null` : un onglet neuf.
-    const reused = ownTab ? (here.kind === "run" ? here : null) : here;
+    const here = this.#active.kind === "panel" ? this.#server : this.#active;
+    const title = action?.tabTitle?.(text) ?? null;
+    const ownTab = title !== null;
+    // `null` : un onglet neuf. Un onglet `run` fini ne relance que SA
+    // commande : une autre n'y écrit jamais sous un titre qui n'est pas le sien.
+    const reused = ownTab
+      ? here.kind === "run" && here.launch === title
+        ? here
+        : null
+      : here;
     if (reused !== null && reused.running !== null) {
       this.#notify(
         full,
@@ -2150,8 +2158,8 @@ export class DevTerminal {
     // refermé tôt ou tard, et ses saisies avec lui.
     const origin = this.#active.kind === "run" ? this.#server : this.#active;
     let view = reused;
-    if (view === null && action?.tabTitle !== undefined) {
-      view = this.#openRunView(full, action.tabTitle(text));
+    if (view === null && title !== null) {
+      view = this.#openRunView(full, title);
     } else if (view !== null && ownTab) {
       // Relance dans l'onglet fini : la sortie précédente reste au-dessus.
       view.outcome = null;
@@ -2225,6 +2233,7 @@ export class DevTerminal {
       title: label,
       kind: "run",
     });
+    view.launch = title;
     this.#selectView(full, view);
     return view;
   }

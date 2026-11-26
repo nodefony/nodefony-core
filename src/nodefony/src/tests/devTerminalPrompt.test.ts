@@ -633,7 +633,7 @@ describe("plein écran — la bande /nodefony (#538, D9, D10)", () => {
     expect(lines.some((l) => l === "❯ /nodefony inspect routes")).to.equal(
       true,
     );
-    expect(lines.some((l) => l.includes("ne se lance pas encore"))).to.equal(
+    expect(lines.some((l) => l.includes("ne se lance pas depuis"))).to.equal(
       true,
     );
     terminal.close();
@@ -901,7 +901,7 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     terminal.close();
   });
 
-  it("une action par onglet : refusée dans l'onglet occupé, libre ailleurs — /status pendant un build", async () => {
+  it("une action par onglet : sa relance refusée tant qu'elle tourne, le reste libre — /status pendant un build", async () => {
     const { action, runs } = launcher();
     const { written, input, terminal, verbs } = prompted(
       false,
@@ -918,13 +918,13 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     );
     input.type("/fake build" + ENTER);
     await settle();
-    input.type("/fake encore" + ENTER);
+    input.type("/fake build" + ENTER);
     await settle();
     expect(runs).to.have.length(1);
     const refused = await screen(written);
     expect(refused.join("\n")).to.contain("une commande tourne encore");
-    // La saisie refusée reste dans le tampon.
-    expect(refused).to.include("❯ /fake encore");
+    // La saisie refusée reste dans le tampon : l'écho du lancement, et elle.
+    expect(refused.filter((l) => l === "❯ /fake build")).to.have.length(2);
     input.type("\x15");
     input.type(ALT_1);
     await settle();
@@ -981,6 +981,26 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     await settle();
     lines = await screen(written);
     expect(tabs(lines)).to.contain("build 2");
+    terminal.close();
+  });
+
+  it("dans l'onglet fini d'une AUTRE commande, la saisie ouvre un onglet neuf — jamais sous le mauvais titre", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake build" + ENTER);
+    await settle();
+    runs[0]?.done(0);
+    await settle();
+    input.type("/fake test" + ENTER);
+    await settle();
+    const lines = await screen(written);
+    expect(tabs(lines)).to.match(/✓ \d+ build/);
+    expect(tabs(lines)).to.match(/\[\d+ test\]/);
+    // L'onglet affiché est le neuf : la saisie de « build » n'y est pas.
+    expect(lines.some((l) => l === "❯ /fake build")).to.equal(false);
+    expect(lines.some((l) => l === "❯ /fake test")).to.equal(true);
     terminal.close();
   });
 
