@@ -106,6 +106,93 @@ export const SUPERVISOR_VERBS: readonly {
 ];
 
 /**
+ * La porte des commandes du CLI dans l'invite : `/nodefony <commande>`, la
+ * ligne qu'on taperait dans un terminal, préfixée. La bande la propose dès
+ * le `/` (`devMenuBand.ts`).
+ */
+export const CLI_PROMPT_COMMAND = {
+  id: "nodefony",
+  usage: `${PROMPT_COMMAND_PREFIX}nodefony <commande>`,
+  does: "une commande du CLI — la bande les propose dès le « / »",
+} as const;
+
+/**
+ * Les commandes du CLI qui ne se lancent JAMAIS depuis l'invite : elles
+ * démarrent ou arrêtent un runtime — celui que ce superviseur fait déjà
+ * tourner — ou ouvrent le menu interactif, qui prendrait le terminal. Noms
+ * ET alias (le manifeste ne voyage pas jusqu'à l'action) : le refus porte
+ * sur ce que l'on tape. La bande ne les propose pas.
+ */
+export const PROMPT_EXCLUDED_COMMANDS: ReadonlySet<string> = new Set([
+  "development",
+  "dev",
+  "debug",
+  "production",
+  "prod",
+  "start",
+  "cluster",
+  "stop",
+  "menu",
+]);
+
+/** Longueur au plus d'une ligne de commande citée dans un message. */
+const PROMPT_LINE_MAX = 200;
+
+/**
+ * L'action `/nodefony <commande>`. Elle reconnaît la forme et la refuse en
+ * disant pourquoi : une commande de runtime jamais, les autres pas encore —
+ * l'exécution en sous-processus est le lot 2 de #538 —, avec la ligne à
+ * taper dans un terminal en attendant.
+ *
+ * @returns l'action.
+ */
+export function cliCommandAction(): IPromptAction {
+  const head = `${PROMPT_COMMAND_PREFIX}${CLI_PROMPT_COMMAND.id}`;
+  return {
+    id: CLI_PROMPT_COMMAND.id,
+    matches: (input: string): boolean => {
+      const trimmed = input.trim();
+      return (
+        trimmed.startsWith(head) &&
+        (trimmed.length === head.length ||
+          /\s/.test(trimmed.charAt(head.length)))
+      );
+    },
+    complete: (prefix: string): readonly string[] =>
+      prefix.startsWith(PROMPT_COMMAND_PREFIX) && head.startsWith(prefix)
+        ? [head]
+        : [],
+    run: async (input: string, io: IPromptIO): Promise<number> => {
+      const whole = input.trim().slice(head.length).trim();
+      const line =
+        whole.length > PROMPT_LINE_MAX
+          ? `${whole.slice(0, PROMPT_LINE_MAX)}…`
+          : whole;
+      const name = line.split(/\s/, 1)[0] ?? "";
+      if (name === "") {
+        io.write(
+          `${CLI_PROMPT_COMMAND.usage} — la bande propose les commandes, Tab complète\n`,
+          "err",
+        );
+        return 64;
+      }
+      if (PROMPT_EXCLUDED_COMMANDS.has(name)) {
+        io.write(
+          `« nodefony ${name} » ne se lance jamais depuis l'invite : elle démarre, arrête ou prend le terminal que ce superviseur tient\n`,
+          "err",
+        );
+        return 1;
+      }
+      io.write(
+        `« nodefony ${line} » ne se lance pas encore depuis l'invite — en attendant, dans un autre terminal : npx nodefony ${line}\n`,
+        "err",
+      );
+      return 1;
+    },
+  };
+}
+
+/**
  * Le premier mot d'une saisie, sans le préfixe `/` d'une commande.
  *
  * @param input - la saisie.

@@ -52,6 +52,11 @@ describe("buildHelpPanel — l'aide en rubriques", () => {
       key: "/quit · /exit",
       value: "arrêter proprement",
     });
+    expect(invite?.rows).to.deep.include({
+      kind: "entry",
+      key: "/nodefony <commande>",
+      value: "une commande du CLI — la bande les propose dès le « / »",
+    });
     expect(invite?.rows.at(-1)).to.deep.equal({
       kind: "entry",
       key: "Alt+1…9",

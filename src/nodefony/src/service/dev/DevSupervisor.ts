@@ -94,7 +94,9 @@ import {
 } from "./devProcess";
 import { installShutdownSignals } from "./shutdownSignals";
 import { RestartCycle } from "./restartCycle";
-import { supervisorActions } from "./promptAction";
+import { cliCommandAction, supervisorActions } from "./promptAction";
+import { buildPromptMenu } from "./devMenuBand";
+import { INSPECT_SUBJECTS } from "../../kernel/inspect/adminSubjects";
 import { ANSI } from "./ansi";
 import {
   describeTurboFreeze,
@@ -1421,24 +1423,33 @@ export class DevSupervisor {
     });
     this.#terminal = terminal;
     process.once("exit", () => terminal.close());
-    // L'invite (#538) : les verbes du superviseur, l'historique du projet.
+    // L'invite (#538) : les verbes du superviseur, `/nodefony <commande>`,
+    // la bande qui les propose, l'historique du projet.
     terminal.attachPrompt({
       root: this.#cwd,
       cliManifest: () => readCliManifest(this.#cwd),
-      actions: supervisorActions({
-        restart: () => this.#restartFromPrompt(),
-        clear: () => terminal.clearView(),
-        help: () => terminal.showHelp(),
-        // Le rapport de `nodefony status`, tel quel (D10) ; le superviseur se
-        // compte lui-même, comme le data plane compte le serveur.
-        status: async (signal) => {
-          const report = await collectDevStatus(this.#cwd, {
-            includeSelf: true,
-          });
-          if (!signal.aborted) terminal.openPanel(buildStatusPanel(report));
-        },
-        quit: () => void this.#shutdown(),
-      }),
+      menu: () =>
+        buildPromptMenu({
+          manifest: readCliManifest(this.#cwd),
+          inspectSubjects: INSPECT_SUBJECTS,
+        }),
+      actions: [
+        ...supervisorActions({
+          restart: () => this.#restartFromPrompt(),
+          clear: () => terminal.clearView(),
+          help: () => terminal.showHelp(),
+          // Le rapport de `nodefony status`, tel quel (D10) ; le superviseur se
+          // compte lui-même, comme le data plane compte le serveur.
+          status: async (signal) => {
+            const report = await collectDevStatus(this.#cwd, {
+              includeSelf: true,
+            });
+            if (!signal.aborted) terminal.openPanel(buildStatusPanel(report));
+          },
+          quit: () => void this.#shutdown(),
+        }),
+        cliCommandAction(),
+      ],
     });
     // Le serveur écrit dans un tube : il ne reçoit pas `SIGWINCH`. La barre
     // se recompose ici, et la taille lui est relayée.

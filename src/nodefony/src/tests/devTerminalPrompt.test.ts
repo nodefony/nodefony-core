@@ -11,7 +11,11 @@ import xterm from "@xterm/headless";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { brandMark } from "../cli/brand";
 import { DevTerminal } from "../service/dev/DevTerminal";
-import { supervisorActions } from "../service/dev/promptAction";
+import {
+  cliCommandAction,
+  supervisorActions,
+} from "../service/dev/promptAction";
+import { buildPromptMenu } from "../service/dev/devMenuBand";
 import { PROMPT_HISTORY_FILE } from "../service/dev/promptHistory";
 
 const COLS = 60;
@@ -42,7 +46,7 @@ afterAll(() => {
   for (const root of roots) fs.rmSync(root, { recursive: true, force: true });
 });
 
-function prompted(mouse = false, columns = COLS, rows = ROWS) {
+function prompted(mouse = false, columns = COLS, rows = ROWS, menu = false) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nf-dev-prompt-"));
   roots.push(root);
   const written: string[] = [];
@@ -72,7 +76,35 @@ function prompted(mouse = false, columns = COLS, rows = ROWS) {
   };
   const detach = terminal.attachPrompt({
     root,
-    actions: supervisorActions(verbs),
+    actions: [...supervisorActions(verbs), cliCommandAction()],
+    ...(menu
+      ? {
+          menu: () =>
+            buildPromptMenu({
+              manifest: {
+                version: "0.0.0",
+                globalOptions: [],
+                commands: [
+                  {
+                    name: "build",
+                    aliases: [],
+                    description: "compile modules puis application",
+                    options: [],
+                    group: "GÉNÉRER ET CONSTRUIRE",
+                  },
+                  {
+                    name: "inspect",
+                    aliases: [],
+                    description: "l'état réel de l'application",
+                    options: [],
+                    group: "COMPRENDRE",
+                  },
+                ],
+              },
+              inspectSubjects: { routes: { summary: "les routes montées" } },
+            }),
+        }
+      : {}),
   });
   return { root, written, input, quit, terminal, verbs, detach };
 }
@@ -491,6 +523,82 @@ describe("plein écran — le panneau à rubriques (#538, D9)", () => {
     lines = await screen(written);
     expect(lines.some((l) => l.startsWith(" Gestes"))).to.equal(true);
     expect(lines.some((l) => l.includes("aide]"))).to.equal(false);
+    terminal.close();
+  });
+});
+
+describe("plein écran — la bande /nodefony (#538, D9, D10)", () => {
+  const BACKSPACE = "\x7f";
+  const ESCAPE = "\x1b";
+  const CTRL_U = "\x15";
+  const withMenu = () => prompted(false, COLS, ROWS, true);
+
+  it("« / » l'ouvre au-dessus de l'invite ; Retour arrière jusqu'au vide la referme", async () => {
+    const { written, input, terminal } = withMenu();
+    input.type("/");
+    expect(terminal.band).to.not.equal(null);
+    await nextFrame();
+    const lines = await screen(written);
+    expect(
+      lines.some((l) => l.startsWith("── /nodefony · ↑↓ choisir")),
+    ).to.equal(true);
+    expect(lines.some((l) => l.startsWith("▸ /status"))).to.equal(true);
+    input.type(BACKSPACE);
+    expect(terminal.band).to.equal(null);
+    terminal.close();
+  });
+
+  it("sans menu fourni : aucune bande", () => {
+    const { input, terminal } = prompted();
+    input.type("/");
+    expect(terminal.band).to.equal(null);
+    terminal.close();
+  });
+
+  it("Entrée lance l'entrée choisie : « /cl » envoie /clear, la bande se referme", async () => {
+    const { written, input, terminal, verbs } = withMenu();
+    input.type("/cl" + ENTER);
+    await nextFrame();
+    expect(verbs.clear).toHaveBeenCalledTimes(1);
+    expect(terminal.band).to.equal(null);
+    expect((await screen(written)).some((l) => l === "❯ /clear")).to.equal(
+      true,
+    );
+    terminal.close();
+  });
+
+  it("Échap la retire tant que la saisie reste sous « / » ; vidée, « / » la rouvre", async () => {
+    const { input, terminal } = withMenu();
+    input.type("/c");
+    input.type(ESCAPE);
+    await nextFrame();
+    await nextFrame();
+    expect(terminal.band).to.equal(null);
+    input.type("l");
+    expect(terminal.band).to.equal(null);
+    input.type(CTRL_U);
+    input.type("/");
+    expect(terminal.band).to.not.equal(null);
+    terminal.close();
+  });
+
+  it("« /nodefony insp » + Entrée ouvre les sujets d'inspect ; Entrée lance le choisi", async () => {
+    const { written, input, terminal } = withMenu();
+    input.type("/nodefony insp" + ENTER);
+    await nextFrame();
+    expect(terminal.band).to.not.equal(null);
+    expect(
+      (await screen(written)).some((l) => l.includes("Inspecter quoi ?")),
+    ).to.equal(true);
+    input.type(ENTER);
+    await nextFrame();
+    const lines = await screen(written);
+    expect(lines.some((l) => l === "❯ /nodefony inspect routes")).to.equal(
+      true,
+    );
+    expect(lines.some((l) => l.includes("ne se lance pas encore"))).to.equal(
+      true,
+    );
     terminal.close();
   });
 });

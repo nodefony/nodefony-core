@@ -76,6 +76,7 @@ import { DevHistory, type IDevHistoryOptions } from "./devHistory";
 import { DevView, type IDevViewHandle, type IDevViewSpec } from "./devView";
 import { helpBand, screenGestures, type IDevBand } from "./devBand";
 import { buildHelpPanel } from "./devHelpPanel";
+import { PromptMenuBand, type IPromptMenu } from "./devMenuBand";
 import type { ICliManifest } from "../../cli/completion";
 import { PanelCursor, type IPanelSpec } from "./devPanel";
 import type { ProcessOutputStream } from "./heldChannel";
@@ -152,6 +153,12 @@ export interface IDevPromptOptions {
    * (`/help`, F1) : ses rubriques le RENDENT, jamais une copie (D10).
    */
   readonly cliManifest?: () => ICliManifest | null;
+  /**
+   * Le menu de la bande `/nodefony`, relu à chaque ouverture : la bande
+   * s'ouvre dès qu'une saisie commence par `/` (D9, D10). Absent : pas de
+   * bande.
+   */
+  readonly menu?: () => IPromptMenu;
 }
 
 /**
@@ -591,6 +598,13 @@ export class DevTerminal {
   #panelHandle: IInputFocus | null = null;
   /** Le lecteur du manifeste du CLI, posé par `attachPrompt`. */
   #cliManifest: (() => ICliManifest | null) | null = null;
+  /** Le menu de la bande `/nodefony` — `null` : pas de bande. */
+  #menuSource: (() => IPromptMenu) | null = null;
+  /** La bande `/nodefony` ouverte, et sa fermeture. */
+  #menu: { readonly band: PromptMenuBand; readonly close: () => void } | null =
+    null;
+  /** L'éditeur dont la bande a été retirée par Échap, jusqu'à une saisie hors `/`. */
+  #menuDismissed: LineEditor | null = null;
 
   /**
    * @param options - flux, rendu de la barre, plafonds de l'historique, et
@@ -911,6 +925,7 @@ export class DevTerminal {
     };
     this.#prompt = state;
     this.#cliManifest = options.cliManifest ?? null;
+    this.#menuSource = options.menu ?? null;
     const focus = this.#promptFocus(full, state);
     // Après la bande ET le panneau : une bande ouverte garde le clavier
     // (D9), et le panneau de l'onglet affiché prend ses touches avant elle.
@@ -923,6 +938,10 @@ export class DevTerminal {
       state.running?.abort();
       this.#prompt = null;
       this.#cliManifest = null;
+      this.#menuSource = null;
+      this.#menu?.close();
+      this.#menu = null;
+      this.#menuDismissed = null;
       const index = full.foci.indexOf(focus);
       if (index !== -1) full.foci.splice(index, 1);
       this.#scheduleFrame();
@@ -1674,6 +1693,51 @@ export class DevTerminal {
     };
   }
 
+  /**
+   * Ouvre ou referme la bande `/nodefony` selon la saisie de l'onglet
+   * affiché : ouverte tant qu'elle commence par `/`, sur une ligne et sans
+   * pièce jointe, sauf retirée par Échap — jusqu'à ce que la saisie quitte
+   * le `/`.
+   */
+  #syncMenu(full: IFullscreenState, state: IPromptState): void {
+    const source = this.#menuSource;
+    if (source === null) return;
+    const editor = this.#editorOf(state);
+    const text = editor.text;
+    const wanted =
+      text.trimStart().startsWith(PROMPT_COMMAND_PREFIX) &&
+      !text.includes("\n") &&
+      !editor.hasAttachment;
+    if (!wanted && this.#menuDismissed === editor) this.#menuDismissed = null;
+    const open = wanted && this.#menuDismissed !== editor;
+    if (open && this.#menu === null) {
+      const band = new PromptMenuBand(
+        source(),
+        { color: this.#color, charset: this.#charset },
+        {
+          draft: () => this.#editorOf(state).text,
+          fill: (value) => {
+            this.#editorOf(state).setText(value);
+            this.#scheduleFrame();
+            this.#syncMenu(full, state);
+          },
+          submit: () => {
+            this.#submit(full, state, this.#editorOf(state));
+            this.#syncMenu(full, state);
+          },
+          dismiss: () => {
+            this.#menuDismissed = this.#editorOf(state);
+            this.#syncMenu(full, state);
+          },
+        },
+      );
+      this.#menu = { band, close: this.openBand(band) };
+    } else if (!open && this.#menu !== null) {
+      this.#menu.close();
+      this.#menu = null;
+    }
+  }
+
   /** La saisie de l'onglet affiché est vide (ou l'invite absente). */
   #activeDraftEmpty(): boolean {
     const editor = this.#prompt?.editors.get(this.#active.id);
@@ -1748,11 +1812,13 @@ export class DevTerminal {
         if (result === "submit") {
           this.#setPromptFocus(state, true);
           this.#submit(full, state, editor);
+          this.#syncMenu(full, state);
           return true;
         }
         if (result === "changed") {
           this.#setPromptFocus(state, true);
           this.#scheduleFrame();
+          this.#syncMenu(full, state);
           return true;
         }
         // Début/Fin sur une invite vide : la navigation du journal.
@@ -2010,6 +2076,7 @@ export class DevTerminal {
     // Un clic lu sur l'image précédente peut viser un onglet refermé depuis.
     if (view === this.#active || !this.#views.includes(view)) return;
     this.#active = view;
+    if (this.#prompt !== null) this.#syncMenu(full, this.#prompt);
     full.selecting = false;
     this.#stopEdge(full);
     full.selection = null;

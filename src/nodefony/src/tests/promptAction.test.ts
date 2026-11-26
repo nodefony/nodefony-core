@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   SUPERVISOR_VERBS,
+  cliCommandAction,
   describeUnmatchedInput,
   promptVerb,
   supervisorActions,
@@ -93,5 +94,35 @@ describe("supervisorActions — les verbes de l'invite", () => {
     expect(describeUnmatchedInput("quit")).to.equal(
       "les commandes commencent par « / » — /help pour l'aide\n",
     );
+  });
+});
+
+describe("cliCommandAction — `/nodefony <commande>`", () => {
+  const action = cliCommandAction();
+  const signal = new AbortController().signal;
+
+  it("reconnaît le mot `/nodefony`, seul ou suivi d'une commande — jamais `/nodefonyx`", () => {
+    expect(action.matches("/nodefony")).to.equal(true);
+    expect(action.matches("  /nodefony build --force ")).to.equal(true);
+    expect(action.matches("/nodefonyx")).to.equal(false);
+    expect(action.matches("nodefony build")).to.equal(false);
+    expect(action.complete?.("/nod")).to.deep.equal(["/nodefony"]);
+  });
+
+  it("une commande de runtime ne se lance jamais ; une autre pas encore, avec la ligne à taper", async () => {
+    const runtime = io();
+    expect(await action.run("/nodefony dev", runtime, signal)).to.equal(1);
+    expect(runtime.out[0]).to.contain("ne se lance jamais depuis l'invite");
+    const other = io();
+    expect(await action.run("/nodefony build --force", other, signal)).to.equal(
+      1,
+    );
+    expect(other.out[0]).to.contain("npx nodefony build --force");
+  });
+
+  it("seule, elle rappelle sa forme (64, erreur d'usage)", async () => {
+    const sink = io();
+    expect(await action.run("/nodefony", sink, signal)).to.equal(64);
+    expect(sink.out[0]).to.contain("/nodefony <commande>");
   });
 });

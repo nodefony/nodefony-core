@@ -11,7 +11,11 @@ import type { ICliManifest } from "../../cli/completion";
 import { groupCommands } from "../../cli/helpReport";
 import type { IGesture } from "./devBand";
 import type { IPanelPage, IPanelSpec, PanelRow } from "./devPanel";
-import { PROMPT_COMMAND_PREFIX, SUPERVISOR_VERBS } from "./promptAction";
+import {
+  CLI_PROMPT_COMMAND,
+  PROMPT_COMMAND_PREFIX,
+  SUPERVISOR_VERBS,
+} from "./promptAction";
 
 /** L'identifiant de l'onglet de l'aide : rouvrir l'aide le rafraîchit. */
 export const HELP_PANEL_ID = "help";
@@ -39,6 +43,11 @@ export function buildHelpPanel(input: {
       value: verb.does,
     });
   }
+  prompt.push({
+    kind: "entry",
+    key: CLI_PROMPT_COMMAND.usage,
+    value: CLI_PROMPT_COMMAND.does,
+  });
   prompt.push({
     kind: "text",
     text: `Une commande commence par « ${PROMPT_COMMAND_PREFIX} » ; une saisie sans lui n'en est pas une.`,
