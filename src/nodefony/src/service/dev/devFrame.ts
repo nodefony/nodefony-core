@@ -20,6 +20,7 @@ import {
   type TabsPlacement,
 } from "./devLayout";
 import { invertColumns, type ISelectionRange } from "./devSelection";
+import type { ITabPalette } from "./tabPalette";
 import { sanitizeTerminalText, type ITranscriptEntry } from "./devTranscript";
 import {
   renderStatusBar,
@@ -81,6 +82,12 @@ export interface IFrameStatus {
 /** L'invite (#538) : ses lignes et la position du curseur DANS ces lignes. */
 export interface IFramePrompt {
   readonly lines: readonly string[];
+  /**
+   * Sa première ligne est le filet qui la sépare du dessus : l'image le
+   * redessine raccordé aux barres de la ligne d'onglets quand celle-ci le
+   * touche (aucune bande entre les deux).
+   */
+  readonly ruled?: boolean;
   readonly cursor: { row: number; column: number };
   /** Le focus est au journal : l'invite reste dessinée, son curseur masqué. */
   readonly hidden?: boolean;
@@ -96,14 +103,25 @@ export interface IFrameTab {
   readonly unseen: number;
   /** L'une d'elles vient d'une sortie d'erreur : le compteur passe au rouge. */
   readonly alert: boolean;
-  /** Son travail est fini : ✓ ou ✗ après le titre, jusqu'à sa fermeture. */
+  /** Son travail est fini : ✓ ou ✗ devant le titre, jusqu'à sa fermeture. */
   readonly outcome?: ViewOutcome | null;
+  /**
+   * Ouvert à la volée (une commande, un panneau), pas un onglet fixe
+   * (serveur, Vite) : une ┃ marque la frontière des deux groupes.
+   */
+  readonly adHoc?: boolean;
 }
 
 /** La ligne d'onglets : les onglets dans l'ordre, et lequel est actif. */
 export interface IFrameTabs {
   readonly items: readonly IFrameTab[];
   readonly active: number;
+}
+
+/** Une barre de la ligne d'onglets : sa colonne, et si c'est la frontière des groupes. */
+export interface ITabJoint {
+  readonly column: number;
+  readonly heavy: boolean;
 }
 
 /**
@@ -186,6 +204,11 @@ export interface IFrameModel {
    * ou `null` : pas de ligne, l'écran d'une seule vue.
    */
   readonly tabs?: IFrameTabs | null;
+  /**
+   * Les voiles de la ligne d'onglets, calculés sur le fond réel du terminal
+   * (`tabPalette`) — absents ou nuls : la ligne reste sans fond.
+   */
+  readonly tabPalette?: ITabPalette | null;
   /** La bande ouverte, entre les onglets et l'invite — absente : hauteur 0. */
   readonly band?: IFrameBand | null;
   /** Un panneau occupe le rectangle du journal — absent : le journal. */
@@ -429,39 +452,39 @@ function unseenLine(count: number, model: IFrameModel): string {
 }
 
 /**
- * La ligne d'onglets : chaque onglet est une PASTILLE, séparée de la
- * suivante par une colonne de fond nu — sans pastille, les titres se
- * lisaient comme une seule phrase. En couleur, deux blocs aux couleurs de la
- * marque : le numéro (la touche Alt+N) en VERT Node gras sur le fond du
- * terminal, le titre sur gris ; l'onglet actif, numéro sur un bloc CYAN,
- * titre blanc gras sur BLEU — seul l'actif porte deux blocs, il ressort. Les
- * couleurs sont celles des 16 du terminal, que son thème ajuste. ✓ en vert,
- * ✗ en rouge ; le compteur d'un onglet caché en gras, en rouge quand une
- * erreur y est arrivée. Sans couleur, l'actif entre crochets et un trait
- * `│` après chaque onglet. Trop large : une
- * fenêtre autour de l'actif, bordée de `‹ +3` / `+2 ›` (un onglet plus long
- * que la ligne seul y reste, coupé par le terminal).
+ * La ligne d'onglets (#538) — décidée sur maquette : en couleur, la ligne
+ * sous un VOILE neutre (`ITabPalette.bar`), l'onglet actif en bleu de
+ * sélection (`ITabPalette.active`), un trait bleu ▎ devant lui, son titre en
+ * gras ; les autres atténués. L'état d'un onglet fini en tête (✓ vert, ✗
+ * rouge), le numéro (la touche Alt+N) atténué, le compteur d'un onglet caché
+ * atténué — rouge quand une erreur y est arrivée. Une barre │ après chaque
+ * onglet, ┃ à la frontière des onglets fixes et des onglets ouverts à la
+ * volée. Sans voile connu (`palette` nulle) : le même dessin, sans fond.
+ * Sans couleur, l'actif entre crochets et un trait `│` après chaque onglet.
+ * Trop large : une fenêtre autour de l'actif, bordée de `‹ +3` / `+2 ›` (un
+ * onglet plus long que la ligne seul y reste, coupé par le terminal).
  *
  * @param tabs - les onglets.
- * @param model - couleur et jeu de caractères.
+ * @param model - couleur, jeu de caractères et voiles.
  * @param width - colonnes disponibles.
- * @returns la ligne, et les zones cliquables avec l'onglet que chacune montre.
+ * @returns la ligne, les zones cliquables avec l'onglet que chacune montre,
+ *   et les colonnes de ses barres (`joints`), où le filet du dessous se raccorde.
  */
 function tabsLine(
   tabs: IFrameTabs,
   model: IFrameModel,
   width: number,
-): { text: string; spans: ITabSpan[] } {
+): { text: string; spans: ITabSpan[]; joints: ITabJoint[] } {
   const ascii = model.charset === "ascii";
   const dot = ascii ? "*" : "·";
-  // Ce qui suit chaque pastille : une colonne de fond nu, ou un trait.
-  const gap = model.color ? " " : ascii ? "|" : "│";
+  const light = ascii ? "|" : "│";
+  const heavy = ascii ? "|" : "┃";
   const count = tabs.items.length;
+  const palette = model.color ? (model.tabPalette ?? null) : null;
+  const bar = palette === null ? "" : `\x1b[${palette.bar}m`;
   const labels: string[] = [];
   const counters: string[] = [];
   const widths = new Uint32Array(count);
-  // En couleur, le numéro a son propre bloc : une colonne de plus.
-  const frame = model.color ? 5 : 4;
   let total = 0;
   for (let i = 0; i < count; i++) {
     const tab = tabs.items[i];
@@ -470,12 +493,15 @@ function tabsLine(
       tab !== undefined && tab.unseen > 0 ? ` ${dot}${tab.unseen}` : "";
     labels.push(label);
     counters.push(counter);
+    // Trait ou blanc, état, numéro, blanc, titre, compteur, blanc, barre.
     widths[i] =
-      String(i + 1).length +
-      visibleWidth(label) +
+      1 +
       (tab?.outcome ? 2 : 0) +
+      String(i + 1).length +
+      1 +
+      visibleWidth(label) +
       visibleWidth(counter) +
-      frame;
+      2;
     total += widths[i] ?? 0;
   }
   // Trop large : une fenêtre autour de l'actif, élargie tant qu'elle tient,
@@ -512,14 +538,19 @@ function tabsLine(
       if (!grew) break;
     }
   }
-  let text = "";
+  const faint = (text: string): string =>
+    model.color ? `\x1b[2m${text}\x1b[22m` : text;
+  let text = bar;
   let column = 0;
   const spans: ITabSpan[] = [];
+  const joints: ITabJoint[] = [];
   if (lo > 0) {
     const mark = ` ${ascii ? "<" : "‹"} +${lo} `;
     spans.push({ start: 0, end: mark.length, index: lo - 1 });
-    column = mark.length + 1;
-    text += overflowMark(mark, tabs.items, 0, lo, model) + gap;
+    text += overflowMark(mark, tabs.items, 0, lo, model) + bar + faint(light);
+    column = mark.length;
+    joints.push({ column, heavy: false });
+    column += 1;
   }
   for (let i = lo; i <= hi; i++) {
     const tab = tabs.items[i];
@@ -528,44 +559,87 @@ function tabsLine(
     const stride = widths[i] ?? 0;
     const active = i === tabs.active;
     spans.push({ start: column, end: column + stride - 1, index: i });
-    column += stride;
+    const outcome = tab?.outcome ?? null;
     const glyph =
-      tab?.outcome === "ok"
+      outcome === "ok"
         ? ascii
-          ? " +"
-          : " ✓"
-        : tab?.outcome === "failed"
+          ? "+ "
+          : "✓ "
+        : outcome === "failed"
           ? ascii
-            ? " x"
-            : " ✗"
+            ? "x "
+            : "✗ "
           : "";
     if (!model.color) {
-      const body = `${i + 1} ${label}${glyph}${counter}`;
+      const body = `${glyph}${i + 1} ${label}${counter}`;
       text += active ? `[${body}]` : ` ${body} `;
     } else {
-      // Le bloc du titre : blanc gras sur bleu (actif), teinte du thème sur
-      // gris ; `fg` la rend après une coche ou un compteur colorés.
-      const fg = active ? "97" : "39";
-      text += active
-        ? `\x1b[1;30;46m ${i + 1} \x1b[0;1;97;44m ${label}`
-        : `\x1b[1;32m ${i + 1} \x1b[0;100m ${label}`;
-      if (glyph !== "") {
-        text += `\x1b[1;${tab?.outcome === "ok" ? "92" : "91"}m${glyph}\x1b[${active ? "" : "22;"}${fg}m`;
+      const state =
+        glyph === ""
+          ? ""
+          : `\x1b[${outcome === "ok" ? "32" : "31"}m${glyph}\x1b[39m`;
+      if (active) {
+        const own = palette === null ? "" : `\x1b[${palette.active}m`;
+        text += `${own}\x1b[34m${ascii ? "|" : "▎"}\x1b[39m${state}${faint(String(i + 1))} \x1b[1m${label}\x1b[22m ${bar}`;
+      } else {
+        const unseen =
+          counter === ""
+            ? ""
+            : tab?.alert === true
+              ? `\x1b[31m${counter}\x1b[39m`
+              : faint(counter);
+        text += ` ${state}${faint(`${i + 1} ${label}`)}${unseen} `;
       }
-      if (counter !== "") {
-        text += `${tab?.alert === true ? "\x1b[1;91m" : "\x1b[1m"}${counter}\x1b[22;39m`;
-      }
-      text += " \x1b[0m";
     }
-    text += gap;
+    column += stride - 1;
+    // La barre qui suit : ┃ à la frontière des onglets fixes et des autres.
+    const boundary =
+      tab?.adHoc !== true && tabs.items[i + 1]?.adHoc === true && i < hi;
+    text += faint(boundary ? heavy : light);
+    joints.push({ column, heavy: boundary });
+    column += 1;
   }
   if (hi < count - 1) {
     const hidden = count - 1 - hi;
     const mark = ` +${hidden} ${ascii ? ">" : "›"} `;
     spans.push({ start: column, end: column + mark.length, index: hi + 1 });
-    text += overflowMark(mark, tabs.items, hi + 1, count, model);
+    text += overflowMark(mark, tabs.items, hi + 1, count, model) + bar;
+    column += mark.length;
   }
-  return { text, spans };
+  if (palette !== null) {
+    // Le voile court jusqu'au bout de la ligne.
+    text += `${" ".repeat(Math.max(0, width - column))}\x1b[0m`;
+  } else if (model.color && !text.endsWith("\x1b[0m")) {
+    text += "\x1b[0m";
+  }
+  return { text, spans, joints };
+}
+
+/**
+ * Le filet sous la ligne d'onglets, raccordé à ses barres : ┴ sous une │,
+ * ┸ sous la ┃ de la frontière des groupes.
+ *
+ * @param width - colonnes du filet.
+ * @param joints - les colonnes des barres (`tabsLine`).
+ * @param model - couleur et jeu de caractères.
+ * @returns le filet.
+ */
+function joinedRule(
+  width: number,
+  joints: readonly ITabJoint[],
+  model: IFrameModel,
+): string {
+  const ascii = model.charset === "ascii";
+  let rule = "";
+  let next = 0;
+  for (const joint of joints) {
+    if (joint.column >= width || joint.column < next) continue;
+    rule += (ascii ? "-" : "─").repeat(joint.column - next);
+    rule += ascii ? "+" : joint.heavy ? "┸" : "┴";
+    next = joint.column + 1;
+  }
+  rule += (ascii ? "-" : "─").repeat(Math.max(0, width - next));
+  return model.color ? `\x1b[2m${rule}\x1b[0m` : rule;
 }
 
 /**
@@ -971,7 +1045,7 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
     heights.prune(first.seq);
   }
   const bar = statusBar(model, size, width);
-  const promptLines = fittedPromptLines(model.prompt, width);
+  let promptLines = fittedPromptLines(model.prompt, width);
   // Un COMPTE d'entrées, jamais une différence de numéros : quand plusieurs
   // canaux partagent la numérotation, deux lignes d'un anneau ne se suivent pas.
   const unseen =
@@ -1003,6 +1077,19 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
     }
   }
   const journalHeight = (view?.height ?? 0) - indicator.length;
+  // Le filet de l'invite touche la ligne d'onglets : il se raccorde à ses barres.
+  if (
+    tabs !== null &&
+    bandLines.length === 0 &&
+    model.prompt?.ruled === true &&
+    promptLines.length > 0
+  ) {
+    const joined = [joinedRule(width, tabs.joints, model)];
+    for (let i = 1; i < promptLines.length; i++) {
+      joined.push(promptLines[i] ?? "");
+    }
+    promptLines = joined;
+  }
   return {
     rows,
     width,

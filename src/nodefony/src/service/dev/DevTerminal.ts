@@ -48,6 +48,7 @@ import {
   type IFrameTabs,
   type IScrollAnchor,
 } from "./devFrame";
+import type { ITabPalette } from "./tabPalette";
 import {
   extractSelection,
   zoneAt,
@@ -232,6 +233,11 @@ export interface IDevFullscreenOptions {
   input: IDevTerminalInput;
   /** La sonde a vu la sortie synchronisée (mode 2026). */
   synchronized: boolean;
+  /**
+   * Les voiles de la ligne d'onglets, calculés sur la couleur de fond que la
+   * sonde a relevée (`tabPalette`) — absents : la ligne reste sans fond.
+   */
+  tabPalette?: ITabPalette | null;
   /**
    * Ctrl+C et Ctrl+D : en mode brut, ce ne sont plus des signaux mais des
    * touches. Le propriétaire du processus décide de l'arrêt.
@@ -446,6 +452,7 @@ export async function probeTerminal(
 interface IFullscreenState {
   input: IDevTerminalInput;
   synchronized: boolean;
+  readonly tabPalette: ITabPalette | null;
   paint: DevPaint;
   /**
    * `write` a rendu `false` : aucune image ne part avant `drain`. Les
@@ -1231,6 +1238,7 @@ export class DevTerminal {
     const full: IFullscreenState = {
       input: options.input,
       synchronized: options.synchronized,
+      tabPalette: options.tabPalette ?? null,
       paint: options.paint ?? "scroll",
       awaitingDrain: false,
       onDrain: () => {
@@ -2187,6 +2195,7 @@ export class DevTerminal {
     for (const line of drawn.lines) lines.push(line);
     state.frame = {
       lines,
+      ruled: true,
       cursor: { row: drawn.cursor.row + 1, column: drawn.cursor.column },
       hidden: !state.focused,
     };
@@ -2359,12 +2368,14 @@ export class DevTerminal {
               unseen: 0,
               alert: false,
               outcome: view.outcome,
+              adHoc: view.alwaysShown,
             }
           : {
               title: view.title,
               unseen: view.unseen,
               alert: view.alert,
               outcome: view.outcome,
+              adHoc: view.alwaysShown,
             },
       ),
     };
@@ -2449,6 +2460,7 @@ export class DevTerminal {
           "")
         : "",
       tabs: this.#tabs(views),
+      tabPalette: full.tabPalette,
       band: this.#bands.at(-1) ?? null,
       panel: view.panel,
       prompt: this.#promptFrame(),

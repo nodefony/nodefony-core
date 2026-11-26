@@ -1,3 +1,4 @@
+import { tabPalette } from "./tabPalette";
 import { spawn, type ChildProcess } from "node:child_process";
 import {
   existsSync,
@@ -1541,6 +1542,7 @@ export class DevSupervisor {
     return {
       input: stdin,
       synchronized: probe.synchronized,
+      tabPalette: tabPalette(probe.background, process.stdout.getColorDepth()),
       paint: paint.paint,
       onQuit: () => void this.#shutdown(),
       // La séquence OSC 52 part sur NOTRE terminal, par `DevTerminal` : une
