@@ -148,7 +148,7 @@ await cmd.done;
 
 **kernelEvent**: `"onRegister"` par défaut. Détermine quand `action()` est appelé en mode kernel.
 
-**OptionsCommandInterface**: `{ showBanner?, kernelEvent?, lifetime?, runProfile?, servesTraffic?, quietBoot?, helpGroup?, examples? }`. Défauts (`defaultCommandOptions`) : `showBanner:true, kernelEvent:"onRegister", lifetime:"oneshot"`.
+**OptionsCommandInterface**: `{ showBanner?, kernelEvent?, lifetime?, runProfile?, servesTraffic?, quietBoot?, helpGroup?, examples?, prompt? }`. `prompt: "refuse"` = jamais lancée depuis l'invite du serveur de dev (bande + Tab muettes) ; WeakMap sur commander (`commandPromptPolicy`), publiée au manifeste (`ICliManifestCommand.prompt`) ; obligatoire pour `servesTraffic`/`lifetime:"longrunning"`/`runProfile.servers` (gate `tests/promptRefusal.test.ts`). Défauts (`defaultCommandOptions`) : `showBanner:true, kernelEvent:"onRegister", lifetime:"oneshot"`.
 
 **examples** : `readonly string[] | () => readonly string[]` (fonction = paresseux, ctor exécuté à CHAQUE lancement). Rangés par `Cmd` Commander (`WeakMap`, `commandExamples(cmd)` — une commande de module n'est dans aucun registre du CLI). Rendus sous `--help` (`addHelpText` à fonction) + 2 premiers sous une erreur d'usage. Gate `tests/commandDescriptions.test.ts` : ≥ 1, chacun `nodefony <nom>` (alias refusé). Commande autonome : `examples: () => usageExamples(<PAGE>)` (`cli/usageReport.ts`, garde les invocations directes seules).
 

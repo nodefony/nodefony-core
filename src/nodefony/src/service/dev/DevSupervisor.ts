@@ -64,7 +64,11 @@ import {
 } from "./DevTerminal";
 import { shouldColorize } from "../../kernel/checks/report";
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
-import { readCliManifest } from "../../cli/completion";
+import {
+  mergeManifests,
+  readCliManifest,
+  type ICliManifest,
+} from "../../cli/completion";
 import { buildStatusPanel } from "./devStatusPanel";
 import { collectDevStatus } from "./devStatusReport";
 import { childExecArgv } from "./detachedStart";
@@ -129,6 +133,14 @@ export interface DevSupervisorOptions {
    * chaque instance a son propre port-retry au redémarrage.
    */
   readonly ports?: readonly number[];
+  /**
+   * Les commandes INTÉGRÉES du CLI, construites en mémoire par la commande qui
+   * lance ce superviseur (`CliKernel.buildBuiltinManifest`). L'invite les
+   * fusionne au manifeste du disque (`mergeManifests`, comme le TAB du shell) :
+   * le disque n'est écrit que par le serveur, à son démarrage — sans elles, le
+   * premier lancement ne connaîtrait aucun refus déclaré (`prompt: "refuse"`).
+   */
+  readonly builtinManifest?: () => ICliManifest;
 }
 
 /**
@@ -1236,6 +1248,10 @@ export class DevSupervisor {
    * ailleurs que sur 5151/5152, et le superviseur doit suivre, pas supposer.
    */
   readonly #portsOverride: readonly number[] | null;
+  /** Source des commandes intégrées (cf {@link DevSupervisorOptions.builtinManifest}). */
+  readonly #builtinSource: (() => ICliManifest) | null;
+  /** Commandes intégrées, bâties au premier besoin de l'invite puis retenues. */
+  #builtins: ICliManifest | null = null;
   /**
    * Derniers ports EFFECTIVEMENT publiés par l'enfant (state file). Mémorisés tant
    * que le superviseur vit : au restart, l'enfant est mort et son state file purgé,
@@ -1368,6 +1384,7 @@ export class DevSupervisor {
     // (`nodefony status`/`stop`, cf devProcess.ts) : une divergence écrivain/lecteur
     // serait un bug (status ne verrait jamais l'instance). Définis une seule fois là-bas.
     this.#portsOverride = options.ports ?? null;
+    this.#builtinSource = options.builtinManifest ?? null;
     this.#pidFile = devSupervisorPidFile(this.#cwd);
     this.#standalone = !existsSync(path.resolve(this.#cwd, "turbo.json"));
   }
@@ -1405,6 +1422,21 @@ export class DevSupervisor {
    * même terminal — c'est la condition de la barre de #533. Le plein écran
    * (#537) s'y ajoute s'il est demandé ET que le terminal répond à la sonde.
    */
+  /**
+   * Le manifeste que lit l'invite : les commandes intégrées EN MÉMOIRE, plus
+   * celles des modules que seul le disque connaît — la fusion du TAB du shell
+   * (`mergeManifests`), une seule règle.
+   */
+  #cliManifest(): ICliManifest | null {
+    if (this.#builtins === null && this.#builtinSource !== null) {
+      this.#builtins = this.#builtinSource();
+    }
+    const cached = readCliManifest(this.#cwd);
+    return this.#builtins === null
+      ? cached
+      : mergeManifests(this.#builtins, cached);
+  }
+
   async #ownTerminal(): Promise<void> {
     if (
       this.#mode !== "human" ||
@@ -1433,10 +1465,10 @@ export class DevSupervisor {
     // la bande qui les propose, l'historique du projet.
     terminal.attachPrompt({
       root: this.#cwd,
-      cliManifest: () => readCliManifest(this.#cwd),
+      cliManifest: () => this.#cliManifest(),
       menu: () =>
         buildPromptMenu({
-          manifest: readCliManifest(this.#cwd),
+          manifest: this.#cliManifest(),
           inspectSubjects: INSPECT_SUBJECTS,
         }),
       actions: [
@@ -1454,10 +1486,7 @@ export class DevSupervisor {
           },
           quit: () => void this.#shutdown(),
         }),
-        cliCommandAction(
-          () => readCliManifest(this.#cwd),
-          this.#promptLauncher(),
-        ),
+        cliCommandAction(() => this.#cliManifest(), this.#promptLauncher()),
       ],
     });
     // Le serveur écrit dans un tube : il ne reçoit pas `SIGWINCH`. La barre

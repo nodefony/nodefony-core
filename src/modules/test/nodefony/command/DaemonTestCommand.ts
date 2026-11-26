@@ -8,6 +8,8 @@ const options: OptionsCommandInterface = {
   // le process vivant comme un worker de queue/consumer/agent, sans binder de port. La
   // commande n'a plus à inliner son park ni son keep-alive timer.
   kernelEvent: "onReady",
+  // Jamais depuis l'invite : un démon ne rend jamais la main à son onglet.
+  prompt: "refuse",
   lifetime: "longrunning",
 };
 

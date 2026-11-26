@@ -18,6 +18,8 @@ const options: OptionsCommandInterface = {
   // lisent ne trouveraient rien. Aucun port ne s'ouvre pour autant : le profil
   // console n'ouvre pas de serveur.
   kernelEvent: "onPostReady",
+  // Jamais depuis l'invite : son entrée est le protocole d'un agent, pas un terminal.
+  prompt: "refuse",
   // La sortie standard EST le protocole : le journal de boot n'y a pas sa
   // place. Seules les sévérités EMERGENCY..ERROR restent, sur la sortie
   // d'erreur.

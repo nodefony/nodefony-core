@@ -3,7 +3,11 @@
  * superviseur, les commandes du CLI et l'assistant (ADR-0013 §7, #538).
  * Figé par l'ADR : il ne bouge pas d'un lot à l'autre, chacun l'implémente.
  */
-import { computeCompletions, type ICliManifest } from "../../cli/completion";
+import {
+  computeCompletions,
+  type ICliManifest,
+  type ICliManifestCommand,
+} from "../../cli/completion";
 
 /** Une demande de confirmation, posée par une action avant d'agir. */
 export interface IConfirmRequest {
@@ -135,35 +139,37 @@ export const CLI_PROMPT_COMMAND = {
 } as const;
 
 /**
- * Les commandes du CLI qui ne se lancent JAMAIS depuis l'invite : elles
- * démarrent ou arrêtent un runtime — celui que ce superviseur fait déjà
- * tourner — ou ouvrent le menu interactif, qui prendrait le terminal. Noms
- * ET alias (le manifeste ne voyage pas jusqu'à l'action) : le refus porte
- * sur ce que l'on tape. La bande ne les propose pas.
+ * La commande du manifeste que désigne ce que l'on tape — son nom ou l'un de
+ * ses alias : le refus porte sur ce que l'on tape.
+ *
+ * @param manifest - le manifeste du CLI (`null` s'il est illisible).
+ * @param name - le premier mot tapé après `/nodefony`.
+ * @returns la commande, ou `undefined` si aucune ne porte ce nom.
  */
-export const PROMPT_EXCLUDED_COMMANDS: ReadonlySet<string> = new Set([
-  "development",
-  "dev",
-  "debug",
-  "production",
-  "prod",
-  "start",
-  "cluster",
-  "stop",
-  "menu",
-]);
+export function findPromptCommand(
+  manifest: ICliManifest | null,
+  name: string,
+): ICliManifestCommand | undefined {
+  if (manifest === null) return undefined;
+  for (const command of manifest.commands) {
+    if (command.name === name || command.aliases.includes(name)) return command;
+  }
+  return undefined;
+}
 
 /**
- * Une commande du CLI que l'invite propose : ni une commande de runtime
- * ({@link PROMPT_EXCLUDED_COMMANDS}), ni une commande qu'un verbe porte déjà
- * (`status`). La bande et Tab lisent cette seule règle.
+ * Une commande du CLI que l'invite propose : ni une commande qui REFUSE
+ * l'invite (`prompt: "refuse"`, déclaré par la commande et publié au
+ * manifeste — runtime, arrêt, terminal pris), ni une commande qu'un verbe
+ * porte déjà (`status`). La bande et Tab lisent cette seule règle.
  *
- * @param name - le nom de la commande.
+ * @param command - la commande, telle que le manifeste la publie.
  * @returns `true` si l'invite la propose.
  */
-export function isPromptCommand(name: string): boolean {
-  if (PROMPT_EXCLUDED_COMMANDS.has(name)) return false;
-  for (const verb of SUPERVISOR_VERBS) if (verb.id === name) return false;
+export function isPromptCommand(command: ICliManifestCommand): boolean {
+  if (command.prompt === "refuse") return false;
+  for (const verb of SUPERVISOR_VERBS)
+    if (verb.id === command.name) return false;
   return true;
 }
 
@@ -231,8 +237,10 @@ export type PromptCommandLauncher = (
  * sur le même manifeste : le nom de la commande, puis ses arguments, ses
  * options et les valeurs qu'elles attendent.
  *
- * @param manifest - le manifeste du CLI, relu à chaque Tab (`null` s'il
- *   n'est pas écrit). Absent : Tab ne complète que `/nodefony`.
+ * @param manifest - le manifeste du CLI, relu à chaque Tab et à chaque
+ *   lancement (`null` s'il est illisible) : il porte les refus déclarés
+ *   (`prompt: "refuse"`). Absent : Tab ne complète que `/nodefony`, et rien
+ *   ne se lance — sans lui, rien ne dit qu'une commande refuse l'invite.
  * @param launch - le lanceur. Absent : la commande est refusée avec la ligne
  *   à taper dans un autre terminal.
  * @returns l'action.
@@ -249,7 +257,10 @@ export function cliCommandAction(
     tabTitle: (input: string): string | null => {
       const name = nameOf(input);
       if (launch === undefined || name === "") return null;
-      if (PROMPT_EXCLUDED_COMMANDS.has(name)) return null;
+      const read = manifest?.() ?? null;
+      if (read === null || findPromptCommand(read, name)?.prompt === "refuse") {
+        return null;
+      }
       // Un guillemet ouvert est une erreur d'usage : elle se dit sur place.
       return splitPromptLine(input.trim().slice(head.length)) === null
         ? null
@@ -286,7 +297,10 @@ export function cliCommandAction(
       for (const word of computeCompletions(read, words)) {
         if (!word.startsWith(typed) || seen.has(word)) continue;
         if (!short && /^-[^-]/.test(word)) continue;
-        if (before.length === 0 && !isPromptCommand(word)) continue;
+        if (before.length === 0) {
+          const command = findPromptCommand(read, word);
+          if (command !== undefined && !isPromptCommand(command)) continue;
+        }
         seen.add(word);
         out.push(`${lead} ${word}`);
       }
@@ -310,7 +324,8 @@ export function cliCommandAction(
         );
         return 64;
       }
-      if (PROMPT_EXCLUDED_COMMANDS.has(name)) {
+      const read = manifest?.() ?? null;
+      if (findPromptCommand(read, name)?.prompt === "refuse") {
         io.write(
           `« nodefony ${name} » ne se lance jamais depuis l'invite : elle démarre, arrête ou prend le terminal que ce superviseur tient\n`,
           "err",
@@ -321,6 +336,15 @@ export function cliCommandAction(
       if (argv === null) {
         io.write(`guillemet non fermé : ${line}\n`, "err");
         return 64;
+      }
+      if (launch !== undefined && read === null) {
+        // Sans manifeste, rien ne dit si la commande refuse l'invite : on ne
+        // lance pas à l'aveugle ce qui pourrait arrêter ce superviseur.
+        io.write(
+          `liste des commandes illisible — « nodefony ${line} » ne se lance pas d'ici ; dans un autre terminal : npx nodefony ${line}\n`,
+          "err",
+        );
+        return 1;
       }
       if (launch === undefined) {
         io.write(

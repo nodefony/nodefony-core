@@ -27,6 +27,8 @@ const options: OptionsCommandInterface = {
   // précalculée — pas l'ascii-art figlet du nom de l'application.
   showBanner: false,
   kernelEvent: "onStart",
+  // Jamais depuis l'invite : le menu prend le terminal que le superviseur tient.
+  prompt: "refuse",
 };
 
 /** Choice inquirer rendu par l'adaptateur (name stylé, short = le nom brut). */

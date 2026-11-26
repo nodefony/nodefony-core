@@ -26,6 +26,8 @@ const options: OptionsCommandInterface = {
   helpGroup: "LANCER",
   showBanner: false,
   kernelEvent: "onPostReady",
+  // Jamais depuis l'invite : ce runtime est celui que le superviseur tient.
+  prompt: "refuse",
   // Son profil serveur n'est posé qu'à `onKernelStart` — l'intention, elle, doit
   // être connue dès l'import de `env.ts` (garde `requiredIn`).
   servesTraffic: true,
@@ -275,7 +277,8 @@ class Dev extends Command {
     // serveur vit dans le process enfant, redémarré à chaque changement backend. Le HMR
     // frontend (Vite) est préservé (frontend/ exclu). Profil long-running (superviseur)
     // déclaré pour l'introspection — il parke en restant CONSOLE (abort du boot ici).
-    (this.cli as CliKernel).setRunProfile({
+    const cli = this.cli as CliKernel;
+    cli.setRunProfile({
       servers: false,
       lifetime: "longrunning",
       interactive: false,
@@ -291,6 +294,8 @@ class Dev extends Command {
     const supervisor = new DevSupervisor({
       cwd: process.cwd(),
       childEnvKey: DEV_CHILD_ENV,
+      // L'invite connaît les refus des intégrées dès le premier lancement.
+      builtinManifest: () => cli.buildBuiltinManifest(),
     });
     // Le superviseur reprend la main sur les signaux, comme le master du
     // cluster (`runtimeLauncher.ts`) — et par le même geste : on retire
@@ -298,7 +303,7 @@ class Dev extends Command {
     // `terminate()` au même Ctrl+C, et sa sortie coupait l'arrêt du
     // superviseur avant la mort du serveur : l'invite revenait pendant qu'un
     // orphelin tenait encore les ports.
-    (this.cli as CliKernel).releaseSignalListeners();
+    cli.releaseSignalListeners();
     await supervisor.start();
     // Parke le flow CLI (le superviseur gère le cycle de vie + Ctrl+C via ses watchers
     // fs → keepAlive inutile). Mécanisme centralisé : cf Kernel.park().

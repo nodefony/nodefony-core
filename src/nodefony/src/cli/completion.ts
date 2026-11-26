@@ -11,7 +11,11 @@ import os from "node:os";
 import path from "node:path";
 import { SysExit } from "./sysexits";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
-import { OPTION_SUGGESTIONS } from "../command/Command";
+import {
+  OPTION_SUGGESTIONS,
+  commandPromptPolicy,
+  type PromptPolicy,
+} from "../command/Command";
 import { stripGlobalCliFlags } from "./globalFlags";
 import type { Command as CommanderCommand } from "commander";
 
@@ -64,6 +68,14 @@ export interface ICliManifestCommand {
    * argument n'était requis. Absent des manifests antérieurs (compat lecture).
    */
   optionValues?: Record<string, string[]>;
+  /**
+   * Ce que l'invite du serveur de développement fait de la commande
+   * (`OptionsCommandInterface.prompt`). Porté par le manifeste parce que
+   * l'invite vit dans le superviseur, qui ne charge aucun module : c'est sa
+   * seule façon de connaître le refus d'une commande de module. Absent = elle
+   * se lance.
+   */
+  prompt?: PromptPolicy;
 }
 
 /** Manifest de complétion (cache par projet). */
@@ -130,7 +142,9 @@ export function buildCliManifest(
     // `__complete` (si jamais enregistrée) et les commandes cachées n'ont rien à
     // faire dans la complétion utilisateur.
     if (name.startsWith("__")) continue;
+    const prompt = commandPromptPolicy(cmd);
     commands.push({
+      ...(prompt === undefined ? {} : { prompt }),
       name,
       aliases: cmd.aliases(),
       description: cmd.description(),

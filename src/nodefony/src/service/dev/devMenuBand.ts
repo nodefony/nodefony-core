@@ -81,8 +81,8 @@ const ITEM_INDENT = "    ";
 
 /**
  * Le menu de l'invite, depuis le manifeste du CLI et les sujets d'`inspect`.
- * Une commande de runtime (`PROMPT_EXCLUDED_COMMANDS`) n'y entre pas, ni une
- * commande qu'un verbe porte déjà (`status`).
+ * Une commande qui refuse l'invite (`prompt: "refuse"`) n'y entre pas, ni
+ * une commande qu'un verbe porte déjà (`status`) — règle `isPromptCommand`.
  *
  * @param input - le manifeste (`readCliManifest`, `null` s'il n'est pas
  *   écrit) et la table des sujets (`INSPECT_SUBJECTS`).
@@ -109,7 +109,7 @@ export function buildPromptMenu(input: {
   }
   const verbs = items.length - 1;
   const commands = (input.manifest?.commands ?? []).filter((c) =>
-    isPromptCommand(c.name),
+    isPromptCommand(c),
   );
   const commandWords = new Set<string>();
   for (const c of commands) {

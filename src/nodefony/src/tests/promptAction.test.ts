@@ -25,6 +25,32 @@ function io(): IPromptIO & { out: string[] } {
   };
 }
 
+/**
+ * Un manifeste minimal : deux commandes qui refusent l'invite (déclaré, comme
+ * le publie `buildCliManifest`), une qui se lance.
+ */
+const RUNTIME_MANIFEST = {
+  version: "0.0.0",
+  globalOptions: [],
+  commands: [
+    {
+      name: "development",
+      aliases: ["dev"],
+      description: "développement",
+      options: [],
+      prompt: "refuse" as const,
+    },
+    {
+      name: "production",
+      aliases: ["prod"],
+      description: "production",
+      options: [],
+      prompt: "refuse" as const,
+    },
+    { name: "build", aliases: [], description: "build", options: [] },
+  ],
+};
+
 describe("supervisorActions — les verbes de l'invite", () => {
   const verbs = {
     restart: vi.fn(async () => true),
@@ -100,7 +126,7 @@ describe("supervisorActions — les verbes de l'invite", () => {
 });
 
 describe("cliCommandAction — `/nodefony <commande>`", () => {
-  const action = cliCommandAction();
+  const action = cliCommandAction(() => RUNTIME_MANIFEST);
   const signal = new AbortController().signal;
 
   it("reconnaît le mot `/nodefony`, seul ou suivi d'une commande — jamais `/nodefonyx`", () => {
@@ -136,7 +162,7 @@ describe("cliCommandAction — `/nodefony <commande>`", () => {
 describe("cliCommandAction — lancée en sous-processus, dans son onglet (#538, lot 2a)", () => {
   const signal = new AbortController().signal;
   const launch = vi.fn(async () => 0);
-  const action = cliCommandAction(undefined, launch);
+  const action = cliCommandAction(() => RUNTIME_MANIFEST, launch);
 
   it("son onglet porte le nom de la commande ; un refus ou une erreur d'usage n'en ouvre pas", () => {
     expect(action.tabTitle?.("/nodefony build --force")).to.equal("build");
@@ -165,6 +191,26 @@ describe("cliCommandAction — lancée en sous-processus, dans son onglet (#538,
   it("une commande de runtime n'atteint jamais le lanceur", async () => {
     launch.mockClear();
     expect(await action.run("/nodefony production", io(), signal)).to.equal(1);
+    expect(launch).not.toHaveBeenCalled();
+  });
+
+  it("le refus déclaré mord sur l'alias tapé, pas seulement sur le nom", async () => {
+    launch.mockClear();
+    const sink = io();
+    expect(
+      await action.run("/nodefony prod --workers 2", sink, signal),
+    ).to.equal(1);
+    expect(sink.out[0]).to.contain("ne se lance jamais depuis l'invite");
+    expect(launch).not.toHaveBeenCalled();
+  });
+
+  it("manifeste illisible : rien ne se lance à l'aveugle, ni onglet", async () => {
+    launch.mockClear();
+    const blind = cliCommandAction(() => null, launch);
+    expect(blind.tabTitle?.("/nodefony build")).to.equal(null);
+    const sink = io();
+    expect(await blind.run("/nodefony build", sink, signal)).to.equal(1);
+    expect(sink.out[0]).to.contain("npx nodefony build");
     expect(launch).not.toHaveBeenCalled();
   });
 
@@ -217,10 +263,10 @@ describe("cliCommandAction — Tab par computeCompletions (D12)", () => {
     globalOptions: ["--debug"],
     commands: [
       command("build", ["--force", "--filter"]),
-      command("development", ["--watch"]),
+      command("development", ["--watch"], { prompt: "refuse" }),
       command("doctor"),
       command("status"),
-      command("start"),
+      command("start", [], { prompt: "refuse" }),
       command("create", ["--preset"], {
         args: [["app", "module"]],
         optionValues: { "--preset": ["minimal", "full"] },
@@ -273,8 +319,9 @@ describe("cliCommandAction — Tab par computeCompletions (D12)", () => {
   });
 
   it("isPromptCommand : la règle commune à la bande et à Tab", () => {
-    expect(isPromptCommand("build")).to.equal(true);
-    expect(isPromptCommand("development")).to.equal(false);
-    expect(isPromptCommand("status")).to.equal(false);
+    const [development, , build] = RUNTIME_MANIFEST.commands;
+    expect(isPromptCommand(build!)).to.equal(true);
+    expect(isPromptCommand(development!)).to.equal(false);
+    expect(isPromptCommand(command("status"))).to.equal(false);
   });
 });
