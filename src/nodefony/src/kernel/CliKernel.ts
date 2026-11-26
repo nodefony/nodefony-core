@@ -10,7 +10,7 @@ import { resolvePackageManager } from "../cli/packageManager";
 import Kernel, { TypeKernelOptions } from "./Kernel";
 import type { IRunProfile } from "./runProfile";
 import { CONSOLE_RUN_PROFILE } from "./runProfile";
-import Command, { commandExamples } from "../command/Command";
+import Command, { commandUsageHint } from "../command/Command";
 import Menu from "./commands/MenuCommand";
 import Dev from "./commands/DevCommand";
 import Debug from "./commands/DebugCommand";
@@ -80,7 +80,7 @@ import { runAiMcpCommand } from "../cli/aiMcp";
 import { runGitHooksCommand } from "../cli/gitHooks";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
-import { USAGE_ERROR_CODES, usageHint } from "../cli/usageHint";
+import { USAGE_ERROR_CODES } from "../cli/usageHint";
 import { isVersionRequest } from "../cli/versionRequest";
 import { HelpContext, Command as commanderCommand } from "commander";
 import { version } from "../../package.json";
@@ -756,17 +756,11 @@ class CliKernel extends Cli {
         : this.commander?.commands.find(
             (c) => c.name() === requested || c.aliases().includes(requested),
           );
-    const hint = usageHint(
+    if (!target) return;
+    const hint = commandUsageHint(
+      target,
       code,
       e instanceof Error ? e.message : String(e),
-      target
-        ? {
-            name: target.name(),
-            usage: target.usage(),
-            flags: target.options.filter((o) => !o.hidden).map((o) => o.flags),
-            examples: commandExamples(target),
-          }
-        : null,
     );
     if (hint) process.stderr.write(`${hint}\n`);
   }

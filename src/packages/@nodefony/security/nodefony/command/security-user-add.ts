@@ -133,10 +133,7 @@ class SecurityUserAdd extends Command {
         message: "Identifiant (login) du compte :",
       });
     } catch (e) {
-      // Hors terminal : l'échec reste un échec, mais il montre la ligne à taper
-      // au lieu du « missing required argument » de commander.
-      this.log((e as Error).message, "ERROR");
-      process.exitCode = 1;
+      this.refuseMissingArgument(e);
       return this;
     }
     const users = this.kernel?.container?.get("users") as
