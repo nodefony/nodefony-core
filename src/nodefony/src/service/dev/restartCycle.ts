@@ -11,6 +11,13 @@ export interface IRestartSteps {
    */
   isSuspended(): boolean;
   /**
+   * Un report SOUPLE : une commande lancée depuis l'invite tourne encore, et
+   * recharger maintenant bâtirait sous elle. Le cycle attend comme sous une
+   * suspension — mais `restartNow` (le verbe `restart`) passe outre, là où
+   * il ne force jamais le verrou du serveur. Absent : aucun report.
+   */
+  isDeferred?(): boolean;
+  /**
    * Reconstruit ce qui a changé.
    *
    * @param files - fichiers modifiés depuis le cycle précédent.
@@ -114,7 +121,7 @@ export class RestartCycle {
       this.#pending = true;
       return;
     }
-    if (this.#steps.isSuspended()) {
+    if (this.#steps.isSuspended() || this.#steps.isDeferred?.() === true) {
       this.#arm(this.#recheckMs);
       return;
     }
@@ -136,9 +143,13 @@ export class RestartCycle {
   }
 
   /**
-   * Relance le serveur MAINTENANT, sans reconstruire (le verbe `restart` de
-   * l'invite) — sous la même garde qu'un cycle : jamais deux remplacements
-   * concurrents, et une sauvegarde arrivée pendant lui est rejouée.
+   * Relance le serveur MAINTENANT (le verbe `restart` de l'invite) — sous la
+   * même garde qu'un cycle : jamais deux remplacements concurrents, et une
+   * sauvegarde arrivée pendant lui est rejouée.
+   *
+   * Les fichiers déjà notés — ceux qu'un report souple (`isDeferred`)
+   * retenait — sont bâtis d'abord : relancer sur l'ancien `dist` forcerait
+   * un rechargement qui n'en serait pas un. Rien de noté : aucun build.
    *
    * @returns `false` si un cycle est en vol, le serveur suspendu ou un arrêt
    *   demandé : rien n'est lancé.
@@ -149,6 +160,15 @@ export class RestartCycle {
     }
     this.#busy = true;
     try {
+      if (this.#dirty.size > 0) {
+        // Le cycle différé qui attendait part ici : son minuteur n'a plus d'objet.
+        this.cancel();
+        const files = [...this.#dirty];
+        this.#dirty.clear();
+        if (!(await this.#steps.build(files)) || this.#steps.isStopping()) {
+          return true;
+        }
+      }
       await this.#steps.swap();
     } finally {
       this.#busy = false;

@@ -75,7 +75,8 @@ export interface IPromptAction {
 /** Ce que les verbes du superviseur font faire — fournis par lui. */
 export interface ISupervisorVerbs {
   /**
-   * Relance le serveur sans reconstruire.
+   * Relance le serveur ; les fichiers qu'un rechargement différé retenait
+   * sont bâtis d'abord (un lancement de l'invite en cours ne l'empêche pas).
    *
    * @returns `false` si un rechargement est déjà en cours.
    */
@@ -120,7 +121,7 @@ export const SUPERVISOR_VERBS: readonly {
   {
     id: "restart",
     aliases: ["reboot"],
-    does: "relancer le serveur, sans reconstruire",
+    does: "relancer le serveur — force un rechargement différé",
   },
   { id: "clear", aliases: [], does: "vider l'onglet affiché" },
   { id: "help", aliases: [], does: "l'aide complète, en rubriques (F1)" },

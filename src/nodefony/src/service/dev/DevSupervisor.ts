@@ -1311,6 +1311,16 @@ export class DevSupervisor {
    */
   #suspendedBy: string | null = null;
   /**
+   * Les commandes lancées depuis l'invite qui tournent encore (une entrée par
+   * lancement, son nom) : tant qu'il en reste, le rechargement est DIFFÉRÉ —
+   * le lancement est l'enfant du superviseur, une relance ne le tue pas, mais
+   * un build sous une commande qui écrit sous `src/` lirait un état à moitié
+   * écrit. `/restart` passe outre.
+   */
+  readonly #launches: string[] = [];
+  /** Le report en cours (noms des lancements), pour ne l'annoncer qu'une fois. */
+  #deferredBy: string | null = null;
+  /**
    * Problèmes du build INITIAL (verdict + tail de sortie), rejoués APRÈS le
    * boot de l'enfant : le splash ASCII + les logs de boot noient le verdict
    * émis AVANT le spawn — en scrollant, le dev ne le retrouvait plus (vécu).
@@ -1352,6 +1362,7 @@ export class DevSupervisor {
       {
         isStopping: () => this.#isStopping(),
         isSuspended: () => this.#isSuspended(),
+        isDeferred: () => this.#isDeferred(),
         build: (files) => this.#buildStep(files),
         needsSwap: (files) => needsServerRestart(files),
         swap: () => this.#swapChild(),
@@ -2346,24 +2357,31 @@ export class DevSupervisor {
   #promptLauncher(): PromptCommandLauncher | undefined {
     const bin = process.argv[1];
     if (bin === undefined) return undefined;
-    return (argv, io, signal) =>
-      launchPromptCommand(
-        {
-          file: process.execPath,
-          args: [...childExecArgv(process.execArgv), bin, ...argv],
-          cwd: this.#cwd,
-          env: {
-            ...process.env,
-            ...relayedTerminalEnv(
-              process.env,
-              { columns: io.columns, rows: process.stdout.rows },
-              process.stdout.getColorDepth(),
-            ),
+    return async (argv, io, signal) => {
+      const name = argv[0] ?? "";
+      this.#launches.push(name);
+      try {
+        return await launchPromptCommand(
+          {
+            file: process.execPath,
+            args: [...childExecArgv(process.execArgv), bin, ...argv],
+            cwd: this.#cwd,
+            env: {
+              ...process.env,
+              ...relayedTerminalEnv(
+                process.env,
+                { columns: io.columns, rows: process.stdout.rows },
+                process.stdout.getColorDepth(),
+              ),
+            },
           },
-        },
-        io,
-        signal,
-      );
+          io,
+          signal,
+        );
+      } finally {
+        this.#launches.splice(this.#launches.indexOf(name), 1);
+      }
+    };
   }
 
   /** (Re)lance le serveur enfant — même commande + flag enfant, en leader de groupe. */
@@ -2735,7 +2753,33 @@ export class DevSupervisor {
   }
 
   /**
-   * Le verbe `restart` de l'invite : relance le serveur sans reconstruire,
+   * Une commande lancée depuis l'invite tourne encore : le cycle attend sa fin
+   * (cf {@link DevSupervisor.#launches}). On DIT pourquoi, une fois, et quand
+   * le report se lève — comme pour une suspension.
+   */
+  #isDeferred(): boolean {
+    if (this.#launches.length > 0) {
+      if (this.#deferredBy === null) {
+        this.#deferredBy = [...new Set(this.#launches)]
+          .map((n) => `nodefony ${n}`)
+          .join(", ");
+        this.#log(
+          `⏸ ${this.#deferredBy} lancée depuis l'invite — rechargement différé (/restart le force)`,
+          "yellow",
+        );
+      }
+      return true;
+    }
+    if (this.#deferredBy !== null) {
+      this.#log(`▶ ${this.#deferredBy} terminée — rechargement`, "green");
+      this.#deferredBy = null;
+    }
+    return false;
+  }
+
+  /**
+   * Le verbe `restart` de l'invite : relance le serveur — et force le
+   * rechargement que diffère un lancement en cours (`#isDeferred`),
    * sous la garde du cycle — jamais pendant un rechargement en vol.
    *
    * @returns `false` si rien n'a été lancé.
@@ -2747,6 +2791,8 @@ export class DevSupervisor {
     let restarted = false;
     try {
       restarted = await this.#cycle.restartNow();
+      // Forcé : le report annoncé est levé, ses fichiers viennent d'être bâtis.
+      if (restarted) this.#deferredBy = null;
     } finally {
       // Refusé ou en échec : la barre ne reste pas sur « redémarrage ».
       if (!restarted && before !== null) this.#terminal?.setPhase(before);
