@@ -64,7 +64,11 @@ import {
 } from "./DevTerminal";
 import { shouldColorize } from "../../kernel/checks/report";
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
-import { readCliManifest } from "../../cli/completion";
+import {
+  mergeManifests,
+  readCliManifest,
+  type ICliManifest,
+} from "../../cli/completion";
 import { buildStatusPanel } from "./devStatusPanel";
 import { collectDevStatus } from "./devStatusReport";
 import { childExecArgv } from "./detachedStart";
@@ -95,7 +99,12 @@ import {
 } from "./devProcess";
 import { installShutdownSignals } from "./shutdownSignals";
 import { RestartCycle } from "./restartCycle";
-import { cliCommandAction, supervisorActions } from "./promptAction";
+import {
+  cliCommandAction,
+  type PromptCommandLauncher,
+  supervisorActions,
+} from "./promptAction";
+import { launchPromptCommand } from "./promptLaunch";
 import { buildPromptMenu } from "./devMenuBand";
 import { INSPECT_SUBJECTS } from "../../kernel/inspect/adminSubjects";
 import { ANSI } from "./ansi";
@@ -124,6 +133,14 @@ export interface DevSupervisorOptions {
    * chaque instance a son propre port-retry au redémarrage.
    */
   readonly ports?: readonly number[];
+  /**
+   * Les commandes INTÉGRÉES du CLI, construites en mémoire par la commande qui
+   * lance ce superviseur (`CliKernel.buildBuiltinManifest`). L'invite les
+   * fusionne au manifeste du disque (`mergeManifests`, comme le TAB du shell) :
+   * le disque n'est écrit que par le serveur, à son démarrage — sans elles, le
+   * premier lancement ne connaîtrait aucun refus déclaré (`prompt: "refuse"`).
+   */
+  readonly builtinManifest?: () => ICliManifest;
 }
 
 /**
@@ -1231,6 +1248,10 @@ export class DevSupervisor {
    * ailleurs que sur 5151/5152, et le superviseur doit suivre, pas supposer.
    */
   readonly #portsOverride: readonly number[] | null;
+  /** Source des commandes intégrées (cf {@link DevSupervisorOptions.builtinManifest}). */
+  readonly #builtinSource: (() => ICliManifest) | null;
+  /** Commandes intégrées, bâties au premier besoin de l'invite puis retenues. */
+  #builtins: ICliManifest | null = null;
   /**
    * Derniers ports EFFECTIVEMENT publiés par l'enfant (state file). Mémorisés tant
    * que le superviseur vit : au restart, l'enfant est mort et son state file purgé,
@@ -1290,6 +1311,16 @@ export class DevSupervisor {
    */
   #suspendedBy: string | null = null;
   /**
+   * Les commandes lancées depuis l'invite qui tournent encore (une entrée par
+   * lancement, son nom) : tant qu'il en reste, le rechargement est DIFFÉRÉ —
+   * le lancement est l'enfant du superviseur, une relance ne le tue pas, mais
+   * un build sous une commande qui écrit sous `src/` lirait un état à moitié
+   * écrit. `/restart` passe outre.
+   */
+  readonly #launches: string[] = [];
+  /** Le report en cours (noms des lancements), pour ne l'annoncer qu'une fois. */
+  #deferredBy: string | null = null;
+  /**
    * Problèmes du build INITIAL (verdict + tail de sortie), rejoués APRÈS le
    * boot de l'enfant : le splash ASCII + les logs de boot noient le verdict
    * émis AVANT le spawn — en scrollant, le dev ne le retrouvait plus (vécu).
@@ -1331,6 +1362,7 @@ export class DevSupervisor {
       {
         isStopping: () => this.#isStopping(),
         isSuspended: () => this.#isSuspended(),
+        isDeferred: () => this.#isDeferred(),
         build: (files) => this.#buildStep(files),
         needsSwap: (files) => needsServerRestart(files),
         swap: () => this.#swapChild(),
@@ -1363,6 +1395,7 @@ export class DevSupervisor {
     // (`nodefony status`/`stop`, cf devProcess.ts) : une divergence écrivain/lecteur
     // serait un bug (status ne verrait jamais l'instance). Définis une seule fois là-bas.
     this.#portsOverride = options.ports ?? null;
+    this.#builtinSource = options.builtinManifest ?? null;
     this.#pidFile = devSupervisorPidFile(this.#cwd);
     this.#standalone = !existsSync(path.resolve(this.#cwd, "turbo.json"));
   }
@@ -1400,6 +1433,21 @@ export class DevSupervisor {
    * même terminal — c'est la condition de la barre de #533. Le plein écran
    * (#537) s'y ajoute s'il est demandé ET que le terminal répond à la sonde.
    */
+  /**
+   * Le manifeste que lit l'invite : les commandes intégrées EN MÉMOIRE, plus
+   * celles des modules que seul le disque connaît — la fusion du TAB du shell
+   * (`mergeManifests`), une seule règle.
+   */
+  #cliManifest(): ICliManifest | null {
+    if (this.#builtins === null && this.#builtinSource !== null) {
+      this.#builtins = this.#builtinSource();
+    }
+    const cached = readCliManifest(this.#cwd);
+    return this.#builtins === null
+      ? cached
+      : mergeManifests(this.#builtins, cached);
+  }
+
   async #ownTerminal(): Promise<void> {
     if (
       this.#mode !== "human" ||
@@ -1428,10 +1476,10 @@ export class DevSupervisor {
     // la bande qui les propose, l'historique du projet.
     terminal.attachPrompt({
       root: this.#cwd,
-      cliManifest: () => readCliManifest(this.#cwd),
+      cliManifest: () => this.#cliManifest(),
       menu: () =>
         buildPromptMenu({
-          manifest: readCliManifest(this.#cwd),
+          manifest: this.#cliManifest(),
           inspectSubjects: INSPECT_SUBJECTS,
         }),
       actions: [
@@ -1449,7 +1497,7 @@ export class DevSupervisor {
           },
           quit: () => void this.#shutdown(),
         }),
-        cliCommandAction(() => readCliManifest(this.#cwd)),
+        cliCommandAction(() => this.#cliManifest(), this.#promptLauncher()),
       ],
     });
     // Le serveur écrit dans un tube : il ne reçoit pas `SIGWINCH`. La barre
@@ -2299,6 +2347,43 @@ export class DevSupervisor {
     return this.#held;
   }
 
+  /**
+   * Le lanceur des commandes de l'invite (#538, lot 2a) : le MÊME bin que
+   * celui par lequel on est entré — le lanceur a déjà tranché entre CLI
+   * global et CLI local —, les mêmes drapeaux `node` que le serveur, et le
+   * verdict de terminal relayé (largeur, couleurs) que le serveur reçoit.
+   * Sans bin connu : aucun lanceur, l'invite donne la ligne à taper.
+   */
+  #promptLauncher(): PromptCommandLauncher | undefined {
+    const bin = process.argv[1];
+    if (bin === undefined) return undefined;
+    return async (argv, io, signal) => {
+      const name = argv[0] ?? "";
+      this.#launches.push(name);
+      try {
+        return await launchPromptCommand(
+          {
+            file: process.execPath,
+            args: [...childExecArgv(process.execArgv), bin, ...argv],
+            cwd: this.#cwd,
+            env: {
+              ...process.env,
+              ...relayedTerminalEnv(
+                process.env,
+                { columns: io.columns, rows: process.stdout.rows },
+                process.stdout.getColorDepth(),
+              ),
+            },
+          },
+          io,
+          signal,
+        );
+      } finally {
+        this.#launches.splice(this.#launches.indexOf(name), 1);
+      }
+    };
+  }
+
   /** (Re)lance le serveur enfant — même commande + flag enfant, en leader de groupe. */
   #spawnChild(reload = false): void {
     this.#childSpawnedAt = Date.now();
@@ -2668,7 +2753,33 @@ export class DevSupervisor {
   }
 
   /**
-   * Le verbe `restart` de l'invite : relance le serveur sans reconstruire,
+   * Une commande lancée depuis l'invite tourne encore : le cycle attend sa fin
+   * (cf {@link DevSupervisor.#launches}). On DIT pourquoi, une fois, et quand
+   * le report se lève — comme pour une suspension.
+   */
+  #isDeferred(): boolean {
+    if (this.#launches.length > 0) {
+      if (this.#deferredBy === null) {
+        this.#deferredBy = [...new Set(this.#launches)]
+          .map((n) => `nodefony ${n}`)
+          .join(", ");
+        this.#log(
+          `⏸ ${this.#deferredBy} lancée depuis l'invite — rechargement différé (/restart le force)`,
+          "yellow",
+        );
+      }
+      return true;
+    }
+    if (this.#deferredBy !== null) {
+      this.#log(`▶ ${this.#deferredBy} terminée — rechargement`, "green");
+      this.#deferredBy = null;
+    }
+    return false;
+  }
+
+  /**
+   * Le verbe `restart` de l'invite : relance le serveur — et force le
+   * rechargement que diffère un lancement en cours (`#isDeferred`),
    * sous la garde du cycle — jamais pendant un rechargement en vol.
    *
    * @returns `false` si rien n'a été lancé.
@@ -2680,6 +2791,8 @@ export class DevSupervisor {
     let restarted = false;
     try {
       restarted = await this.#cycle.restartNow();
+      // Forcé : le report annoncé est levé, ses fichiers viennent d'être bâtis.
+      if (restarted) this.#deferredBy = null;
     } finally {
       // Refusé ou en échec : la barre ne reste pas sur « redémarrage ».
       if (!restarted && before !== null) this.#terminal?.setPhase(before);

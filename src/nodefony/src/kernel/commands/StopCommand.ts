@@ -8,6 +8,8 @@ const options: OptionsCommandInterface = {
   helpGroup: "LANCER",
   showBanner: false,
   kernelEvent: "onStart",
+  // Jamais depuis l'invite : elle arrêterait le superviseur qui la lance.
+  prompt: "refuse",
 };
 
 /**

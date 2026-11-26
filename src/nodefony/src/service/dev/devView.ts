@@ -11,18 +11,40 @@ import type { DevHistory, MergedTranscript } from "./devHistory";
 import { FrameHeights, type IScrollAnchor, type ViewOutcome } from "./devFrame";
 import type { PanelCursor } from "./devPanel";
 
+/**
+ * Ce qu'un onglet fait de ses canaux — le TYPE porte le comportement, pas
+ * une sous-classe (#538, lot 2) :
+ *
+ * - `log` : il montre des canaux que d'autres alimentent (serveur, Vite, un
+ *   sous-agent) ;
+ * - `run` : il porte UN lancement de l'invite — sa sortie, son issue ✓ / ✗,
+ *   et l'action en cours que Ctrl+C interrompt ; une saisie dans l'onglet
+ *   fini relance dans le même onglet ;
+ * - `panel` : un panneau à rubriques l'occupe, sans canal (`openPanel`).
+ */
+export type DevViewKind = "log" | "run" | "panel";
+
 /** Ce qu'on donne pour ouvrir un onglet à la volée (`DevTerminal.addView`). */
 export interface IDevViewSpec {
   /** Identifiant stable et unique (`agent:3`). */
   readonly id: string;
   /** Le libellé de l'onglet. */
   readonly title: string;
-  /** Son canal (`agent:3`), ou le filtre de ses canaux. */
-  readonly channels: string | ((channel: string) => boolean);
+  /**
+   * Son canal (`agent:3`), ou le filtre de ses canaux. Absent : un canal au
+   * nom de l'onglet (`id`), créé avec lui — celui où écrit sa poignée.
+   */
+  readonly channels?: string | ((channel: string) => boolean);
+  /** Son type, `log` par défaut ({@link DevViewKind}) ; `panel` passe par `openPanel`. */
+  readonly kind?: Exclude<DevViewKind, "panel">;
 }
 
 /** La poignée d'un onglet ouvert à la volée : qui l'ouvre le referme. */
 export interface IDevViewHandle {
+  /** Le canal où écrit {@link IDevViewHandle.write} : `channels` s'il est un nom, l'`id` sinon. */
+  readonly channel: string;
+  /** Écrit dans son canal ; sans effet une fois l'onglet fermé. */
+  write(text: string, stream?: "out" | "err"): void;
   /** Son travail est fini : ✓ ou ✗ après le titre, jusqu'à sa fermeture. */
   finish(outcome: ViewOutcome): void;
   /** Le referme et libère l'historique de ses canaux ; sans effet la 2ᵉ fois. */
@@ -44,6 +66,8 @@ export class DevView {
   readonly id: string;
   /** Le libellé de l'onglet. */
   readonly title: string;
+  /** Ce qu'il fait de ses canaux ({@link DevViewKind}). */
+  readonly kind: DevViewKind;
   /**
    * Le canal où l'invite écrit quand cet onglet a le focus : l'écho de la
    * saisie et la sortie de ce qu'elle lance restent sous les yeux de qui a
@@ -70,6 +94,18 @@ export class DevView {
   outcome: ViewOutcome | null = null;
   /** Un panneau à rubriques l'occupe au lieu de ses canaux (#538, D9). */
   panel: PanelCursor | null = null;
+  /**
+   * L'action de l'invite qui tourne DANS cet onglet, qu'un Ctrl+C y
+   * interrompt — une par onglet : un `build` dans le sien n'empêche pas un
+   * `/status` ailleurs.
+   */
+  running: AbortController | null = null;
+  /**
+   * Onglet `run` : le libellé de la commande qu'il porte, AVANT tout suffixe
+   * de doublon (`build` pour l'onglet `build 2`). Une saisie n'y relance que
+   * la même commande ; une autre ouvre son propre onglet.
+   */
+  launch: string | null = null;
 
   /**
    * @param history - l'historique par canal.
@@ -78,6 +114,7 @@ export class DevView {
    * @param match - ses canaux ; son canal d'invite (`promptChannel`) s'y
    *   ajoute toujours.
    * @param alwaysShown - montré même vide.
+   * @param kind - son type, `log` par défaut.
    */
   constructor(
     history: DevHistory,
@@ -85,9 +122,11 @@ export class DevView {
     title: string,
     match: (channel: string) => boolean,
     alwaysShown = false,
+    kind: DevViewKind = "log",
   ) {
     this.id = id;
     this.title = title;
+    this.kind = kind;
     const promptChannel = promptChannelOf(id);
     this.promptChannel = promptChannel;
     this.match = (channel) => channel === promptChannel || match(channel);

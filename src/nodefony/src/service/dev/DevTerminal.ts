@@ -194,6 +194,12 @@ function isArrowBurst(events: readonly InputEvent[]): boolean {
   return true;
 }
 
+/**
+ * Lancements de l'invite qui tournent à la fois, chacun dans son onglet ; au
+ * plafond, le plus ancien onglet fini se referme pour faire place.
+ */
+const PROMPT_RUN_MAX = 4;
+
 /** L'état de l'invite branchée. Forme fixe, posée par `attachPrompt`. */
 interface IPromptState {
   readonly history: PromptHistoryFile;
@@ -213,8 +219,6 @@ interface IPromptState {
   frameSource: IFramePrompt | null;
   frame: IFramePrompt | null;
   frameWidth: number;
-  /** L'action en cours, qu'un Ctrl+C interrompt. */
-  running: AbortController | null;
   /**
    * L'invite a le focus : ↑/↓ y parcourent l'historique. Au journal (clic,
    * molette, PgUp/PgDn), ils le font défiler ; la frappe le rend à l'invite.
@@ -602,6 +606,8 @@ export class DevTerminal {
 
   /** L'invite, une fois branchée (`attachPrompt`) — `null` sinon. */
   #prompt: IPromptState | null = null;
+  /** Numéro du dernier onglet `run:<n>` ouvert par l'invite. */
+  #runSeq = 0;
   /** Le foyer de la bande : l'invite se pose JUSTE APRÈS lui (D9). */
   #bandHandle: IInputFocus | null = null;
   /** Le foyer du panneau (#538, D9) — l'invite se range APRÈS lui. */
@@ -945,7 +951,6 @@ export class DevTerminal {
       frameSource: null,
       frame: null,
       frameWidth: -1,
-      running: null,
       focused: true,
       frameFocused: true,
     };
@@ -961,7 +966,7 @@ export class DevTerminal {
     this.#scheduleFrame();
     return () => {
       if (this.#prompt !== state) return;
-      state.running?.abort();
+      for (const view of this.#views) view.running?.abort();
       this.#prompt = null;
       this.#cliManifest = null;
       this.#menuSource = null;
@@ -1018,10 +1023,19 @@ export class DevTerminal {
     let view = this.#views.find((candidate) => candidate.id === spec.id);
     if (view === undefined) {
       // Aucun canal : l'onglet ne montre que son panneau.
-      view = new DevView(this.#history, spec.id, spec.label, noChannel, true);
+      view = new DevView(
+        this.#history,
+        spec.id,
+        spec.label,
+        noChannel,
+        true,
+        "panel",
+      );
       this.#views.push(view);
-    } else if (view.panel !== null) {
-      cursor.page = Math.min(view.panel.page, spec.pages.length - 1);
+    } else if (view.kind === "panel") {
+      if (view.panel !== null) {
+        cursor.page = Math.min(view.panel.page, spec.pages.length - 1);
+      }
     } else {
       throw new Error(`onglet déjà ouvert sans panneau : ${spec.id}`);
     }
@@ -1066,22 +1080,36 @@ export class DevTerminal {
    * @throws Si l'identifiant est déjà pris.
    */
   addView(spec: IDevViewSpec): IDevViewHandle {
+    return this.#openView(spec).handle;
+  }
+
+  /** {@link DevTerminal.addView}, l'onglet compris — l'invite le garde. */
+  #openView(spec: IDevViewSpec): { view: DevView; handle: IDevViewHandle } {
     if (this.#views.some((view) => view.id === spec.id)) {
       throw new Error(`onglet déjà ouvert : ${spec.id}`);
     }
-    const only = spec.channels;
+    const only = spec.channels ?? spec.id;
+    // Un filtre garde aussi le canal à son nom : celui où écrit la poignée.
+    const channel = typeof only === "string" ? only : spec.id;
     const view = new DevView(
       this.#history,
       spec.id,
       spec.title,
-      typeof only === "string" ? (channel) => channel === only : only,
+      typeof only === "string"
+        ? (candidate) => candidate === only
+        : (candidate) => candidate === channel || only(candidate),
       true,
+      spec.kind ?? "log",
     );
     this.#views.push(view);
     this.#server.transcript.refresh();
     this.#scheduleFrame();
     let closed = false;
-    return {
+    const handle: IDevViewHandle = {
+      channel,
+      write: (text, stream = "out") => {
+        if (!closed) this.ingest(channel, stream, text);
+      },
       finish: (outcome) => {
         if (closed) return;
         view.outcome = outcome;
@@ -1093,6 +1121,7 @@ export class DevTerminal {
         this.#removeView(view);
       },
     };
+    return { view, handle };
   }
 
   /**
@@ -1978,17 +2007,19 @@ export class DevTerminal {
             return false;
           }
         }
+        // Ctrl+C interrompt l'action de l'onglet AFFICHÉ, pas une autre.
+        const running = this.#active.running;
         if (
           event.kind === "key" &&
           event.ctrl &&
           !event.alt &&
           event.key === "c" &&
-          state.running !== null &&
+          running !== null &&
           // Un second Ctrl+C retombe sur l'éditeur puis l'arrêt : une action
           // qui ignore le signal ne prend pas le terminal en otage.
-          !state.running.signal.aborted
+          !running.signal.aborted
         ) {
-          state.running.abort();
+          running.abort();
           return true;
         }
         if (!state.loading) {
@@ -2076,50 +2107,135 @@ export class DevTerminal {
 
   /**
    * Entrée : la saisie part — écho dans le journal, historique, puis l'action
-   * qui la reconnaît. Envoyer ramène le journal au direct. Une seule action à
-   * la fois : la saisie reste dans le tampon tant qu'une autre tourne.
+   * qui la reconnaît. Envoyer ramène le journal au direct. Une action par
+   * onglet : la saisie reste dans le tampon tant qu'une autre tourne dans
+   * celui où elle irait. Une action qui a son onglet (`tabTitle`) en ouvre
+   * un, ou relance dans l'onglet `run` affiché s'il est fini.
    */
   #submit(
     full: IFullscreenState,
     state: IPromptState,
     editor: LineEditor,
   ): void {
-    if (state.running !== null) {
-      this.#notify(full, "une commande tourne encore — Ctrl+C l'interrompt");
-      return;
-    }
-    const shown = editor.display;
-    const text = editor.take();
-    this.#setAnchor(null);
-    this.#scheduleFrame();
-    if (text.trim() === "") return;
+    const text = editor.text;
+    const action =
+      text.trim() === ""
+        ? undefined
+        : state.actions.find((candidate) => candidate.matches(text));
     // L'écho et la sortie restent dans l'onglet qui a le focus À L'ENVOI :
     // une commande longue y écrit encore si l'on change d'onglet entre-temps.
     // Un panneau ne montre pas de journal : son écho va au serveur.
-    const channel = (this.#active.panel === null ? this.#active : this.#server)
-      .promptChannel;
-    this.ingest(channel, "out", `${state.render.sigil}${shown}\n`);
-    const kept = state.history.remember(text, this.#active.id, Date.now());
+    const here = this.#active.kind === "panel" ? this.#server : this.#active;
+    const title = action?.tabTitle?.(text) ?? null;
+    const ownTab = title !== null;
+    // `null` : un onglet neuf. Un onglet `run` fini ne relance que SA
+    // commande : une autre n'y écrit jamais sous un titre qui n'est pas le sien.
+    const reused = ownTab
+      ? here.kind === "run" && here.launch === title
+        ? here
+        : null
+      : here;
+    if (reused !== null && reused.running !== null) {
+      this.#notify(
+        full,
+        "une commande tourne encore dans cet onglet — Ctrl+C l'interrompt",
+      );
+      return;
+    }
+    if (reused === null && this.#runViews(true) >= PROMPT_RUN_MAX) {
+      this.#notify(
+        full,
+        `${PROMPT_RUN_MAX} commandes tournent déjà — Ctrl+C dans leur onglet en interrompt une`,
+      );
+      return;
+    }
+    const shown = editor.display;
+    editor.take();
+    this.#setAnchor(null);
+    this.#scheduleFrame();
+    if (text.trim() === "") return;
+    // L'historique se range sous un onglet qui dure : un onglet `run` est
+    // refermé tôt ou tard, et ses saisies avec lui.
+    const origin = this.#active.kind === "run" ? this.#server : this.#active;
+    let view = reused;
+    if (view === null && title !== null) {
+      view = this.#openRunView(full, title);
+    } else if (view !== null && ownTab) {
+      // Relance dans l'onglet fini : la sortie précédente reste au-dessus.
+      view.outcome = null;
+      this.ingest(view.id, "out", "\n");
+    }
+    const target = view ?? here;
+    const write = (chunk: string, stream: "out" | "err" = "out"): void =>
+      this.ingest(
+        target.kind === "run" ? target.id : target.promptChannel,
+        stream,
+        chunk,
+      );
+    write(`${state.render.sigil}${shown}\n`);
+    const kept = state.history.remember(text, origin.id, Date.now());
     if (!kept.kept && kept.reason !== "empty") {
       this.#notify(full, describeHistorySkip(kept.reason));
     }
-    const action = state.actions.find((candidate) => candidate.matches(text));
     if (action === undefined) {
       // 127 : « commande introuvable », la convention des shells.
       if (kept.kept) state.history.settle(kept.entry, 127, null);
-      this.ingest(channel, "err", describeUnmatchedInput(text));
+      write(describeUnmatchedInput(text), "err");
       return;
     }
     const controller = new AbortController();
-    state.running = controller;
+    target.running = controller;
     void this.#runAction(
       state,
       action,
       text,
-      channel,
+      target,
+      write,
       controller,
       kept.kept ? kept.entry : null,
     );
+  }
+
+  /**
+   * Les onglets `run` ouverts, ou ceux dont l'action tourne encore.
+   *
+   * @param runningOnly - ne compter que ceux qui tournent.
+   */
+  #runViews(runningOnly: boolean): number {
+    let count = 0;
+    for (const view of this.#views) {
+      if (view.kind === "run" && (!runningOnly || view.running !== null)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Ouvre l'onglet `run:<n>` d'un lancement et le montre. Au plafond, le plus
+   * ancien onglet FINI est refermé d'abord : sa sortie libère l'historique
+   * qu'une commande bavarde aurait sinon évincé chez les autres. Un titre déjà
+   * pris est suffixé (`build 2`).
+   */
+  #openRunView(full: IFullscreenState, title: string): DevView {
+    if (this.#runViews(false) >= PROMPT_RUN_MAX) {
+      const oldest = this.#views.find(
+        (view) => view.kind === "run" && view.running === null,
+      );
+      if (oldest !== undefined) this.#removeView(oldest);
+    }
+    let label = title;
+    for (let n = 2; this.#views.some((view) => view.title === label); n++) {
+      label = `${title} ${n}`;
+    }
+    const { view } = this.#openView({
+      id: `run:${++this.#runSeq}`,
+      title: label,
+      kind: "run",
+    });
+    view.launch = title;
+    this.#selectView(full, view);
+    return view;
   }
 
   /**
@@ -2130,13 +2246,14 @@ export class DevTerminal {
     state: IPromptState,
     action: IPromptAction,
     text: string,
-    channel: string,
+    view: DevView,
+    write: (chunk: string, stream?: "out" | "err") => void,
     controller: AbortController,
     entry: PromptHistoryEntry | null,
   ): Promise<void> {
     const started = performance.now();
     const io: IPromptIO = {
-      write: (chunk, stream = "out") => this.ingest(channel, stream, chunk),
+      write,
       // Confirmer et prêter le terminal arrivent avec les commandes du CLI
       // (lot 2) : aucun verbe du superviseur n'en a besoin.
       confirm: () =>
@@ -2149,13 +2266,17 @@ export class DevTerminal {
     try {
       code = await action.run(text, io, controller.signal);
     } catch (error) {
-      this.ingest(
-        channel,
-        "err",
+      write(
         `${action.id} : ${error instanceof Error ? error.message : String(error)}\n`,
+        "err",
       );
     } finally {
-      if (state.running === controller) state.running = null;
+      if (view.running === controller) view.running = null;
+    }
+    // L'issue se lit sur l'onglet du lancement, tant qu'il est ouvert.
+    if (view.kind === "run" && this.#views.includes(view)) {
+      view.outcome = code === 0 ? "ok" : "failed";
+      this.#scheduleFrame();
     }
     if (entry !== null) {
       state.history.settle(

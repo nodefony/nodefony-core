@@ -106,7 +106,24 @@ interface OptionsCommandInterface extends DefaultOptionsService {
    * CLI, et les exemples ne servent que sous un refus ou un `--help`.
    */
   examples?: readonly string[] | (() => readonly string[]);
+  /**
+   * Ce que l'invite du serveur de développement fait de cette commande.
+   * `"refuse"` : elle ne s'y lance jamais, la bande et Tab ne la proposent
+   * pas, et une saisie qui la nomme est refusée en le disant.
+   *
+   * 🔴 À DÉCLARER par toute commande qui démarre, arrête ou supervise un
+   * runtime (`servesTraffic`, `lifetime: "longrunning"`), ou qui prend le
+   * terminal : lancée depuis l'invite, elle tuerait le superviseur qui la
+   * lance, ou lui disputerait ses ports. Une liste tenue à part par l'invite
+   * oubliait les commandes des modules, qui n'existent pas quand elle
+   * s'écrit — la déclaration voyage avec la commande, jusqu'au manifeste.
+   * Gate : `tests/promptRefusal.test.ts`.
+   */
+  prompt?: PromptPolicy;
 }
+
+/** Ce que l'invite du serveur de développement fait d'une commande. */
+export type PromptPolicy = "refuse";
 
 export type CommandArgs = unknown[];
 
@@ -120,6 +137,23 @@ type ExamplesSource = readonly string[] | (() => readonly string[]);
  * par Commander qu'on la retrouve.
  */
 const EXAMPLES = new WeakMap<Cmd, ExamplesSource>();
+
+/**
+ * Les politiques d'invite déclarées, rangées par commande Commander — même
+ * raison que {@link EXAMPLES} : le manifeste se bâtit depuis Commander, où les
+ * commandes des modules sont les seules à se retrouver.
+ */
+const PROMPT_POLICIES = new WeakMap<Cmd, PromptPolicy>();
+
+/**
+ * La politique d'invite qu'une commande Commander a déclarée (`prompt`).
+ *
+ * @param cmd - la commande telle que Commander la tient.
+ * @returns sa politique, ou `undefined` si elle n'en déclare pas.
+ */
+export function commandPromptPolicy(cmd: Cmd): PromptPolicy | undefined {
+  return PROMPT_POLICIES.get(cmd);
+}
 
 /**
  * Les exemples qu'une commande Commander a déclarés (`examples`).
@@ -522,6 +556,9 @@ class Command extends Service {
     // celles des modules — ces dernières ne sont pas dans `cli.commands`.
     if (this.options.helpGroup) {
       cmd.helpGroup(this.options.helpGroup);
+    }
+    if (this.options.prompt !== undefined) {
+      PROMPT_POLICIES.set(cmd, this.options.prompt);
     }
     const examples = this.options.examples;
     if (examples !== undefined) {

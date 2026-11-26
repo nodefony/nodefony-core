@@ -45,7 +45,7 @@ describe("buildHelpPanel — l'aide en rubriques", () => {
     expect(invite?.rows).to.deep.include({
       kind: "entry",
       key: "/restart · /reboot",
-      value: "relancer le serveur, sans reconstruire",
+      value: "relancer le serveur — force un rechargement différé",
     });
     expect(invite?.rows).to.deep.include({
       kind: "entry",

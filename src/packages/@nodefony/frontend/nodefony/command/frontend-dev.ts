@@ -5,6 +5,8 @@ const options: OptionsCommandInterface = {
   helpGroup: "FRONT ET RÉSEAU",
   showBanner: false,
   kernelEvent: "onReady",
+  // Jamais depuis l'invite : le serveur de développement tient déjà Vite.
+  prompt: "refuse",
 };
 
 /**

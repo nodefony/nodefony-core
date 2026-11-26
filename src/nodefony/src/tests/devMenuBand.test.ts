@@ -28,9 +28,15 @@ const manifest: ICliManifest = {
   version: "0.0.0",
   globalOptions: [],
   commands: [
-    command("development", "démarre en développement", "LANCER"),
+    {
+      ...command("development", "démarre en développement", "LANCER"),
+      prompt: "refuse" as const,
+    },
     command("status", "ce qui tourne ici", "LANCER"),
-    command("menu", "le menu interactif", "COMPRENDRE"),
+    {
+      ...command("menu", "le menu interactif", "COMPRENDRE"),
+      prompt: "refuse" as const,
+    },
     // Rangée AVANT build (Comprendre), et son résumé répond aussi à « build ».
     command("doctor", "diagnostic, avant ou après le build", "COMPRENDRE"),
     command(

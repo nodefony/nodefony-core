@@ -117,6 +117,8 @@ interface OptionsCommandInterface {
   // sous son MODULE, ce qui reste vrai pour un module tiers.
   examples?: readonly string[] | (() => readonly string[]); // OBLIGATOIRE au dépôt
   // invocations COMPLÈTES (`nodefony <nom> …`) — `--help` + extrait d'erreur d'usage
+  prompt?: "refuse"; // jamais lancée depuis l'invite du serveur de dev — OBLIGATOIRE si
+  // servesTraffic / lifetime "longrunning" / runProfile.servers (gate promptRefusal.test.ts)
 }
 ```
 

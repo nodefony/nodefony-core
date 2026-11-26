@@ -13,6 +13,8 @@ import { brandMark } from "../cli/brand";
 import { DevTerminal } from "../service/dev/DevTerminal";
 import {
   cliCommandAction,
+  type IPromptAction,
+  type IPromptIO,
   supervisorActions,
 } from "../service/dev/promptAction";
 import { buildPromptMenu } from "../service/dev/devMenuBand";
@@ -67,7 +69,13 @@ const MANIFEST = {
   ],
 };
 
-function prompted(mouse = false, columns = COLS, rows = ROWS, menu = false) {
+function prompted(
+  mouse = false,
+  columns = COLS,
+  rows = ROWS,
+  menu = false,
+  extra: readonly IPromptAction[] = [],
+) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nf-dev-prompt-"));
   roots.push(root);
   const written: string[] = [];
@@ -97,7 +105,11 @@ function prompted(mouse = false, columns = COLS, rows = ROWS, menu = false) {
   };
   const detach = terminal.attachPrompt({
     root,
-    actions: [...supervisorActions(verbs), cliCommandAction(() => MANIFEST)],
+    actions: [
+      ...supervisorActions(verbs),
+      ...extra,
+      cliCommandAction(() => MANIFEST),
+    ],
     ...(menu
       ? {
           menu: () =>
@@ -621,7 +633,7 @@ describe("plein écran — la bande /nodefony (#538, D9, D10)", () => {
     expect(lines.some((l) => l === "❯ /nodefony inspect routes")).to.equal(
       true,
     );
-    expect(lines.some((l) => l.includes("ne se lance pas encore"))).to.equal(
+    expect(lines.some((l) => l.includes("ne se lance pas depuis"))).to.equal(
       true,
     );
     terminal.close();
@@ -798,6 +810,232 @@ describe("plein écran — Tab et Ctrl+R (#538, D11, D12)", () => {
     expect(await promptLine(written)).to.equal("❯ /clear");
     input.type(ENTER);
     expect(verbs.clear).toHaveBeenCalledTimes(2);
+    terminal.close();
+  });
+});
+
+/**
+ * Une commande pilotée par le test : `/fake <titre>` ouvre l'onglet `<titre>`,
+ * et ne finit que quand le test le dit — ou quand on l'interrompt (130).
+ */
+function launcher() {
+  const runs: {
+    input: string;
+    io: IPromptIO;
+    signal: AbortSignal;
+    done: (code: number) => void;
+  }[] = [];
+  const action: IPromptAction = {
+    id: "fake",
+    matches: (input) => /^\/fake(\s|$)/.test(input.trim()),
+    tabTitle: (input) => input.trim().split(/\s+/)[1] ?? "fake",
+    run: (input, io, signal) =>
+      new Promise<number>((resolve) => {
+        runs.push({ input, io, signal, done: resolve });
+        signal.addEventListener("abort", () => resolve(130), { once: true });
+      }),
+  };
+  return { action, runs };
+}
+
+describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
+  const ALT_1 = "\x1b1";
+  const settle = async (): Promise<void> => {
+    await nextFrame();
+  };
+  const tabs = (lines: readonly string[]): string =>
+    lines.find((l) => l.includes("1 serveur")) ?? "";
+
+  it("addView sans canal : la poignée écrit dans le canal au nom de l'onglet", async () => {
+    const { written, input, terminal } = prompted();
+    const handle = terminal.addView({ id: "agent:1", title: "agent" });
+    expect(handle.channel).to.equal("agent:1");
+    handle.write("bonjour\n");
+    input.type(ALT_2);
+    await settle();
+    expect((await screen(written)).some((l) => l === "bonjour")).to.equal(true);
+    handle.close();
+    handle.write("après\n");
+    await settle();
+    expect((await screen(written)).some((l) => l === "après")).to.equal(false);
+    terminal.close();
+  });
+
+  it("une action qui a son onglet l'ouvre, le montre, y garde écho et sortie ; ✓ à la fin", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    terminal.ingest("server", "out", "prêt\n");
+    input.type("/fake build" + ENTER);
+    await settle();
+    expect(runs).to.have.length(1);
+    runs[0]?.io.write("compilé\n");
+    await settle();
+    let lines = await screen(written);
+    expect(lines.some((l) => l === "❯ /fake build")).to.equal(true);
+    expect(lines.some((l) => l === "compilé")).to.equal(true);
+    expect(lines.some((l) => l === "prêt")).to.equal(false);
+    expect(tabs(lines)).to.contain("build");
+    runs[0]?.done(0);
+    await settle();
+    expect(tabs(await screen(written))).to.match(/✓ \d+ build/);
+    input.type(ALT_1);
+    await settle();
+    lines = await screen(written);
+    expect(lines.some((l) => l === "compilé")).to.equal(false);
+    expect(lines.some((l) => l === "❯ /fake build")).to.equal(false);
+    terminal.close();
+  });
+
+  it("un code non nul marque ✗", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake build" + ENTER);
+    await settle();
+    runs[0]?.done(2);
+    await settle();
+    expect(tabs(await screen(written))).to.match(/✗ \d+ build/);
+    terminal.close();
+  });
+
+  it("une action par onglet : sa relance refusée tant qu'elle tourne, le reste libre — /status pendant un build", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal, verbs } = prompted(
+      false,
+      COLS,
+      ROWS,
+      false,
+      [action],
+    );
+    // La barre d’état porte les messages passagers.
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
+    input.type("/fake build" + ENTER);
+    await settle();
+    input.type("/fake build" + ENTER);
+    await settle();
+    expect(runs).to.have.length(1);
+    const refused = await screen(written);
+    expect(refused.join("\n")).to.contain("une commande tourne encore");
+    // La saisie refusée reste dans le tampon : l'écho du lancement, et elle.
+    expect(refused.filter((l) => l === "❯ /fake build")).to.have.length(2);
+    input.type("\x15");
+    input.type(ALT_1);
+    await settle();
+    input.type("/status" + ENTER);
+    await settle();
+    expect(verbs.status).toHaveBeenCalledTimes(1);
+    input.type("/fake test" + ENTER);
+    await settle();
+    expect(runs).to.have.length(2);
+    expect(tabs(await screen(written))).to.contain("test");
+    terminal.close();
+  });
+
+  it("Ctrl+C interrompt l'action de l'onglet AFFICHÉ, pas celle d'un autre", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake un" + ENTER);
+    await settle();
+    input.type(ALT_1);
+    await settle();
+    input.type("/fake deux" + ENTER);
+    await settle();
+    input.type(CTRL_C);
+    await settle();
+    expect(runs[1]?.signal.aborted).to.equal(true);
+    expect(runs[0]?.signal.aborted).to.equal(false);
+    expect(tabs(await screen(written))).to.match(/✗ \d+ deux/);
+    terminal.close();
+  });
+
+  it("relancée dans son onglet fini, l'action y reste ; depuis serveur, un doublon est suffixé", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake build" + ENTER);
+    await settle();
+    runs[0]?.done(1);
+    await settle();
+    input.type("/fake build" + ENTER);
+    await settle();
+    expect(runs).to.have.length(2);
+    let lines = await screen(written);
+    expect(lines.filter((l) => l === "❯ /fake build")).to.have.length(2);
+    // L'issue précédente est effacée tant que la relance tourne.
+    expect(tabs(lines)).to.not.contain("✗");
+    expect(tabs(lines)).to.not.contain("build 2");
+    runs[1]?.done(0);
+    input.type(ALT_1);
+    await settle();
+    input.type("/fake build" + ENTER);
+    await settle();
+    lines = await screen(written);
+    expect(tabs(lines)).to.contain("build 2");
+    terminal.close();
+  });
+
+  it("dans l'onglet fini d'une AUTRE commande, la saisie ouvre un onglet neuf — jamais sous le mauvais titre", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake build" + ENTER);
+    await settle();
+    runs[0]?.done(0);
+    await settle();
+    input.type("/fake test" + ENTER);
+    await settle();
+    const lines = await screen(written);
+    expect(tabs(lines)).to.match(/✓ \d+ build/);
+    expect(tabs(lines)).to.match(/\[\d+ test\]/);
+    // L'onglet affiché est le neuf : la saisie de « build » n'y est pas.
+    expect(lines.some((l) => l === "❯ /fake build")).to.equal(false);
+    expect(lines.some((l) => l === "❯ /fake test")).to.equal(true);
+    terminal.close();
+  });
+
+  it("au plafond : un 5ᵉ lancement est refusé ; tous finis, le plus ancien onglet se referme", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, 200, ROWS, false, [
+      action,
+    ]);
+    // La barre d’état porte les messages passagers.
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
+    for (const name of ["aa", "bb", "cc", "dd", "ee"]) {
+      input.type(ALT_1);
+      await settle();
+      input.type(`/fake ${name}` + ENTER);
+      await settle();
+    }
+    expect(runs).to.have.length(4);
+    expect((await screen(written, 200)).join("\n")).to.contain(
+      "4 commandes tournent déjà",
+    );
+    for (const run of runs) run.done(0);
+    input.type("\x15");
+    input.type(ALT_1);
+    await settle();
+    input.type("/fake ee" + ENTER);
+    await settle();
+    expect(runs).to.have.length(5);
+    const line = tabs(await screen(written, 200));
+    expect(line).to.not.contain("aa");
+    expect(line).to.contain("bb");
+    expect(line).to.contain("ee");
     terminal.close();
   });
 });

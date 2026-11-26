@@ -41,10 +41,16 @@ function fakeSteps() {
   let maxSwapsInFlight = 0;
   let buildsInFlight = 0;
   let overlap = false;
-  const state = { stopping: false, suspended: false, replays: 0 };
+  const state = {
+    stopping: false,
+    suspended: false,
+    deferred: false,
+    replays: 0,
+  };
   const steps: IRestartSteps = {
     isStopping: () => state.stopping,
     isSuspended: () => state.suspended,
+    isDeferred: () => state.deferred,
     build(files) {
       if (buildsInFlight > 0 || swapsInFlight > 0) overlap = true;
       buildsInFlight++;
@@ -308,6 +314,61 @@ describe("RestartCycle — cycle de rechargement du superviseur", () => {
     await vi.advanceTimersByTimeAsync(DEBOUNCE);
     assert.strictEqual(fake.builds.length, 1, "la sauvegarde est rejouée");
     assert.strictEqual(fake.maxSwapsInFlight, 1);
+  });
+
+  it("diffère le cycle tant qu'un lancement de l'invite tourne, sans perdre un fichier", async () => {
+    const fake = fakeSteps();
+    const cycle = new RestartCycle(fake.steps, {
+      debounceMs: DEBOUNCE,
+      recheckMs: RECHECK,
+    });
+    fake.state.deferred = true;
+    cycle.mark("cree.ts");
+    await vi.advanceTimersByTimeAsync(DEBOUNCE + RECHECK * 3);
+    assert.strictEqual(fake.builds.length, 0, "rien ne bâtit sous la commande");
+    fake.state.deferred = false;
+    await vi.advanceTimersByTimeAsync(RECHECK);
+    assert.strictEqual(fake.builds.length, 1);
+    assert.deepStrictEqual(fake.builds[0]?.files, ["cree.ts"]);
+  });
+
+  it("restartNow FORCE le report : bâtit les fichiers retenus, relance, et rien ne repart à la levée", async () => {
+    const fake = fakeSteps();
+    const cycle = new RestartCycle(fake.steps, {
+      debounceMs: DEBOUNCE,
+      recheckMs: RECHECK,
+    });
+    fake.state.deferred = true;
+    cycle.mark("cree.ts");
+    await vi.advanceTimersByTimeAsync(DEBOUNCE + RECHECK);
+    const forced = cycle.restartNow();
+    assert.strictEqual(fake.builds.length, 1, "le build retenu part");
+    assert.deepStrictEqual(fake.builds[0]?.files, ["cree.ts"]);
+    fake.builds[0]?.done.resolve(true);
+    await vi.advanceTimersByTimeAsync(0);
+    assert.strictEqual(fake.swaps.length, 1, "puis la relance");
+    fake.swaps[0]?.resolve();
+    assert.strictEqual(await forced, true);
+    fake.state.deferred = false;
+    await vi.advanceTimersByTimeAsync(RECHECK * 3);
+    assert.strictEqual(fake.builds.length, 1, "aucun second cycle à la levée");
+    assert.strictEqual(fake.swaps.length, 1);
+  });
+
+  it("restartNow : un build retenu en échec ne relance pas le serveur", async () => {
+    const fake = fakeSteps();
+    const cycle = new RestartCycle(fake.steps, {
+      debounceMs: DEBOUNCE,
+      recheckMs: RECHECK,
+    });
+    fake.state.deferred = true;
+    cycle.mark("casse.ts");
+    await vi.advanceTimersByTimeAsync(DEBOUNCE);
+    const forced = cycle.restartNow();
+    fake.builds[0]?.done.resolve(false);
+    assert.strictEqual(await forced, true);
+    assert.strictEqual(fake.swaps.length, 0);
+    assert.strictEqual(cycle.busy, false);
   });
 
   it("restartNow refuse pendant un build, une suspension ou un arrêt", async () => {
