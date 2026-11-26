@@ -195,15 +195,40 @@ describe("PromptMenuBand — la bande ouverte", () => {
     expect(first.band.selection()?.value).to.equal("/status");
   });
 
-  it("Entrée écrit l'entrée choisie puis l'envoie ; Tab l'écrit seulement", () => {
+  it("Entrée lance l'entrée SEULE à prolonger la saisie ; Tab n'est jamais à la bande", () => {
     const enter = opened("/res");
     expect(enter.band.handle(key("enter"))).to.equal(true);
     expect(enter.state.draft).to.equal("/restart");
     expect(enter.hooks.submit).toHaveBeenCalledTimes(1);
+    // Tab complète le mot tapé, comme un shell : l'invite s'en charge.
     const tab = opened("/nodefony compile");
-    expect(tab.band.handle(key("tab"))).to.equal(true);
-    expect(tab.state.draft).to.equal("/nodefony build");
-    expect(tab.hooks.submit).not.toHaveBeenCalled();
+    expect(tab.band.handle(key("tab"))).to.equal(false);
+    expect(tab.band.handle(key("tab", true))).to.equal(false);
+    expect(tab.state.draft).to.equal("/nodefony compile");
+  });
+
+  it("Entrée ne remplace JAMAIS la saisie par une entrée qu'on n'a pas désignée", () => {
+    // Le défaut vu : « /nodefon » choisissait une commande au hasard du filtre.
+    const vague = opened("/nodefony ");
+    vague.band.view();
+    expect(vague.band.handle(key("enter"))).to.equal(false);
+    expect(vague.hooks.submit).not.toHaveBeenCalled();
+    // Filtre par la description, pas par le début : pas d'office non plus.
+    const fuzzy = opened("/nodefony compile");
+    fuzzy.band.view();
+    expect(fuzzy.band.handle(key("enter"))).to.equal(false);
+    // Désignée par ↓ : Entrée la lance.
+    vague.band.handle(key("down"));
+    const designated = vague.band.selection()?.value ?? "";
+    expect(vague.band.handle(key("enter"))).to.equal(true);
+    expect(vague.state.draft.trim()).to.equal(designated);
+  });
+
+  it("un début de /nodefony (« /nod ») montre les commandes du CLI, pas un filtre sur les descriptions", () => {
+    expect(choices(menu(), "/nod")).to.deep.equal(choices(menu(), "/nodefony"));
+    expect(choices(menu(), "/no").length).to.be.lessThan(
+      choices(menu(), "/nodefony").length,
+    );
   });
 
   it("Entrée sur `inspect` ouvre SON menu, sans rien envoyer", () => {

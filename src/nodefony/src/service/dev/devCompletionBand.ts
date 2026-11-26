@@ -28,9 +28,10 @@ export interface ICompletionHooks {
 
 /**
  * La bande des propositions. Elle ne garde que celles que la saisie prolonge
- * encore : la frappe passe à l'invite et la bande se refiltre. ↑↓ ou Maj+Tab
- * choisissent ; Tab ou Entrée écrivent le choix suivi d'un blanc ; Échap
- * referme.
+ * encore : la frappe passe à l'invite et la bande se refiltre. Tab passe à
+ * la suivante (en boucle, comme le menu de zsh) — et prend la dernière qui
+ * reste ; Maj+Tab et ↑ reviennent, ↓ avance ; Entrée écrit le choix suivi
+ * d'un blanc, sans l'envoyer ; Échap referme.
  */
 export class CompletionBand implements IDevBand {
   #selected = 0;
@@ -135,6 +136,10 @@ export class CompletionBand implements IDevBand {
     if (key !== "tab" && key !== "enter") return false;
     const chosen = this.selection();
     if (chosen === null || shown.length === 0) return false;
+    if (key === "tab" && shown.length > 1) {
+      this.#selected = (this.#selected + 1) % shown.length;
+      return true;
+    }
     this.hooks.close();
     this.hooks.fill(chosen.endsWith(" ") ? chosen : `${chosen} `);
     return true;

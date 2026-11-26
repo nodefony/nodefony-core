@@ -663,6 +663,27 @@ describe("plein écran — Tab et Ctrl+R (#538, D11, D12)", () => {
     terminal.close();
   });
 
+  it("« /nodefon » + Tab complète LE MOT, comme un shell — jamais une commande choisie au hasard", async () => {
+    const { written, input, terminal } = prompted(false, 120, 30, true);
+    input.type("/nodefon");
+    expect(terminal.band).to.not.equal(null);
+    input.type(TAB);
+    await nextFrame();
+    expect(await promptLine(written, 120, 30)).to.equal("❯ /nodefony ");
+    // Tab encore : la liste ; « b » la filtre ; Tab prend la dernière.
+    input.type(TAB);
+    await nextFrame();
+    expect(
+      (await screen(written, 120, 30)).some((l) =>
+        l.startsWith("── Tab · 2 propositions"),
+      ),
+    ).to.equal(true);
+    input.type("b" + TAB);
+    await nextFrame();
+    expect(await promptLine(written, 120, 30)).to.equal("❯ /nodefony build ");
+    terminal.close();
+  });
+
   it("dans une bande ouverte, ↓ redessine TOUT DE SUITE — pas à l'évènement suivant", async () => {
     const { written, input, terminal } = prompted(false, 120, 30, true);
     input.type("/nodefony build ");

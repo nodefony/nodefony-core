@@ -59,14 +59,25 @@ describe("CompletionBand — les propositions de Tab", () => {
     expect(band.selection()).to.equal(null);
   });
 
-  it("Tab et Entrée écrivent le choix suivi d'un blanc, sans rien envoyer", () => {
-    for (const taken of [key("tab"), key("enter")]) {
-      const { band, hooks } = opened();
-      band.shown();
-      expect(band.handle(taken)).to.equal(true);
-      expect(hooks.close).toHaveBeenCalledTimes(1);
-      expect(hooks.fill).toHaveBeenCalledWith("/nodefony build --force ");
-    }
+  it("Tab passe à la suivante, en boucle ; Entrée écrit le choix suivi d'un blanc, sans rien envoyer", () => {
+    const { band, hooks } = opened();
+    band.shown();
+    band.handle(key("tab"));
+    band.handle(key("tab"));
+    expect(band.selection()).to.equal("/nodefony build --debug");
+    band.handle(key("tab"));
+    expect(band.selection()).to.equal("/nodefony build --force");
+    expect(hooks.fill).not.toHaveBeenCalled();
+    expect(band.handle(key("enter"))).to.equal(true);
+    expect(hooks.close).toHaveBeenCalledTimes(1);
+    expect(hooks.fill).toHaveBeenCalledWith("/nodefony build --force ");
+  });
+
+  it("une seule proposition restante : Tab la prend", () => {
+    const { band, hooks } = opened("/nodefony build --d");
+    band.shown();
+    expect(band.handle(key("tab"))).to.equal(true);
+    expect(hooks.fill).toHaveBeenCalledWith("/nodefony build --debug ");
   });
 
   it("Maj+Tab et ↑ remontent ; Échap referme sans écrire ; la frappe passe à l'invite", () => {

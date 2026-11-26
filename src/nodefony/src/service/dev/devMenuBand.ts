@@ -62,6 +62,12 @@ const VERBS_GROUP = "Invite";
 const CLI_HEAD = `${PROMPT_COMMAND_PREFIX}${CLI_PROMPT_COMMAND.id}`;
 /** La ligne d'invite du sous-menu d'`inspect`. */
 const INSPECT_HEAD = `${CLI_HEAD} inspect`;
+/**
+ * Longueur à partir de laquelle un début de `/nodefony` (`/nod`) vaut le
+ * mot entier : la bande montre alors les commandes du CLI, pas celles dont
+ * la DESCRIPTION contient « nodefony ».
+ */
+const CLI_HEAD_PREFIX_MIN = 4;
 /** Largeur au plus de la colonne des noms. */
 const LABEL_MAX = 28;
 
@@ -220,6 +226,14 @@ function menuLevel(menu: IPromptMenu, draft: string): IMenuLevel {
       known: menu.words.commands,
     };
   }
+  if (line.length >= CLI_HEAD_PREFIX_MIN && CLI_HEAD.startsWith(line)) {
+    return {
+      source: menu.items.slice(menu.verbs + 1),
+      term: "",
+      inspect: false,
+      known: menu.words.commands,
+    };
+  }
   return {
     source: menu.items,
     term: line.slice(PROMPT_COMMAND_PREFIX.length),
@@ -256,15 +270,18 @@ export interface IPromptMenuHooks {
 }
 
 /**
- * La bande ouverte. ↑↓ (ou Maj+Tab, la molette) choisissent, Tab complète
- * la saisie, Entrée lance l'entrée choisie — la commande tapée en entier
- * l'est d'office ; si rien ne répond, la saisie part telle quelle —, Échap
- * la retire. La frappe passe à l'invite : la bande se refiltre à l'image
- * suivante.
+ * La bande ouverte : un MENU, pas la complétion. ↑↓, la molette ou un clic
+ * choisissent ; Entrée lance l'entrée choisie seulement si on l'a choisie,
+ * ou si elle est la seule à prolonger la saisie (`/cl` → `/clear`) — sinon
+ * la saisie part telle quelle, jamais remplacée par une entrée qu'on n'a pas
+ * désignée. Tab n'est pas à elle : il complète le mot tapé, comme un shell.
+ * Échap la retire. La frappe passe à l'invite : la bande se refiltre.
  */
 export class PromptMenuBand implements IDevBand {
   /** L'index de l'entrée choisie dans `#view.choices`. */
   #selected = 0;
+  /** Le choix a été désigné (↑↓, molette, clic) depuis la dernière frappe. */
+  #designated = false;
   /** La saisie pour laquelle `#view` a été calculée. */
   #draft: string | null = null;
   #view: IPromptMenuView = { items: [], choices: [], inspect: false };
@@ -283,20 +300,38 @@ export class PromptMenuBand implements IDevBand {
   /**
    * La vue de la saisie courante, recalculée quand elle change ; l'entrée
    * choisie la suit si elle survit au filtre, sinon la commande tapée en
-   * entier, sinon la première.
+   * entier, sinon la première qui PROLONGE la saisie, sinon la première.
    */
   view(): IPromptMenuView {
     const draft = this.hooks.draft();
     if (draft !== this.#draft) {
       const kept = this.selection()?.value;
       this.#draft = draft;
+      this.#designated = false;
       this.#view = promptMenuView(this.menu, draft);
       const typed = draft.trim();
-      const at = this.#view.choices.findIndex((c) => c.value === kept);
-      const exact = this.#view.choices.findIndex((c) => c.value === typed);
-      this.#selected = at !== -1 ? at : Math.max(0, exact);
+      const choices = this.#view.choices;
+      const at = choices.findIndex((c) => c.value === kept);
+      const exact = choices.findIndex((c) => c.value === typed);
+      const prefixed = choices.findIndex((c) => c.value.startsWith(typed));
+      this.#selected =
+        at !== -1 ? at : exact !== -1 ? exact : Math.max(0, prefixed);
     }
     return this.#view;
+  }
+
+  /**
+   * Entrée peut-elle lancer l'entrée choisie à la place de la saisie ? Oui si
+   * on l'a désignée, ou si elle est la SEULE à prolonger ce qui est tapé.
+   */
+  #enterTakes(selected: MenuChoice): boolean {
+    if (this.#designated) return true;
+    const typed = (this.#draft ?? "").trim();
+    if (!selected.value.startsWith(typed)) return false;
+    let prolong = 0;
+    for (const c of this.#view.choices)
+      if (c.value.startsWith(typed)) prolong++;
+    return prolong === 1;
   }
 
   /** L'entrée choisie, ou `null` quand rien ne répond à la saisie. */
@@ -318,7 +353,7 @@ export class PromptMenuBand implements IDevBand {
       this.paint.color ? `\x1b[${code}m${text}\x1b[0m` : text;
     const rule = ascii ? "-" : "─";
     const title = inspect ? `${INSPECT_HEAD} — Inspecter quoi ?` : CLI_HEAD;
-    const head = `${rule}${rule} ${title} · ${ascii ? "haut bas" : "↑↓"} choisir · Entrée lancer · Tab compléter · Échap fermer `;
+    const head = `${rule}${rule} ${title} · ${ascii ? "haut bas" : "↑↓"} choisir · Entrée lancer le choix · Tab compléter · Échap fermer `;
     const out: string[] = [
       paint(
         "2",
@@ -380,7 +415,10 @@ export class PromptMenuBand implements IDevBand {
     if (event.kind === "mouse") {
       if (event.action === "press" && event.button === 0) {
         const choice = this.#rows[event.row - 1] ?? null;
-        if (choice !== null) this.#selected = choices.indexOf(choice);
+        if (choice !== null) {
+          this.#selected = choices.indexOf(choice);
+          this.#designated = true;
+        }
       }
       return true;
     }
@@ -396,19 +434,12 @@ export class PromptMenuBand implements IDevBand {
       this.#move(key === "up" ? -1 : 1);
       return true;
     }
-    if (key === "tab" && event.shift) {
-      this.#move(-1);
-      return true;
-    }
-    if (selected === null || event.shift) return false;
-    if (key === "tab") {
-      this.hooks.fill(this.#completion(selected));
-      return true;
-    }
-    if (key !== "enter") return false;
+    // Tab complète le mot tapé (l'invite, comme un shell) : jamais la bande.
+    if (key !== "enter" || event.shift || selected === null) return false;
+    if (!this.#enterTakes(selected)) return false;
     // `inspect` ouvre SON menu, comme dans `nodefony menu`.
     if (selected.value === INSPECT_HEAD) {
-      this.hooks.fill(this.#completion(selected));
+      this.hooks.fill(`${INSPECT_HEAD} `);
       return true;
     }
     this.hooks.fill(selected.value);
@@ -416,14 +447,10 @@ export class PromptMenuBand implements IDevBand {
     return true;
   }
 
-  /** Ce que Tab écrit : l'entrée, et un blanc derrière `inspect` pour son menu. */
-  #completion(choice: MenuChoice): string {
-    return choice.value === INSPECT_HEAD ? `${INSPECT_HEAD} ` : choice.value;
-  }
-
-  /** Déplace le choix, borné aux entrées. */
+  /** Déplace le choix, borné aux entrées : il est alors désigné. */
   #move(step: number): void {
     const last = this.#view.choices.length - 1;
     this.#selected = Math.max(0, Math.min(last, this.#selected + step));
+    this.#designated = true;
   }
 }
