@@ -327,6 +327,23 @@ describe("startMenu — composition pure du menu interactif", () => {
     assert.deepEqual(filterStartMenu(items, "zzzz-introuvable"), []);
   });
 
+  it("filtre : un terme COMMENCE un mot — « orm » ne remonte pas create par « conforme »", () => {
+    const { items } = buildStartMenu({
+      inProject: true,
+      describe: describeAll,
+      moduleCommands: [
+        { name: "orm:migrate", description: "applique les migrations" },
+      ],
+    });
+    const values = (term: string) =>
+      filterStartMenu(items, term)
+        .filter((i) => i.kind === "choice")
+        .map((i) => (i.kind === "choice" ? i.value : ""));
+    assert.deepEqual(values("orm"), ["orm:migrate"]);
+    assert.include(values("migr"), "orm:migrate");
+    assert.include(values("git:ho"), "git:hooks");
+  });
+
   it("le catalogue ne référence que des groupes déclarés pour chacun de ses contextes", () => {
     for (const entry of START_MENU_CATALOG) {
       for (const context of entry.contexts) {

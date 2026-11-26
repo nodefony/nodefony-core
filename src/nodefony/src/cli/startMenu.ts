@@ -641,11 +641,16 @@ export function buildInspectMenu(
 }
 
 /**
- * Filtre le menu à la frappe (prompt `search`) — la logique est ICI, pure et
- * testée : normalisation (minuscules, accents retirés), chaque MOT du terme
- * doit se retrouver dans le label, le résumé, le conseil OU le titre du groupe
- * de l'entrée. Les titres de groupe suivent leurs entrées : un groupe dont
- * rien ne survit disparaît AVEC son titre.
+ * Filtre le menu à la frappe (prompt `search`, bande `/nodefony` de
+ * l'invite) — la logique est ICI, pure et testée : normalisation (minuscules,
+ * accents retirés), chaque MOT du terme doit COMMENCER un mot du label, du
+ * résumé, du conseil OU du titre du groupe de l'entrée. Les titres de groupe
+ * suivent leurs entrées : un groupe dont rien ne survit disparaît AVEC son
+ * titre.
+ *
+ * Début de mot, jamais sous-chaîne : « orm » remontait `create` par
+ * « conf**orm**e », en tête de liste — là où Entrée lance le premier choix.
+ * Les séparateurs d'un nom (`orm:migrate`, `git:hooks`) coupent des mots.
  */
 export function filterStartMenu(
   items: StartMenuItem[],
@@ -656,7 +661,11 @@ export function filterStartMenu(
       .toLowerCase()
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "");
-  const words = normalize(term).split(/\s+/).filter(Boolean);
+  const split = (text: string) =>
+    normalize(text)
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter(Boolean);
+  const words = split(term);
   if (words.length === 0) {
     return items;
   }
@@ -669,10 +678,10 @@ export function filterStartMenu(
       currentGroupLabel = item.label;
       continue;
     }
-    const haystack = normalize(
+    const haystack = split(
       `${item.label} ${item.summary} ${item.description} ${currentGroupLabel}`,
     );
-    if (words.every((w) => haystack.includes(w))) {
+    if (words.every((w) => haystack.some((h) => h.startsWith(w)))) {
       if (pendingGroup) {
         kept.push(pendingGroup);
         pendingGroup = null;
