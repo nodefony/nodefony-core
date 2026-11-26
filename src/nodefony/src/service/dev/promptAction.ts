@@ -89,7 +89,7 @@ export const SUPERVISOR_VERBS: readonly {
     does: "relancer le serveur, sans reconstruire",
   },
   { id: "clear", aliases: [], does: "vider l'onglet affiché" },
-  { id: "help", aliases: [], does: "l'aide des gestes" },
+  { id: "help", aliases: [], does: "l'aide complète, en rubriques (F1)" },
   { id: "quit", aliases: ["exit"], does: "arrêter proprement" },
 ];
 

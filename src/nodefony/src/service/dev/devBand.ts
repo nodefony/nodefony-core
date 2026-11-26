@@ -28,29 +28,24 @@ export interface IDevBand extends IFrameBand {
 }
 
 /** Une ligne de l'aide : le geste, et ce qu'il fait. */
-interface IGesture {
+/** Un geste de l'écran : ses touches et ce qu'il fait. */
+export interface IGesture {
   readonly keys: string;
   readonly does: string;
 }
 
 /**
- * La bande d'aide : les gestes du plein écran, sur deux colonnes quand la
- * largeur le permet, sinon une. `Échap`,
- * `?`, `q` ou `F1` la referment ; le reste passe (on défile et on change
- * d'onglet l'aide ouverte).
+ * Les gestes du plein écran — la SEULE liste : la bande d'aide (`?`) et le
+ * panneau d'aide (`/help`, F1) la lisent, jamais une copie.
  *
- * @param options - jeu de caractères, couleur, souris captée, et la fermeture
- *   que `openBand` a rendue.
- * @returns la bande.
+ * @param options - jeu de caractères, souris captée, invite branchée.
+ * @returns les gestes, dans l'ordre de lecture.
  */
-export function helpBand(options: {
+export function screenGestures(options: {
   readonly charset: ScreenCharset;
-  readonly color: boolean;
   readonly mouse: boolean;
-  /** L'invite est branchée : ↑ ↓ y parcourent l'historique, plus le journal. */
   readonly prompt?: boolean;
-  readonly close: () => void;
-}): IDevBand {
+}): IGesture[] {
   const ascii = options.charset === "ascii";
   const gestures: IGesture[] = [
     { keys: ascii ? "Alt+1..9" : "Alt+1…9", does: "changer d'onglet" },
@@ -96,6 +91,28 @@ export function helpBand(options: {
       ? { keys: "Ctrl+C", does: "effacer ; invite vide : arrêter" }
       : { keys: "Ctrl+C", does: "arrêter le serveur" },
   );
+  return gestures;
+}
+
+/**
+ * La bande d'aide : les gestes du plein écran, sur deux colonnes quand la
+ * largeur le permet, sinon une. `Échap`,
+ * `?`, `q` ou `F1` la referment ; le reste passe (on défile et on change
+ * d'onglet l'aide ouverte).
+ *
+ * @param options - jeu de caractères, couleur, souris captée, et la fermeture
+ *   que `openBand` a rendue.
+ * @returns la bande.
+ */
+export function helpBand(options: {
+  readonly charset: ScreenCharset;
+  readonly color: boolean;
+  readonly mouse: boolean;
+  /** L'invite est branchée : ↑ ↓ y parcourent l'historique, plus le journal. */
+  readonly prompt?: boolean;
+  readonly close: () => void;
+}): IDevBand {
+  const gestures = screenGestures(options);
   const half = Math.ceil(gestures.length / 2);
   const keyWidth = gestures.reduce((w, g) => Math.max(w, g.keys.length), 0);
   const cellWidth =

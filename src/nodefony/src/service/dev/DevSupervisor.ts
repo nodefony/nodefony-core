@@ -63,6 +63,7 @@ import {
 } from "./DevTerminal";
 import { shouldColorize } from "../../kernel/checks/report";
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
+import { readCliManifest } from "../../cli/completion";
 import { childExecArgv } from "./detachedStart";
 import { refreshProjectSymbols } from "../../cli/symbolsGenerate";
 import {
@@ -1421,6 +1422,7 @@ export class DevSupervisor {
     // L'invite (#538) : les verbes du superviseur, l'historique du projet.
     terminal.attachPrompt({
       root: this.#cwd,
+      cliManifest: () => readCliManifest(this.#cwd),
       actions: supervisorActions({
         restart: () => this.#restartFromPrompt(),
         clear: () => terminal.clearView(),

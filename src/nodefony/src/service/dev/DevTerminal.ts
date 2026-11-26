@@ -74,7 +74,9 @@ import {
 } from "./devTranscript";
 import { DevHistory, type IDevHistoryOptions } from "./devHistory";
 import { DevView, type IDevViewHandle, type IDevViewSpec } from "./devView";
-import { helpBand, type IDevBand } from "./devBand";
+import { helpBand, screenGestures, type IDevBand } from "./devBand";
+import { buildHelpPanel } from "./devHelpPanel";
+import type { ICliManifest } from "../../cli/completion";
 import { PanelCursor, type IPanelSpec } from "./devPanel";
 import type { ProcessOutputStream } from "./heldChannel";
 import { CLEAR_SCREEN, type DevPaint } from "./outputMode";
@@ -145,6 +147,11 @@ export interface IDevPromptOptions {
   readonly root: string;
   /** Les actions qu'Entrée sait lancer, essayées dans l'ordre. */
   readonly actions: readonly IPromptAction[];
+  /**
+   * Le manifeste des commandes du CLI, relu à chaque ouverture de l'aide
+   * (`/help`, F1) : ses rubriques le RENDENT, jamais une copie (D10).
+   */
+  readonly cliManifest?: () => ICliManifest | null;
 }
 
 /**
@@ -582,6 +589,8 @@ export class DevTerminal {
   #bandHandle: IInputFocus | null = null;
   /** Le foyer du panneau (#538, D9) — l'invite se range APRÈS lui. */
   #panelHandle: IInputFocus | null = null;
+  /** Le lecteur du manifeste du CLI, posé par `attachPrompt`. */
+  #cliManifest: (() => ICliManifest | null) | null = null;
 
   /**
    * @param options - flux, rendu de la barre, plafonds de l'historique, et
@@ -901,6 +910,7 @@ export class DevTerminal {
       frameFocused: true,
     };
     this.#prompt = state;
+    this.#cliManifest = options.cliManifest ?? null;
     const focus = this.#promptFocus(full, state);
     // Après la bande ET le panneau : une bande ouverte garde le clavier
     // (D9), et le panneau de l'onglet affiché prend ses touches avant elle.
@@ -912,6 +922,7 @@ export class DevTerminal {
       if (this.#prompt !== state) return;
       state.running?.abort();
       this.#prompt = null;
+      this.#cliManifest = null;
       const index = full.foci.indexOf(focus);
       if (index !== -1) full.foci.splice(index, 1);
       this.#scheduleFrame();
@@ -969,10 +980,28 @@ export class DevTerminal {
     this.#scheduleFrame();
   }
 
-  /** Ouvre l'aide des gestes (le verbe `help`, F1, `?` sur une invite vide). */
+  /**
+   * Ouvre l'aide (`/help`, F1). Invite branchée : l'aide COMPLÈTE en
+   * panneau à rubriques — l'invite, ses gestes, puis le CLI ; sinon la bande
+   * des gestes. `?` sur une invite vide garde la bande, l'aide-mémoire.
+   */
   showHelp(): void {
     const full = this.#full;
-    if (full) this.#openHelp(full);
+    if (!full) return;
+    if (this.#prompt === null) {
+      this.#openHelp(full);
+      return;
+    }
+    this.openPanel(
+      buildHelpPanel({
+        gestures: screenGestures({
+          charset: this.#charset,
+          mouse: full.mouse,
+          prompt: true,
+        }),
+        manifest: this.#cliManifest?.() ?? null,
+      }),
+    );
   }
 
   /**
@@ -1573,7 +1602,7 @@ export class DevTerminal {
           return true;
         }
         if (event.key === "f1" && !event.ctrl && !event.alt) {
-          this.#openHelp(full);
+          this.showHelp();
           return true;
         }
         const rank = event.alt && !event.ctrl ? tabRank(event.key) : 0;

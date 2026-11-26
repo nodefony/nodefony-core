@@ -473,4 +473,23 @@ describe("plein écran — le panneau à rubriques (#538, D9)", () => {
     expect(lines.filter((l) => l.includes("status"))).to.have.length(1);
     terminal.close();
   });
+
+  it("/help ouvre l'aide COMPLÈTE en panneau ; ? garde la bande des gestes", async () => {
+    const { written, input, terminal } = prompted();
+    input.type("/help" + ENTER);
+    await nextFrame();
+    let lines = await screen(written);
+    expect(lines[0]).to.equal(" Invite   CLI ");
+    expect(lines).to.include("Commandes de l'invite");
+    expect(lines.some((l) => l.includes("[2 aide]"))).to.equal(true);
+    input.type("\x1b");
+    await nextFrame();
+    await nextFrame();
+    input.type("?");
+    await nextFrame();
+    lines = await screen(written);
+    expect(lines.some((l) => l.startsWith(" Gestes"))).to.equal(true);
+    expect(lines.some((l) => l.includes("aide]"))).to.equal(false);
+    terminal.close();
+  });
 });
