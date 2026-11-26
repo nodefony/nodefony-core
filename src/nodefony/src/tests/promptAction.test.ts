@@ -169,6 +169,23 @@ describe("cliCommandAction — Tab par computeCompletions (D12)", () => {
     ]);
   });
 
+  it("la forme courte d'une option seulement si l'on tape `-x`", () => {
+    const flags = cliCommandAction(() => ({
+      ...manifest,
+      commands: [command("build", ["-f", "--force"])],
+    }));
+    expect(flags.complete?.("/nodefony build ")).to.deep.equal([
+      "/nodefony build --force",
+      "/nodefony build --debug",
+    ]);
+    expect(flags.complete?.("/nodefony build -")).to.include(
+      "/nodefony build -f",
+    );
+    expect(flags.complete?.("/nodefony build -f")).to.deep.equal([
+      "/nodefony build -f",
+    ]);
+  });
+
   it("sans manifeste : `/nodefony` seul ; jamais hors de son mot", () => {
     const bare = cliCommandAction();
     expect(bare.complete?.("/nod")).to.deep.equal(["/nodefony"]);

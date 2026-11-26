@@ -645,15 +645,55 @@ describe("plein écran — Tab et Ctrl+R (#538, D11, D12)", () => {
     expect(terminal.band).to.equal(null);
     input.type(TAB);
     await nextFrame();
-    expect((await screen(written, 120, 30)).join("\n")).to.contain(
-      "Tab : --force · --force-all",
-    );
-    input.type("-" + TAB);
+    // Le début commun n'avance plus : Tab MONTRE les propositions.
+    expect(terminal.band).to.not.equal(null);
+    expect(
+      (await screen(written, 120, 30)).some((l) => l === "  --force-all"),
+    ).to.equal(true);
+    input.type("-");
     await nextFrame();
-    // Un seul candidat : un blanc derrière, comme le shell.
+    expect(terminal.band).to.not.equal(null);
+    input.type(TAB);
+    await nextFrame();
+    // Un seul choix : un blanc derrière, comme le shell ; la bande se ferme.
     expect(await promptLine(written, 120, 30)).to.equal(
       "❯ /nodefony build --force-all ",
     );
+    expect(terminal.band).to.equal(null);
+    terminal.close();
+  });
+
+  it("dans une bande ouverte, ↓ redessine TOUT DE SUITE — pas à l'évènement suivant", async () => {
+    const { written, input, terminal } = prompted(false, 120, 30, true);
+    input.type("/nodefony build ");
+    input.type(TAB);
+    await nextFrame();
+    await nextFrame();
+    expect(
+      (await screen(written, 120, 30)).some((l) => l === "▸ --force"),
+    ).to.equal(true);
+    input.type("\x1b[B");
+    await nextFrame();
+    expect(
+      (await screen(written, 120, 30)).some((l) => l === "▸ --force-all"),
+    ).to.equal(true);
+    terminal.close();
+  });
+
+  it("mot en cours VIDE : Tab montre les propositions, n'en écrit aucune ; la frappe qui n'en laisse plus aucune la ferme", async () => {
+    const { written, input, terminal } = prompted(false, 120, 30, true);
+    input.type("/nodefony build ");
+    input.type(TAB);
+    await nextFrame();
+    // La saisie reste telle quelle : aucune proposition écrite à l’aveugle.
+    expect(await promptLine(written, 120, 30)).to.equal("❯ /nodefony build ");
+    const lines = await screen(written, 120, 30);
+    expect(lines.some((l) => l.startsWith("── Tab · 2 propositions"))).to.equal(
+      true,
+    );
+    expect(lines.some((l) => l === "▸ --force")).to.equal(true);
+    input.type("x");
+    expect(terminal.band).to.equal(null);
     terminal.close();
   });
 

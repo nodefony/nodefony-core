@@ -204,8 +204,12 @@ export function cliCommandAction(
       const lead = before.length === 0 ? head : `${head} ${before.join(" ")}`;
       const seen = new Set<string>();
       const out: string[] = [];
+      // La forme courte (`-f`) seulement si l'on tape `-x` : sinon elle
+      // double la longue, et leur début commun tombe à `-`.
+      const short = /^-[^-]?$|^-[^-]/.test(typed);
       for (const word of computeCompletions(read, words)) {
         if (!word.startsWith(typed) || seen.has(word)) continue;
+        if (!short && /^-[^-]/.test(word)) continue;
         if (before.length === 0 && !isPromptCommand(word)) continue;
         seen.add(word);
         out.push(`${lead} ${word}`);

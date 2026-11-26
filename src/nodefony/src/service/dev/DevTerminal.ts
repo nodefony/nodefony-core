@@ -82,6 +82,7 @@ import {
   type IPromptMenu,
 } from "./devMenuBand";
 import { HistorySearchBand } from "./devHistorySearch";
+import { CompletionBand } from "./devCompletionBand";
 import type { ICliManifest } from "../../cli/completion";
 import { PanelCursor, type IPanelSpec } from "./devPanel";
 import type { ProcessOutputStream } from "./heldChannel";
@@ -615,6 +616,11 @@ export class DevTerminal {
    * manifeste ne se relit pas à chaque frappe.
    */
   #menuData: IPromptMenu | null = null;
+  /** Les propositions de Tab ouvertes, et leur fermeture. */
+  #completion: {
+    readonly band: CompletionBand;
+    readonly close: () => void;
+  } | null = null;
   /** La recherche Ctrl+R ouverte, et sa fermeture. */
   #search: {
     readonly band: HistorySearchBand;
@@ -960,6 +966,8 @@ export class DevTerminal {
       this.#menuData = null;
       this.#search?.close();
       this.#search = null;
+      this.#completion?.close();
+      this.#completion = null;
       const index = full.foci.indexOf(focus);
       if (index !== -1) full.foci.splice(index, 1);
       this.#scheduleFrame();
@@ -1750,13 +1758,15 @@ export class DevTerminal {
         this.#notify(full, "Tab : rien à compléter");
         return;
       } else {
-        const common = commonPrefix(candidates);
+        // Mot en cours vide (`/nodefony build `) : rien à prolonger, on
+        // MONTRE ; sinon le début commun s'écrit s'il avance.
+        const common =
+          /\s$/.test(prefix) || prefix === ""
+            ? prefix
+            : commonPrefix(candidates);
         if (common.length > prefix.length) editor.setText(common);
         else {
-          this.#notify(
-            full,
-            `Tab : ${candidates.map((c) => c.slice(c.lastIndexOf(" ") + 1)).join(" · ")}`,
-          );
+          this.#openCompletion(full, state, candidates);
           return;
         }
       }
@@ -1778,6 +1788,44 @@ export class DevTerminal {
           `complétion impossible : ${error instanceof Error ? error.message : String(error)}`,
         ),
     );
+  }
+
+  /**
+   * Les propositions de Tab en bande : plusieurs saisies prolongent l'invite
+   * et leur début commun n'avance pas. Elle se referme quand la frappe n'en
+   * laisse plus aucune ({@link DevTerminal.#syncCompletion}).
+   */
+  #openCompletion(
+    full: IFullscreenState,
+    state: IPromptState,
+    candidates: readonly string[],
+  ): void {
+    this.#completion?.close();
+    const band = new CompletionBand(
+      candidates,
+      { color: this.#color, charset: this.#charset },
+      {
+        draft: () => this.#editorOf(state).text,
+        fill: (text) => {
+          this.#editorOf(state).setText(text);
+          this.#scheduleFrame();
+          this.#syncMenu(full, state);
+        },
+        close: () => {
+          this.#completion?.close();
+          this.#completion = null;
+        },
+      },
+    );
+    this.#completion = { band, close: this.openBand(band) };
+  }
+
+  /** Referme les propositions de Tab que la saisie ne prolonge plus. */
+  #syncCompletion(): void {
+    if (this.#completion?.band.shown().length === 0) {
+      this.#completion.close();
+      this.#completion = null;
+    }
   }
 
   /**
@@ -1945,6 +1993,8 @@ export class DevTerminal {
           state.history.history.source(this.#active.id),
         );
         if (result === "submit") {
+          this.#completion?.close();
+          this.#completion = null;
           this.#setPromptFocus(state, true);
           this.#submit(full, state, editor);
           this.#syncMenu(full, state);
@@ -1953,6 +2003,7 @@ export class DevTerminal {
         if (result === "changed") {
           this.#setPromptFocus(state, true);
           this.#scheduleFrame();
+          this.#syncCompletion();
           this.#syncMenu(full, state);
           return true;
         }
@@ -2120,7 +2171,9 @@ export class DevTerminal {
   /**
    * Foyer de la bande, en tête de chaîne : le clavier va à la bande ouverte,
    * sauf Ctrl+C et Ctrl+D ; la souris seulement sur son rectangle, en
-   * coordonnées locales, et jamais plus loin.
+   * coordonnées locales, et jamais plus loin. Un évènement qu'elle prend
+   * demande une image : son état a pu changer (un choix, un terme), et rien
+   * d'autre ne la redessinerait avant l'évènement suivant.
    */
   #bandFocus(full: IFullscreenState): IInputFocus {
     return {
@@ -2134,6 +2187,7 @@ export class DevTerminal {
             return false;
           }
           band.handle({ ...event, row: row + 1 });
+          this.#scheduleFrame();
           return true;
         }
         if (
@@ -2143,7 +2197,9 @@ export class DevTerminal {
         ) {
           return false;
         }
-        return band.handle(event);
+        const taken = band.handle(event);
+        if (taken) this.#scheduleFrame();
+        return taken;
       },
     };
   }
