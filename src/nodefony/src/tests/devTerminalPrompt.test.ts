@@ -491,10 +491,13 @@ describe("plein écran — le panneau à rubriques (#538, D9)", () => {
     expect(lines).to.include("←→ rubrique · Échap fermer");
     expect(lines).to.include(" 1 serveur ·1 ┃[2 status]│");
     expect(lines.some((l) => l.includes("prêt"))).to.equal(false);
-    // Un Échap seul attend la fin du délai d'ambiguïté du décodeur.
+    // Un Échap seul attend la fin du délai d'ambiguïté du décodeur : on attend
+    // le FAIT (journal revenu), jamais une durée — un runner lent la dépasse.
     input.type(ESC);
-    await nextFrame();
-    await nextFrame();
+    await vi.waitFor(async () => {
+      const shown = await screen(written);
+      expect(shown.some((l) => l.includes("prêt"))).to.equal(true);
+    });
     lines = await screen(written);
     expect(lines.some((l) => l.includes("prêt"))).to.equal(true);
     expect(lines.some((l) => l.includes("2 status"))).to.equal(false);
@@ -536,8 +539,11 @@ describe("plein écran — le panneau à rubriques (#538, D9)", () => {
     expect(lines).to.include("Commandes de l'invite");
     expect(lines.some((l) => l.includes("[2 aide]"))).to.equal(true);
     input.type("\x1b");
-    await nextFrame();
-    await nextFrame();
+    // Échap seul : attendre que le panneau soit FERMÉ, pas une durée.
+    await vi.waitFor(async () => {
+      const shown = await screen(written);
+      expect(shown.some((l) => l.includes("[2 aide]"))).to.equal(false);
+    });
     input.type("?");
     await nextFrame();
     lines = await screen(written);
@@ -591,9 +597,8 @@ describe("plein écran — la bande /nodefony (#538, D9, D10)", () => {
     const { input, terminal } = withMenu();
     input.type("/c");
     input.type(ESCAPE);
-    await nextFrame();
-    await nextFrame();
-    expect(terminal.band).to.equal(null);
+    // Échap seul : attendre la bande RETIRÉE, pas une durée.
+    await vi.waitFor(() => expect(terminal.band).to.equal(null));
     input.type("l");
     expect(terminal.band).to.equal(null);
     input.type(CTRL_U);
@@ -762,8 +767,8 @@ describe("plein écran — Tab et Ctrl+R (#538, D11, D12)", () => {
     );
     input.type("/res");
     input.type(ESCAPE);
-    await nextFrame();
-    await nextFrame();
+    // Échap seul : attendre la bande RETIRÉE, pas une durée.
+    await vi.waitFor(() => expect(terminal.band).to.equal(null));
     input.type(TAB);
     await nextFrame();
     expect(await promptLine(written, 120, 30)).to.equal("❯ /restart ");
