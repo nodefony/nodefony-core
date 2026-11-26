@@ -70,6 +70,14 @@ const INSPECT_HEAD = `${CLI_HEAD} inspect`;
 const CLI_HEAD_PREFIX_MIN = 4;
 /** Largeur au plus de la colonne des noms. */
 const LABEL_MAX = 28;
+/** Le retrait d'une rubrique, depuis le bord. */
+const GROUP_INDENT = "  ";
+/**
+ * Le retrait d'une entrée, avant sa marque `▸` : son nom tombe une
+ * tabulation (4 colonnes) plus loin que celui de sa rubrique, pour que la
+ * liste se lise comme un plan.
+ */
+const ITEM_INDENT = "    ";
 
 /**
  * Le menu de l'invite, depuis le manifeste du CLI et les sujets d'`inspect`.
@@ -419,7 +427,12 @@ export class PromptMenuBand implements IDevBand {
     this.#rows = [null];
     for (const item of items.slice(start, start + room)) {
       if (item.kind === "separator") {
-        out.push(paint("1", fitToWidth(`  ${item.label}`, width, ellipsis)));
+        out.push(
+          paint(
+            "1",
+            fitToWidth(`${GROUP_INDENT}${item.label}`, width, ellipsis),
+          ),
+        );
         this.#rows.push(null);
         continue;
       }
@@ -427,7 +440,7 @@ export class PromptMenuBand implements IDevBand {
       const label = fitToWidth(item.label, labelWidth, ellipsis);
       const pad = " ".repeat(Math.max(0, labelWidth - visibleWidth(label)));
       const line = fitToWidth(
-        `${on ? (ascii ? ">" : "▸") : " "} ${label}${pad}  ${item.summary}`,
+        `${ITEM_INDENT}${on ? (ascii ? ">" : "▸") : " "} ${label}${pad}  ${item.summary}`,
         width,
         ellipsis,
       );

@@ -135,14 +135,12 @@ async function screen(
 }
 
 describe("plein écran — l'invite (#538)", () => {
-  it("en bas : un filet, puis l'invite et son texte d'aide, le curseur dessus", async () => {
+  it("en bas : un filet, puis l'invite VIDE — rien que le curseur, aucun texte d'exemple", async () => {
     const { written, terminal } = prompted();
     await nextFrame();
     const lines = await screen(written);
     expect(lines.at(-2)).to.equal("─".repeat(COLS - 1));
-    expect(
-      lines.at(-1)?.startsWith("❯  /status · /restart · /clear · /help"),
-    ).to.equal(true);
+    expect(lines.at(-1)).to.equal("❯ ");
     // Le curseur est montré, sur la colonne après le signe.
     expect(written.join("")).to.contain(`\x1b[${ROWS};3H\x1b[?25h`);
     terminal.close();
@@ -212,7 +210,7 @@ describe("plein écran — l'invite (#538)", () => {
     expect(quit).not.toHaveBeenCalled();
     await nextFrame();
     const lines = await screen(written);
-    expect(lines.at(-1)?.startsWith("❯  /status")).to.equal(true);
+    expect(lines.at(-1)).to.equal("❯ ");
     input.type(CTRL_C);
     expect(quit).toHaveBeenCalledTimes(1);
     terminal.close();
@@ -237,9 +235,7 @@ describe("plein écran — l'invite (#538)", () => {
     input.type("q");
     expect(terminal.band).to.equal(null);
     await nextFrame();
-    expect((await screen(written)).at(-1)?.startsWith("❯  /status")).to.equal(
-      true,
-    );
+    expect((await screen(written)).at(-1)).to.equal("❯ ");
     terminal.close();
   });
 
@@ -250,9 +246,7 @@ describe("plein écran — l'invite (#538)", () => {
     input.type("brouillon");
     input.type(ALT_2);
     await nextFrame();
-    expect((await screen(written)).at(-1)?.startsWith("❯  /status")).to.equal(
-      true,
-    );
+    expect((await screen(written)).at(-1)).to.equal("❯ ");
     input.type("\x1b1");
     await nextFrame();
     expect((await screen(written)).at(-1)).to.equal("❯ brouillon");
@@ -544,7 +538,7 @@ describe("plein écran — la bande /nodefony (#538, D9, D10)", () => {
     expect(
       lines.some((l) => l.startsWith("── /nodefony · ↑↓ choisir")),
     ).to.equal(true);
-    expect(lines.some((l) => l.startsWith("▸ /status"))).to.equal(true);
+    expect(lines.some((l) => l.startsWith("    ▸ /status"))).to.equal(true);
     input.type(BACKSPACE);
     expect(terminal.band).to.equal(null);
     terminal.close();

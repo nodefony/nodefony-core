@@ -936,7 +936,8 @@ export class DevTerminal {
       editors: new Map(),
       render: {
         sigil: this.#charset === "ascii" ? "> " : "❯ ",
-        placeholder: `${options.actions.map((action) => `${PROMPT_COMMAND_PREFIX}${action.id}`).join(" · ")} — ? aide · Alt+Entrée saut de ligne`,
+        // Rien d’écrit sous le curseur : l’invite vide ne montre que lui.
+        placeholder: "",
         color: this.#color,
       },
       mark: brandMiniMark(this.#charset, this.#color),

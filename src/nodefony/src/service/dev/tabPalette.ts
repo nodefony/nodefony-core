@@ -95,7 +95,7 @@ export function tabPalette(
       ? (c: Rgb): string => `48;2;${c[0]};${c[1]};${c[2]}`
       : (c: Rgb, blue = false): string => `48;5;${nearest256(c, blue)}`;
   // En 256 couleurs, le bleu de sélection le plus proche est souvent un GRIS,
-  // indiscernable de la barre : l’'actif ne retient que des teintes bleues.
+  // indiscernable de la barre : l’actif ne retient que des teintes bleues.
   return { bar: sgr(bar), active: sgr(active, true) };
 }
 

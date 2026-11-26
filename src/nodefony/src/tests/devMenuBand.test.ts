@@ -283,7 +283,11 @@ describe("PromptMenuBand — la bande ouverte", () => {
     const lines = band.render(region(6));
     expect(lines).to.have.length(6);
     expect(lines[0]).to.contain("/nodefony · ↑↓ choisir");
-    expect(lines.some((l) => l.startsWith("▸ build"))).to.equal(true);
+    // L’entrée tombe une tabulation plus loin que sa rubrique.
+    expect(lines.some((l) => l.startsWith("    ▸ build"))).to.equal(true);
+    const all = opened("/").band.render(region(8));
+    expect(all[1]).to.equal("  Invite");
+    expect(all.some((l) => /^      \/\S/.test(l))).to.equal(true);
     expect(lines.at(-1)).to.contain("Compile modules puis application");
     const none = opened("/zzz").band.render(region(4));
     expect(none.at(-1)).to.equal("  aucune commande ne répond à « /zzz »");
