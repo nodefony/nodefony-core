@@ -485,9 +485,10 @@ describe("plein écran — sélection à la souris (--mouse)", () => {
     await nextFrame();
     expect((await screen(stdout.written)).at(-1)).to.include("copié — test");
     input.type("\x1b");
-    await new Promise((resolve) => setTimeout(resolve, 80)); // délai de l'Échap seul
-    await nextFrame();
-    expect(await inverseCells(stdout.written, 4)).to.equal("............");
+    // Échap seul : attendre la sélection EFFACÉE, pas une durée.
+    await vi.waitFor(async () => {
+      expect(await inverseCells(stdout.written, 4)).to.equal("............");
+    });
     terminal.close();
   });
 });
@@ -1552,7 +1553,8 @@ describe("plein écran — la bande (#903)", () => {
     input.type("?");
     await nextFrame();
     input.type("\x1b");
-    await new Promise((resolve) => setTimeout(resolve, 80)); // délai de l'Échap seul
+    // Échap seul : attendre la bande RETIRÉE, pas une durée.
+    await vi.waitFor(() => expect(terminal.band).to.equal(null));
     await nextFrame();
     shown = await screen(stdout.written);
     expect(shown.join("\n")).to.not.include("Gestes");
