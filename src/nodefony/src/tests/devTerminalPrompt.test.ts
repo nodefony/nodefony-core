@@ -106,7 +106,7 @@ describe("plein écran — l'invite (#538)", () => {
     const lines = await screen(written);
     expect(lines.at(-2)).to.equal("─".repeat(COLS - 1));
     expect(
-      lines.at(-1)?.startsWith("❯  restart · clear · help · quit"),
+      lines.at(-1)?.startsWith("❯  /restart · /clear · /help · /quit"),
     ).to.equal(true);
     // Le curseur est montré, sur la colonne après le signe.
     expect(written.join("")).to.contain(`\x1b[${ROWS};3H\x1b[?25h`);
@@ -115,24 +115,29 @@ describe("plein écran — l'invite (#538)", () => {
 
   it("Entrée lance le verbe, l'écho passe au journal, la saisie part à l'historique du projet", async () => {
     const { root, written, input, terminal, verbs } = prompted();
-    input.type("clear" + ENTER);
+    input.type("/clear" + ENTER);
     await nextFrame();
     expect(verbs.clear).toHaveBeenCalledTimes(1);
     const lines = await screen(written);
-    expect(lines.some((line) => line === "❯ clear")).to.equal(true);
+    expect(lines.some((line) => line === "❯ /clear")).to.equal(true);
     await terminal.flushPrompt();
     const saved = fs.readFileSync(path.join(root, PROMPT_HISTORY_FILE), "utf8");
-    expect(saved).to.contain('"t":"clear"');
+    expect(saved).to.contain('"t":"/clear"');
     terminal.close();
   });
 
-  it("une saisie inconnue le dit, sans rien lancer", async () => {
+  it("une saisie inconnue le dit, sans rien lancer ; un verbe sans `/` n'est pas le verbe", async () => {
     const { written, input, terminal, verbs } = prompted();
-    input.type("frobnicate now" + ENTER);
+    input.type("/frobnicate now" + ENTER);
+    await nextFrame();
+    input.type("clear" + ENTER);
     await nextFrame();
     const lines = await screen(written);
     expect(
-      lines.some((l) => l.startsWith("commande inconnue : frobnicate")),
+      lines.some((l) => l.startsWith("commande inconnue : /frobnicate")),
+    ).to.equal(true);
+    expect(
+      lines.some((l) => l.startsWith("les commandes commencent par « / »")),
     ).to.equal(true);
     expect(verbs.clear).not.toHaveBeenCalled();
     terminal.close();
@@ -142,7 +147,7 @@ describe("plein écran — l'invite (#538)", () => {
     const { input, terminal } = prompted();
     for (let i = 0; i < 40; i++)
       terminal.ingest("server", "out", `ligne ${i}\n`);
-    input.type("clear" + ENTER);
+    input.type("/clear" + ENTER);
     await terminal.flushPrompt();
     input.type(UP);
     expect(terminal.anchor).to.equal(null);
@@ -157,12 +162,12 @@ describe("plein écran — l'invite (#538)", () => {
 
   it("↑ après un envoi montre la saisie rappelée sur l'invite", async () => {
     const { written, input, terminal } = prompted();
-    input.type("clear" + ENTER);
+    input.type("/clear" + ENTER);
     await terminal.flushPrompt();
     input.type(UP);
     await nextFrame();
     const lines = await screen(written);
-    expect(lines.at(-1)).to.equal("❯ clear");
+    expect(lines.at(-1)).to.equal("❯ /clear");
     terminal.close();
   });
 
@@ -172,7 +177,7 @@ describe("plein écran — l'invite (#538)", () => {
     expect(quit).not.toHaveBeenCalled();
     await nextFrame();
     const lines = await screen(written);
-    expect(lines.at(-1)?.startsWith("❯  restart")).to.equal(true);
+    expect(lines.at(-1)?.startsWith("❯  /restart")).to.equal(true);
     input.type(CTRL_C);
     expect(quit).toHaveBeenCalledTimes(1);
     terminal.close();
@@ -197,7 +202,7 @@ describe("plein écran — l'invite (#538)", () => {
     input.type("q");
     expect(terminal.band).to.equal(null);
     await nextFrame();
-    expect((await screen(written)).at(-1)?.startsWith("❯  restart")).to.equal(
+    expect((await screen(written)).at(-1)?.startsWith("❯  /restart")).to.equal(
       true,
     );
     terminal.close();
@@ -210,7 +215,7 @@ describe("plein écran — l'invite (#538)", () => {
     input.type("brouillon");
     input.type(ALT_2);
     await nextFrame();
-    expect((await screen(written)).at(-1)?.startsWith("❯  restart")).to.equal(
+    expect((await screen(written)).at(-1)?.startsWith("❯  /restart")).to.equal(
       true,
     );
     input.type("\x1b1");
@@ -222,7 +227,7 @@ describe("plein écran — l'invite (#538)", () => {
   it("action en vol : Ctrl+C l'interrompt, un second Ctrl+C arrête quand même", async () => {
     const { input, quit, terminal, verbs } = prompted();
     verbs.restart.mockImplementation(() => new Promise<boolean>(() => {}));
-    input.type("restart" + ENTER);
+    input.type("/restart" + ENTER);
     await nextFrame();
     input.type(CTRL_C);
     expect(quit).not.toHaveBeenCalled();
@@ -304,7 +309,7 @@ describe("plein écran — l'invite (#538)", () => {
     const { input, terminal } = prompted();
     for (let i = 0; i < 40; i++)
       terminal.ingest("server", "out", `ligne ${i}\n`);
-    input.type("clear" + ENTER);
+    input.type("/clear" + ENTER);
     await terminal.flushPrompt();
     // Un cran traduit par le terminal : trois flèches dans UN paquet.
     input.type(UP + UP + UP);
@@ -321,7 +326,7 @@ describe("plein écran — l'invite (#538)", () => {
     const { written, input, terminal } = prompted();
     for (let i = 0; i < 200; i++)
       terminal.ingest("server", "out", `ligne ${i}\n`);
-    input.type("clear" + ENTER);
+    input.type("/clear" + ENTER);
     await terminal.flushPrompt();
     input.type(PGUP);
     await nextFrame();
@@ -335,7 +340,7 @@ describe("plein écran — l'invite (#538)", () => {
     // Saisie « x » : rien ne la prolonge, ↑ reste à l'invite.
     input.type(CTRL_C + UP);
     await nextFrame();
-    expect((await screen(written)).at(-1)).to.equal("❯ clear");
+    expect((await screen(written)).at(-1)).to.equal("❯ /clear");
     terminal.close();
   });
 
@@ -343,7 +348,7 @@ describe("plein écran — l'invite (#538)", () => {
     const { written, input, terminal } = prompted(true);
     for (let i = 0; i < 40; i++)
       terminal.ingest("server", "out", `ligne ${i}\n`);
-    input.type("clear" + ENTER);
+    input.type("/clear" + ENTER);
     await terminal.flushPrompt();
     await nextFrame();
     // Clic au milieu du journal, relâché aussitôt.
@@ -354,7 +359,7 @@ describe("plein écran — l'invite (#538)", () => {
     input.type(`\x1b[<0;5;${ROWS}M\x1b[<0;5;${ROWS}m`);
     input.type(UP);
     await nextFrame();
-    expect((await screen(written)).at(-1)).to.equal("❯ clear");
+    expect((await screen(written)).at(-1)).to.equal("❯ /clear");
     terminal.close();
   });
 

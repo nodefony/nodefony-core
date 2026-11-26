@@ -66,27 +66,44 @@ export interface ISupervisorVerbs {
   quit(): void;
 }
 
-/** Les verbes du superviseur, et ce qu'ils font — l'aide et le texte d'invite les lisent. */
+/**
+ * Le préfixe d'une commande de l'invite, à la manière de Claude Code :
+ * `/help`, `/quit`. Une saisie sans lui n'est pas une commande — elle
+ * reste libre pour l'assistant (#539).
+ */
+export const PROMPT_COMMAND_PREFIX = "/";
+
+/**
+ * Les verbes du superviseur, ce qu'ils font et leurs autres noms — l'aide, le
+ * texte d'invite et la complétion les lisent.
+ */
 export const SUPERVISOR_VERBS: readonly {
   readonly id: "restart" | "clear" | "help" | "quit";
+  /** Autres noms reconnus, sans le préfixe. */
+  readonly aliases: readonly string[];
   readonly does: string;
 }[] = [
-  { id: "restart", does: "relancer le serveur, sans reconstruire" },
-  { id: "clear", does: "vider l'onglet affiché" },
-  { id: "help", does: "l'aide des gestes" },
-  { id: "quit", does: "arrêter proprement" },
+  {
+    id: "restart",
+    aliases: ["reboot"],
+    does: "relancer le serveur, sans reconstruire",
+  },
+  { id: "clear", aliases: [], does: "vider l'onglet affiché" },
+  { id: "help", aliases: [], does: "l'aide des gestes" },
+  { id: "quit", aliases: ["exit"], does: "arrêter proprement" },
 ];
 
 /**
- * Le premier mot d'une saisie, sans le `/` d'un verbe tapé à la manière de
- * Claude Code (`/quit`).
+ * Le premier mot d'une saisie, sans le préfixe `/` d'une commande.
  *
  * @param input - la saisie.
  * @returns le mot, ou `""`.
  */
 export function promptVerb(input: string): string {
   const trimmed = input.trim();
-  const start = trimmed.startsWith("/") ? 1 : 0;
+  const start = trimmed.startsWith(PROMPT_COMMAND_PREFIX)
+    ? PROMPT_COMMAND_PREFIX.length
+    : 0;
   const space = trimmed.slice(start).search(/\s/);
   const word =
     space === -1 ? trimmed.slice(start) : trimmed.slice(start, start + space);
@@ -100,40 +117,60 @@ export function promptVerb(input: string): string {
 const PROMPT_VERB_MAX = 64;
 
 /**
- * Les verbes du superviseur comme actions de l'invite : `restart`, `clear`,
- * `help`, `quit` (et leur forme `/verbe`). Aucun ne prend d'argument : un
- * verbe suivi d'autre chose n'est pas le verbe.
+ * Ce que l'invite répond à une saisie qu'aucune action ne reconnaît : la
+ * commande inconnue nommée, ou — sans le préfixe — la règle rappelée.
+ *
+ * @param input - la saisie refusée.
+ * @returns le message, fin de ligne comprise.
+ */
+export function describeUnmatchedInput(input: string): string {
+  const help = `${PROMPT_COMMAND_PREFIX}help pour l'aide`;
+  return input.trim().startsWith(PROMPT_COMMAND_PREFIX)
+    ? `commande inconnue : ${PROMPT_COMMAND_PREFIX}${promptVerb(input)} — ${help}\n`
+    : `les commandes commencent par « ${PROMPT_COMMAND_PREFIX} » — ${help}\n`;
+}
+
+/**
+ * Les verbes du superviseur comme actions de l'invite : `/restart` (ou
+ * `/reboot`), `/clear`, `/help`, `/quit` (ou `/exit`). Le préfixe est
+ * exigé, et aucun ne prend d'argument : un verbe suivi d'autre chose n'est
+ * pas le verbe.
  *
  * @param verbs - ce qu'ils font faire.
  * @returns les actions, dans l'ordre de {@link SUPERVISOR_VERBS}.
  */
 export function supervisorActions(verbs: ISupervisorVerbs): IPromptAction[] {
-  return SUPERVISOR_VERBS.map(({ id }) => ({
-    id,
-    matches: (input: string): boolean => {
-      const trimmed = input.trim();
-      return trimmed === id || trimmed === `/${id}`;
-    },
-    complete: (prefix: string): readonly string[] =>
-      id.startsWith(prefix) ? [id] : [],
-    run: async (_input: string, io: IPromptIO): Promise<number> => {
-      switch (id) {
-        case "restart":
-          if (!(await verbs.restart())) {
-            io.write("un rechargement est déjà en cours\n", "err");
-            return 1;
-          }
-          return 0;
-        case "clear":
-          verbs.clear();
-          return 0;
-        case "help":
-          verbs.help();
-          return 0;
-        case "quit":
-          verbs.quit();
-          return 0;
-      }
-    },
-  }));
+  return SUPERVISOR_VERBS.map(({ id, aliases }) => {
+    // Petit ensemble fixe (≤ 2 noms), lu à chaque Entrée : un tableau suffit.
+    const names = [id, ...aliases].map((n) => `${PROMPT_COMMAND_PREFIX}${n}`);
+    return {
+      id,
+      matches: (input: string): boolean => names.includes(input.trim()),
+      // Le nom principal d'abord ; un autre nom seulement s'il est le seul à
+      // prolonger le préfixe (`/ex` → `/exit`), jamais les deux à la fois.
+      complete: (prefix: string): readonly string[] => {
+        const hit = names.find((n) => n.startsWith(prefix));
+        return hit === undefined ? [] : [hit];
+      },
+      run: async (_input: string, io: IPromptIO): Promise<number> => {
+        switch (id) {
+          case "restart":
+            if (!(await verbs.restart())) {
+              io.write("un rechargement est déjà en cours\n", "err");
+              return 1;
+            }
+            return 0;
+          case "clear":
+            verbs.clear();
+            return 0;
+          case "help":
+            verbs.help();
+            return 0;
+          case "quit":
+            verbs.quit();
+            return 0;
+        }
+      },
+    };
+  });
 }

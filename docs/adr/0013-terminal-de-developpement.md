@@ -511,7 +511,11 @@ interface IConfirmDecision {
 
 - `decline` est rendu au modèle ; `cancel` arrête le tour. Une approbation ne vaut que pour
   l'appel qu'elle accompagne, jamais « pour la session ».
-- Implémentations : **verbes du superviseur** (`restart`, `clear`, `help`, `quit`) et **commandes
+- **Une commande commence par `/`** (`/help`, `/quit`), à la manière de Claude Code : une saisie
+  sans préfixe n'est pas une commande, elle reste libre pour l'assistant (#539), et l'invite le
+  dit au lieu de deviner (`src/nodefony/src/service/dev/promptAction.ts#describeUnmatchedInput`).
+- Implémentations : **verbes du superviseur** (`/restart` ou `/reboot`, `/clear`, `/help`, `/quit`
+  ou `/exit` — `src/nodefony/src/service/dev/promptAction.ts#SUPERVISOR_VERBS`) et **commandes
   du CLI** (`nodefony <cmd>` en sous-processus, complétion par `readCliManifest` /
   `computeCompletions`, `src/nodefony/src/cli/completion.ts#readCliManifest` et `src/nodefony/src/cli/completion.ts#computeCompletions`) en #538 ;
   **assistant** en #539.

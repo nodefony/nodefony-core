@@ -92,7 +92,12 @@ import {
   describeHistorySkip,
   type PromptHistoryEntry,
 } from "./promptHistory";
-import { promptVerb, type IPromptAction, type IPromptIO } from "./promptAction";
+import {
+  describeUnmatchedInput,
+  PROMPT_COMMAND_PREFIX,
+  type IPromptAction,
+  type IPromptIO,
+} from "./promptAction";
 
 /** Un flux de sortie du terminal, injectable en test. */
 export interface IDevTerminalStream extends IStatusStream {
@@ -874,7 +879,7 @@ export class DevTerminal {
       editors: new Map(),
       render: {
         sigil: this.#charset === "ascii" ? "> " : "❯ ",
-        placeholder: `${options.actions.map((action) => action.id).join(" · ")} — ? aide · Alt+Entrée saut de ligne`,
+        placeholder: `${options.actions.map((action) => `${PROMPT_COMMAND_PREFIX}${action.id}`).join(" · ")} — ? aide · Alt+Entrée saut de ligne`,
         color: this.#color,
       },
       mark: brandMiniMark(this.#charset, this.#color),
@@ -1713,11 +1718,7 @@ export class DevTerminal {
     if (action === undefined) {
       // 127 : « commande introuvable », la convention des shells.
       if (kept.kept) state.history.settle(kept.entry, 127, null);
-      this.ingest(
-        PROMPT_CHANNEL,
-        "err",
-        `commande inconnue : ${promptVerb(text)} — help pour l'aide\n`,
-      );
+      this.ingest(PROMPT_CHANNEL, "err", describeUnmatchedInput(text));
       return;
     }
     const controller = new AbortController();
