@@ -64,6 +64,8 @@ import {
 import { shouldColorize } from "../../kernel/checks/report";
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
 import { readCliManifest } from "../../cli/completion";
+import { buildStatusPanel } from "./devStatusPanel";
+import { collectDevStatus } from "./devStatusReport";
 import { childExecArgv } from "./detachedStart";
 import { refreshProjectSymbols } from "../../cli/symbolsGenerate";
 import {
@@ -1427,6 +1429,14 @@ export class DevSupervisor {
         restart: () => this.#restartFromPrompt(),
         clear: () => terminal.clearView(),
         help: () => terminal.showHelp(),
+        // Le rapport de `nodefony status`, tel quel (D10) ; le superviseur se
+        // compte lui-même, comme le data plane compte le serveur.
+        status: async (signal) => {
+          const report = await collectDevStatus(this.#cwd, {
+            includeSelf: true,
+          });
+          if (!signal.aborted) terminal.openPanel(buildStatusPanel(report));
+        },
         quit: () => void this.#shutdown(),
       }),
     });

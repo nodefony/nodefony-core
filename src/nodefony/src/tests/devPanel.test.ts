@@ -111,6 +111,33 @@ describe("renderPanel — le panneau dans son rectangle", () => {
     ]);
   });
 
+  it("tableau : une cellule longue reste entière s'il tient ; sinon la colonne la plus large perd ce qui manque, au plus jusqu'à 28", () => {
+    const wide: IPanelSpec = {
+      id: "t",
+      label: "t",
+      pages: [
+        {
+          title: "P",
+          rows: [
+            {
+              kind: "table",
+              head: ["rôle", "pid"],
+              rows: [["v".repeat(40), "1"]],
+            },
+          ],
+        },
+      ],
+    };
+    const fits = renderPanel(new PanelCursor(wide, plain), 60, 6);
+    expect(fits[3]).to.equal(`  ${"v".repeat(40)}  1`);
+    const cut = renderPanel(new PanelCursor(wide, plain), 40, 6);
+    // `fitToWidth` referme les couleurs après « … » : on compare le visible.
+    const visible = (line = ""): string => line.replace(/\x1b\[[0-9;]*m/g, "");
+    expect(visible(cut[3])).to.equal(`  ${"v".repeat(32)}…  1`);
+    const narrow = renderPanel(new PanelCursor(wide, plain), 20, 6);
+    expect(narrow[3]?.startsWith(`  ${"v".repeat(17)}…`)).to.equal(true);
+  });
+
   it("trop de rubriques pour la largeur : une fenêtre autour de l'active, bornée de ‹ +N et +N ›", () => {
     const many: IPanelSpec = {
       id: "m",

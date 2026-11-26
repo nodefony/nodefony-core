@@ -62,6 +62,13 @@ export interface ISupervisorVerbs {
   clear(): void;
   /** Ouvre l'aide. */
   help(): void;
+  /**
+   * Relève l'état des process et des ports, et l'ouvre en panneau.
+   *
+   * @param signal - l'interruption de l'invite (Ctrl+C) : levée, rien ne
+   *   s'ouvre.
+   */
+  status(signal: AbortSignal): Promise<void>;
   /** Arrête proprement le serveur et ses enfants. */
   quit(): void;
 }
@@ -78,11 +85,16 @@ export const PROMPT_COMMAND_PREFIX = "/";
  * texte d'invite et la complétion les lisent.
  */
 export const SUPERVISOR_VERBS: readonly {
-  readonly id: "restart" | "clear" | "help" | "quit";
+  readonly id: "status" | "restart" | "clear" | "help" | "quit";
   /** Autres noms reconnus, sans le préfixe. */
   readonly aliases: readonly string[];
   readonly does: string;
 }[] = [
+  {
+    id: "status",
+    aliases: [],
+    does: "l'état des process et des ports, en panneau",
+  },
   {
     id: "restart",
     aliases: ["reboot"],
@@ -131,7 +143,7 @@ export function describeUnmatchedInput(input: string): string {
 }
 
 /**
- * Les verbes du superviseur comme actions de l'invite : `/restart` (ou
+ * Les verbes du superviseur comme actions de l'invite : `/status`, `/restart` (ou
  * `/reboot`), `/clear`, `/help`, `/quit` (ou `/exit`). Le préfixe est
  * exigé, et aucun ne prend d'argument : un verbe suivi d'autre chose n'est
  * pas le verbe.
@@ -152,8 +164,15 @@ export function supervisorActions(verbs: ISupervisorVerbs): IPromptAction[] {
         const hit = names.find((n) => n.startsWith(prefix));
         return hit === undefined ? [] : [hit];
       },
-      run: async (_input: string, io: IPromptIO): Promise<number> => {
+      run: async (
+        _input: string,
+        io: IPromptIO,
+        signal: AbortSignal,
+      ): Promise<number> => {
         switch (id) {
+          case "status":
+            await verbs.status(signal);
+            return 0;
           case "restart":
             if (!(await verbs.restart())) {
               io.write("un rechargement est déjà en cours\n", "err");

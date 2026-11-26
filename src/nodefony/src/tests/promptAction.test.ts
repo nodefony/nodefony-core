@@ -28,6 +28,7 @@ describe("supervisorActions — les verbes de l'invite", () => {
     clear: vi.fn(),
     help: vi.fn(),
     quit: vi.fn(),
+    status: vi.fn(async (_signal: AbortSignal) => {}),
   };
   const actions = supervisorActions(verbs);
   const find = (input: string) => actions.find((a) => a.matches(input));
@@ -55,17 +56,17 @@ describe("supervisorActions — les verbes de l'invite", () => {
 
   it("chaque verbe appelle SON geste et rend 0", async () => {
     const signal = new AbortController().signal;
-    for (const id of ["clear", "help", "quit", "restart"] as const) {
+    for (const id of ["clear", "help", "quit", "restart", "status"] as const) {
       expect(await find(`/${id}`)?.run(`/${id}`, io(), signal)).to.equal(0);
       expect(verbs[id]).toHaveBeenCalledTimes(1);
     }
   });
 
   it("restart refusé (rechargement en cours) : code 1, et il le dit", async () => {
-    const [restart] = supervisorActions({
+    const restart = supervisorActions({
       ...verbs,
       restart: async () => false,
-    });
+    }).find((a) => a.id === "restart");
     const sink = io();
     expect(
       await restart?.run("restart", sink, new AbortController().signal),

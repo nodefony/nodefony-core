@@ -289,12 +289,33 @@ function pageLines(
       case "table": {
         const columns = row.head.length;
         const widths: number[] = [];
+        let total = 2 + 2 * Math.max(0, columns - 1);
         for (let c = 0; c < columns; c++) {
           let w = visibleWidth(row.head[c] ?? "");
           for (const cells of row.rows) {
             w = Math.max(w, visibleWidth(cells[c] ?? ""));
           }
-          widths.push(Math.min(CELL_MAX, w));
+          widths.push(w);
+          total += w;
+        }
+        // On ne coupe que si le tableau DÉBORDE : d'abord la colonne la plus
+        // large, de ce qui manque (jusqu'à CELL_MAX) ; s'il déborde encore,
+        // toutes à CELL_MAX. Un tableau qui tient garde ses cellules entières.
+        if (total > width) {
+          let widest = 0;
+          for (let c = 1; c < columns; c++) {
+            if ((widths[c] ?? 0) > (widths[widest] ?? 0)) widest = c;
+          }
+          const cut = Math.min(total - width, (widths[widest] ?? 0) - CELL_MAX);
+          if (cut > 0) {
+            widths[widest] = (widths[widest] ?? 0) - cut;
+            total -= cut;
+          }
+          if (total > width) {
+            for (let c = 0; c < columns; c++) {
+              widths[c] = Math.min(CELL_MAX, widths[c] ?? 0);
+            }
+          }
         }
         const line = (cells: readonly string[]): string =>
           "  " +

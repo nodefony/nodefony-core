@@ -68,6 +68,7 @@ function prompted(mouse = false, columns = COLS, rows = ROWS) {
     clear: vi.fn(),
     help: vi.fn(() => terminal.showHelp()),
     quit: vi.fn(),
+    status: vi.fn(async () => {}),
   };
   const detach = terminal.attachPrompt({
     root,
@@ -106,7 +107,7 @@ describe("plein écran — l'invite (#538)", () => {
     const lines = await screen(written);
     expect(lines.at(-2)).to.equal("─".repeat(COLS - 1));
     expect(
-      lines.at(-1)?.startsWith("❯  /restart · /clear · /help · /quit"),
+      lines.at(-1)?.startsWith("❯  /status · /restart · /clear · /help"),
     ).to.equal(true);
     // Le curseur est montré, sur la colonne après le signe.
     expect(written.join("")).to.contain(`\x1b[${ROWS};3H\x1b[?25h`);
@@ -177,7 +178,7 @@ describe("plein écran — l'invite (#538)", () => {
     expect(quit).not.toHaveBeenCalled();
     await nextFrame();
     const lines = await screen(written);
-    expect(lines.at(-1)?.startsWith("❯  /restart")).to.equal(true);
+    expect(lines.at(-1)?.startsWith("❯  /status")).to.equal(true);
     input.type(CTRL_C);
     expect(quit).toHaveBeenCalledTimes(1);
     terminal.close();
@@ -202,7 +203,7 @@ describe("plein écran — l'invite (#538)", () => {
     input.type("q");
     expect(terminal.band).to.equal(null);
     await nextFrame();
-    expect((await screen(written)).at(-1)?.startsWith("❯  /restart")).to.equal(
+    expect((await screen(written)).at(-1)?.startsWith("❯  /status")).to.equal(
       true,
     );
     terminal.close();
@@ -215,7 +216,7 @@ describe("plein écran — l'invite (#538)", () => {
     input.type("brouillon");
     input.type(ALT_2);
     await nextFrame();
-    expect((await screen(written)).at(-1)?.startsWith("❯  /restart")).to.equal(
+    expect((await screen(written)).at(-1)?.startsWith("❯  /status")).to.equal(
       true,
     );
     input.type("\x1b1");
@@ -444,7 +445,7 @@ describe("plein écran — le panneau à rubriques (#538, D9)", () => {
     await nextFrame();
     lines = await screen(written);
     expect(lines.some((l) => l.includes("prêt"))).to.equal(true);
-    expect(lines.some((l) => l.includes("status"))).to.equal(false);
+    expect(lines.some((l) => l.includes("2 status"))).to.equal(false);
     terminal.close();
   });
 
@@ -470,7 +471,7 @@ describe("plein écran — le panneau à rubriques (#538, D9)", () => {
     await nextFrame();
     const lines = await screen(written);
     expect(lines).to.include("  http  rechargé");
-    expect(lines.filter((l) => l.includes("status"))).to.have.length(1);
+    expect(lines.filter((l) => l.includes("status]"))).to.have.length(1);
     terminal.close();
   });
 
