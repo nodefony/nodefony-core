@@ -348,6 +348,20 @@ describe("pruneStatePointers — l'index mémoire ne garde que les états récen
     expect(text).not.toContain("État 10-18b");
   });
 
+  it("garde le plus RÉCENT, même écrit sous un plus ancien", () => {
+    const below = [
+      "- [⭐⭐⭐ État 11-25b](project_session_2026-11-25b_state.md) — ancien",
+      "- [⭐ État 11-26b](project_session_2026-11-26b_state.md) — neuf",
+      "- [⭐ État 11-26](project_session_2026-11-26_state.md) — matin",
+    ].join("\n");
+    const { text, removed } = pruneStatePointers(below, 1);
+    expect(text).toContain("État 11-26b");
+    expect(removed).toEqual([
+      "project_session_2026-11-25b_state.md",
+      "project_session_2026-11-26_state.md",
+    ]);
+  });
+
   it("ne touche à aucune autre ligne, même étoilée, même dans la section État", () => {
     const { text } = pruneStatePointers(index, 1);
     expect(text).toContain("FIL DIRECTEUR");
