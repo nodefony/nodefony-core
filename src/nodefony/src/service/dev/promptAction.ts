@@ -50,6 +50,16 @@ export interface IPromptAction {
    */
   complete?(prefix: string): readonly string[] | Promise<readonly string[]>;
   /**
+   * Présent : l'action ouvre SON onglet (`run`), titré par ce que rend la
+   * fonction — sa sortie y reste, à l'abri du trafic du serveur, et son
+   * issue ✓ / ✗ s'y lit. Absent : elle écrit dans l'onglet d'où elle part.
+   * Additif au contrat de l'ADR-0013 §7 (#538, lot 2).
+   *
+   * @param input - la saisie qu'elle va lancer.
+   * @returns le libellé de l'onglet (`build`).
+   */
+  tabTitle?(input: string): string;
+  /**
    * Lance l'action.
    *
    * @returns son code de sortie.
