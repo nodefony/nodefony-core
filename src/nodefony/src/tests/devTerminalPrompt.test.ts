@@ -46,6 +46,27 @@ afterAll(() => {
   for (const root of roots) fs.rmSync(root, { recursive: true, force: true });
 });
 
+const MANIFEST = {
+  version: "0.0.0",
+  globalOptions: [],
+  commands: [
+    {
+      name: "build",
+      aliases: [],
+      description: "compile modules puis application",
+      options: ["--force", "--force-all"],
+      group: "GÉNÉRER ET CONSTRUIRE",
+    },
+    {
+      name: "inspect",
+      aliases: [],
+      description: "l'état réel de l'application",
+      options: [],
+      group: "COMPRENDRE",
+    },
+  ],
+};
+
 function prompted(mouse = false, columns = COLS, rows = ROWS, menu = false) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nf-dev-prompt-"));
   roots.push(root);
@@ -76,31 +97,12 @@ function prompted(mouse = false, columns = COLS, rows = ROWS, menu = false) {
   };
   const detach = terminal.attachPrompt({
     root,
-    actions: [...supervisorActions(verbs), cliCommandAction()],
+    actions: [...supervisorActions(verbs), cliCommandAction(() => MANIFEST)],
     ...(menu
       ? {
           menu: () =>
             buildPromptMenu({
-              manifest: {
-                version: "0.0.0",
-                globalOptions: [],
-                commands: [
-                  {
-                    name: "build",
-                    aliases: [],
-                    description: "compile modules puis application",
-                    options: [],
-                    group: "GÉNÉRER ET CONSTRUIRE",
-                  },
-                  {
-                    name: "inspect",
-                    aliases: [],
-                    description: "l'état réel de l'application",
-                    options: [],
-                    group: "COMPRENDRE",
-                  },
-                ],
-              },
+              manifest: MANIFEST,
               inspectSubjects: { routes: { summary: "les routes montées" } },
             }),
         }
@@ -599,6 +601,103 @@ describe("plein écran — la bande /nodefony (#538, D9, D10)", () => {
     expect(lines.some((l) => l.includes("ne se lance pas encore"))).to.equal(
       true,
     );
+    terminal.close();
+  });
+
+  it("passé la commande, la bande s'efface : Entrée envoie la ligne ENTIÈRE, options comprises", async () => {
+    const { written, input, terminal } = withMenu();
+    input.type("/nodefony build --f");
+    expect(terminal.band).to.equal(null);
+    input.type(ENTER);
+    await nextFrame();
+    expect(
+      (await screen(written)).some((l) => l === "❯ /nodefony build --f"),
+    ).to.equal(true);
+    terminal.close();
+  });
+});
+
+describe("plein écran — Tab et Ctrl+R (#538, D11, D12)", () => {
+  const TAB = "\t";
+  const CTRL_R = "\x12";
+  const ESCAPE = "\x1b";
+  const promptLine = async (
+    written: readonly string[],
+    cols = COLS,
+    rows = ROWS,
+  ) =>
+    (await screen(written, cols, rows)).find((l) => l.startsWith("❯ ")) ?? "";
+
+  it("Tab complète une option par computeCompletions ; la bande reste effacée", async () => {
+    const { written, input, terminal } = prompted(false, 120, 30, true);
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
+    input.type("/nodefony build --fo");
+    input.type(TAB);
+    await nextFrame();
+    // Deux candidats : leur début commun, sans blanc.
+    expect(await promptLine(written, 120, 30)).to.equal(
+      "❯ /nodefony build --force",
+    );
+    expect(terminal.band).to.equal(null);
+    input.type(TAB);
+    await nextFrame();
+    expect((await screen(written, 120, 30)).join("\n")).to.contain(
+      "Tab : --force · --force-all",
+    );
+    input.type("-" + TAB);
+    await nextFrame();
+    // Un seul candidat : un blanc derrière, comme le shell.
+    expect(await promptLine(written, 120, 30)).to.equal(
+      "❯ /nodefony build --force-all ",
+    );
+    terminal.close();
+  });
+
+  it("bande retirée par Échap : Tab complète le verbe ; rien à compléter, la barre le dit", async () => {
+    const { written, input, terminal } = prompted(false, 120, 30, true);
+    // La barre d’état porte les messages passagers.
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
+    input.type("/res");
+    input.type(ESCAPE);
+    await nextFrame();
+    await nextFrame();
+    input.type(TAB);
+    await nextFrame();
+    expect(await promptLine(written, 120, 30)).to.equal("❯ /restart ");
+    input.type("\x15zz" + TAB);
+    await nextFrame();
+    expect((await screen(written, 120, 30)).join("\n")).to.contain(
+      "Tab : rien à compléter",
+    );
+    terminal.close();
+  });
+
+  it("Ctrl+R cherche dans l'historique ; Entrée REPREND la saisie sans la relancer", async () => {
+    const { written, input, terminal, verbs } = prompted();
+    input.type("/clear" + ENTER);
+    input.type("/restart" + ENTER);
+    input.type(CTRL_R);
+    expect(terminal.band).to.not.equal(null);
+    input.type("cl");
+    await nextFrame();
+    expect(
+      (await screen(written)).some((l) => l.startsWith("▸ /clear")),
+    ).to.equal(true);
+    input.type(ENTER);
+    expect(terminal.band).to.equal(null);
+    expect(verbs.clear).toHaveBeenCalledTimes(1);
+    await nextFrame();
+    expect(await promptLine(written)).to.equal("❯ /clear");
+    input.type(ENTER);
+    expect(verbs.clear).toHaveBeenCalledTimes(2);
     terminal.close();
   });
 });

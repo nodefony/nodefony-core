@@ -7,6 +7,7 @@ import {
   SUPERVISOR_VERBS,
   cliCommandAction,
   describeUnmatchedInput,
+  isPromptCommand,
   promptVerb,
   supervisorActions,
   type IPromptIO,
@@ -124,5 +125,61 @@ describe("cliCommandAction — `/nodefony <commande>`", () => {
     const sink = io();
     expect(await action.run("/nodefony", sink, signal)).to.equal(64);
     expect(sink.out[0]).to.contain("/nodefony <commande>");
+  });
+});
+
+describe("cliCommandAction — Tab par computeCompletions (D12)", () => {
+  const command = (
+    name: string,
+    options: string[] = [],
+    extra: Record<string, unknown> = {},
+  ) => ({ name, aliases: [], description: name, options, ...extra });
+  const manifest = {
+    version: "0.0.0",
+    globalOptions: ["--debug"],
+    commands: [
+      command("build", ["--force", "--filter"]),
+      command("development", ["--watch"]),
+      command("doctor"),
+      command("status"),
+      command("start"),
+      command("create", ["--preset"], {
+        args: [["app", "module"]],
+        optionValues: { "--preset": ["minimal", "full"] },
+      }),
+    ],
+  };
+  const complete = (prefix: string) =>
+    cliCommandAction(() => manifest).complete?.(prefix);
+
+  it("le nom de la commande — jamais une commande de runtime ni un verbe", () => {
+    expect(complete("/nodefony bu")).to.deep.equal(["/nodefony build"]);
+    expect(complete("/nodefony d")).to.deep.equal(["/nodefony doctor"]);
+    expect(complete("/nodefony st")).to.deep.equal([]);
+  });
+
+  it("ses options, ses arguments, la valeur qu'une option attend — en saisie entière", () => {
+    expect(complete("/nodefony build --f")).to.deep.equal([
+      "/nodefony build --force",
+      "/nodefony build --filter",
+    ]);
+    expect(complete("/nodefony create ")).to.include("/nodefony create app");
+    expect(complete("/nodefony create app --preset m")).to.deep.equal([
+      "/nodefony create app --preset minimal",
+    ]);
+  });
+
+  it("sans manifeste : `/nodefony` seul ; jamais hors de son mot", () => {
+    const bare = cliCommandAction();
+    expect(bare.complete?.("/nod")).to.deep.equal(["/nodefony"]);
+    expect(bare.complete?.("/nodefony build --f")).to.deep.equal([]);
+    expect(complete("/nodefonyx b")).to.deep.equal([]);
+    expect(complete("nodefony b")).to.deep.equal([]);
+  });
+
+  it("isPromptCommand : la règle commune à la bande et à Tab", () => {
+    expect(isPromptCommand("build")).to.equal(true);
+    expect(isPromptCommand("development")).to.equal(false);
+    expect(isPromptCommand("status")).to.equal(false);
   });
 });

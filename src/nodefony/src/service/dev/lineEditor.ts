@@ -227,6 +227,11 @@ export class LineEditor {
     return this.#cursor;
   }
 
+  /** Le curseur est en fin de saisie. */
+  get atEnd(): boolean {
+    return this.#cursor === this.#units.length;
+  }
+
   /** Change à chaque modification du tampon ou du curseur. */
   get version(): number {
     return this.#version;
@@ -410,7 +415,7 @@ export class LineEditor {
         return this.#vertical(-1, source);
       case "down":
         return this.#vertical(1, source);
-      // PgUp/PgDn au défilement, Échap aux bandes, Tab à la complétion (lot 1b),
+      // PgUp/PgDn au défilement, Échap aux bandes, Tab à la complétion,
       // F1 à l'aide : rien de tout ça n'est à l'éditeur.
       case "escape":
       case "tab":

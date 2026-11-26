@@ -8,6 +8,7 @@ import type { ICliManifest } from "../cli/completion";
 import {
   PromptMenuBand,
   buildPromptMenu,
+  promptMenuStepsAside,
   promptMenuView,
   type IPromptMenu,
 } from "../service/dev/devMenuBand";
@@ -153,6 +154,29 @@ describe("promptMenuView — le filtre à la frappe", () => {
     expect(promptMenuView(menu(), "/nodefony inspecter").inspect).to.equal(
       false,
     );
+  });
+
+  it("passé le mot qu'elle choisit, la bande s'efface : Entrée ne PERD jamais d'option", () => {
+    const m = menu();
+    // Le défaut vu : « build --f » répondait par build, Entrée envoyait build seul.
+    expect(choices(m, "/nodefony build --f")).to.deep.equal([]);
+    for (const draft of [
+      "/nodefony build ",
+      "/nodefony inspect routes --json",
+      "/nodefony inspect module studio",
+      "/restart maintenant",
+    ]) {
+      expect(promptMenuStepsAside(m, draft), draft).to.equal(true);
+    }
+    for (const draft of [
+      "/nodefony build",
+      "/nodefony ",
+      "/nodefony inspect ",
+      "/nodefony demo ping",
+      "/rest",
+    ]) {
+      expect(promptMenuStepsAside(m, draft), draft).to.equal(false);
+    }
   });
 });
 

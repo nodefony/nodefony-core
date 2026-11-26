@@ -76,7 +76,12 @@ import { DevHistory, type IDevHistoryOptions } from "./devHistory";
 import { DevView, type IDevViewHandle, type IDevViewSpec } from "./devView";
 import { helpBand, screenGestures, type IDevBand } from "./devBand";
 import { buildHelpPanel } from "./devHelpPanel";
-import { PromptMenuBand, type IPromptMenu } from "./devMenuBand";
+import {
+  PromptMenuBand,
+  promptMenuStepsAside,
+  type IPromptMenu,
+} from "./devMenuBand";
+import { HistorySearchBand } from "./devHistorySearch";
 import type { ICliManifest } from "../../cli/completion";
 import { PanelCursor, type IPanelSpec } from "./devPanel";
 import type { ProcessOutputStream } from "./heldChannel";
@@ -605,6 +610,16 @@ export class DevTerminal {
     null;
   /** L'éditeur dont la bande a été retirée par Échap, jusqu'à une saisie hors `/`. */
   #menuDismissed: LineEditor | null = null;
+  /**
+   * Le menu lu à l'entrée sous `/`, gardé tant que la saisie y reste : le
+   * manifeste ne se relit pas à chaque frappe.
+   */
+  #menuData: IPromptMenu | null = null;
+  /** La recherche Ctrl+R ouverte, et sa fermeture. */
+  #search: {
+    readonly band: HistorySearchBand;
+    readonly close: () => void;
+  } | null = null;
 
   /**
    * @param options - flux, rendu de la barre, plafonds de l'historique, et
@@ -942,6 +957,9 @@ export class DevTerminal {
       this.#menu?.close();
       this.#menu = null;
       this.#menuDismissed = null;
+      this.#menuData = null;
+      this.#search?.close();
+      this.#search = null;
       const index = full.foci.indexOf(focus);
       if (index !== -1) full.foci.splice(index, 1);
       this.#scheduleFrame();
@@ -1694,6 +1712,102 @@ export class DevTerminal {
   }
 
   /**
+   * Tab sur l'invite (D12) : les actions proposent les saisies entières qui
+   * prolongent la saisie — un seul candidat la remplace, plusieurs la
+   * prolongent de leur début commun, sinon la barre les nomme. Une action
+   * peut répondre plus tard (promesse) : sa réponse ne s'applique que si la
+   * saisie n'a pas bougé entre-temps. Curseur ailleurs qu'en fin, saisie sur
+   * plusieurs lignes ou pièce jointe : rien.
+   */
+  #complete(full: IFullscreenState, state: IPromptState): void {
+    const editor = this.#editorOf(state);
+    const prefix = editor.text;
+    if (editor.hasAttachment || !editor.atEnd || prefix.includes("\n")) return;
+    const version = editor.version;
+    const answers: (readonly string[] | Promise<readonly string[]>)[] = [];
+    let pending = false;
+    for (const action of state.actions) {
+      const answer = action.complete?.(prefix);
+      if (answer === undefined) continue;
+      if (answer instanceof Promise) pending = true;
+      answers.push(answer);
+    }
+    const apply = (lists: readonly (readonly string[])[]): void => {
+      if (
+        this.#prompt !== state ||
+        this.#editorOf(state) !== editor ||
+        editor.version !== version
+      ) {
+        return;
+      }
+      const seen = new Set<string>();
+      for (const list of lists) for (const c of list) seen.add(c);
+      const candidates = [...seen];
+      const only = candidates.length === 1 ? candidates[0] : undefined;
+      if (only !== undefined) {
+        editor.setText(only.endsWith(" ") ? only : `${only} `);
+      } else if (candidates.length === 0) {
+        this.#notify(full, "Tab : rien à compléter");
+        return;
+      } else {
+        const common = commonPrefix(candidates);
+        if (common.length > prefix.length) editor.setText(common);
+        else {
+          this.#notify(
+            full,
+            `Tab : ${candidates.map((c) => c.slice(c.lastIndexOf(" ") + 1)).join(" · ")}`,
+          );
+          return;
+        }
+      }
+      this.#scheduleFrame();
+      this.#syncMenu(full, state);
+    };
+    if (!pending) {
+      const lists: (readonly string[])[] = [];
+      for (const answer of answers)
+        if (!(answer instanceof Promise)) lists.push(answer);
+      apply(lists);
+      return;
+    }
+    Promise.all(answers.map((answer) => Promise.resolve(answer))).then(
+      apply,
+      (error: unknown) =>
+        this.#notify(
+          full,
+          `complétion impossible : ${error instanceof Error ? error.message : String(error)}`,
+        ),
+    );
+  }
+
+  /**
+   * Ctrl+R (D11) : la recherche dans l'historique, en bande au-dessus de
+   * l'invite. Entrée reprend l'entrée choisie dans la saisie de l'onglet
+   * affiché, sans l'envoyer.
+   */
+  #openSearch(full: IFullscreenState, state: IPromptState): void {
+    if (this.#search !== null) return;
+    const band = new HistorySearchBand(
+      { color: this.#color, charset: this.#charset },
+      {
+        search: (term) => state.history.history.search(term, Date.now()),
+        revision: () => state.history.history.length,
+        pick: (text) => {
+          this.#editorOf(state).setText(text);
+          this.#setPromptFocus(state, true);
+          this.#scheduleFrame();
+          this.#syncMenu(full, state);
+        },
+        close: () => {
+          this.#search?.close();
+          this.#search = null;
+        },
+      },
+    );
+    this.#search = { band, close: this.openBand(band) };
+  }
+
+  /**
    * Ouvre ou referme la bande `/nodefony` selon la saisie de l'onglet
    * affiché : ouverte tant qu'elle commence par `/`, sur une ligne et sans
    * pièce jointe, sauf retirée par Échap — jusqu'à ce que la saisie quitte
@@ -1704,15 +1818,25 @@ export class DevTerminal {
     if (source === null) return;
     const editor = this.#editorOf(state);
     const text = editor.text;
-    const wanted =
+    const under =
       text.trimStart().startsWith(PROMPT_COMMAND_PREFIX) &&
       !text.includes("\n") &&
       !editor.hasAttachment;
-    if (!wanted && this.#menuDismissed === editor) this.#menuDismissed = null;
-    const open = wanted && this.#menuDismissed !== editor;
+    if (!under) {
+      if (this.#menuDismissed === editor) this.#menuDismissed = null;
+      this.#menuData = null;
+    } else {
+      this.#menuData ??= source();
+    }
+    const menu = this.#menuData;
+    // Passé la commande (`/nodefony build `), la ligne est à Tab.
+    const open =
+      menu !== null &&
+      this.#menuDismissed !== editor &&
+      !promptMenuStepsAside(menu, text);
     if (open && this.#menu === null) {
       const band = new PromptMenuBand(
-        source(),
+        menu,
         { color: this.#color, charset: this.#charset },
         {
           draft: () => this.#editorOf(state).text,
@@ -1803,6 +1927,17 @@ export class DevTerminal {
         if (!state.loading) {
           state.loading = true;
           void this.#loadPromptHistory(state);
+        }
+        if (event.kind === "key" && !event.alt && !event.shift) {
+          if (event.ctrl && event.key === "r") {
+            this.#openSearch(full, state);
+            return true;
+          }
+          if (!event.ctrl && event.key === "tab") {
+            this.#setPromptFocus(state, true);
+            this.#complete(full, state);
+            return true;
+          }
         }
         const editor = this.#editorOf(state);
         const result = editor.handle(
@@ -2357,6 +2492,17 @@ export class DevTerminal {
  * @param text - le texte reçu.
  * @returns sa position, ou `-1` si le texte se termine proprement.
  */
+/** Le plus long début commun à des saisies (au moins une). */
+function commonPrefix(texts: readonly string[]): string {
+  let common = texts[0] ?? "";
+  for (const text of texts) {
+    let i = 0;
+    while (i < common.length && i < text.length && common[i] === text[i]) i++;
+    common = common.slice(0, i);
+  }
+  return common;
+}
+
 function incompleteTail(text: string): number {
   let esc = text.indexOf(
     "\x1b",

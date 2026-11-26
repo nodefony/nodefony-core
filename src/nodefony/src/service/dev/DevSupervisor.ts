@@ -1448,7 +1448,7 @@ export class DevSupervisor {
           },
           quit: () => void this.#shutdown(),
         }),
-        cliCommandAction(),
+        cliCommandAction(() => readCliManifest(this.#cwd)),
       ],
     });
     // Le serveur écrit dans un tube : il ne reçoit pas `SIGWINCH`. La barre

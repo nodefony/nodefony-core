@@ -68,6 +68,8 @@ export function screenGestures(options: {
         does: "focus au journal (↑ ↓ y défilent)",
       },
       { keys: ascii ? "droite" : "→", does: "accepter la suggestion" },
+      { keys: "Tab", does: "compléter la commande et ses options" },
+      { keys: "Ctrl+R", does: "chercher dans l'historique" },
       { keys: "Alt+Entrée", does: "saut de ligne" },
       { keys: "Ctrl+W Ctrl+U", does: "effacer le mot / la ligne" },
       { keys: "Début Fin", does: "invite vide : haut / direct" },

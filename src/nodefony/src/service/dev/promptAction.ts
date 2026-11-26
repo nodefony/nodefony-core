@@ -3,6 +3,7 @@
  * superviseur, les commandes du CLI et l'assistant (ADR-0013 §7, #538).
  * Figé par l'ADR : il ne bouge pas d'un lot à l'autre, chacun l'implémente.
  */
+import { computeCompletions, type ICliManifest } from "../../cli/completion";
 
 /** Une demande de confirmation, posée par une action avant d'agir. */
 export interface IConfirmRequest {
@@ -41,6 +42,12 @@ export interface IPromptAction {
   readonly id: string;
   /** La saisie lui revient-elle ? */
   matches(input: string): boolean;
+  /**
+   * Les saisies ENTIÈRES qui prolongent `prefix` (Tab) : `/re` → `/restart`,
+   * `/nodefony build --f` → `/nodefony build --force`.
+   *
+   * @param prefix - la saisie, du début au curseur.
+   */
   complete?(prefix: string): readonly string[] | Promise<readonly string[]>;
   /**
    * Lance l'action.
@@ -135,6 +142,20 @@ export const PROMPT_EXCLUDED_COMMANDS: ReadonlySet<string> = new Set([
   "menu",
 ]);
 
+/**
+ * Une commande du CLI que l'invite propose : ni une commande de runtime
+ * ({@link PROMPT_EXCLUDED_COMMANDS}), ni une commande qu'un verbe porte déjà
+ * (`status`). La bande et Tab lisent cette seule règle.
+ *
+ * @param name - le nom de la commande.
+ * @returns `true` si l'invite la propose.
+ */
+export function isPromptCommand(name: string): boolean {
+  if (PROMPT_EXCLUDED_COMMANDS.has(name)) return false;
+  for (const verb of SUPERVISOR_VERBS) if (verb.id === name) return false;
+  return true;
+}
+
 /** Longueur au plus d'une ligne de commande citée dans un message. */
 const PROMPT_LINE_MAX = 200;
 
@@ -144,9 +165,17 @@ const PROMPT_LINE_MAX = 200;
  * l'exécution en sous-processus est le lot 2 de #538 —, avec la ligne à
  * taper dans un terminal en attendant.
  *
+ * Tab complète la ligne par `computeCompletions` — la complétion du shell,
+ * sur le même manifeste : le nom de la commande, puis ses arguments, ses
+ * options et les valeurs qu'elles attendent.
+ *
+ * @param manifest - le manifeste du CLI, relu à chaque Tab (`null` s'il
+ *   n'est pas écrit). Absent : Tab ne complète que `/nodefony`.
  * @returns l'action.
  */
-export function cliCommandAction(): IPromptAction {
+export function cliCommandAction(
+  manifest?: () => ICliManifest | null,
+): IPromptAction {
   const head = `${PROMPT_COMMAND_PREFIX}${CLI_PROMPT_COMMAND.id}`;
   return {
     id: CLI_PROMPT_COMMAND.id,
@@ -158,10 +187,31 @@ export function cliCommandAction(): IPromptAction {
           /\s/.test(trimmed.charAt(head.length)))
       );
     },
-    complete: (prefix: string): readonly string[] =>
-      prefix.startsWith(PROMPT_COMMAND_PREFIX) && head.startsWith(prefix)
-        ? [head]
-        : [],
+    complete: (prefix: string): readonly string[] => {
+      const line = prefix.trimStart();
+      if (!line.startsWith(PROMPT_COMMAND_PREFIX)) return [];
+      if (line.length <= head.length)
+        return head.startsWith(line) ? [head] : [];
+      if (!/\s/.test(line.charAt(head.length)) || !line.startsWith(head)) {
+        return [];
+      }
+      const read = manifest?.() ?? null;
+      if (read === null) return [];
+      // Le protocole du shell : tous les mots, le dernier (en cours) même vide.
+      const words = line.slice(head.length).trimStart().split(/\s+/);
+      const typed = words[words.length - 1] ?? "";
+      const before = words.slice(0, -1);
+      const lead = before.length === 0 ? head : `${head} ${before.join(" ")}`;
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const word of computeCompletions(read, words)) {
+        if (!word.startsWith(typed) || seen.has(word)) continue;
+        if (before.length === 0 && !isPromptCommand(word)) continue;
+        seen.add(word);
+        out.push(`${lead} ${word}`);
+      }
+      return out;
+    },
     run: async (input: string, io: IPromptIO): Promise<number> => {
       const whole = input.trim().slice(head.length).trim();
       const line =

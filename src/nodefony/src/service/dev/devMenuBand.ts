@@ -27,8 +27,8 @@ import type { InputEvent } from "./inputDecoder";
 import {
   CLI_PROMPT_COMMAND,
   PROMPT_COMMAND_PREFIX,
-  PROMPT_EXCLUDED_COMMANDS,
   SUPERVISOR_VERBS,
+  isPromptCommand,
 } from "./promptAction";
 import type { ScreenCharset } from "./startupScreen";
 
@@ -43,6 +43,17 @@ export interface IPromptMenu {
   readonly verbs: number;
   /** Les sujets d'`inspect` sans paramètre ; `value` = la ligne d'invite. */
   readonly inspect: readonly StartMenuItem[];
+  /**
+   * Les mots qu'un niveau de la bande reconnaît en entier — verbes et leurs
+   * autres noms, commandes du CLI et leurs alias, sujets d'`inspect` (avec
+   * paramètre compris). Un tel mot suivi d'un blanc : la bande s'efface
+   * ({@link promptMenuStepsAside}).
+   */
+  readonly words: {
+    readonly verbs: ReadonlySet<string>;
+    readonly commands: ReadonlySet<string>;
+    readonly subjects: ReadonlySet<string>;
+  };
 }
 
 /** Le titre du groupe des verbes dans la bande. */
@@ -68,9 +79,10 @@ export function buildPromptMenu(input: {
   readonly inspectSubjects: Record<string, { summary: string; param?: string }>;
 }): IPromptMenu {
   const items: StartMenuItem[] = [{ kind: "separator", label: VERBS_GROUP }];
-  const verbNames = new Set<string>();
+  const verbWords = new Set<string>();
   for (const verb of SUPERVISOR_VERBS) {
-    verbNames.add(verb.id);
+    verbWords.add(verb.id);
+    for (const alias of verb.aliases) verbWords.add(alias);
     const value = `${PROMPT_COMMAND_PREFIX}${verb.id}`;
     items.push({
       kind: "choice",
@@ -82,9 +94,14 @@ export function buildPromptMenu(input: {
     });
   }
   const verbs = items.length - 1;
-  const commands = (input.manifest?.commands ?? []).filter(
-    (c) => !PROMPT_EXCLUDED_COMMANDS.has(c.name) && !verbNames.has(c.name),
+  const commands = (input.manifest?.commands ?? []).filter((c) =>
+    isPromptCommand(c.name),
   );
+  const commandWords = new Set<string>();
+  for (const c of commands) {
+    commandWords.add(c.name);
+    for (const alias of c.aliases) commandWords.add(alias);
+  }
   if (commands.length > 0) {
     const byName = new Map(commands.map((c) => [c.name, c]));
     // Le manifeste ne dit pas qui est intégré et qui vient d'un module : une
@@ -115,7 +132,16 @@ export function buildPromptMenu(input: {
   for (const item of inspect) {
     if (item.kind === "choice") item.value = `${INSPECT_HEAD} ${item.value}`;
   }
-  return { items, verbs, inspect };
+  return {
+    items,
+    verbs,
+    inspect,
+    words: {
+      verbs: verbWords,
+      commands: commandWords,
+      subjects: new Set(Object.keys(input.inspectSubjects)),
+    },
+  };
 }
 
 /** Ce que la bande montre pour une saisie. */
@@ -141,22 +167,72 @@ export function promptMenuView(
   menu: IPromptMenu,
   draft: string,
 ): IPromptMenuView {
-  const line = draft.trimStart();
-  let source: readonly StartMenuItem[] = menu.items;
-  let term = line.slice(PROMPT_COMMAND_PREFIX.length);
-  let inspect = false;
-  if (isWordPrefix(line, INSPECT_HEAD)) {
-    source = menu.inspect;
-    term = line.slice(INSPECT_HEAD.length);
-    inspect = true;
-  } else if (isWordPrefix(line, CLI_HEAD)) {
-    source = menu.items.slice(menu.verbs + 1);
-    term = line.slice(CLI_HEAD.length);
-  }
-  const items = filterStartMenu([...source], term.trim());
+  const level = menuLevel(menu, draft);
+  // Passé le mot que la bande choisit, la ligne n'est plus à elle : Entrée ne
+  // doit jamais remplacer `/nodefony build --force` par `/nodefony build`.
+  if (isPast(level)) return { items: [], choices: [], inspect: level.inspect };
+  const items = filterStartMenu([...level.source], level.term.trim());
   const choices: MenuChoice[] = [];
   for (const item of items) if (item.kind === "choice") choices.push(item);
-  return { items, choices, inspect };
+  return { items, choices, inspect: level.inspect };
+}
+
+/**
+ * La bande s'efface : la saisie a dépassé le mot qu'elle aide à choisir — un
+ * verbe, une commande du CLI ou un sujet d'`inspect` tapé en entier, suivi
+ * d'un blanc (`/nodefony build `). Le reste de la ligne (options, arguments)
+ * est à Tab, qui complète par `computeCompletions`.
+ *
+ * @param menu - le menu de l'invite.
+ * @param draft - la saisie, `/` compris.
+ * @returns `true` si la bande n'a plus rien à proposer.
+ */
+export function promptMenuStepsAside(
+  menu: IPromptMenu,
+  draft: string,
+): boolean {
+  return isPast(menuLevel(menu, draft));
+}
+
+/** Le niveau de la bande pour une saisie : ses entrées, le terme, ses mots. */
+interface IMenuLevel {
+  readonly source: readonly StartMenuItem[];
+  readonly term: string;
+  readonly inspect: boolean;
+  readonly known: ReadonlySet<string>;
+}
+
+function menuLevel(menu: IPromptMenu, draft: string): IMenuLevel {
+  const line = draft.trimStart();
+  if (isWordPrefix(line, INSPECT_HEAD)) {
+    return {
+      source: menu.inspect,
+      term: line.slice(INSPECT_HEAD.length),
+      inspect: true,
+      known: menu.words.subjects,
+    };
+  }
+  if (isWordPrefix(line, CLI_HEAD)) {
+    return {
+      source: menu.items.slice(menu.verbs + 1),
+      term: line.slice(CLI_HEAD.length),
+      inspect: false,
+      known: menu.words.commands,
+    };
+  }
+  return {
+    source: menu.items,
+    term: line.slice(PROMPT_COMMAND_PREFIX.length),
+    inspect: false,
+    known: menu.words.verbs,
+  };
+}
+
+/** Le premier mot du terme est connu en entier, et un blanc le suit. */
+function isPast(level: IMenuLevel): boolean {
+  const term = level.term.trimStart();
+  const space = term.search(/\s/);
+  return space > 0 && level.known.has(term.slice(0, space));
 }
 
 /** `line` commence par le mot `head` (suivi de rien ou d'un blanc). */
