@@ -194,9 +194,6 @@ function isArrowBurst(events: readonly InputEvent[]): boolean {
   return true;
 }
 
-/** Le canal où l'invite écrit : l'écho de la saisie et la sortie des actions. */
-const PROMPT_CHANNEL = "prompt";
-
 /** L'état de l'invite branchée. Forme fixe, posée par `attachPrompt`. */
 interface IPromptState {
   readonly history: PromptHistoryFile;
@@ -2096,7 +2093,12 @@ export class DevTerminal {
     this.#setAnchor(null);
     this.#scheduleFrame();
     if (text.trim() === "") return;
-    this.ingest(PROMPT_CHANNEL, "out", `${state.render.sigil}${shown}\n`);
+    // L'écho et la sortie restent dans l'onglet qui a le focus À L'ENVOI :
+    // une commande longue y écrit encore si l'on change d'onglet entre-temps.
+    // Un panneau ne montre pas de journal : son écho va au serveur.
+    const channel = (this.#active.panel === null ? this.#active : this.#server)
+      .promptChannel;
+    this.ingest(channel, "out", `${state.render.sigil}${shown}\n`);
     const kept = state.history.remember(text, this.#active.id, Date.now());
     if (!kept.kept && kept.reason !== "empty") {
       this.#notify(full, describeHistorySkip(kept.reason));
@@ -2105,7 +2107,7 @@ export class DevTerminal {
     if (action === undefined) {
       // 127 : « commande introuvable », la convention des shells.
       if (kept.kept) state.history.settle(kept.entry, 127, null);
-      this.ingest(PROMPT_CHANNEL, "err", describeUnmatchedInput(text));
+      this.ingest(channel, "err", describeUnmatchedInput(text));
       return;
     }
     const controller = new AbortController();
@@ -2114,23 +2116,27 @@ export class DevTerminal {
       state,
       action,
       text,
+      channel,
       controller,
       kept.kept ? kept.entry : null,
     );
   }
 
-  /** Lance une action ; son code et sa durée rejoignent l'entrée d'historique. */
+  /**
+   * Lance une action ; son code et sa durée rejoignent l'entrée d'historique.
+   * Sa sortie va au canal d'invite de l'onglet d'où elle est partie.
+   */
   async #runAction(
     state: IPromptState,
     action: IPromptAction,
     text: string,
+    channel: string,
     controller: AbortController,
     entry: PromptHistoryEntry | null,
   ): Promise<void> {
     const started = performance.now();
     const io: IPromptIO = {
-      write: (chunk, stream = "out") =>
-        this.ingest(PROMPT_CHANNEL, stream, chunk),
+      write: (chunk, stream = "out") => this.ingest(channel, stream, chunk),
       // Confirmer et prêter le terminal arrivent avec les commandes du CLI
       // (lot 2) : aucun verbe du superviseur n'en a besoin.
       confirm: () =>
@@ -2144,7 +2150,7 @@ export class DevTerminal {
       code = await action.run(text, io, controller.signal);
     } catch (error) {
       this.ingest(
-        PROMPT_CHANNEL,
+        channel,
         "err",
         `${action.id} : ${error instanceof Error ? error.message : String(error)}\n`,
       );

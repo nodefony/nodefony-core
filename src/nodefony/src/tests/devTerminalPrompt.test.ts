@@ -293,6 +293,30 @@ describe("plein écran — l'invite (#538)", () => {
     terminal.close();
   });
 
+  it("l'écho et la sortie de l'invite restent dans l'onglet qui a le focus, pas dans « serveur »", async () => {
+    const { written, input, terminal } = prompted();
+    terminal.ingest("server", "out", "prêt\n");
+    terminal.addView({ id: "run:1", title: "run", channels: "run:1" });
+    input.type(ALT_2);
+    await nextFrame();
+    input.type("/frobnicate" + ENTER);
+    await nextFrame();
+    const focused = await screen(written);
+    expect(focused.some((l) => l === "❯ /frobnicate")).to.equal(true);
+    expect(
+      focused.some((l) => l.startsWith("commande inconnue : /frobnicate")),
+    ).to.equal(true);
+    input.type("\x1b1");
+    await nextFrame();
+    const server = await screen(written);
+    expect(server.some((l) => l === "prêt")).to.equal(true);
+    expect(server.some((l) => l === "❯ /frobnicate")).to.equal(false);
+    expect(server.some((l) => l.startsWith("commande inconnue"))).to.equal(
+      false,
+    );
+    terminal.close();
+  });
+
   it("souris captée : un clic sur un onglet le montre, invite branchée", async () => {
     const { written, input, terminal } = prompted(true);
     terminal.ingest("server", "out", "prêt\n");

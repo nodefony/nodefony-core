@@ -29,11 +29,27 @@ export interface IDevViewHandle {
   close(): void;
 }
 
+/**
+ * Le canal d'invite d'un onglet (`prompt:server`, `prompt:vite`).
+ *
+ * @param viewId - l'identifiant de l'onglet.
+ * @returns le canal où l'invite écrit quand cet onglet a le focus.
+ */
+export function promptChannelOf(viewId: string): string {
+  return `prompt:${viewId}`;
+}
+
 /** Un onglet : ses canaux, sa position de lecture, ce qu'il n'a pas montré. */
 export class DevView {
   readonly id: string;
   /** Le libellé de l'onglet. */
   readonly title: string;
+  /**
+   * Le canal où l'invite écrit quand cet onglet a le focus : l'écho de la
+   * saisie et la sortie de ce qu'elle lance restent sous les yeux de qui a
+   * tapé, jamais dans l'onglet `serveur` par défaut.
+   */
+  readonly promptChannel: string;
   /** Dit si un canal appartient à l'onglet — un canal ouvert plus tard y entre seul. */
   readonly match: (channel: string) => boolean;
   /** Montré dès son ouverture, même vide (un onglet ouvert à la volée). */
@@ -59,7 +75,8 @@ export class DevView {
    * @param history - l'historique par canal.
    * @param id - identifiant stable de l'onglet.
    * @param title - son libellé.
-   * @param match - ses canaux.
+   * @param match - ses canaux ; son canal d'invite (`promptChannel`) s'y
+   *   ajoute toujours.
    * @param alwaysShown - montré même vide.
    */
   constructor(
@@ -71,9 +88,11 @@ export class DevView {
   ) {
     this.id = id;
     this.title = title;
-    this.match = match;
+    const promptChannel = promptChannelOf(id);
+    this.promptChannel = promptChannel;
+    this.match = (channel) => channel === promptChannel || match(channel);
     this.alwaysShown = alwaysShown;
-    this.transcript = history.merge(match);
+    this.transcript = history.merge(this.match);
   }
 
   /** Entrées arrivées depuis la dernière image qui l'a montré. */
