@@ -85,7 +85,12 @@ export interface IAskOptions extends IQuestionFooterOptions {
    * la question refuse alors en nommant son drapeau.
    */
   readonly prompt?: boolean;
-  /** Verdict de terminal INJECTÉ (tests) ; constaté sur le processus sinon. */
+  /**
+   * Verdict de terminal INJECTÉ ; constaté sur le processus sinon. `true` avec
+   * les flux du processus (ni `input` ni `output` injectés) dit « quelqu'un
+   * peut répondre » — ce que l'appelant a constaté par `canAsk()` : sous le
+   * superviseur de développement, la question prend alors le relais.
+   */
   readonly terminal?: boolean;
   /**
    * La réponse d'une question FACULTATIVE quand personne ne peut répondre
@@ -101,11 +106,22 @@ type AskRoute = "terminal" | "relay";
 /**
  * Par où poser une question, s'il y a quelqu'un pour répondre.
  *
- * @param injected - verdict de terminal injecté (tests) : il tranche seul.
+ * @param injected - verdict de terminal injecté.
+ * @param ownStreams - les flux sont ceux du processus (aucun injecté).
  * @returns la voie, ou `null` si personne ne peut répondre.
  */
-function askRoute(injected: boolean | undefined): AskRoute | null {
-  if (injected !== undefined) return injected ? "terminal" : null;
+function askRoute(
+  injected: boolean | undefined,
+  ownStreams = true,
+): AskRoute | null {
+  if (injected === false) return null;
+  if (injected === true) {
+    // Des flux injectés (banc, autre terminal) : le verdict tranche seul.
+    // Ceux du processus : `true` vient d'un `canAsk()` constaté par
+    // l'appelant (`Command.askArgument`, le dialogue du scaffold), qui vaut
+    // AUSSI pour le relais — le pied de terminal y lirait un clavier fermé.
+    return ownStreams && askRoute(undefined) === "relay" ? "relay" : "terminal";
+  }
   const noTty = process.env.NF_NO_TTY;
   if (noTty !== undefined && noTty !== "") return null;
   if (isTerminal(process.stdin) && isTerminal(process.stdout)) {
@@ -163,7 +179,14 @@ export async function ask(
   question: IQuestion,
   options: IAskOptions = {},
 ): Promise<QuestionValue> {
-  const route = options.prompt === false ? null : askRoute(options.terminal);
+  const route =
+    options.prompt === false
+      ? null
+      : askRoute(
+          options.terminal,
+          (options.input === undefined || options.input === process.stdin) &&
+            (options.output === undefined || options.output === process.stdout),
+        );
   const interactive = route !== null;
   let asked = question;
   if (options.answer !== undefined) {

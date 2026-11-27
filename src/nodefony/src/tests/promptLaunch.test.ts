@@ -274,6 +274,29 @@ describe("launchPromptCommand — les questions remontent au superviseur (lot 2b
   }, 30000);
 });
 
+describe("launchPromptCommand — `terminal: true` d'un appelant qui a constaté canAsk()", () => {
+  it("la question prend le relais, jamais le pied de terminal au clavier fermé (askArgument, scaffold)", async () => {
+    const s = supervisor(["alice"]);
+    const code = await launchPromptCommand(
+      {
+        ...askConsole(),
+        args: [
+          "--import",
+          TSX,
+          path.join(import.meta.dirname, "fixtures", "askForced.fixture.mjs"),
+          ASK_SOURCE,
+        ],
+      },
+      s.io,
+      AbortSignal.timeout(20000),
+    );
+    expect(s.out.join("")).to.not.contain("(annulé)");
+    expect(code).to.equal(0);
+    expect(s.out.join("")).to.contain('RÉSULTAT {"name":"alice"}');
+    expect(s.asked.map((q) => q.key)).to.deep.equal(["identifier"]);
+  }, 30000);
+});
+
 describe("launchPromptCommand — un petit-enfant n'hérite pas du relais", () => {
   it("un `fork` de la commande refuse en nommant le drapeau, au lieu d'attendre une réponse qui ne viendra pas", async () => {
     const { err, io } = recorder();
