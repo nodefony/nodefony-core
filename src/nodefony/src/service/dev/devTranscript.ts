@@ -318,6 +318,8 @@ interface IPendingLine {
    * prochain texte — sauf si c'est la fin de ligne (`\r\n`, Windows).
    */
   carriageReturn: boolean;
+  /** Rang du dernier paquet reçu, tous flux du transcript confondus. */
+  written: number;
 }
 
 /**
@@ -396,6 +398,9 @@ export class DevTranscript {
   readonly #nextSeq: () => number;
   readonly #onClear: ((channel: string) => void) | null;
   readonly #ring: CircularBuffer<TranscriptEntry>;
+  /** Rang du dernier paquet reçu : dit quel flux d'un canal a écrit en dernier. */
+  #written = 0;
+
   /** Lignes en cours, par couple (canal, flux) — une dizaine de clés au plus. */
   readonly #pending: Record<string, IPendingLine> = Object.create(
     null,
@@ -429,19 +434,27 @@ export class DevTranscript {
   }
 
   /**
-   * La ligne EN COURS d'un couple (canal, flux) — écrite sans fin de ligne,
-   * comme l'indicateur de build qui se réécrit sur place. Un terminal la
-   * montre déjà ; l'historique ne l'inscrit qu'à son `\n`.
+   * La ligne EN COURS d'un canal — écrite sans fin de ligne : l'indicateur
+   * de build qui se réécrit sur place, un `Password:`, un tourniquet. Un
+   * terminal la montre déjà ; l'historique ne l'inscrit qu'à son `\n`. Le
+   * flux retenu est celui écrit en DERNIER, là où se tient le curseur d'un
+   * vrai terminal.
    *
    * @param channel - le canal.
-   * @param stream - sur quel flux.
    * @returns la ligne en cours, assainie, ou `""`.
    */
-  partial(channel: string, stream: ProcessOutputStream): string {
-    const pending = this.#pending[channelKey(channel, stream)];
-    return pending === undefined || pending.text === ""
+  partial(channel: string): string {
+    const out = this.#pending[channelKey(channel, "out")];
+    const err = this.#pending[channelKey(channel, "err")];
+    const last =
+      out === undefined
+        ? err
+        : err === undefined || out.written > err.written
+          ? out
+          : err;
+    return last === undefined || last.text === ""
       ? ""
-      : sanitizeTerminalText(pending.text);
+      : sanitizeTerminalText(last.text);
   }
 
   /** Nombre d'entrées retenues. */
@@ -531,6 +544,7 @@ export class DevTranscript {
   ): void {
     const pending = this.#pendingOf(channel, stream);
     this.#stamp = -1;
+    pending.written = ++this.#written;
     if (typeof chunk === "string") {
       let start = 0;
       let nl = chunk.indexOf("\n");
@@ -572,7 +586,14 @@ export class DevTranscript {
       if (!pending) continue;
       if (channel !== undefined && pending.channel !== channel) continue;
       this.#append(pending, pending.decoder.end());
-      if (pending.text.length > 0 || pending.truncated) this.#commit(pending);
+      // Une ligne réduite à son effacement (`\r\x1b[2K` d'un tourniquet
+      // arrêté) ne montre rien dans un terminal : pas de ligne blanche ici.
+      if (
+        pending.truncated ||
+        (pending.text.length > 0 && !ERASE_IN_LINE.test(pending.text))
+      ) {
+        this.#commit(pending);
+      }
       Reflect.deleteProperty(this.#pending, key);
     }
   }
@@ -627,6 +648,7 @@ export class DevTranscript {
         text: "",
         truncated: false,
         carriageReturn: false,
+        written: 0,
       };
       this.#pending[key] = pending;
     }
