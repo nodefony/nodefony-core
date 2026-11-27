@@ -75,6 +75,7 @@ function prompted(
   rows = ROWS,
   menu = false,
   extra: readonly IPromptAction[] = [],
+  copy?: (text: string) => Promise<string>,
 ) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nf-dev-prompt-"));
   roots.push(root);
@@ -94,7 +95,13 @@ function prompted(
     color: false,
     charset: "unicode",
     mark: brandMark("unicode", false),
-    fullscreen: { input, synchronized: false, onQuit: quit, mouse },
+    fullscreen: {
+      input,
+      synchronized: false,
+      onQuit: quit,
+      mouse,
+      ...(copy === undefined ? {} : { copy }),
+    },
   });
   const verbs = {
     restart: vi.fn(async () => true),
@@ -503,6 +510,63 @@ describe("plein écran — l'invite (#538)", () => {
     await nextFrame();
     const text = (await screen(written, 120, 30)).join("\n");
     expect(text).to.not.contain("le terminal ne rapporte pas la souris");
+    terminal.close();
+  });
+
+  it("souris captée : glisser sur la saisie de l'invite la copie ; double clic = le mot, chemin compris", async () => {
+    const copy = vi.fn(async () => "copié");
+    const { written, input, terminal } = prompted(
+      true,
+      COLS,
+      ROWS,
+      false,
+      [],
+      copy,
+    );
+    input.type("/nodefony security:user:list");
+    await nextFrame();
+    expect((await screen(written)).at(-1)).to.equal(
+      "❯ /nodefony security:user:list",
+    );
+    // « ❯ » et un blanc : la saisie commence colonne 3.
+    input.type(`\x1b[<0;3;${ROWS}M\x1b[<32;11;${ROWS}M\x1b[<0;11;${ROWS}m`);
+    await nextFrame();
+    expect(copy).toHaveBeenCalledWith("/nodefony");
+    expect(written.join("")).to.contain("\x1b[7m");
+    input.type(
+      `\x1b[<0;16;${ROWS}M\x1b[<0;16;${ROWS}m\x1b[<0;16;${ROWS}M\x1b[<0;16;${ROWS}m`,
+    );
+    await nextFrame();
+    expect(copy).toHaveBeenLastCalledWith("security:user:list");
+    // Un simple clic ne copie rien, et la saisie reste intacte.
+    copy.mockClear();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    input.type(`\x1b[<0;5;${ROWS}M\x1b[<0;5;${ROWS}m`);
+    await nextFrame();
+    expect(copy).not.toHaveBeenCalled();
+    expect((await screen(written)).at(-1)).to.equal(
+      "❯ /nodefony security:user:list",
+    );
+    terminal.close();
+  });
+
+  it("souris captée : glisser au-delà de la saisie s'arrête à son dernier caractère", async () => {
+    const copy = vi.fn(async () => "copié");
+    const { written, input, terminal } = prompted(
+      true,
+      COLS,
+      ROWS,
+      false,
+      [],
+      copy,
+    );
+    input.type("/status now");
+    await nextFrame();
+    await screen(written);
+    // « ❯ /status » finit colonne 9, l'espace est en 10 : « now » part de 11.
+    input.type(`\x1b[<0;11;${ROWS}M\x1b[<32;40;${ROWS}M\x1b[<0;40;${ROWS}m`);
+    await nextFrame();
+    expect(copy).toHaveBeenCalledWith("now");
     terminal.close();
   });
 
@@ -1009,13 +1073,35 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     terminal.close();
   });
 
-  it("relancée dans son onglet fini, l'action y reste ; depuis serveur, un doublon est suffixé", async () => {
+  it("↑ dans l'onglet d'une commande rappelle les saisies de l'invite — la sienne comprise", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/clear" + ENTER);
+    await settle();
+    input.type("/fake build" + ENTER);
+    await settle();
+    runs[0]?.done(0);
+    await settle();
+    expect(tabs(await screen(written))).to.match(/✓ \d+ build/);
+    input.type(UP);
+    await nextFrame();
+    expect((await screen(written)).at(-1)).to.equal("❯ /fake build");
+    input.type(UP);
+    await nextFrame();
+    expect((await screen(written)).at(-1)).to.equal("❯ /clear");
+    terminal.close();
+  });
+
+  it("relancée, l'action reprend SON onglet fini — depuis lui comme depuis serveur ; la sortie d'avant reste au-dessus", async () => {
     const { action, runs } = launcher();
     const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
       action,
     ]);
     input.type("/fake build" + ENTER);
     await settle();
+    runs[0]?.io.write("passe un\n");
     runs[0]?.done(1);
     await settle();
     input.type("/fake build" + ENTER);
@@ -1031,8 +1117,27 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     await settle();
     input.type("/fake build" + ENTER);
     await settle();
+    expect(runs).to.have.length(3);
     lines = await screen(written);
-    expect(tabs(lines)).to.contain("build 2");
+    expect(tabs(lines)).to.not.contain("build 2");
+    expect(lines.filter((l) => l === "❯ /fake build")).to.have.length(3);
+    expect(lines).to.contain("passe un");
+    terminal.close();
+  });
+
+  it("relancée pendant qu'elle tourne encore, depuis serveur : un onglet neuf, suffixé", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake build" + ENTER);
+    await settle();
+    input.type(ALT_1);
+    await settle();
+    input.type("/fake build" + ENTER);
+    await settle();
+    expect(runs).to.have.length(2);
+    expect(tabs(await screen(written))).to.contain("build 2");
     terminal.close();
   });
 
@@ -1159,6 +1264,41 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     terminal.close();
   });
 
+  it("une commande lente se voit travailler : tourniquet dans son onglet, durée sur la dernière ligne ; rien pour une commande rapide", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const { action, runs } = launcher();
+      const { written, input, terminal } = prompted(false, 100, ROWS, false, [
+        action,
+      ]);
+      terminal.setStatus(
+        null,
+        { project: "mon-app", readyAt: "16:48", reloads: 0 },
+        "ready",
+      );
+      input.type("/fake lent" + ENTER);
+      await settle();
+      // Sous le délai d'apparition : l'onglet et la règle restent fixes.
+      let lines = await screen(written, 100);
+      expect(tabs(lines)).to.not.match(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u);
+      vi.setSystemTime(Date.now() + 1500);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      lines = await screen(written, 100);
+      expect(tabs(lines)).to.match(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] \d+ lent/u);
+      expect(lines.join("\n")).to.match(
+        /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] commande en cours · Ctrl\+C l'interrompt · l'onglet reste ouvert après · 1,5 s/u,
+      );
+      runs[0]?.done(0);
+      await settle();
+      lines = await screen(written, 100);
+      expect(tabs(lines)).to.match(/✓ \d+ lent/);
+      expect(lines.join("\n")).to.not.contain("commande en cours");
+      terminal.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("la dernière ligne dit la règle de fermeture : en cours, puis fini — même en revenant sur l'onglet", async () => {
     const { action, runs } = launcher();
     const { written, input, terminal } = prompted(false, 100, ROWS, false, [
@@ -1270,6 +1410,208 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     expect(line).to.not.contain("aa");
     expect(line).to.contain("bb");
     expect(line).to.contain("ee");
+    terminal.close();
+  });
+});
+
+describe("plein écran — une question posée depuis l'invite (#538, lot 2b-2)", () => {
+  const ALT_1 = "\x1b1";
+  const settle = (): Promise<void> => nextFrame();
+  const tabs = (lines: readonly string[]): string =>
+    lines.find((l) => l.includes("1 serveur")) ?? "";
+
+  it("la question prend la place de la saisie ; Entrée répond, la ligne réglée reste au journal — le secret jamais", async () => {
+    const { action, runs } = launcher();
+    const { root, written, input, terminal } = prompted(
+      false,
+      COLS,
+      ROWS,
+      false,
+      [action],
+    );
+    input.type("/fake add" + ENTER);
+    await settle();
+    const run = runs[0];
+    if (run === undefined) throw new Error("rien de lancé");
+    const name = run.io.ask(
+      { kind: "input", key: "name", message: "Nom du compte", required: true },
+      run.signal,
+    );
+    await settle();
+    let lines = await screen(written);
+    expect(lines.at(-1)?.trimEnd()).to.equal("? Nom du compte");
+    // Une réponse vide est refusée sur place, par le moteur.
+    input.type(ENTER);
+    await settle();
+    expect((await screen(written)).join("\n")).to.contain(
+      "une réponse est requise",
+    );
+    input.type("alice" + ENTER);
+    expect(await name).to.deep.equal({ action: "accept", value: "alice" });
+    await settle();
+    lines = await screen(written);
+    expect(lines).to.contain("✔ Nom du compte alice");
+    expect(lines.at(-1)?.trimEnd()).to.equal("❯");
+    const secret = run.io.ask(
+      { kind: "secret", key: "password", message: "Mot de passe" },
+      run.signal,
+    );
+    await settle();
+    input.type("s3cret!");
+    await settle();
+    expect((await screen(written)).at(-1)?.trimEnd()).to.equal(
+      "? Mot de passe •••••••",
+    );
+    input.type(ENTER);
+    expect(await secret).to.deep.equal({ action: "accept", value: "s3cret!" });
+    await settle();
+    expect(await screen(written)).to.contain("✔ Mot de passe (saisi)");
+    // Ni l'écran, ni l'historique de l'invite n'ont vu le secret.
+    expect(written.join("")).to.not.contain("s3cret!");
+    const saved = path.join(root, PROMPT_HISTORY_FILE);
+    if (fs.existsSync(saved)) {
+      expect(fs.readFileSync(saved, "utf8")).to.not.contain("s3cret!");
+    }
+    terminal.close();
+  });
+
+  it("l'onglet quitté garde sa question et porte un ? ; revenu, Ctrl+C l'annule", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake add" + ENTER);
+    await settle();
+    const run = runs[0];
+    if (run === undefined) throw new Error("rien de lancé");
+    const outcome = run.io.ask(
+      { kind: "confirm", key: "go", message: "Créer le compte ?" },
+      run.signal,
+    );
+    input.type(ALT_1);
+    await settle();
+    let lines = await screen(written);
+    expect(tabs(lines)).to.match(/\? \d+ add/);
+    expect(lines.at(-1)?.trimEnd()).to.equal("❯");
+    input.type(ALT_2);
+    await settle();
+    lines = await screen(written);
+    expect(lines.at(-1)?.trimEnd()).to.equal("? Créer le compte ? (o/N)");
+    input.type(CTRL_C);
+    expect(await outcome).to.deep.equal({ action: "cancel" });
+    await settle();
+    lines = await screen(written);
+    expect(lines).to.contain("✗ Créer le compte ? (annulé)");
+    expect(tabs(lines)).to.not.match(/\? \d+ add/);
+    // Le Ctrl+C a annulé la question, pas la commande : elle décide seule.
+    expect(run.signal.aborted).to.equal(false);
+    terminal.close();
+  });
+
+  it("commande finie ou interrompue : sa question est retirée, la saisie revient", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake add" + ENTER);
+    await settle();
+    const run = runs[0];
+    if (run === undefined) throw new Error("rien de lancé");
+    const gone = new AbortController();
+    const outcome = run.io.ask(
+      { kind: "input", key: "name", message: "Nom du compte" },
+      gone.signal,
+    );
+    await settle();
+    expect((await screen(written)).at(-1)?.trimEnd()).to.equal(
+      "? Nom du compte",
+    );
+    gone.abort();
+    expect(await outcome).to.deep.equal({ action: "cancel" });
+    await settle();
+    expect((await screen(written)).at(-1)?.trimEnd()).to.equal("❯");
+    terminal.close();
+  });
+
+  it("une action de l'invite confirme par le même moteur (D8) : o accepte, n décline", async () => {
+    const { action, runs } = launcher();
+    const { input, terminal } = prompted(false, COLS, ROWS, false, [action]);
+    input.type("/fake rm" + ENTER);
+    await settle();
+    const run = runs[0];
+    if (run === undefined) throw new Error("rien de lancé");
+    const yes = run.io.confirm({ title: "Supprimer ?", risk: "destructive" });
+    await settle();
+    input.type("o");
+    expect((await yes).action).to.equal("accept");
+    const no = run.io.confirm({ title: "Encore ?", risk: "write" });
+    await settle();
+    input.type("n");
+    const decision = await no;
+    expect(decision.action).to.equal("decline");
+    expect(decision.id).to.not.equal((await yes).id);
+    terminal.close();
+  });
+});
+
+describe("plein écran — la fin d'une commande se lit au bas de sa sortie (#538, lot 2b-2)", () => {
+  const ALT_1 = "\x1b1";
+  const settle = (): Promise<void> => nextFrame();
+
+  it("finie, l'action laisse dans SON onglet une ligne de fin : issue, durée, geste — sur une ligne à elle", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, 100, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake build" + ENTER);
+    await settle();
+    // Une sortie qui ne finit pas sa ligne : la ligne de fin n'y est pas collée.
+    runs[0]?.io.write("compilé");
+    runs[0]?.done(0);
+    await settle();
+    let lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    const at = lines.indexOf("compilé");
+    expect(at, lines.join("\n")).to.be.greaterThan(-1);
+    expect(lines[at + 1]).to.match(
+      /^── ✓ terminée · \d+ ms · Échap ferme cet onglet$/u,
+    );
+    // Relancée dans son onglet (D9) : la ligne sépare aussi les passes.
+    input.type("/fake build" + ENTER);
+    await settle();
+    runs[1]?.done(2);
+    await settle();
+    lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    expect(lines.filter((l) => l.startsWith("── ✓ terminée"))).to.have.length(
+      1,
+    );
+    expect(lines.some((l) => l.startsWith("── ✗ échec (code 2) · "))).to.equal(
+      true,
+    );
+    terminal.close();
+  });
+
+  it("interrompue : « interrompue », pas un échec chiffré ; un onglet sans lancement n'en reçoit aucune", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, 100, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake lent" + ENTER);
+    await settle();
+    input.type(CTRL_C);
+    await settle();
+    expect(runs[0]?.signal.aborted).to.equal(true);
+    const lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    expect(lines.some((l) => l.startsWith("── ✗ interrompue · "))).to.equal(
+      true,
+    );
+    // Un verbe du superviseur, dans l'onglet serveur : aucune ligne de fin.
+    input.type(ALT_1);
+    await settle();
+    input.type("/status" + ENTER);
+    await settle();
+    expect(
+      (await screen(written, 100)).some((l) => l.startsWith("── ")),
+    ).to.equal(false);
     terminal.close();
   });
 });

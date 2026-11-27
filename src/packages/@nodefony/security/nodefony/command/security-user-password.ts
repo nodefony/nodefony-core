@@ -106,7 +106,8 @@ class SecurityUserPassword extends Command {
     }
 
     // Sans terminal ni `--password`, la porte refuse en nommant le drapeau ;
-    // deux saisies qui diffèrent sont redemandées, jamais abandonnées.
+    // deux saisies qui diffèrent sont redemandées, jamais abandonnées. La
+    // politique juge la saisie SUR PLACE, et la question est reposée.
     const password = await askSecretTwice(
       {
         kind: "secret",
@@ -116,6 +117,7 @@ class SecurityUserPassword extends Command {
       },
       "Confirme le mot de passe",
       { answer: opts.password },
+      (secret) => users.passwordViolation(secret, identifier),
     );
 
     try {
@@ -134,7 +136,7 @@ class SecurityUserPassword extends Command {
     } catch (e) {
       // Mot de passe refusé par la liste d'interdits : c'est une décision du
       // service, pas une panne — un message, jamais une pile d'appels.
-      this.log((e as Error).message, "ERROR");
+      this.log(e instanceof Error ? e.message : String(e), "ERROR");
       process.exitCode = 1;
       return this;
     }

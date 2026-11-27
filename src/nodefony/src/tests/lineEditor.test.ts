@@ -373,3 +373,47 @@ describe("LineEditor — rendu", () => {
     expect(editor.render(40, OPTIONS)).to.not.equal(first);
   });
 });
+
+describe("LineEditor — relire une cellule du rendu (sélection à la souris)", () => {
+  it("repli : une cellule rend son unité, l'inverse rend sa cellule — signe et retrait compris", () => {
+    const editor = new LineEditor();
+    press(editor, "abcdefgh");
+    // « ❯ » et un blanc : quatre colonnes de saisie par ligne.
+    expect(editor.render(6, OPTIONS).lines.slice(0, 2)).to.deep.equal([
+      "❯ abcd",
+      "  efgh",
+    ]);
+    expect(editor.indexAt(0, 2)).to.equal(0);
+    expect(editor.indexAt(0, 0)).to.equal(0);
+    expect(editor.indexAt(0, 5)).to.equal(3);
+    expect(editor.indexAt(1, 0)).to.equal(4);
+    expect(editor.indexAt(1, 3)).to.equal(5);
+    expect(editor.indexAt(1, 40)).to.equal(8);
+    expect(editor.positionOf(5)).to.deep.equal({ row: 1, column: 3 });
+    expect(editor.textOf(2, 6)).to.equal("cdef");
+  });
+
+  it("une tabulation compte ses cellules jusqu'au taquet", () => {
+    const editor = new LineEditor();
+    // Tab au clavier complète ; une tabulation n'entre que collée.
+    press(editor, paste("a\tb"));
+    expect(editor.length).to.equal(3);
+    const line = editor.render(80, OPTIONS).lines[0] ?? "";
+    const b = line.indexOf("b");
+    expect(editor.indexAt(0, b)).to.equal(2);
+    expect(editor.indexAt(0, b - 1)).to.equal(1);
+    expect(editor.positionOf(2).column).to.equal(b);
+  });
+
+  it("une pièce jointe se relit d'un bloc, et se copie par son contenu entier", () => {
+    const editor = new LineEditor();
+    const text = "l1\nl2\nl3\nl4\nl5\nl6";
+    press(editor, "x " + paste(text) + " y");
+    const line = editor.render(120, OPTIONS).lines[0] ?? "";
+    const label = line.indexOf("[");
+    expect(editor.indexAt(0, label)).to.equal(2);
+    expect(editor.indexAt(0, label + 5)).to.equal(2);
+    expect(editor.textOf(2, 3)).to.equal(text);
+    expect(editor.length).to.equal(5);
+  });
+});

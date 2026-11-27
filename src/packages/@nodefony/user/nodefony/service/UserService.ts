@@ -770,17 +770,48 @@ export class UserService
    *   mordre, et les deux portes d'écriture n'appliqueraient pas la même loi.
    */
   async #assertNotBlocked(plain: string, identifier?: string): Promise<void> {
+    const verdict = await this.#policyVerdict(plain, identifier);
+    if (verdict !== undefined) throw new WeakPasswordError(verdict);
+  }
+
+  /**
+   * La règle qu'enfreint un mot de passe candidat, ou `null` s'il est accepté —
+   * LA politique qu'appliquent `createUser` et `changePassword`, à demander
+   * AVANT d'écrire : une commande la juge à la saisie et repose la question,
+   * au lieu d'échouer une fois tout le reste demandé.
+   *
+   * Le texte nomme la règle sans jamais citer le mot de passe.
+   *
+   * @param plain - mot de passe candidat.
+   * @param identifier - identifiant du compte visé : sans lui, la règle « le
+   *   mot de passe répète l'identifiant » ne peut pas mordre.
+   * @returns la règle enfreinte, en français, ou `null`.
+   */
+  async passwordViolation(
+    plain: string,
+    identifier?: string,
+  ): Promise<string | null> {
+    const verdict = await this.#policyVerdict(plain, identifier);
+    if (verdict === undefined) return null;
+    return verdict ?? "refusé par la politique de l'application";
+  }
+
+  /**
+   * Le verdict de la politique : `undefined` = accepté ; sinon la règle
+   * enfreinte, ou `null` quand la politique refuse sans la nommer (membre
+   * `violation` absent du contrat).
+   */
+  async #policyVerdict(
+    plain: string,
+    identifier?: string,
+  ): Promise<string | null | undefined> {
     const policy = this.passwordBlocklist;
-    if (policy === null) return;
+    if (policy === null) return undefined;
     const subject = identifier != null ? { identifier } : undefined;
     if (policy.violation !== undefined) {
-      const violation = await policy.violation(plain, subject);
-      if (violation !== null) throw new WeakPasswordError(violation);
-      return;
+      return (await policy.violation(plain, subject)) ?? undefined;
     }
-    if (await policy.isBlocked(plain, subject)) {
-      throw new WeakPasswordError();
-    }
+    return (await policy.isBlocked(plain, subject)) ? null : undefined;
   }
 
   // Émet l'échec et retourne null — factorise les chemins d'erreur d'authenticate.

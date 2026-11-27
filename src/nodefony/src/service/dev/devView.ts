@@ -10,6 +10,7 @@
 import type { DevHistory, MergedTranscript } from "./devHistory";
 import { FrameHeights, type IScrollAnchor, type ViewOutcome } from "./devFrame";
 import type { PanelCursor } from "./devPanel";
+import type { PendingQuestion } from "./devQuestion";
 
 /**
  * Ce qu'un onglet fait de ses canaux — le TYPE porte le comportement, pas
@@ -100,12 +101,19 @@ export class DevView {
    * `/status` ailleurs.
    */
   running: AbortController | null = null;
+  /** L'instant (`Date.now()`) où l'action en cours a démarré — `0` au repos. */
+  runSince = 0;
   /**
    * Onglet `run` : le libellé de la commande qu'il porte, AVANT tout suffixe
    * de doublon (`build` pour l'onglet `build 2`). Une saisie n'y relance que
    * la même commande ; une autre ouvre son propre onglet.
    */
   launch: string | null = null;
+  /**
+   * Les questions qui attendent une réponse dans cet onglet, la première à
+   * l'écran (#538, lot 2b-2) — `null` tant qu'aucune n'a été posée.
+   */
+  asking: PendingQuestion[] | null = null;
 
   /**
    * @param history - l'historique par canal.

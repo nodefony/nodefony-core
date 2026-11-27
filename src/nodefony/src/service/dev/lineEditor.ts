@@ -119,6 +119,17 @@ function isSpace(unit: PromptUnit | undefined): boolean {
 }
 
 /**
+ * Les cellules qu'occupe une unité posée après `used` cellules de sa ligne —
+ * UNE règle, lue par la mise en page et par la relecture d'une cellule.
+ */
+function cellsOf(unit: PromptUnit, used: number): number {
+  if (typeof unit !== "string") return unit.width;
+  if (unit === "\n") return 0;
+  if (unit === "\t") return TAB_STOP - (used % TAB_STOP);
+  return graphemeWidth(unit);
+}
+
+/**
  * Ce qui entre dans le tampon (D1) : fins de ligne unifiées en `\n`,
  * tabulations gardées, séquences de contrôle et caractères C0 retirés —
  * aucun Échap n'entre dans le tampon, donc aucun ne ressort à l'écran.
@@ -227,6 +238,14 @@ export class LineEditor {
     draft: PromptUnit[];
   } | null = null;
   #rendered: IRenderCache | null = null;
+  /**
+   * La mise en page du dernier rendu, pour qu'une cellule de l'écran se
+   * relise en unité (sélection à la souris) : l'unité qui ouvre chaque
+   * ligne, la première ligne de la fenêtre, la largeur du signe.
+   */
+  #rowFirsts: number[] = [0];
+  #windowStart = 0;
+  #sigilWidth = 0;
 
   /** Le tampon est vide. */
   get empty(): boolean {
@@ -234,6 +253,11 @@ export class LineEditor {
   }
 
   /** La position du curseur, en unités. */
+  /** Le nombre d'unités du tampon (graphèmes et pièces jointes). */
+  get length(): number {
+    return this.#units.length;
+  }
+
   get cursor(): number {
     return this.#cursor;
   }
@@ -696,6 +720,75 @@ export class LineEditor {
     return prompt;
   }
 
+  /**
+   * L'unité sous une cellule du dernier rendu ({@link LineEditor.render}) —
+   * la sélection à la souris. Sur le signe : la première unité de la ligne ;
+   * au-delà de la fin d'une ligne : la position qui la termine.
+   *
+   * @param row - la ligne, comptée dans les lignes rendues (0 = la première).
+   * @param column - la colonne, signe compris (0 = la première).
+   * @returns l'indice d'unité, entre 0 et la longueur du tampon.
+   */
+  indexAt(row: number, column: number): number {
+    const firsts = this.#rowFirsts;
+    const units = this.#units;
+    const line = this.#windowStart + Math.max(0, row);
+    const first = firsts[line];
+    if (first === undefined) return units.length;
+    const end = firsts[line + 1] ?? units.length;
+    const target = column - this.#sigilWidth;
+    let used = 0;
+    for (let index = first; index < end; index++) {
+      const unit = units[index];
+      if (unit === undefined || unit === "\n") return index;
+      const cells = cellsOf(unit, used);
+      if (target < used + cells) return index;
+      used += cells;
+    }
+    return end;
+  }
+
+  /**
+   * La cellule d'une unité dans le dernier rendu — l'inverse de
+   * {@link LineEditor.indexAt}. La ligne peut tomber hors de la fenêtre.
+   *
+   * @param index - l'indice d'unité.
+   * @returns la ligne (rendue) et la colonne, signe compris.
+   */
+  positionOf(index: number): { row: number; column: number } {
+    const firsts = this.#rowFirsts;
+    let line = 0;
+    while (line + 1 < firsts.length && (firsts[line + 1] ?? 0) <= index) line++;
+    const units = this.#units;
+    let used = 0;
+    for (let at = firsts[line] ?? 0; at < index; at++) {
+      const unit = units[at];
+      if (unit === undefined) break;
+      used += cellsOf(unit, used);
+    }
+    return { row: line - this.#windowStart, column: this.#sigilWidth + used };
+  }
+
+  /**
+   * Le texte d'une tranche d'unités — une pièce jointe par son contenu
+   * entier, pas son étiquette : c'est ce qu'on copie.
+   *
+   * @param from - premier indice, inclus.
+   * @param to - dernier indice, exclu.
+   * @returns le texte.
+   */
+  textOf(from: number, to: number): string {
+    let text = "";
+    const units = this.#units;
+    const end = Math.min(to, units.length);
+    for (let index = Math.max(0, from); index < end; index++) {
+      const unit = units[index];
+      if (unit !== undefined)
+        text += typeof unit === "string" ? unit : unit.text;
+    }
+    return text;
+  }
+
   #layout(
     width: number,
     options: IPromptRenderOptions,
@@ -707,11 +800,13 @@ export class LineEditor {
     // Trop étroit pour le signe et une colonne : une colonne de saisie quand même.
     const room = Math.max(1, width - sigilWidth);
     const rows: string[] = [""];
+    const firsts: number[] = [0];
     let used = 0;
     let cursorRow = 0;
     let cursorColumn = 0;
-    const newRow = (): void => {
+    const newRow = (first: number): void => {
       rows.push("");
+      firsts.push(first);
       used = 0;
     };
     const units = this.#units;
@@ -742,32 +837,26 @@ export class LineEditor {
           // colonne libre et `renderFrame` borne le curseur.
           cursorColumn = used;
         }
-        newRow();
+        newRow(index + 1);
         index++;
         continue;
       }
-      let text: string;
-      let cells: number;
-      if (typeof unit !== "string") {
-        text = color ? `${ATTACHMENT_COLOR}${unit.label}${RESET}` : unit.label;
-        cells = unit.width;
-      } else if (unit === "\t") {
-        cells = TAB_STOP - (used % TAB_STOP);
-        text = " ".repeat(cells);
-      } else {
-        text = unit;
-        cells = graphemeWidth(unit);
-      }
+      let cells = cellsOf(unit, used);
       // Un seul point de repli : l'unité qui ne tient plus passe à la ligne,
-      // et le curseur posé sur elle la suit.
+      // et le curseur posé sur elle la suit — une tabulation repliée repart
+      // d'un taquet plein.
       if (used + cells > room && used > 0) {
-        newRow();
-        // Une tabulation repliée repart d'un taquet plein.
-        if (unit === "\t") {
-          cells = TAB_STOP;
-          text = " ".repeat(cells);
-        }
+        newRow(index);
+        cells = cellsOf(unit, used);
       }
+      const text =
+        typeof unit !== "string"
+          ? color
+            ? `${ATTACHMENT_COLOR}${unit.label}${RESET}`
+            : unit.label
+          : unit === "\t"
+            ? " ".repeat(cells)
+            : unit;
       if (index === cursor) {
         cursorRow = rows.length - 1;
         cursorColumn = used;
@@ -777,7 +866,7 @@ export class LineEditor {
       index++;
     }
     if (units.length > 0 && cursor === units.length) {
-      if (used >= room) newRow();
+      if (used >= room) newRow(units.length);
       cursorRow = rows.length - 1;
       cursorColumn = used;
       if (suggestion !== "") {
@@ -799,6 +888,9 @@ export class LineEditor {
       Math.min(cursorRow - PROMPT_MAX_ROWS + 1, rows.length - PROMPT_MAX_ROWS),
     );
     const end = Math.min(rows.length, start + PROMPT_MAX_ROWS);
+    this.#rowFirsts = firsts;
+    this.#windowStart = start;
+    this.#sigilWidth = sigilWidth;
     const head = color ? `\x1b[1m\x1b[35m${sigil}${RESET}` : sigil;
     const indent = " ".repeat(sigilWidth);
     // Des lignes au-dessus de la fenêtre : la première visible le dit.

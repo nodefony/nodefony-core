@@ -134,6 +134,34 @@ describe("askSecretTwice", () => {
     message: "Mot de passe",
   };
 
+  it("`validate` juge la PREMIÈRE saisie : refusée, reposée avec la règle, avant la confirmation", async () => {
+    const { keyboard, screen, io } = host();
+    const judged: string[] = [];
+    const pending = askSecretTwice(
+      password,
+      "Confirmation",
+      { terminal: true, ...io },
+      async (secret) => {
+        judged.push(secret);
+        return secret.length < 4
+          ? "trop court — 4 caractères au minimum"
+          : null;
+      },
+    );
+    await whenAsking(keyboard);
+    keyboard.press("abc", "\r");
+    await whenAsking(keyboard);
+    const lines = (await readScreen(screen)).lines;
+    expect(lines.some((l) => l.startsWith("  → trop court"))).toBe(true);
+    // Toujours la PREMIÈRE question : la confirmation n'a pas été posée.
+    expect(lines.join("\n")).not.toContain("Confirmation");
+    keyboard.press("abcd", "\r");
+    await whenAsking(keyboard);
+    keyboard.press("abcd", "\r");
+    expect(await pending).toBe("abcd");
+    expect(judged).toEqual(["abc", "abcd"]);
+  });
+
   it("redemande tant que les deux saisies diffèrent", async () => {
     const { keyboard, screen, io } = host();
     const pending = askSecretTwice(password, "Confirmation", {

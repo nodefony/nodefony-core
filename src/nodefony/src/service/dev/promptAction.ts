@@ -3,6 +3,7 @@
  * superviseur, les commandes du CLI et l'assistant (ADR-0013 §7, #538).
  * Figé par l'ADR : il ne bouge pas d'un lot à l'autre, chacun l'implémente.
  */
+import type { IQuestion, IQuestionOutcome } from "../../cli/question";
 import { redactSecrets } from "../../runtime/redact";
 import {
   computeCompletions,
@@ -37,6 +38,12 @@ export interface IPromptIO {
   /** Vers l'historique, au fil de l'eau (jeton par jeton). */
   write(text: string, stream?: "out" | "err"): void;
   confirm(request: IConfirmRequest): Promise<IConfirmDecision>;
+  /**
+   * Pose une question dans l'onglet de l'action — celle d'une commande lancée
+   * depuis l'invite, que le canal IPC remonte. `signal` la retire de l'écran
+   * (commande finie ou interrompue) : l'issue est alors `cancel`.
+   */
+  ask(question: IQuestion, signal: AbortSignal): Promise<IQuestionOutcome>;
   /** Une commande interactive prend le terminal, puis le rend. */
   suspend<T>(task: () => Promise<T>): Promise<T>;
   readonly columns: number;

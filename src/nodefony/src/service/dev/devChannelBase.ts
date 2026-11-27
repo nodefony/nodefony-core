@@ -22,6 +22,17 @@ export const DEV_CHANNEL = "nf-dev";
 export const DEV_CHILD_ENV = "NF_DEV_CHILD";
 
 /**
+ * Variable d'environnement qui marque une commande lancée depuis l'INVITE du
+ * terminal de développement (#538, lot 2b-2) : `promptLaunch.ts` y pose le
+ * pid du superviseur, la porte des questions (`cli/ask.ts`) relaie une
+ * question par le canal IPC, faute de terminal, si ce pid est celui de son
+ * PARENT — un petit-enfant qui en hérite ne relaie rien. Distincte de
+ * {@link DEV_CHILD_ENV} : celle-là fait croire au processus qu'il EST le
+ * serveur supervisé.
+ */
+export const DEV_PROMPT_ENV = "NF_DEV_PROMPT";
+
+/**
  * Superviseur → serveur : le terminal a changé de taille. Le serveur écrit
  * dans un tube et ne reçoit pas `SIGWINCH` : la porte (`terminalSize`, dans
  * `runtime/isTerminal.ts`) prend ces dimensions pour les siennes.

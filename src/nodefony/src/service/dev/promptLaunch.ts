@@ -3,12 +3,22 @@
  * en sous-processus (ADR-0013 §7, #538 lot 2a) : sortie en tubes vers son
  * onglet, code de sortie rendu, arbre ENTIER tué à l'interruption.
  *
- * L'entrée standard est fermée (`ignore`) : une commande qui voudrait poser
- * une question le constate et refuse en nommant la ligne à taper — elle ne
- * pend jamais. Les questions dessinées dans l'onglet viennent au lot 2b.
+ * L'entrée standard est fermée (`ignore`) : la commande n'a pas de terminal.
+ * Ses questions remontent par un canal IPC (4ᵉ descripteur) et
+ * {@link DEV_PROMPT_ENV} : la porte `ask()` de l'enfant les envoie, l'onglet
+ * les dessine (`io.ask`), la réponse redescend (#538, lot 2b-2). Le canal ne
+ * garde pas l'enfant en vie : il sort dès son travail fini.
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import os from "node:os";
+import type { QuestionValue } from "../../cli/question";
+import {
+  DEV_CHANNEL,
+  DEV_PROMPT_ENV,
+  type IDevAnswer,
+  isDevChannelMessage,
+} from "./devChannel";
+import { IGNORE_SEND_ERROR } from "./heldChannel";
 import {
   onProcessEnded,
   signalProcessGroup,
@@ -45,8 +55,12 @@ export const PROMPT_NOT_STARTED_CODE = 127;
  * puis `SIGKILL` passé {@link PROMPT_KILL_GRACE_MS}. Sous Windows, il n'y a
  * pas de groupe : l'arbre est tué net (`taskkill /T /F`), sans arrêt propre.
  *
+ * Une question de la commande est confiée à `io.ask` ; sa réponse — ou `null`
+ * si elle est annulée — redescend sous le même identifiant. Commande finie ou
+ * interrompue : les questions encore à l'écran sont retirées.
+ *
  * @param launch - programme, arguments, répertoire, environnement.
- * @param io - où va la sortie (`write`).
+ * @param io - où va la sortie (`write`), qui pose les questions (`ask`).
  * @param signal - l'interruption de l'invite.
  * @param killTree - tue un arbre ; injecté pour l'éprouver.
  * @returns le code de sortie ; {@link PROMPT_INTERRUPTED_CODE} si
@@ -55,7 +69,7 @@ export const PROMPT_NOT_STARTED_CODE = 127;
  */
 export function launchPromptCommand(
   launch: IPromptLaunch,
-  io: Pick<IPromptIO, "write">,
+  io: Pick<IPromptIO, "write" | "ask">,
   signal: AbortSignal,
   killTree: (
     pid: number,
@@ -68,8 +82,11 @@ export function launchPromptCommand(
     try {
       child = spawn(launch.file, launch.args, {
         cwd: launch.cwd,
-        env: launch.env,
-        stdio: ["ignore", "pipe", "pipe"],
+        // Le pid du superviseur, pas `1` : un petit-enfant hérite de la
+        // variable, et son propre canal IPC (un `fork`) ne mène pas ici.
+        env: { ...launch.env, [DEV_PROMPT_ENV]: String(process.pid) },
+        // 4ᵉ descripteur : le canal des questions. Tubes nommés sous Windows.
+        stdio: ["ignore", "pipe", "pipe", "ipc"],
         // POSIX : leader de groupe, pour que `kill(-pid)` emporte les
         // petits-enfants. Windows : rattaché — `taskkill /T` suit la filiation.
         detached: spawnsAsGroupLeader(),
@@ -83,15 +100,52 @@ export function launchPromptCommand(
     let interrupted = false;
     let force: ReturnType<typeof setTimeout> | null = null;
     let settled = false;
+    // Alloué à la première question seulement : la plupart n'en posent pas.
+    let asking: AbortController | null = null;
     const settle = (code: number): void => {
       if (settled) return;
       settled = true;
       signal.removeEventListener("abort", onAbort);
+      child.removeListener("message", onMessage);
+      asking?.abort();
       if (force !== null) clearTimeout(force);
       resolve(code);
     };
+    function answer(id: number, value: QuestionValue | null): void {
+      if (!child.connected) return;
+      const message: IDevAnswer = {
+        channel: DEV_CHANNEL,
+        type: "answer",
+        id,
+        value,
+      };
+      try {
+        // Rappel posé : l'enfant mort entre-temps le reçoit, au lieu d'un
+        // `'error'` émis sur lui, fatal sans écouteur.
+        child.send(message, IGNORE_SEND_ERROR);
+      } catch {
+        // Canal en cours de fermeture : la commande s'arrête.
+      }
+    }
+    function onMessage(message: unknown): void {
+      if (!isDevChannelMessage(message) || message.type !== "question") return;
+      const { id, question } = message;
+      asking ??= new AbortController();
+      io.ask(question, asking.signal).then(
+        (outcome) =>
+          answer(
+            id,
+            outcome.action === "accept" && outcome.value !== undefined
+              ? outcome.value
+              : null,
+          ),
+        () => answer(id, null),
+      );
+    }
+    child.on("message", onMessage);
     function onAbort(): void {
       interrupted = true;
+      asking?.abort();
       const pid = child.pid;
       if (pid === undefined) return;
       killTree(pid, "SIGTERM");

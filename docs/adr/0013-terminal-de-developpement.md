@@ -491,6 +491,7 @@ interface IPromptIO {
   write(text: string, stream?: "out" | "err"): void; // vers l'historique, au fil de l'eau (jeton par jeton)
   confirm(request: IConfirmRequest): Promise<IConfirmDecision>;
   suspend<T>(task: () => Promise<T>): Promise<T>; // une commande interactive prend le terminal
+  ask(question: IQuestion, signal: AbortSignal): Promise<IQuestionOutcome>; // la question d'une commande, dans son onglet
   readonly columns: number;
 }
 interface IConfirmRequest {
@@ -549,8 +550,18 @@ render? }`, calqué sur le résultat de `inspect`) : ni sortie standard, ni `ter
 - **Le cycle de vie n'est jamais lancé depuis l'invite** (`development`, `stop`, `production`…) :
   il tuerait le superviseur ou son serveur. Le refus nomme le verbe équivalent ; la liste dérive
   de la déclaration des commandes, jamais d'une liste écrite à la main.
-- **`confirm` et la complétion s'affichent en bande** (§11), pas par une bibliothèque d'invite
+- **La complétion s'affiche en bande** (§11), pas par une bibliothèque d'invite
   qui prendrait l'entrée et la sortie standard.
+- **Une question prend la place de la ligne d'édition de son onglet** (lot 2b-2) — celle d'une
+  commande en sous-processus comme `confirm`. La commande n'a pas de terminal : sa porte `ask()`
+  envoie la question par un canal IPC propre au lancement (4ᵉ descripteur, `NF_DEV_PROMPT` = pid du superviseur, comparé au parent,
+  messages `question`/`answer` du canal `nf-dev`) ; le superviseur la fait tourner par le moteur
+  unique (`src/nodefony/src/cli/question.ts#handleQuestion`) et ne rend que la réponse, que la
+  commande REVALIDE (`src/nodefony/src/cli/question.ts#checkAnswer`). Onglet quitté : la question
+  attend, l'onglet porte un `?`. Échap ou Ctrl+C l'annulent, la commande sort en 130. Un secret ne
+  s'écrit ni à l'écran (`•`), ni au journal, ni dans l'historique de l'invite. Ce qui arrive du
+  canal est relu avant d'être dessiné (`src/nodefony/src/cli/questionWire.ts#isWireQuestion` :
+  bornes, aucun caractère de contrôle, motif compilable).
 
 ### 8. L'assistant : un client de l'application, jamais un passe-droit
 

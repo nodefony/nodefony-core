@@ -273,13 +273,14 @@ const region = await this.ask(
 );
 ```
 
-| Situation                        | Résultat                                            |
-| -------------------------------- | --------------------------------------------------- |
-| réponse fournie et valide        | rendue telle quelle, terminal ou non                |
-| réponse fournie et refusée       | reposée devant un terminal, son refus affiché       |
-| aucun terminal, `fallback` donné | le repli (une question facultative)                 |
-| aucun terminal, pas de repli     | sortie **1** : `… : passe --region <valeur>` + aide |
-| Ctrl+C, Échap, fin de flux       | sortie **130**, résumé « ✗ … (annulé) », sans pile  |
+| Situation                                        | Résultat                                                  |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| réponse fournie et valide                        | rendue telle quelle, terminal ou non                      |
+| réponse fournie et refusée                       | reposée devant un terminal, son refus affiché             |
+| lancée depuis l'invite de `nodefony development` | posée dans l'onglet de la commande, réponse revalidée ici |
+| aucun terminal, `fallback` donné                 | le repli (une question facultative)                       |
+| aucun terminal, pas de repli                     | sortie **1** : `… : passe --region <valeur>` + aide       |
+| Ctrl+C, Échap, fin de flux                       | sortie **130**, résumé « ✗ … (annulé) », sans pile        |
 
 Un secret neuf se saisit deux fois : `askSecretTwice(question, "Confirme…",
 { answer: opts.password })`. Hors d'une commande : `ask()` et `canAsk()`

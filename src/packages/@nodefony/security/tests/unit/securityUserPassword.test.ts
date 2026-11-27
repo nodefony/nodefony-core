@@ -1,5 +1,23 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import SecurityUserPassword from "../../nodefony/command/security-user-password";
+
+/** Le juge que la commande confie à `askSecretTwice` — relevé pour l'éprouver. */
+const judges: ((secret: string) => unknown)[] = [];
+
+// La porte des questions exige un terminal : on la remplace par une qui rend
+// la réponse fournie, et relève le juge passé en 4ᵉ argument.
+vi.mock("nodefony", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("nodefony")>()),
+  askSecretTwice: async (
+    _question: unknown,
+    _confirm: string,
+    options: { answer?: string },
+    validate?: (secret: string) => unknown,
+  ): Promise<string> => {
+    if (validate !== undefined) judges.push(validate);
+    return options.answer ?? "";
+  },
+}));
 
 /**
  * Ce que cette suite garde : changer un mot de passe COUPE les accès en cours.
@@ -36,6 +54,11 @@ const makeCommand = (
 ): SecurityUserPassword => {
   const users = {
     findByIdentifier: async (): Promise<typeof spy.found> => spy.found,
+    passwordViolation: async (
+      plain: string,
+      identifier?: string,
+    ): Promise<string | null> =>
+      plain.length < 8 ? `trop court pour ${identifier ?? "?"}` : null,
     changePassword: async (
       id: string,
       plain: string,
@@ -100,6 +123,21 @@ describe("security:user:password — changer le mot de passe coupe les accès", 
     });
     expect(spy.changePassword).toHaveLength(1);
     expect(fired).toHaveLength(0);
+  });
+
+  it("la saisie est jugée SUR PLACE par la politique de l'annuaire, pour CE compte", async () => {
+    judges.length = 0;
+    const spy: IUsersSpy = {
+      changePassword: [],
+      found: { id: "u-42", identifier: "bob" },
+    };
+    await makeCommand(spy, [], []).generate("bob", {
+      password: "un-mot-de-passe-long",
+    });
+    const judge = judges[0];
+    expect(judge).toBeTypeOf("function");
+    expect(await judge?.("abc")).toBe("trop court pour bob");
+    expect(await judge?.("un-mot-de-passe-long")).toBe(null);
   });
 
   it("compte inconnu : rien n'est changé, rien n'est révoqué", async () => {

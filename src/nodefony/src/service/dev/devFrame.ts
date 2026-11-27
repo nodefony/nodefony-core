@@ -106,6 +106,16 @@ export interface IFrameTab {
   /** Son travail est fini : ✓ ou ✗ devant le titre, jusqu'à sa fermeture. */
   readonly outcome?: ViewOutcome | null;
   /**
+   * Son travail tourne : l'image courante du tourniquet, à la place de ✓/✗ —
+   * un onglet muet pendant le démarrage d'une commande ressemblait à un figé.
+   */
+  readonly busy?: string;
+  /**
+   * Une question y attend sa réponse : un `?` jaune, à la place du tourniquet
+   * — l'onglet quitté pendant qu'on lui demandait quelque chose ne s'oublie pas.
+   */
+  readonly asking?: boolean;
+  /**
    * Ouvert à la volée (une commande, un panneau), pas un onglet fixe
    * (serveur, Vite) : une ┃ marque la frontière des deux groupes.
    */
@@ -244,6 +254,11 @@ export interface IFrame {
   readonly tabs?: { readonly row: number; readonly spans: readonly ITabSpan[] };
   /** La bande à l'écran : sa première ligne et sa hauteur — ce qu'un clic teste. */
   readonly band?: { readonly row: number; readonly height: number };
+  /**
+   * La ligne de l'écran (depuis 0) qui porte la première ligne SAISIE de
+   * l'invite, sous son filet — `-1` sans invite. Ce qu'un glisser y relit.
+   */
+  readonly promptRow?: number;
   /**
    * Les lignes du journal à l'écran, depuis le haut : la région que le
    * terminal peut faire défiler ({@link diffFrameScrolled}).
@@ -496,7 +511,7 @@ function tabsLine(
     // Trait ou blanc, état, numéro, blanc, titre, compteur, blanc, barre.
     widths[i] =
       1 +
-      (tab?.outcome ? 2 : 0) +
+      (tab?.outcome || tab?.asking || tab?.busy ? 2 : 0) +
       String(i + 1).length +
       1 +
       visibleWidth(label) +
@@ -569,7 +584,11 @@ function tabsLine(
           ? ascii
             ? "x "
             : "✗ "
-          : "";
+          : tab?.asking
+            ? "? "
+            : tab?.busy
+              ? `${tab.busy} `
+              : "";
     if (!model.color) {
       const body = `${glyph}${i + 1} ${label}${counter}`;
       text += active ? `[${body}]` : ` ${body} `;
@@ -577,7 +596,7 @@ function tabsLine(
       const state =
         glyph === ""
           ? ""
-          : `\x1b[${outcome === "ok" ? "32" : "31"}m${glyph}\x1b[39m`;
+          : `\x1b[${outcome === "ok" ? "32" : outcome === "failed" ? "31" : tab?.asking ? "33" : "36"}m${glyph}\x1b[39m`;
       if (active) {
         const own = palette === null ? "" : `\x1b[${palette.active}m`;
         text += `${own}\x1b[34m${ascii ? "|" : "▎"}\x1b[39m${state}${faint(String(i + 1))} \x1b[1m${label}\x1b[22m ${bar}`;
@@ -1351,6 +1370,11 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
       cursor = { row, column: Math.min(prompt.cursor.column, width) };
     }
   }
+  // La première ligne de l'invite APRÈS son filet : ce qu'un clic y relit.
+  const promptRow =
+    prompt !== null && promptLines.length > 0
+      ? promptStart + (prompt.ruled === true ? 1 : 0)
+      : -1;
   const tabRow =
     journal.lines.length + indicator.length + gapLines.length - cut;
   const bandRow = tabRow + tabLines.length;
@@ -1358,13 +1382,14 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
   const hasBand = bandLines.length > 0 && bandRow >= 0;
   // Un littéral par cas : une forme fixe chacun, et le cas courant (ni
   // onglets ni bande) n'alloue rien de plus que l'image.
-  if (!hasTabs && !hasBand) return { lines, cursor, origins, journalRows };
+  if (!hasTabs && !hasBand)
+    return { lines, cursor, origins, journalRows, promptRow };
   const band = { row: bandRow, height: bandLines.length };
-  if (!hasTabs) return { lines, cursor, origins, journalRows, band };
+  if (!hasTabs) return { lines, cursor, origins, journalRows, promptRow, band };
   const tabs = { row: tabRow, spans: tabSpans };
   return hasBand
-    ? { lines, cursor, origins, journalRows, tabs, band }
-    : { lines, cursor, origins, journalRows, tabs };
+    ? { lines, cursor, origins, journalRows, promptRow, tabs, band }
+    : { lines, cursor, origins, journalRows, promptRow, tabs };
 }
 
 /**

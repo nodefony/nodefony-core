@@ -847,3 +847,35 @@ describe("UserService — rôles changés : l'identité figée des connexions lo
     assert.deepEqual(changed, []);
   });
 });
+
+describe("UserService.passwordViolation — juger AVANT d'écrire (#538)", () => {
+  it("rend la règle que createUser appliquerait, sans rien écrire ; null si accepté", async () => {
+    const service = new UserService(new MemoryUserRepo(), new BcryptEncoder(4));
+    assert.match(
+      (await service.passwordViolation("abc", "compta")) ?? "",
+      /trop court/u,
+    );
+    assert.equal(
+      await service.passwordViolation("compta-2026-x", "compta"),
+      "contient l'identifiant du compte",
+    );
+    assert.equal(await service.passwordViolation("s3cret-unique-Vx9"), null);
+    // Le même verdict que l'écriture : refusé ici ⇔ refusé à createUser.
+    await assert.rejects(
+      service.createUser({ identifier: "compta", plainPassword: "abc" }),
+      WeakPasswordError,
+    );
+  });
+
+  it("une politique qui refuse sans nommer la règle : un refus générique, jamais null", async () => {
+    const service = new UserService(new MemoryUserRepo(), new BcryptEncoder(4));
+    service.passwordBlocklist = { isBlocked: async (plain) => plain === "x" };
+    assert.equal(
+      await service.passwordViolation("x"),
+      "refusé par la politique de l'application",
+    );
+    assert.equal(await service.passwordViolation("y"), null);
+    service.passwordBlocklist = null;
+    assert.equal(await service.passwordViolation("abc"), null);
+  });
+});

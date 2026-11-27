@@ -23,6 +23,8 @@
  */
 import type { ChildProcess } from "node:child_process";
 import { isAbsolute } from "node:path";
+import type { IQuestion, QuestionValue } from "../../cli/question";
+import { isWireAnswer, isWireQuestion } from "../../cli/questionWire";
 import type { IStartupView, IStatusContext } from "./startupScreen";
 import {
   IGNORE_SEND_ERROR,
@@ -38,6 +40,7 @@ import {
 import {
   DEV_CHANNEL,
   DEV_CHILD_ENV,
+  DEV_PROMPT_ENV,
   isDevResize,
   isTerminalDimension,
   type IDevResize,
@@ -46,6 +49,7 @@ import {
 export {
   DEV_CHANNEL,
   DEV_CHILD_ENV,
+  DEV_PROMPT_ENV,
   isTerminalDimension,
   type IDevResize,
   type IHeldServiceDeclaration,
@@ -147,6 +151,31 @@ export interface IDevHeldOwners {
   owners: readonly string[];
 }
 
+/**
+ * Commande de l'invite → superviseur (#538, lot 2b-2) : une question à poser
+ * à sa place, faute de terminal. Le superviseur la dessine dans l'onglet de la
+ * commande et rend {@link IDevAnswer} sous le même `id`.
+ */
+export interface IDevQuestion {
+  channel: typeof DEV_CHANNEL;
+  type: "question";
+  /** Entier croissant choisi par la commande ; repris par la réponse. */
+  id: number;
+  question: IQuestion;
+}
+
+/**
+ * Superviseur → commande de l'invite : la réponse à la question `id`, ou
+ * `null` si la personne l'a annulée (Échap, Ctrl+C, onglet fermé). La
+ * commande la REVALIDE (`checkAnswer`) : le superviseur n'est pas juge.
+ */
+export interface IDevAnswer {
+  channel: typeof DEV_CHANNEL;
+  type: "answer";
+  id: number;
+  value: QuestionValue | null;
+}
+
 /** Tout ce qui peut transiter sur le canal. */
 export type DevChannelMessage =
   | IDevStatusView
@@ -156,7 +185,9 @@ export type DevChannelMessage =
   | IDevHeldPlan
   | IDevHeldPlanAck
   | IDevHeldState
-  | IDevHeldOwners;
+  | IDevHeldOwners
+  | IDevQuestion
+  | IDevAnswer;
 
 /** Au-delà, un plan n'est plus une déclaration mais un déversement. */
 export const MAX_HELD_SERVICES = 32;
@@ -223,7 +254,7 @@ function isHeldIdentifier(value: unknown, max: number): value is string {
 }
 
 /**
- * Un entier positif sûr (identifiant de plan).
+ * Un entier positif sûr (identifiant de plan ou de question).
  *
  * @param value - la valeur reçue.
  * @returns `true` si exploitable.
@@ -410,6 +441,8 @@ const KNOWN_TYPES: ReadonlySet<string> = new Set<DevChannelMessage["type"]>([
   "held-plan-ack",
   "held-state",
   "held-owners",
+  "question",
+  "answer",
 ]);
 
 /**
@@ -436,6 +469,12 @@ export function isDevChannelMessage(
   if (m.type === "resize") return isDevResize(message);
   if (m.type === "boot-step") return isBootStep(message);
   if (m.type === "runtime") return isRuntime(message);
+  if (m.type === "question" || m.type === "answer") {
+    if (!isJsonObject(message) || !isPlanId(message.id)) return false;
+    return m.type === "question"
+      ? isWireQuestion(message.question)
+      : message.value === null || isWireAnswer(message.value);
+  }
   if (m.type.startsWith("held-")) {
     if (!isJsonObject(message)) return false;
     if (m.type === "held-plan") return isHeldPlan(message);

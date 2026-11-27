@@ -21,6 +21,7 @@ function io(): IPromptIO & { out: string[] } {
     write: (text, stream = "out") => out.push(`${stream}:${text}`),
     confirm: () => Promise.reject(new Error("non")),
     suspend: () => Promise.reject(new Error("non")),
+    ask: () => Promise.resolve({ action: "cancel" }),
     columns: 80,
   };
 }

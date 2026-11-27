@@ -161,7 +161,9 @@ class SecurityUserAdd extends Command {
       return this;
     }
     // Sans terminal ni `--password`, la porte refuse en nommant le drapeau ;
-    // deux saisies qui diffèrent sont redemandées, jamais abandonnées.
+    // deux saisies qui diffèrent sont redemandées, jamais abandonnées. La
+    // politique juge la saisie SUR PLACE — sinon le refus tombait après les
+    // rôles, et la commande s'arrêtait au lieu de redemander.
     const password = await askSecretTwice(
       {
         kind: "secret",
@@ -171,6 +173,7 @@ class SecurityUserAdd extends Command {
       },
       "Confirme le mot de passe",
       { answer: opts.password },
+      (secret) => users.passwordViolation(secret, identifier),
     );
     let roles: string[];
     if (opts.admin) {
