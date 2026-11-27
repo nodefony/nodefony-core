@@ -11632,6 +11632,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // 3. Un argument indispensable se DEMANDE : déclaré `<requis>`, commander
       //    refuse la commande avant qu'elle existe — y compris choisie au menu.
       assert.include(src, "askArgument");
+      //    … et son refus passe par la porte qui montre l'aide de la commande.
+      assert.include(src, "this.refuseMissingArgument(e);");
 
       // 4. ENCHAÎNER une autre commande : trois choses ne suivent pas d'un
       //    process à l'autre, et elles ont été écrites deux fois à la main
