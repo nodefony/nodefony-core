@@ -172,6 +172,18 @@ describe("plein écran — l'invite (#538)", () => {
     terminal.close();
   });
 
+  it("l'écho d'une saisie ne montre pas en clair un secret passé en drapeau", async () => {
+    const { written, input, terminal } = prompted();
+    input.type("/nope --password hunter2" + ENTER);
+    await nextFrame();
+    const lines = await screen(written);
+    expect(lines.some((line) => line === "❯ /nope --password ***")).to.equal(
+      true,
+    );
+    expect(lines.some((line) => line.includes("hunter2"))).to.equal(false);
+    terminal.close();
+  });
+
   it("une saisie inconnue le dit, sans rien lancer ; un verbe sans `/` n'est pas le verbe", async () => {
     const { written, input, terminal, verbs } = prompted();
     input.type("/frobnicate now" + ENTER);

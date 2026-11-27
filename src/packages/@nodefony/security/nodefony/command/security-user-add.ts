@@ -3,7 +3,7 @@ import {
   OptionsCommandInterface,
   CliKernel,
   Command,
-  askPasswordMasked,
+  askSecretTwice,
   AUTH_LOGIN_PATH,
 } from "nodefony";
 import { WeakPasswordError } from "@nodefony/user";
@@ -160,33 +160,18 @@ class SecurityUserAdd extends Command {
       process.exitCode = 1;
       return this;
     }
-    let password = opts.password;
-    if (!password) {
-      if (!process.stdin.isTTY) {
-        this.log(
-          "mot de passe requis : --password <pwd> (pas de prompt hors terminal).",
-          "ERROR",
-        );
-        process.exitCode = 1;
-        return this;
-      }
-      password = await askPasswordMasked(
-        `${BOLD}Mot de passe de « ${identifier} »${RESET} ${DIM}(frappe masquée)${RESET} : `,
-      );
-      const confirmed = await askPasswordMasked(
-        `${BOLD}Confirme le mot de passe${RESET} : `,
-      );
-      if (password !== confirmed) {
-        this.log("les deux saisies diffèrent — rien n'a été créé.", "ERROR");
-        process.exitCode = 1;
-        return this;
-      }
-    }
-    if (!password) {
-      this.log("mot de passe vide — rien n'a été créé.", "ERROR");
-      process.exitCode = 1;
-      return this;
-    }
+    // Sans terminal ni `--password`, la porte refuse en nommant le drapeau ;
+    // deux saisies qui diffèrent sont redemandées, jamais abandonnées.
+    const password = await askSecretTwice(
+      {
+        kind: "secret",
+        key: "password",
+        message: `Mot de passe de « ${identifier} »`,
+        required: true,
+      },
+      "Confirme le mot de passe",
+      { answer: opts.password },
+    );
     let roles: string[];
     if (opts.admin) {
       roles = ADMIN_ROLES;
@@ -195,23 +180,27 @@ class SecurityUserAdd extends Command {
         .split(",")
         .map((r) => r.trim())
         .filter(Boolean);
-    } else if (process.stdin.isTTY) {
+    } else {
       // 🔴 En terminal, on PROPOSE au lieu d'imposer le défaut en silence.
       // Vécu : « je n'ai jamais pu gérer le rôle » — l'option `--roles` existait
       // depuis toujours, et rien ne la faisait connaître à qui n'avait pas lu
       // `--help`. Un compte créé sans rôle utile est un compte à refaire.
-      await this.loadPrompts();
-      const chosen = await this.prompts.checkbox({
-        message: `Rôles de « ${identifier} » :`,
-        choices: this.#knownRoles().map((r) => ({
-          name: r,
-          value: r,
-          checked: r === ROLE_BASE,
-        })),
-      });
+      // Sans terminal, le rôle de base : un script qui crée un compte sans
+      // `--roles` ne doit pas casser.
+      const chosen = await this.ask(
+        {
+          kind: "checkbox",
+          key: "roles",
+          message: `Rôles de « ${identifier} »`,
+          choices: this.#knownRoles().map((r) => ({
+            value: r,
+            label: r,
+            checked: r === ROLE_BASE,
+          })),
+        },
+        { fallback: [ROLE_BASE] },
+      );
       roles = chosen.length > 0 ? chosen : [ROLE_BASE];
-    } else {
-      roles = [ROLE_BASE];
     }
     let user;
     try {

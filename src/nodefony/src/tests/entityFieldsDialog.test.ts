@@ -19,6 +19,12 @@ import {
   type TAskQuestion,
 } from "../cli/scaffold/entityFieldsDialog";
 import { askMissing } from "../cli/scaffold/interactive";
+import {
+  answerEachQuestion,
+  FakeKeyboard,
+  FakeScreen,
+  pick,
+} from "./questionTerminal";
 import { getScaffoldSpec } from "../cli/scaffold/spec";
 
 /** La forme minimale d'un type que l'analyseur accepte. */
@@ -175,7 +181,7 @@ describe("composeEntityFields — un champ à la fois", () => {
 });
 
 describe("askMissing — la question `fields` passe par le compositeur", () => {
-  it("dialogue readline réel : la grammaire n'est jamais demandée", async () => {
+  it("dialogue réel (moteur de question, par octets) : la grammaire n'est jamais demandée", async () => {
     const [spec] = getScaffoldSpec("entity");
     // Toutes les autres questions sont déjà répondues : seule `fields` se pose.
     const partial = Object.fromEntries(
@@ -183,19 +189,19 @@ describe("askMissing — la question `fields` passe par le compositeur", () => {
         .filter((q) => q.key !== "fields")
         .map((q) => [q.key, q.key === "name" ? "Post" : q.default]),
     );
-    const input = new PassThrough();
-    const output = new PassThrough();
-    let written = "";
-    // nom · type (1 = string) · longueur (vide) · facultatif (o) · contrainte
-    // (1 = aucune) · défaut (vide) · nom vide = terminer
-    const queue = ["titre", "1", "", "o", "1", "", ""];
-    output.on("data", (chunk: Buffer) => {
-      const text = chunk.toString();
-      written += text;
-      if (/[:\]] $/u.test(text) && queue.length > 0) {
-        input.write(`${queue.shift()}\n`);
-      }
-    });
+    const input = new FakeKeyboard();
+    const output = new FakeScreen(100, 40);
+    // nom · type (1ᵉʳ = string) · longueur (vide) · facultatif (o) · contrainte
+    // (1ʳᵉ = aucune) · défaut (vide) · nom vide = terminer
+    answerEachQuestion(input, output, [
+      "titre\r",
+      pick(1),
+      "\r",
+      "o",
+      pick(1),
+      "\r",
+      "\r",
+    ]);
     const answers = await askMissing(
       spec!,
       partial,
@@ -203,6 +209,7 @@ describe("askMissing — la question `fields` passe par le compositeur", () => {
       input,
       output,
     );
+    const written = output.written.join("");
     assert.equal(answers.fields, "titre:string?");
     assert.notInclude(written, "nom:type");
     assert.include(

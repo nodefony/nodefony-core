@@ -918,6 +918,26 @@ jobs:
           NF_GATES_ALLOW: NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL${{ runner.os == 'Windows' && ',pty' || '' }}
         run: node scripts/ci/run-watched.mjs npm run test:boot
 
+      # La console RÉELLE de Windows : sans `script`, le cas précédent ne juge
+      # aucun écran ici, or c'est là que le mode brut a sa propre mécanique
+      # (évènements de touches retraduits par libuv, Ctrl+C qui n'est une
+      # touche que traitement d'entrée coupé). `node-pty` pilote ConPTY ; il
+      # n'est PAS une dépendance du dépôt — installé sans être inscrit. Ses
+      # binaires sont préconstruits pour win32-x64 : rien ne se compile.
+      # `NF_RUN_CONPTY` rend la preuve EXIGÉE : un cas sauté rougit la passe.
+      - name: Questions sous ConPTY (NF_RUN_CONPTY)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          NF_RUN_CONPTY: "1"
+          NF_GATES_ALLOW: NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL
+        run: |
+          npm i --no-save --no-audit --no-fund node-pty@1.1.0
+          # Le cas `security:user:add` se SAUTE sans annuaire : dire pourquoi.
+          node src/nodefony/bin/nodefony security:user:list --json || echo "::notice title=Annuaire::security:user:list ne répond pas sous ${{ runner.os }} (sortie ci-dessus)"
+          cd src/nodefony
+          node ../../scripts/ci/run-watched.mjs npx vitest run src/tests/CliIntegration.test.ts -t "node-pty"
+
   # ─── Tests d'intégration — ubuntu only, démarre le serveur Nodefony ─────────
   # Indépendant lui aussi (même raison que `test-unit` ci-dessus) : c'est le job
   # le plus lent à révéler ses pannes, donc le dernier qu'on veuille voir

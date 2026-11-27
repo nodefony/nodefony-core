@@ -28,6 +28,20 @@ describe("redactSecrets — masquage défense-en-profondeur", () => {
     expect(out).to.contain("other=ok");
   });
 
+  it("masque un drapeau de ligne de commande suivi de sa valeur (--password x)", () => {
+    const out = redactSecrets(
+      'security:user:add bob --password hunter2 --token "a b" --yes',
+    );
+    expect(out).to.equal(
+      "security:user:add bob --password *** --token *** --yes",
+    );
+    // Une autre option qui commence par le même mot n'est pas un secret.
+    expect(redactSecrets("build --password-file .pw --tokenizer x")).to.equal(
+      "build --password-file .pw --tokenizer x",
+    );
+    expect(redactSecrets("--password=hunter2")).to.equal("--password=***");
+  });
+
   it("masque le schéma Bearer ET le JWT qui suit (régression du leak)", () => {
     const out = redactSecrets(
       "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig",

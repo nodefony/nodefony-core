@@ -93,11 +93,11 @@ class Builder extends Service {
     if (!this.command) {
       throw new Error(`Command not found`);
     }
-    // `prompts` est lazy (chargé pour l'interactif) — garantir sa présence ici, car
-    // cette méthode interactive peut être appelée hors du flux action() standard.
-    await this.command.loadPrompts();
-    const response = await this.command.prompts.confirm({
-      message: `Do You Want Remove : ${file}?`,
+    // Par la porte unique : sans terminal, la question refuse au lieu de pendre.
+    const response = await this.command.ask({
+      kind: "confirm",
+      key: "yes",
+      message: `Supprimer ${file} ?`,
       default: false,
     });
     if (response) {

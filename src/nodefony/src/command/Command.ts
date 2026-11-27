@@ -19,6 +19,25 @@ import type { KernelEventKey, RunLifetime } from "../types/ICommand";
 import type { IRunProfile } from "../kernel/runProfile";
 import { tagCommandAction } from "../kernel/lifecycleTags";
 import { usageHint } from "../cli/usageHint";
+import {
+  ask,
+  canAsk,
+  QUESTION_CANCELLED_EXIT_CODE,
+  QuestionCancelledError,
+  QuestionRefusedError,
+  type IAskOptions,
+} from "../cli/ask";
+import type { IQuestionFooterOptions } from "../cli/questionFooter";
+import type {
+  ICheckboxQuestion,
+  IConfirmQuestion,
+  IInputQuestion,
+  IListQuestion,
+  IQuestion,
+  ISecretQuestion,
+  ISelectQuestion,
+  QuestionValue,
+} from "../cli/question";
 
 interface OptionsCommandInterface extends DefaultOptionsService {
   showBanner?: boolean;
@@ -234,8 +253,12 @@ class Command extends Service {
   /**
    * Namespace `@inquirer/prompts` — chargé LAZY via {@link loadPrompts} (import
    * dynamique) uniquement pour les commandes interactives. Évite ~39 ms + ~7 MB
-   * d'import eager sur CHAQUE boot non-interactif (la quasi-totalité). Garanti peuplé
-   * avant tout usage (action() le charge si interactif ; Builder le charge défensivement).
+   * d'import eager sur CHAQUE boot non-interactif (la quasi-totalité). Peuplé par
+   * `action()` pour une commande interactive.
+   *
+   * @deprecated Depuis 10.1, retiré en 11.0 : poser la question par
+   * `Command.ask()` (moteur unique, réponse par drapeau, refus sans terminal,
+   * annulation en 130). Le champ reste peuplé à l'identique toute la série 10.
    */
   public prompts!: typeof import("@inquirer/prompts");
   /** Options de la commande — le type précis du champ hérité de `Service`. */
@@ -408,47 +431,25 @@ class Command extends Service {
    * Charge `@inquirer/prompts` à la demande (import dynamique, idempotent) et le pose
    * sur {@link prompts}. Appelé pour les commandes interactives — garde l'import lourd
    * (~39 ms / ~7 MB) HORS du boot des commandes non-interactives.
+   *
+   * @deprecated Depuis 10.1, retiré en 11.0 : `Command.ask()` ne demande
+   * aucun chargement. Comportement inchangé toute la série 10.
    */
   public async loadPrompts(): Promise<void> {
     // Champ `!` : `undefined` jusqu'au premier appel, et c'est un comportement
     // observable (un appelant peut tester `cmd.prompts`). Le type le dit
     // toujours présent ; ce test est ce qui le rend vrai.
-    // oxlint-disable-next-line typescript/no-unnecessary-condition
+    // oxlint-disable-next-line typescript/no-unnecessary-condition, typescript/no-deprecated -- l'API dépréciée elle-même
     if (!this.prompts) {
       // ⭐ Par la porte UNIQUE, jamais par un import direct : les questions en
       // sortent ANCRÉES sur l'event loop. Attendre une frappe est une promesse
       // en attente, et Node ne compte que les HANDLES — une commande qui ne
       // démarre rien s'arrête donc AU MILIEU de sa question, sans erreur et
       // avec un code de sortie nul. Cf `cli/prompts.ts`.
+      // oxlint-disable-next-line typescript/no-deprecated -- l'API dépréciée elle-même
       this.prompts = (await chargePrompts()) as unknown as typeof this.prompts;
     }
   }
-  /**
-   * Rend un argument : celui qu'on a reçu, ou celui qu'on DEMANDE.
-   *
-   * 🔴 Une commande qui exige un argument positionnel (`<identifier>`) refuse
-   * avant même d'exister : commander répond « error: missing required argument
-   * 'identifier' » et le kernel sort en 1. C'est juste quand on TAPE la ligne
-   * et qu'on a oublié un mot ; c'est absurde quand on a CHOISI la commande dans
-   * le menu — on n'a rien oublié, on ne savait pas. Vécu sur
-   * `security:user:add` : le menu propose le geste, la commande le refuse.
-   *
-   * La règle vit ICI et pas dans chaque commande : quatre commandes du dépôt
-   * attendent un argument, et quatre copies d'une même règle divergent. Pour en
-   * profiter, une commande déclare son argument OPTIONNEL (`[identifier]` —
-   * sinon commander refuse avant nous) puis passe ce qu'elle a reçu.
-   *
-   * **Hors terminal, on ne demande RIEN** : un pipeline sans TTY resterait
-   * suspendu sur une question que personne ne lit, jusqu'au timeout du job.
-   * L'échec reste un échec — mais il montre la ligne exacte à taper.
-   *
-   * @param value - ce que la ligne de commande a fourni (souvent `undefined`)
-   * @param spec - nom de l'argument, question posée, choix éventuels ; `isTTY`
-   *               est INJECTABLE pour que la règle s'éprouve sans terminal
-   * @returns la valeur, taillée
-   * @throws Si l'argument manque et qu'aucun terminal ne peut le demander —
-   *   à rendre par {@link Command.refuseMissingArgument}.
-   */
   /**
    * Refuse, sans terminal, un argument qu'{@link Command.askArgument} n'a pas
    * pu demander : la ligne du refus, puis l'extrait de doc de la commande —
@@ -473,6 +474,35 @@ class Command extends Service {
     process.exitCode = 1;
   }
 
+  /**
+   * Rend un argument : celui qu'on a reçu, ou celui qu'on DEMANDE.
+   *
+   * 🔴 Une commande qui exige un argument positionnel (`<identifier>`) refuse
+   * avant même d'exister : commander répond « error: missing required argument
+   * 'identifier' » et le kernel sort en 1. C'est juste quand on TAPE la ligne
+   * et qu'on a oublié un mot ; c'est absurde quand on a CHOISI la commande dans
+   * le menu — on n'a rien oublié, on ne savait pas. Vécu sur
+   * `security:user:add` : le menu propose le geste, la commande le refuse.
+   *
+   * La règle vit ICI et pas dans chaque commande : quatre commandes du dépôt
+   * attendent un argument, et quatre copies d'une même règle divergent. Pour en
+   * profiter, une commande déclare son argument OPTIONNEL (`[identifier]` —
+   * sinon commander refuse avant nous) puis passe ce qu'elle a reçu.
+   *
+   * **Hors terminal, on ne demande RIEN** : un pipeline sans TTY resterait
+   * suspendu sur une question que personne ne lit, jusqu'au timeout du job.
+   * L'échec reste un échec — mais il montre la ligne exacte à taper. La
+   * question, elle, passe par la porte unique ({@link Command.ask}).
+   *
+   * @param value - ce que la ligne de commande a fourni (souvent `undefined`)
+   * @param spec - nom de l'argument, question posée, choix éventuels ; `isTTY`
+   *               est INJECTABLE pour que la règle s'éprouve sans terminal,
+   *               `io` (clavier, terminal) aussi
+   * @returns la valeur, taillée
+   * @throws Si l'argument manque et qu'aucun terminal ne peut le demander —
+   *   à rendre par {@link Command.refuseMissingArgument}.
+   * @throws {QuestionCancelledError} si la personne annule la question.
+   */
   public async askArgument(
     value: string | undefined,
     spec: {
@@ -480,15 +510,13 @@ class Command extends Service {
       message: string;
       choices?: readonly string[];
       isTTY?: boolean;
+      io?: IQuestionFooterOptions;
     },
   ): Promise<string> {
     const trimmed = typeof value === "string" ? value.trim() : "";
     if (trimmed.length > 0) return trimmed;
 
-    // `isTTY` vaut `undefined` hors terminal (malgré son type `boolean`) : seule
-    // sa véracité compte ici.
-    const canPrompt = spec.isTTY ?? process.stdin.isTTY;
-    if (!canPrompt) {
+    if (!(spec.isTTY ?? canAsk())) {
       const example = spec.choices?.length
         ? `<${spec.choices.join("|")}>`
         : `<${spec.name}>`;
@@ -498,18 +526,74 @@ class Command extends Service {
       );
     }
 
-    await this.loadPrompts();
     const answer = spec.choices?.length
-      ? await this.prompts.select({
-          message: spec.message,
-          choices: spec.choices.map((c) => ({ name: c, value: c })),
-        })
-      : await this.prompts.input({
-          message: spec.message,
-          validate: (v: string) =>
-            v.trim().length > 0 || `${spec.name} est requis`,
-        });
+      ? await ask(
+          {
+            kind: "select",
+            key: spec.name,
+            message: spec.message,
+            choices: spec.choices.map((c) => ({ value: c, label: c })),
+          },
+          { terminal: true, ...spec.io },
+        )
+      : await ask(
+          {
+            kind: "input",
+            key: spec.name,
+            message: spec.message,
+            required: true,
+          },
+          { terminal: true, ...spec.io },
+        );
     return answer.trim();
+  }
+
+  /**
+   * Pose une question par la porte UNIQUE (`cli/ask.ts`) : la réponse déjà
+   * fournie (`options.answer`, un drapeau) est validée et rendue ; sinon le
+   * pied du terminal la demande ; sans terminal, la question refuse en
+   * nommant son drapeau.
+   *
+   * Une commande n'a rien à rattraper : {@link Command.action} rend une
+   * annulation en sortie 130, et un refus en sortie 1 avec l'aide de la
+   * commande.
+   *
+   * @example
+   * ```ts
+   * const go = await this.ask(
+   *   { kind: "confirm", key: "yes", message: "Supprimer les tables ?" },
+   *   { answer: opts.yes },
+   * );
+   * ```
+   *
+   * @param question - la question (une des six formes de `IQuestion`).
+   * @param options - réponse déjà fournie, droit de demander (`prompt: false`
+   *   sous `--json`).
+   * @returns la réponse, validée par la question.
+   * @throws {QuestionRefusedError} sans terminal.
+   * @throws {QuestionCancelledError} si la personne annule.
+   */
+  public ask(
+    question: IConfirmQuestion,
+    options?: IAskOptions,
+  ): Promise<boolean>;
+  public ask(
+    question: ICheckboxQuestion | IListQuestion,
+    options?: IAskOptions,
+  ): Promise<string[]>;
+  public ask(
+    question: IInputQuestion | ISecretQuestion | ISelectQuestion,
+    options?: IAskOptions,
+  ): Promise<string>;
+  public ask(
+    question: IQuestion,
+    options?: IAskOptions,
+  ): Promise<QuestionValue>;
+  public ask(
+    question: IQuestion,
+    options?: IAskOptions,
+  ): Promise<QuestionValue> {
+    return ask(question, options);
   }
 
   /**
@@ -525,6 +609,7 @@ class Command extends Service {
     // Charge les prompts AVANT builder + interaction (qui les consomment), seulement
     // si interactif → 0 import @inquirer pour les commandes non-interactives.
     if (this.interactive || this.forceInteractive) {
+      // oxlint-disable-next-line typescript/no-deprecated -- `this.prompts` reste peuplé à l'identique toute la série 10
       await this.loadPrompts();
     }
     if (this.options.showBanner) {
@@ -533,7 +618,23 @@ class Command extends Service {
     if (this.builder) {
       await this.builder.run(...args);
     }
-    const res = await this.run(...args);
+    let res: unknown;
+    try {
+      res = await this.run(...args);
+    } catch (error) {
+      // Une question annulée est un CHOIX, pas une panne : le résumé
+      // « ✗ … (annulé) » est déjà à l'écran, la sortie dit 130, sans pile.
+      if (error instanceof QuestionCancelledError) {
+        process.exitCode = QUESTION_CANCELLED_EXIT_CODE;
+        return undefined;
+      }
+      // Sans terminal : le drapeau à passer, puis l'aide de la commande.
+      if (error instanceof QuestionRefusedError) {
+        this.refuseMissingArgument(error);
+        return undefined;
+      }
+      throw error;
+    }
     this.currentCommand = current;
     return res;
   }

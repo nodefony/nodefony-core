@@ -250,6 +250,47 @@ cmd.parseAsync(argv?, opts?): Promise<Cmd>
 cmd.forceInteractiveMode(): void
 ```
 
+#### Poser une question — `this.ask()`
+
+Une question est une **donnée** (six formes : `input`, `secret`, `confirm`,
+`select`, `checkbox`, `list`), posée au pied du terminal par un moteur unique.
+La même porte tranche, dans cet ordre : la réponse déjà fournie par un drapeau
+(validée), le terminal, le repli `fallback`, sinon un **refus qui nomme le
+drapeau** — jamais une attente sans terminal.
+
+```typescript
+const region = await this.ask(
+  {
+    kind: "select",
+    key: "region",
+    message: "Région",
+    choices: [
+      { value: "eu", label: "Europe" },
+      { value: "us", label: "Amérique" },
+    ],
+  },
+  { answer: opts.region }, // `--region eu` répond sans rien demander
+);
+```
+
+| Situation                        | Résultat                                            |
+| -------------------------------- | --------------------------------------------------- |
+| réponse fournie et valide        | rendue telle quelle, terminal ou non                |
+| réponse fournie et refusée       | reposée devant un terminal, son refus affiché       |
+| aucun terminal, `fallback` donné | le repli (une question facultative)                 |
+| aucun terminal, pas de repli     | sortie **1** : `… : passe --region <valeur>` + aide |
+| Ctrl+C, Échap, fin de flux       | sortie **130**, résumé « ✗ … (annulé) », sans pile  |
+
+Un secret neuf se saisit deux fois : `askSecretTwice(question, "Confirme…",
+{ answer: opts.password })`. Hors d'une commande : `ask()` et `canAsk()`
+s'importent de `nodefony` ; une commande autonome enveloppe son exécution
+dans `exitCodeOfQuestions(run)` pour les mêmes codes de sortie.
+
+> **Déprécié en 10.1, retiré en 11.0** : `this.prompts`, `loadPrompts()`,
+> `chargePrompts()`, `IPrompts` et `askPasswordMasked()` (inquirer). Ils
+> fonctionnent à l'identique toute la série 10 ; seul `nodefony menu` les
+> emploie encore.
+
 ---
 
 ## Examples

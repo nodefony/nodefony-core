@@ -1,4 +1,3 @@
-import type { Writable } from "node:stream";
 import {
   ENTITY_FIELD_TYPES,
   EntityFieldError,
@@ -22,11 +21,11 @@ import type { IScaffoldQuestion } from "./spec";
  * que le récapitulatif montre, pour qu'on l'apprenne en passant.
  *
  * Module sans terminal : il reçoit la fonction qui pose une question, si bien
- * que le rendu riche et le readline le servent sans copie, et qu'un test le
+ * que le terminal, la bande du superviseur et Studio le servent sans copie, et qu'un test le
  * pilote sur des flux simulés.
  */
 
-/** Pose une question de la spec et rend la réponse — rendu riche ou readline. */
+/** Pose une question de la spec et rend la réponse — quel que soit le front. */
 export type TAskQuestion = (
   question: IScaffoldQuestion,
 ) => Promise<string | boolean | string[]>;
@@ -76,7 +75,7 @@ function text(
  * Compose les champs, et rend la réponse `fields` telle que la ligne de
  * commande l'aurait reçue.
  *
- * @param ask - pose une question (rendu riche ou readline).
+ * @param ask - pose une question (le front qui sert le dialogue).
  * @param out - le flux où s'écrivent les confirmations et le récapitulatif.
  * @param targets - entités qu'une relation peut viser (vide → saisie libre).
  * @param entity - nom de l'entité en cours, pour le récapitulatif.
@@ -84,7 +83,7 @@ function text(
  */
 export async function composeEntityFields(
   ask: TAskQuestion,
-  out: Writable,
+  out: { write(chunk: string): unknown },
   targets: readonly string[],
   entity: string,
 ): Promise<string> {

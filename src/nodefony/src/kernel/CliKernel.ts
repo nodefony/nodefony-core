@@ -77,6 +77,7 @@ import { runScaffoldSyncCommand } from "../cli/contributions";
 import { runUpgradeCommand } from "../cli/upgrade";
 import { runManCommand } from "../cli/man";
 import { runAiMcpCommand } from "../cli/aiMcp";
+import { exitCodeOfQuestions } from "../cli/ask";
 import { runGitHooksCommand } from "../cli/gitHooks";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
@@ -273,7 +274,9 @@ class CliKernel extends Cli {
     // n'y a RIEN à booter (pas de nodefony.config.ts). Templates shippés npm.
     // Async : le mode interactif (TTY) pose les questions de la spec en readline.
     if (requested === "create") {
-      return process.exit(await runCreateCommand(process.argv));
+      return process.exit(
+        await exitCodeOfQuestions(() => runCreateCommand(process.argv)),
+      );
     }
 
     // ─── `check` : contrôle de la surface des paquets — même famille ─────────
@@ -393,7 +396,9 @@ class CliKernel extends Cli {
     // Standalone pour la même raison que `ai:sync` — la route est servie par un
     // module `policy: "dev"`, donc invisible à un terminal sans `NODE_ENV`.
     if (requested === "ai:mcp") {
-      return process.exit(await runAiMcpCommand(process.argv));
+      return process.exit(
+        await exitCodeOfQuestions(() => runAiMcpCommand(process.argv)),
+      );
     }
 
     // ─── `git:hooks` : hooks git natifs (core.hooksPath), même famille ────────

@@ -132,21 +132,15 @@ class SecurityUserDelete extends Command {
     );
 
     if (!opts.yes) {
-      if (!process.stdin.isTTY) {
-        // Un prompt sauté hors terminal, c'est une suppression silencieuse.
-        this.log(
-          "confirmation impossible sans terminal — relance avec --yes si c'est voulu.",
-          "ERROR",
-        );
-        process.exitCode = 1;
-        return this;
-      }
-      await this.loadPrompts();
-      const confirme = await this.prompts.confirm({
+      // Sans terminal, la porte refuse en nommant `--yes` : une confirmation
+      // sautée hors terminal serait une suppression silencieuse.
+      const confirmed = await this.ask({
+        kind: "confirm",
+        key: "yes",
         message: `Supprimer définitivement « ${identifier} » ?`,
         default: false,
       });
-      if (!confirme) {
+      if (!confirmed) {
         w(`${YELLOW}annulé — rien n'a été supprimé.${RESET}\n\n`);
         return this;
       }

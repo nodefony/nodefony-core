@@ -2,6 +2,12 @@ import assert from "node:assert";
 import { expect } from "vitest";
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import Cli from "../../Cli";
+import {
+  FakeKeyboard,
+  FakeScreen,
+  readScreen,
+  whenAsking,
+} from "../questionTerminal";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -238,16 +244,14 @@ describe("Command — askArgument()", () => {
    */
   it("une valeur déjà fournie n'est JAMAIS redemandée", async () => {
     const cmd = new Command("ask-1", "test", cli);
-    let demande = false;
-    cmd.loadPrompts = async () => {
-      demande = true;
-    };
-    const v = await cmd.askArgument("bob", {
+    // Sans terminal, la moindre question LÈVERAIT : rendre la valeur prouve
+    // qu'aucune n'a été posée.
+    const v = await cmd.askArgument("  bob ", {
       name: "identifier",
       message: "identifiant",
+      isTTY: false,
     });
     assert.strictEqual(v, "bob");
-    assert.strictEqual(demande, false, "les prompts ont été chargés pour rien");
   });
 
   it("🔴 HORS TTY, elle ÉCHOUE avec la ligne à taper — jamais un prompt qui pend", async () => {
@@ -310,42 +314,105 @@ describe("Command — askArgument()", () => {
     expect(exitCode).to.equal(1);
   });
 
-  it("en TTY, elle demande — saisie libre", async () => {
+  it("en TTY, elle demande au pied du terminal — saisie libre, requise", async () => {
     const cmd = new Command("ask-3", "test", cli);
-    cmd.loadPrompts = async () => {};
-    cmd.prompts = {
-      input: async () => "  saisie  ",
-    } as unknown as typeof cmd.prompts;
-    const v = await cmd.askArgument(undefined, {
+    const keyboard = new FakeKeyboard();
+    const screen = new FakeScreen();
+    const pending = cmd.askArgument(undefined, {
       name: "identifier",
       message: "identifiant",
       isTTY: true,
+      io: { input: keyboard, output: screen },
     });
+    await whenAsking(keyboard);
+    // Vide : refusé sur place, la question reste ouverte.
+    keyboard.press("\r");
+    expect((await readScreen(screen)).lines).to.include(
+      "  → une réponse est requise",
+    );
+    keyboard.press("  saisie  ", "\r");
     // La valeur est TAILLÉE : un espace de copier-coller deviendrait un login.
-    assert.strictEqual(v, "saisie");
+    assert.strictEqual(await pending, "saisie");
   });
 
   it("en TTY avec des choix, elle propose une LISTE plutôt qu'une saisie", async () => {
     const cmd = new Command("ask-4", "test", cli);
-    cmd.loadPrompts = async () => {};
-    let listeProposee: unknown = null;
-    cmd.prompts = {
-      select: async (o: { choices: unknown }) => {
-        listeProposee = o.choices;
-        return "routes";
-      },
-      input: async () => {
-        throw new Error("une saisie libre a été proposée malgré des choix");
-      },
-    } as unknown as typeof cmd.prompts;
-    const v = await cmd.askArgument(undefined, {
+    const keyboard = new FakeKeyboard();
+    const screen = new FakeScreen();
+    const pending = cmd.askArgument(undefined, {
       name: "sujet",
       message: "sujet",
       choices: ["routes", "services"],
       isTTY: true,
+      io: { input: keyboard, output: screen },
     });
-    assert.strictEqual(v, "routes");
-    assert.ok(Array.isArray(listeProposee));
+    await whenAsking(keyboard);
+    expect((await readScreen(screen)).lines.slice(0, 3)).to.deep.equal([
+      "? sujet",
+      "▸ routes",
+      "  services",
+    ]);
+    keyboard.press("\x1b[B", "\r");
+    assert.strictEqual(await pending, "services");
+  });
+});
+
+describe("Command — une question annulée ou refusée par la porte", () => {
+  let cli: Cli;
+  beforeAll(async () => {
+    cli = await makeStartedCli();
+  });
+
+  /** Lance `action()` d'une commande dont `generate` pose une question. */
+  async function runAsking(
+    name: string,
+    generate: (cmd: Command) => Promise<unknown>,
+  ): Promise<{ exitCode: typeof process.exitCode; stderr: string }> {
+    const cmd = new Command(name, "test", cli, {
+      examples: [`nodefony ${name} --go`],
+    });
+    cmd.addOption("--go", "répond oui");
+    cmd.generate = () => generate(cmd);
+    const written: string[] = [];
+    const write = process.stderr.write;
+    const before = process.exitCode;
+    process.stderr.write = ((chunk: string | Uint8Array): boolean => {
+      written.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      await cmd.action();
+    } finally {
+      process.stderr.write = write;
+    }
+    const exitCode = process.exitCode;
+    process.exitCode = before;
+    return { exitCode, stderr: written.join("") };
+  }
+
+  it("🔴 annulée : sortie 130, sans pile ni CRITIC", async () => {
+    const keyboard = new FakeKeyboard();
+    const { exitCode } = await runAsking("ask-cancel", async (cmd) => {
+      const pending = cmd.ask(
+        { kind: "confirm", key: "go", message: "Continuer ?" },
+        { terminal: true, input: keyboard, output: new FakeScreen() },
+      );
+      await whenAsking(keyboard);
+      keyboard.press("\x03");
+      return pending;
+    });
+    expect(exitCode).to.equal(130);
+  });
+
+  it("🔴 sans terminal : sortie 1, le DRAPEAU nommé, puis l'aide de la commande", async () => {
+    const { exitCode, stderr } = await runAsking("ask-refuse", (cmd) =>
+      cmd.ask(
+        { kind: "confirm", key: "go", message: "Continuer ?" },
+        { terminal: false },
+      ),
+    );
+    expect(exitCode).to.equal(1);
+    expect(stderr).to.contain("exemple : nodefony ask-refuse --go");
   });
 });
 

@@ -941,8 +941,9 @@ l'admin web) :
   spec ; `runScaffold` rend les templates) : zéro I/O terminal, appelable par
   argv, readline ou un futur endpoint data plane. Exporté par l'index public
   (`getScaffoldSpec`/`runScaffold`).
-- `scaffold/interactive.ts` — front readline NATIF (`node:readline/promises`,
-  0 dep, streams injectables → testé sur PassThrough). En TTY sans `--yes`,
+- `scaffold/interactive.ts` — front terminal : chaque question de la spec est
+  traduite en `IQuestion` (`scaffoldQuestion`) et posée par `ask()` (moteur
+  unique `cli/question.ts`, flux injectables → testé par octets). En TTY sans `--yes`,
   les questions non couvertes par les flags sont posées + récap + confirmation ;
   hors TTY (CI, spawn) = défauts de la spec, stable pour les scripts.
   Une question marquée `compose: "entityFields"` (les champs de `create entity`)

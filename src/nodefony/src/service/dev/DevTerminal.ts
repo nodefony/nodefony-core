@@ -31,6 +31,7 @@
 import { StringDecoder } from "node:string_decoder";
 import { BRAILLE_FRAMES, LINE_FRAMES } from "../../cli/progress";
 import { isIncompleteControlSequence } from "../../runtime/textWidth";
+import { redactSecrets } from "../../runtime/redact";
 import { guardTerminal } from "../../runtime/terminalGuard";
 import {
   StatusBarCache,
@@ -2264,7 +2265,9 @@ export class DevTerminal {
         stream,
         chunk,
       );
-    write(`${state.render.sigil}${shown}\n`);
+    // L'écho reste à l'écran : un secret tapé en drapeau (`--password x`)
+    // n'y apparaît pas en clair — la règle est celle des journaux.
+    write(`${state.render.sigil}${redactSecrets(shown)}\n`);
     const kept = state.history.remember(text, origin.id, Date.now());
     if (!kept.kept && kept.reason !== "empty") {
       this.#notify(full, describeHistorySkip(kept.reason));

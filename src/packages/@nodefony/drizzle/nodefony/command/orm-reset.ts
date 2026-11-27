@@ -1,5 +1,5 @@
 import type { CliKernel, OptionsCommandInterface } from "nodefony";
-import { redactUrlCredentials } from "nodefony";
+import { canAsk, redactUrlCredentials } from "nodefony";
 import type { SqlDialect } from "../config/config";
 import { openMigrationDriver } from "../src/migrator/drivers/index";
 import type { IMigrationDriver } from "../src/migrator/types";
@@ -278,7 +278,7 @@ class OrmReset extends OrmMigrateCommand {
       // de commandes proclame, violée par l'une d'elles. Un lecteur machine
       // n'a pas de dialogue : il assume, ou il est refusé.
       if (opts.yes !== true) {
-        if (opts.json === true || !process.stdin.isTTY) {
+        if (opts.json === true || !canAsk()) {
           this.fail(
             resolution.connector,
             "NF_MIGRATE_CONFIRM_REQUIRED",
@@ -299,8 +299,9 @@ class OrmReset extends OrmMigrateCommand {
             `  base    : ${style.bold(target)} ${style.dim(`(${resolution.dialect})`)}\n` +
             `  tables  : ${tables.join(", ")}\n\n`,
         );
-        await this.loadPrompts();
-        const ok = await this.prompts.confirm({
+        const ok = await this.ask({
+          kind: "confirm",
+          key: "yes",
           message: `Supprimer ces ${tables.length} table(s) ?`,
           default: false,
         });

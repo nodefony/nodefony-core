@@ -3,7 +3,7 @@ import {
   OptionsCommandInterface,
   CliKernel,
   Command,
-  askPasswordMasked,
+  askSecretTwice,
   AUTH_LOGIN_PATH,
 } from "nodefony";
 import type { UserService } from "@nodefony/user";
@@ -105,33 +105,18 @@ class SecurityUserPassword extends Command {
       return this;
     }
 
-    let password = opts.password;
-    if (!password) {
-      if (!process.stdin.isTTY) {
-        this.log(
-          "mot de passe requis : --password <pwd> (pas de prompt hors terminal).",
-          "ERROR",
-        );
-        process.exitCode = 1;
-        return this;
-      }
-      password = await askPasswordMasked(
-        `${BOLD}Nouveau mot de passe de « ${identifier} »${RESET} ${DIM}(frappe masquée)${RESET} : `,
-      );
-      const confirmed = await askPasswordMasked(
-        `${BOLD}Confirme le mot de passe${RESET} : `,
-      );
-      if (password !== confirmed) {
-        this.log("les deux saisies diffèrent — rien n'a changé.", "ERROR");
-        process.exitCode = 1;
-        return this;
-      }
-    }
-    if (!password) {
-      this.log("mot de passe vide — rien n'a changé.", "ERROR");
-      process.exitCode = 1;
-      return this;
-    }
+    // Sans terminal ni `--password`, la porte refuse en nommant le drapeau ;
+    // deux saisies qui diffèrent sont redemandées, jamais abandonnées.
+    const password = await askSecretTwice(
+      {
+        kind: "secret",
+        key: "password",
+        message: `Nouveau mot de passe de « ${identifier} »`,
+        required: true,
+      },
+      "Confirme le mot de passe",
+      { answer: opts.password },
+    );
 
     try {
       // `changePassword` prend l'identifiant INTERNE : viser par `id` évite de

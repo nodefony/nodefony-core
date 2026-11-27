@@ -1,5 +1,7 @@
 /**
- * La porte UNIQUE par laquelle une commande pose une question.
+ * L'ancre d'event loop de toute question, et la porte d'`@inquirer/prompts`
+ * (dépréciée en 10.1, retirée en 11.0 — une question se pose par `ask()`,
+ * `cli/ask.ts`, qui passe elle aussi par {@link request}).
  *
  * ⭐ Elle existe pour une raison qu'aucune commande ne peut résoudre seule :
  * **attendre une réponse humaine ne retient pas Node.**
@@ -28,6 +30,7 @@
  * C'est ce qui recrée le défaut, en silence, dans un endroit qu'on ne relira
  * pas.
  */
+/* oxlint-disable typescript/no-deprecated -- la porte dépréciée elle-même */
 
 /**
  * Retient l'event loop, et rend de quoi le relâcher.
@@ -67,7 +70,12 @@ export async function request<T>(interaction: () => Promise<T>): Promise<T> {
   }
 }
 
-/** Les questions servies par cette porte — le sous-ensemble réellement utilisé. */
+/**
+ * Les questions servies par cette porte — le sous-ensemble réellement utilisé.
+ *
+ * @deprecated Depuis 10.1, retiré en 11.0 : une question se décrit par
+ * `IQuestion` et se pose par `ask()` (`cli/ask.ts`).
+ */
 export interface IPrompts {
   confirm: (config: { message: string; default?: boolean }) => Promise<boolean>;
   select: <T>(config: {
@@ -90,6 +98,8 @@ export interface IPrompts {
  * cache, les appels suivants ne coûtent rien.
  *
  * @returns les questions disponibles.
+ * @deprecated Depuis 10.1, retiré en 11.0 : poser la question par `ask()`
+ * (`cli/ask.ts`). Seul `nodefony menu` l'emploie encore.
  */
 export async function chargePrompts(): Promise<
   IPrompts & Record<string, unknown>
@@ -112,38 +122,5 @@ export async function chargePrompts(): Promise<
     select: (config) => request(() => brut.select(config)),
     checkbox: (config) => request(() => brut.checkbox(config)),
     input: (config) => request(() => brut.input(config)),
-  };
-}
-
-/**
- * Interface `readline` ANCRÉE — même garantie, pour le front natif du scaffold.
- *
- * Le scaffold de `create app` ne passe pas par `@inquirer/prompts` : il pose ses
- * questions en `node:readline/promises`, sans aucune dépendance. Le besoin est
- * pourtant identique, et l'exposition la même — `create app` est servi sans rien
- * démarrer. Fournir la fabrique ICI évite d'écrire l'ancre à la main là-bas :
- * une règle qu'on doit se rappeler d'appliquer est une règle qui manquera un
- * jour.
- *
- * @param input - flux d'entrée (injectable pour les bancs).
- * @param output - flux de sortie.
- * @returns l'interface, et la fermeture qui relâche AUSSI l'ancre.
- */
-export async function ouvreReadline(
-  input: NodeJS.ReadableStream,
-  output: NodeJS.WritableStream,
-): Promise<{
-  rl: import("node:readline/promises").Interface;
-  close: () => void;
-}> {
-  const readline = await import("node:readline/promises");
-  const relache = anchorEventLoop();
-  const rl = readline.createInterface({ input, output });
-  return {
-    rl,
-    close: () => {
-      rl.close();
-      relache();
-    },
   };
 }

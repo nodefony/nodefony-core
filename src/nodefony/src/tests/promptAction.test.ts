@@ -241,6 +241,17 @@ describe("cliCommandAction — lancée en sous-processus, dans son onglet (#538,
     expect(sink.out[0]).to.contain("guillemet non fermé");
     expect(launch).not.toHaveBeenCalled();
   });
+
+  it("un guillemet ouvert : la ligne rappelée ne montre pas le secret", async () => {
+    const sink = io();
+    await action.run(
+      '/nodefony security:user:add bob --password "hunter2',
+      sink,
+      signal,
+    );
+    expect(sink.out[0]).to.contain("--password ***");
+    expect(sink.out.join("")).to.not.contain("hunter2");
+  });
 });
 
 describe("splitPromptLine — la ligne en arguments, sans shell", () => {

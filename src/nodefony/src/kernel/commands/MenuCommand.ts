@@ -1,3 +1,5 @@
+// `nodefony menu` reste sur inquirer pour la série 10 (#538, décision D5).
+/* oxlint-disable typescript/no-deprecated */
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";

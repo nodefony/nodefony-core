@@ -49,7 +49,7 @@ import {
 } from "./licenses";
 import { runAiMcpCommand } from "./aiMcp";
 import { AGENT_TARGETS, type IAgentTarget } from "./agentTargets";
-import { chargePrompts } from "./prompts";
+import { ask, canAsk } from "./ask";
 import { installGitHooks } from "./gitHooks";
 import { GIT_HOOKS_DIR } from "./gitHooksReport";
 import { stripGlobalCliFlags } from "./globalFlags";
@@ -58,7 +58,6 @@ import {
   renderDoctorReport,
 } from "../kernel/checks/runDoctor";
 import { reportIsClear } from "../kernel/checks/renderReport";
-import { isTerminal } from "../runtime/isTerminal";
 import { spawnedOutput } from "../runtime/spawnedOutput";
 import { isolatedGitEnv } from "./gitEnv";
 
@@ -1799,17 +1798,19 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   if (
     "error" in parsed &&
     shouldAskForType(parsed.error, {
-      isTTY: isTerminal(process.stdin),
+      isTTY: canAsk(),
       yes: argv.includes("--yes"),
     })
   ) {
-    const { select } = await chargePrompts();
-    const type = await select({
+    const type = await ask({
+      kind: "select",
+      key: "type",
       message: "Que veux-tu créer ?",
       default: "app",
       choices: CREATE_TYPES.map((t) => ({
-        name: `${t} — ${descriptionType(t)}`,
         value: t,
+        label: t,
+        hint: descriptionType(t),
       })),
     });
     // Le type se glisse À LA PLACE qu'il aurait occupée si l'utilisateur
@@ -1874,7 +1875,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // jamais une seconde lecture de l'agent. Hors projet, il n'y a ni config ni
   // verrou : seul l'agent répond, sinon npm.
   const launchedBy = resolvePackageManager().name;
-  const interactive = isTerminal(process.stdin) && !parsed.yes;
+  const interactive = canAsk() && !parsed.yes;
   if (interactive) {
     const [declared] = getScaffoldSpec(type);
     // Le défaut de la spec est STATIQUE (elle se sert aussi en JSON) ; le
