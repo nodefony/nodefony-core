@@ -111,6 +111,7 @@ import {
   type QuestionPaint,
 } from "../../cli/question";
 import { PendingQuestion, QUESTION_CANCELLED } from "./devQuestion";
+import { PROMPT_INTERRUPTED_CODE } from "./promptLaunch";
 import {
   PromptHistoryFile,
   describeHistorySkip,
@@ -2585,6 +2586,11 @@ export class DevTerminal {
   /**
    * Lance une action ; son code et sa durée rejoignent l'entrée d'historique.
    * Sa sortie va au canal d'invite de l'onglet d'où elle est partie.
+   *
+   * Une action qui a SON onglet (commande du CLI, et demain toute commande
+   * lancée par l'invite) y laisse, finie, une ligne de fin — issue, durée,
+   * geste qui ferme l'onglet — au bas de sa sortie, là où l'œil se trouve :
+   * ✓/✗ du titre et message passager de la barre ne s'y voyaient pas.
    */
   async #runAction(
     state: IPromptState,
@@ -2596,22 +2602,29 @@ export class DevTerminal {
     entry: PromptHistoryEntry | null,
   ): Promise<void> {
     const started = performance.now();
+    // La ligne de fin doit commencer une ligne : retenir si la sortie en finit une.
+    const output = { atLineStart: true };
+    const tracked = (chunk: string, stream?: "out" | "err"): void => {
+      if (chunk.length > 0) output.atLineStart = chunk.endsWith("\n");
+      write(chunk, stream);
+    };
     const io: IPromptIO = {
-      write,
+      write: tracked,
       // Confirmer et prêter le terminal arrivent avec les commandes du CLI
       // (lot 2) : aucun verbe du superviseur n'en a besoin.
       confirm: (request) =>
-        this.#confirmInView(view, request, controller.signal, write),
+        this.#confirmInView(view, request, controller.signal, tracked),
       suspend: () =>
         Promise.reject(new Error("le terminal ne se prête pas encore")),
-      ask: (question, signal) => this.#askInView(view, question, signal, write),
+      ask: (question, signal) =>
+        this.#askInView(view, question, signal, tracked),
       columns: this.#size().columns,
     };
     let code = 1;
     try {
       code = await action.run(text, io, controller.signal);
     } catch (error) {
-      write(
+      tracked(
         `${action.id} : ${error instanceof Error ? error.message : String(error)}\n`,
         "err",
       );
@@ -2625,6 +2638,10 @@ export class DevTerminal {
     // L'issue se lit sur l'onglet du lancement, tant qu'il est ouvert.
     if (view.kind === "run" && this.#views.includes(view)) {
       view.outcome = code === 0 ? "ok" : "failed";
+      write(
+        `${output.atLineStart ? "" : "\n"}${this.#endLine(code, performance.now() - started)}\n`,
+        "out",
+      );
       // Le geste qui retire l'onglet se dit là où l'on regarde.
       const full = this.#full;
       if (full !== null && this.#active === view) {
@@ -2642,6 +2659,27 @@ export class DevTerminal {
         Math.round(performance.now() - started),
       );
     }
+  }
+
+  /**
+   * La ligne de fin d'une action dans son onglet : `── ✓ terminée · 2,4 s ·
+   * Échap ferme cet onglet`, en vert ; échec et interruption en rouge.
+   *
+   * @param code - le code de sortie.
+   * @param elapsedMs - la durée de l'action.
+   * @returns la ligne, sans saut final.
+   */
+  #endLine(code: number, elapsedMs: number): string {
+    const ascii = this.#charset === "ascii";
+    const rule = ascii ? "--" : "──";
+    const verdict =
+      code === 0
+        ? `${ascii ? "+" : "✓"} terminée`
+        : `${ascii ? "x" : "✗"} ${code === PROMPT_INTERRUPTED_CODE ? "interrompue" : `échec (code ${code})`}`;
+    const tail = ` · ${formatSeconds(Math.round(elapsedMs))} · Échap ferme cet onglet`;
+    if (!this.#color) return `${rule} ${verdict}${tail}`;
+    const tone = code === 0 ? "32" : "31";
+    return `\x1b[2m${rule}\x1b[22m \x1b[${tone}m${verdict}\x1b[39m\x1b[2m${tail}\x1b[22m`;
   }
 
   /**

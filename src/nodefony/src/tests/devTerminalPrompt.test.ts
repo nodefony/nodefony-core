@@ -1553,3 +1553,65 @@ describe("plein écran — une question posée depuis l'invite (#538, lot 2b-2)"
     terminal.close();
   });
 });
+
+describe("plein écran — la fin d'une commande se lit au bas de sa sortie (#538, lot 2b-2)", () => {
+  const ALT_1 = "\x1b1";
+  const settle = (): Promise<void> => nextFrame();
+
+  it("finie, l'action laisse dans SON onglet une ligne de fin : issue, durée, geste — sur une ligne à elle", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, 100, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake build" + ENTER);
+    await settle();
+    // Une sortie qui ne finit pas sa ligne : la ligne de fin n'y est pas collée.
+    runs[0]?.io.write("compilé");
+    runs[0]?.done(0);
+    await settle();
+    let lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    const at = lines.indexOf("compilé");
+    expect(at, lines.join("\n")).to.be.greaterThan(-1);
+    expect(lines[at + 1]).to.match(
+      /^── ✓ terminée · \d+ ms · Échap ferme cet onglet$/u,
+    );
+    // Relancée dans son onglet (D9) : la ligne sépare aussi les passes.
+    input.type("/fake build" + ENTER);
+    await settle();
+    runs[1]?.done(2);
+    await settle();
+    lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    expect(lines.filter((l) => l.startsWith("── ✓ terminée"))).to.have.length(
+      1,
+    );
+    expect(lines.some((l) => l.startsWith("── ✗ échec (code 2) · "))).to.equal(
+      true,
+    );
+    terminal.close();
+  });
+
+  it("interrompue : « interrompue », pas un échec chiffré ; un onglet sans lancement n'en reçoit aucune", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, 100, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake lent" + ENTER);
+    await settle();
+    input.type(CTRL_C);
+    await settle();
+    expect(runs[0]?.signal.aborted).to.equal(true);
+    const lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    expect(lines.some((l) => l.startsWith("── ✗ interrompue · "))).to.equal(
+      true,
+    );
+    // Un verbe du superviseur, dans l'onglet serveur : aucune ligne de fin.
+    input.type(ALT_1);
+    await settle();
+    input.type("/status" + ENTER);
+    await settle();
+    expect(
+      (await screen(written, 100)).some((l) => l.startsWith("── ")),
+    ).to.equal(false);
+    terminal.close();
+  });
+});
