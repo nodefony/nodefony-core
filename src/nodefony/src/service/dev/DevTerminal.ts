@@ -2052,6 +2052,15 @@ export class DevTerminal {
   }
 
   /** La saisie de l'onglet affiché est vide (ou l'invite absente). */
+  /**
+   * La clé d'historique d'un onglet, lue à l'ENREGISTREMENT comme au RAPPEL —
+   * une seule règle. Un onglet `run` est refermé tôt ou tard, ses saisies
+   * avec lui : il range et rappelle sous `serveur`, l'onglet qui dure.
+   */
+  #historyKey(view: DevView): string {
+    return view.kind === "run" ? this.#server.id : view.id;
+  }
+
   #activeDraftEmpty(): boolean {
     const editor = this.#prompt?.editors.get(this.#active.id);
     return editor === undefined || editor.empty;
@@ -2148,7 +2157,7 @@ export class DevTerminal {
         const editor = this.#editorOf(state);
         const result = editor.handle(
           event,
-          state.history.history.source(this.#active.id),
+          state.history.history.source(this.#historyKey(this.#active)),
         );
         if (result === "submit") {
           this.#completion?.close();
@@ -2203,7 +2212,8 @@ export class DevTerminal {
    * qui la reconnaît. Envoyer ramène le journal au direct. Une action par
    * onglet : la saisie reste dans le tampon tant qu'une autre tourne dans
    * celui où elle irait. Une action qui a son onglet (`tabTitle`) en ouvre
-   * un, ou relance dans l'onglet `run` affiché s'il est fini.
+   * un, ou relance dans l'onglet `run` fini de la même commande — l'affiché
+   * d'abord, sinon le plus récent : sa sortie d'avant reste au-dessus.
    */
   #submit(
     full: IFullscreenState,
@@ -2223,11 +2233,7 @@ export class DevTerminal {
     const ownTab = title !== null;
     // `null` : un onglet neuf. Un onglet `run` fini ne relance que SA
     // commande : une autre n'y écrit jamais sous un titre qui n'est pas le sien.
-    const reused = ownTab
-      ? here.kind === "run" && here.launch === title
-        ? here
-        : null
-      : here;
+    const reused = title !== null ? this.#runViewFor(here, title) : here;
     if (reused !== null && reused.running !== null) {
       this.#notify(
         full,
@@ -2247,15 +2253,13 @@ export class DevTerminal {
     this.#setAnchor(null);
     this.#scheduleFrame();
     if (text.trim() === "") return;
-    // L'historique se range sous un onglet qui dure : un onglet `run` est
-    // refermé tôt ou tard, et ses saisies avec lui.
-    const origin = this.#active.kind === "run" ? this.#server : this.#active;
     let view = reused;
     if (view === null && title !== null) {
       view = this.#openRunView(full, title);
     } else if (view !== null && ownTab) {
       // Relance dans l'onglet fini : la sortie précédente reste au-dessus.
       view.outcome = null;
+      if (this.#active !== view) this.#selectView(full, view);
       this.ingest(view.id, "out", "\n");
     }
     const target = view ?? here;
@@ -2268,7 +2272,11 @@ export class DevTerminal {
     // L'écho reste à l'écran : un secret tapé en drapeau (`--password x`)
     // n'y apparaît pas en clair — la règle est celle des journaux.
     write(`${state.render.sigil}${redactSecrets(shown)}\n`);
-    const kept = state.history.remember(text, origin.id, Date.now());
+    const kept = state.history.remember(
+      text,
+      this.#historyKey(this.#active),
+      Date.now(),
+    );
     if (!kept.kept && kept.reason !== "empty") {
       this.#notify(full, describeHistorySkip(kept.reason));
     }
@@ -2312,6 +2320,26 @@ export class DevTerminal {
    * qu'une commande bavarde aurait sinon évincé chez les autres. Un titre déjà
    * pris est suffixé (`build 2`).
    */
+  /**
+   * L'onglet `run` où relancer `title` : l'affiché s'il est le sien (même en
+   * cours — l'envoi le refusera en le disant), sinon le plus récent FINI.
+   * `null` : aucun, un onglet neuf s'ouvrira.
+   */
+  #runViewFor(here: DevView, title: string): DevView | null {
+    if (here.kind === "run" && here.launch === title) return here;
+    for (let i = this.#views.length - 1; i > 0; i--) {
+      const view = this.#views[i];
+      if (
+        view?.kind === "run" &&
+        view.launch === title &&
+        view.running === null
+      ) {
+        return view;
+      }
+    }
+    return null;
+  }
+
   #openRunView(full: IFullscreenState, title: string): DevView {
     if (this.#runViews(false) >= PROMPT_RUN_MAX) {
       const oldest = this.#views.find(
@@ -2406,7 +2434,7 @@ export class DevTerminal {
       state.suggestionOf = editor;
       state.suggestionVersion = editor.version;
       state.suggestion = editor.suggestion(
-        state.history.history.source(this.#active.id),
+        state.history.history.source(this.#historyKey(this.#active)),
       );
     }
     const width = Math.max(1, this.#size().columns - 1);

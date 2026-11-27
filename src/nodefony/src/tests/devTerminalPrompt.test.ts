@@ -1009,13 +1009,35 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     terminal.close();
   });
 
-  it("relancée dans son onglet fini, l'action y reste ; depuis serveur, un doublon est suffixé", async () => {
+  it("↑ dans l'onglet d'une commande rappelle les saisies de l'invite — la sienne comprise", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/clear" + ENTER);
+    await settle();
+    input.type("/fake build" + ENTER);
+    await settle();
+    runs[0]?.done(0);
+    await settle();
+    expect(tabs(await screen(written))).to.match(/✓ \d+ build/);
+    input.type(UP);
+    await nextFrame();
+    expect((await screen(written)).at(-1)).to.equal("❯ /fake build");
+    input.type(UP);
+    await nextFrame();
+    expect((await screen(written)).at(-1)).to.equal("❯ /clear");
+    terminal.close();
+  });
+
+  it("relancée, l'action reprend SON onglet fini — depuis lui comme depuis serveur ; la sortie d'avant reste au-dessus", async () => {
     const { action, runs } = launcher();
     const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
       action,
     ]);
     input.type("/fake build" + ENTER);
     await settle();
+    runs[0]?.io.write("passe un\n");
     runs[0]?.done(1);
     await settle();
     input.type("/fake build" + ENTER);
@@ -1031,8 +1053,27 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     await settle();
     input.type("/fake build" + ENTER);
     await settle();
+    expect(runs).to.have.length(3);
     lines = await screen(written);
-    expect(tabs(lines)).to.contain("build 2");
+    expect(tabs(lines)).to.not.contain("build 2");
+    expect(lines.filter((l) => l === "❯ /fake build")).to.have.length(3);
+    expect(lines).to.contain("passe un");
+    terminal.close();
+  });
+
+  it("relancée pendant qu'elle tourne encore, depuis serveur : un onglet neuf, suffixé", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake build" + ENTER);
+    await settle();
+    input.type(ALT_1);
+    await settle();
+    input.type("/fake build" + ENTER);
+    await settle();
+    expect(runs).to.have.length(2);
+    expect(tabs(await screen(written))).to.contain("build 2");
     terminal.close();
   });
 
