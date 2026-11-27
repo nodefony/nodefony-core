@@ -1085,6 +1085,95 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     terminal.close();
   });
 
+  it("souris captée : revenir par un clic sur l'onglet d'une commande finie le montre, sans le fermer", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(true, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake inspect" + ENTER);
+    await settle();
+    runs[0]?.done(0);
+    await settle();
+    // Depuis l'onglet fini, une AUTRE commande ouvre son propre onglet.
+    input.type("/fake build" + ENTER);
+    await settle();
+    runs[1]?.done(0);
+    await settle();
+    expect(terminal.activeView).to.not.equal("run:1");
+    const lines = await screen(written);
+    const row = lines.findIndex((l) => l.includes("1 serveur"));
+    expect(row, lines.join("\n")).to.be.greaterThan(-1);
+    const column = (lines[row] ?? "").indexOf("inspect") + 1;
+    input.type(`\x1b[<0;${column};${row + 1}M`);
+    await settle();
+    input.type(`\x1b[<0;${column};${row + 1}m`);
+    // Au-delà du délai d'Échap : un reste de séquence ne doit rien fermer.
+    await new Promise((r) => setTimeout(r, 120));
+    await settle();
+    expect(terminal.activeView).to.equal("run:1");
+    expect(tabs(await screen(written))).to.contain("inspect");
+    terminal.close();
+  });
+
+  it("la dernière ligne dit la règle de fermeture : en cours, puis fini — même en revenant sur l'onglet", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, 100, ROWS, false, [
+      action,
+    ]);
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
+    input.type("/fake inspect" + ENTER);
+    await settle();
+    expect((await screen(written, 100)).join("\n")).to.contain(
+      "commande en cours · Ctrl+C l'interrompt",
+    );
+    // Fini HORS de vue : aucun message passager — c'est la ligne durable
+    // qui le dit au retour.
+    input.type(ALT_1);
+    await settle();
+    expect((await screen(written, 100)).join("\n")).to.not.contain(
+      "ferme cet onglet",
+    );
+    runs[0]?.done(1);
+    await settle();
+    input.type(ALT_2);
+    await settle();
+    const back = (await screen(written, 100)).join("\n");
+    expect(back).to.contain("échec · Échap ou /close ferme cet onglet");
+    expect(back).to.not.contain("le prochain lancement ferme");
+    terminal.close();
+  });
+
+  it("au plafond, la dernière ligne prévient que le prochain lancement ferme le plus ancien fini", async () => {
+    // Le message passager de fin (3 s) passe d'abord ; la règle durable lui succède.
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, 160, ROWS, false, [
+      action,
+    ]);
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
+    for (const [i, name] of ["a", "b", "c", "d"].entries()) {
+      input.type(`/fake ${name}` + ENTER);
+      await settle();
+      runs[i]?.done(0);
+      await settle();
+    }
+    await vi.waitFor(
+      async () =>
+        expect((await screen(written, 160)).join("\n")).to.contain(
+          "4 ouverts : le prochain lancement ferme le plus ancien fini",
+        ),
+      { timeout: 5000 },
+    );
+    terminal.close();
+  });
+
   it("/close ferme l'onglet d'une commande finie ; sur serveur, il refuse en le disant", async () => {
     const { action, runs } = launcher();
     const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
