@@ -249,6 +249,12 @@ export const OPT_IN_SWITCHES: ReadonlyArray<{ env: string; what: string }> = [
     env: "NF_RUN_CLI_BOOT",
     what: "boots CLI réels (lents : un kernel par cas)",
   },
+  {
+    env: "NF_RUN_CONPTY",
+    what:
+      "questions au pied d'une console node-pty — ConPTY sous Windows " +
+      "(exige `npm i --no-save node-pty`)",
+  },
   { env: "NF_RUN_CLUSTER_E2E", what: "scénarios cluster multi-process" },
   {
     env: "NF_RUN_WS_RUPTURE",

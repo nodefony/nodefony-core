@@ -13,7 +13,7 @@
 | Famille | Variables |
 | --- | ---: |
 | Infrastructure | 14 |
-| Interrupteur de coût | 8 |
+| Interrupteur de coût | 9 |
 | Décor de banc | 42 |
 | Runtime produit | 94 |
 
@@ -165,6 +165,7 @@ déclarée n'a pas été exercée.
 | `NF_REAL_SCHEMA_SPECS` | banc de schéma réel : chemin du specs.json d'un corpus tiers converti (jamais versionné) — posé par bench-real-schema.mjs |
 | `NF_RUN_CLI_BOOT` | boots CLI réels (lents : un kernel par cas) |
 | `NF_RUN_CLUSTER_E2E` | scénarios cluster multi-process |
+| `NF_RUN_CONPTY` | questions au pied d'une console node-pty — ConPTY sous Windows (exige `npm i --no-save node-pty`) |
 | `NF_RUN_DB_OUTAGE` | coupures RÉELLES de base (arrête et relance un conteneur ; exige aussi NF_DB_OUTAGE_{PG,MYSQL,MONGO}_CONTAINER) |
 | `NF_RUN_LONG_STREAM` | flux d'octets tenus à leurs délais RÉELS — défaut d'idleTimeout (30 s) et idleTimeout: 0 pendant 40 s, ~80 s en tout |
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
@@ -228,7 +229,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_WIDTHS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:1035` |
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:66` |
-| `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2866` |
+| `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2867` |
 | `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:86` |
 | `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:84` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:142` |
@@ -236,8 +237,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:277` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:276` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:104` |
-| `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:1006` |
-| `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:1025` |
+| `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:1012` |
+| `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:1031` |
 | `NF_HUB_API` | `scripts/release/hub-description.mjs:60` |
 | `NF_HUB_DEPOT` | `scripts/release/hub-description.mjs:66` |
 | `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:56` |

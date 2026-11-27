@@ -29,6 +29,19 @@ export const expectations: GateExpectations = () => [
         },
       ]
     : []),
+  // Une console RÉELLE sous Windows (ConPTY), où `script` n'existe pas :
+  // demandée, elle doit avoir SERVI — un cas sauté ne vaut pas preuve.
+  ...(process.env.NF_RUN_CONPTY === "1"
+    ? [
+        {
+          label:
+            "Question au pied d'une console node-pty (ConPTY sous Windows)",
+          switch: "NF_RUN_CONPTY",
+          capability: "node-pty",
+          proof: "node-pty :",
+        },
+      ]
+    : []),
 ];
 
 /**
