@@ -501,6 +501,7 @@ function makeRegistry(): {
 function declaration(
   key: string,
   fingerprint: string,
+  startupTimeoutMs = 5_000,
 ): IHeldServiceDeclaration {
   return {
     key,
@@ -509,7 +510,7 @@ function declaration(
     spec: { mode: "ok", tag: fingerprint },
     cwd: HELD_HOST_CWD,
     env: {},
-    tuning: { startupTimeoutMs: 5_000, maxRestarts: 0 },
+    tuning: { startupTimeoutMs, maxRestarts: 0 },
   };
 }
 
@@ -633,13 +634,27 @@ describe("L11 — 20 services à la fois, puis stopAll", () => {
   it("tous démarrent, puis tous meurent avant que stopAll rende la main", async () => {
     const { registry, events } = makeRegistry();
     const keys = Array.from({ length: 20 }, (_, i) => `svc:${i}`);
-    registry.apply(plan(keys.map((k) => declaration(k, "f1"))));
-    await until(() => readyPids(events).size === 20, 30_000);
+    // Vingt démarrages À LA FOIS sur un runner partagé : le budget de 5 s d'un
+    // hôte seul n'y tient pas (vécu sur macOS, la CI tombait au délai du test
+    // sans nommer la cause). Ce cas éprouve la concurrence, pas la vitesse.
+    registry.apply(plan(keys.map((k) => declaration(k, "f1", 20_000))));
+    await until(() => {
+      // Un hôte tombé ne sera jamais prêt : le dire tout de suite, avec sa cause.
+      const fallen = events.find(
+        (e) => e.state === "crashed" || e.state === "errored",
+      );
+      if (fallen !== undefined) {
+        throw new Error(
+          `${fallen.key} ${fallen.state} : ${fallen.lastError ?? "sans cause rapportée"}`,
+        );
+      }
+      return readyPids(events).size === 20;
+    }, 45_000);
     const pids = [...readyPids(events)];
     strays.push(...pids);
     await registry.stopAll();
     expect(pids.filter(isPidAlive)).toEqual([]);
-  });
+  }, 60_000);
 
   it("killAll pendant un REMPLACEMENT : le successeur, qui attendait la mort de l'ancien, ne naît jamais (audit #692, M1)", async () => {
     const { registry, events } = makeRegistry();
