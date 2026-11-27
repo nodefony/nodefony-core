@@ -3,6 +3,7 @@
  * superviseur, les commandes du CLI et l'assistant (ADR-0013 §7, #538).
  * Figé par l'ADR : il ne bouge pas d'un lot à l'autre, chacun l'implémente.
  */
+import { redactSecrets } from "../../runtime/redact";
 import {
   computeCompletions,
   type ICliManifest,
@@ -350,7 +351,7 @@ export function cliCommandAction(
       }
       const argv = splitPromptLine(whole);
       if (argv === null) {
-        io.write(`guillemet non fermé : ${line}\n`, "err");
+        io.write(`guillemet non fermé : ${redactSecrets(line)}\n`, "err");
         return 64;
       }
       if (launch !== undefined && read === null) {

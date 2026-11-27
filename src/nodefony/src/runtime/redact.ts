@@ -6,9 +6,10 @@
  * d'exposer du texte hors du process (viewer de logs Studio, profiler dev, debug
  * bar). Pure et isomorphe (zéro dépendance Node) → utilisable serveur ET browser.
  *
- * Couvre quatre familles fréquentes :
+ * Couvre cinq familles fréquentes :
  *  - paires clé/valeur JSON `"password":"x"` / `"token": x` ;
  *  - paires clé/valeur texte `password=x` / `Authorization: x` ;
+ *  - drapeaux de ligne de commande `--password x` / `--token x` ;
  *  - schémas d'auth porteurs `Bearer <jwt>` / `Basic <b64>` ;
  *  - mots de passe d'URL `postgres://user:x@hôte` ({@link redactUrlCredentials}).
  *
@@ -32,6 +33,17 @@ const JSON_PAIR = new RegExp(
 /** Texte : `key=value` / `key: value` (avec ou sans quotes) → valeur masquée. */
 const KV_PAIR = new RegExp(
   `\\b(${SENSITIVE_KEYS})(\\s*[:=]\\s*)("[^"]*"|'[^']*'|[^\\s,;]+)`,
+  "gi",
+);
+
+/**
+ * Ligne de commande : `--password x` / `--token "a b"` → valeur masquée. La
+ * forme `--password=x` est déjà couverte par {@link KV_PAIR} ; seul l'espace
+ * manquait. Une clé suivie d'autre chose qu'un blanc (`--password-file`,
+ * `--tokenizer`) n'est pas un secret.
+ */
+const CLI_FLAG = new RegExp(
+  `(--(?:${SENSITIVE_KEYS}))(\\s+)("[^"]*"|'[^']*'|\\S+)`,
   "gi",
 );
 
@@ -81,5 +93,6 @@ export function redactSecrets(line: string): string {
   return redactUrlCredentials(line)
     .replace(BEARER, `$1 ${MASK}`)
     .replace(JSON_PAIR, `$1"${MASK}"`)
+    .replace(CLI_FLAG, `$1$2${MASK}`)
     .replace(KV_PAIR, `$1$2${MASK}`);
 }

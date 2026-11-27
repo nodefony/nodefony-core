@@ -19,6 +19,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { redactSecrets } from "../../runtime/redact";
 import { PASTE_ATTACH_CHARS, type IRecallSource } from "./lineEditor";
 
 /** Entrées retenues au plus. */
@@ -27,13 +28,6 @@ export const PROMPT_HISTORY_CAPACITY = 1000;
 export const PROMPT_HISTORY_MAX_TEXT = 16 * 1024;
 /** Le fichier, relatif à la racine du projet. */
 export const PROMPT_HISTORY_FILE = path.join("var", "prompt-history.jsonl");
-
-/**
- * Une saisie qui porte un secret : jamais gardée. Aucun quantificateur
- * imbriqué ni alternance qui se chevauche (ReDoS).
- */
-const SECRET_PATTERN =
-  /(?:password|passwd|secret|token|api[_-]?key)\s*[=:]\s*\S|--(?:password|secret|token)\b/i;
 
 /** Une entrée de l'historique. Forme fixe, posée au constructeur. */
 export class PromptHistoryEntry {
@@ -211,7 +205,9 @@ export class PromptHistory {
     if (text.length > PROMPT_HISTORY_MAX_TEXT) {
       return { kept: false, reason: "too-long" };
     }
-    if (SECRET_PATTERN.test(text)) return { kept: false, reason: "secret" };
+    // Une saisie porte un secret quand le masqueur y trouve quelque chose :
+    // la règle est celle des journaux, une seule liste de clés.
+    if (redactSecrets(text) !== text) return { kept: false, reason: "secret" };
     return { kept: true, entry: this.#add(text, view, at, 1, null, null) };
   }
 
