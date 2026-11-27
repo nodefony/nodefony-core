@@ -75,6 +75,7 @@ function prompted(
   rows = ROWS,
   menu = false,
   extra: readonly IPromptAction[] = [],
+  copy?: (text: string) => Promise<string>,
 ) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nf-dev-prompt-"));
   roots.push(root);
@@ -94,7 +95,13 @@ function prompted(
     color: false,
     charset: "unicode",
     mark: brandMark("unicode", false),
-    fullscreen: { input, synchronized: false, onQuit: quit, mouse },
+    fullscreen: {
+      input,
+      synchronized: false,
+      onQuit: quit,
+      mouse,
+      ...(copy === undefined ? {} : { copy }),
+    },
   });
   const verbs = {
     restart: vi.fn(async () => true),
@@ -503,6 +510,63 @@ describe("plein écran — l'invite (#538)", () => {
     await nextFrame();
     const text = (await screen(written, 120, 30)).join("\n");
     expect(text).to.not.contain("le terminal ne rapporte pas la souris");
+    terminal.close();
+  });
+
+  it("souris captée : glisser sur la saisie de l'invite la copie ; double clic = le mot, chemin compris", async () => {
+    const copy = vi.fn(async () => "copié");
+    const { written, input, terminal } = prompted(
+      true,
+      COLS,
+      ROWS,
+      false,
+      [],
+      copy,
+    );
+    input.type("/nodefony security:user:list");
+    await nextFrame();
+    expect((await screen(written)).at(-1)).to.equal(
+      "❯ /nodefony security:user:list",
+    );
+    // « ❯ » et un blanc : la saisie commence colonne 3.
+    input.type(`\x1b[<0;3;${ROWS}M\x1b[<32;11;${ROWS}M\x1b[<0;11;${ROWS}m`);
+    await nextFrame();
+    expect(copy).toHaveBeenCalledWith("/nodefony");
+    expect(written.join("")).to.contain("\x1b[7m");
+    input.type(
+      `\x1b[<0;16;${ROWS}M\x1b[<0;16;${ROWS}m\x1b[<0;16;${ROWS}M\x1b[<0;16;${ROWS}m`,
+    );
+    await nextFrame();
+    expect(copy).toHaveBeenLastCalledWith("security:user:list");
+    // Un simple clic ne copie rien, et la saisie reste intacte.
+    copy.mockClear();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    input.type(`\x1b[<0;5;${ROWS}M\x1b[<0;5;${ROWS}m`);
+    await nextFrame();
+    expect(copy).not.toHaveBeenCalled();
+    expect((await screen(written)).at(-1)).to.equal(
+      "❯ /nodefony security:user:list",
+    );
+    terminal.close();
+  });
+
+  it("souris captée : glisser au-delà de la saisie s'arrête à son dernier caractère", async () => {
+    const copy = vi.fn(async () => "copié");
+    const { written, input, terminal } = prompted(
+      true,
+      COLS,
+      ROWS,
+      false,
+      [],
+      copy,
+    );
+    input.type("/status now");
+    await nextFrame();
+    await screen(written);
+    // « ❯ /status » finit colonne 9, l'espace est en 10 : « now » part de 11.
+    input.type(`\x1b[<0;11;${ROWS}M\x1b[<32;40;${ROWS}M\x1b[<0;40;${ROWS}m`);
+    await nextFrame();
+    expect(copy).toHaveBeenCalledWith("now");
     terminal.close();
   });
 

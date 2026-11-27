@@ -250,6 +250,11 @@ export interface IFrame {
   /** La bande à l'écran : sa première ligne et sa hauteur — ce qu'un clic teste. */
   readonly band?: { readonly row: number; readonly height: number };
   /**
+   * La ligne de l'écran (depuis 0) qui porte la première ligne SAISIE de
+   * l'invite, sous son filet — `-1` sans invite. Ce qu'un glisser y relit.
+   */
+  readonly promptRow?: number;
+  /**
    * Les lignes du journal à l'écran, depuis le haut : la région que le
    * terminal peut faire défiler ({@link diffFrameScrolled}).
    */
@@ -1358,6 +1363,11 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
       cursor = { row, column: Math.min(prompt.cursor.column, width) };
     }
   }
+  // La première ligne de l'invite APRÈS son filet : ce qu'un clic y relit.
+  const promptRow =
+    prompt !== null && promptLines.length > 0
+      ? promptStart + (prompt.ruled === true ? 1 : 0)
+      : -1;
   const tabRow =
     journal.lines.length + indicator.length + gapLines.length - cut;
   const bandRow = tabRow + tabLines.length;
@@ -1365,13 +1375,14 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
   const hasBand = bandLines.length > 0 && bandRow >= 0;
   // Un littéral par cas : une forme fixe chacun, et le cas courant (ni
   // onglets ni bande) n'alloue rien de plus que l'image.
-  if (!hasTabs && !hasBand) return { lines, cursor, origins, journalRows };
+  if (!hasTabs && !hasBand)
+    return { lines, cursor, origins, journalRows, promptRow };
   const band = { row: bandRow, height: bandLines.length };
-  if (!hasTabs) return { lines, cursor, origins, journalRows, band };
+  if (!hasTabs) return { lines, cursor, origins, journalRows, promptRow, band };
   const tabs = { row: tabRow, spans: tabSpans };
   return hasBand
-    ? { lines, cursor, origins, journalRows, tabs, band }
-    : { lines, cursor, origins, journalRows, tabs };
+    ? { lines, cursor, origins, journalRows, promptRow, tabs, band }
+    : { lines, cursor, origins, journalRows, promptRow, tabs };
 }
 
 /**

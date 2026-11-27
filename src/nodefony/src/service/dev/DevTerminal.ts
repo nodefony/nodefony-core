@@ -52,6 +52,8 @@ import {
 import type { ITabPalette } from "./tabPalette";
 import {
   extractSelection,
+  invertColumns,
+  wordBounds,
   zoneAt,
   selectionRange,
   type ISelection,
@@ -483,6 +485,34 @@ export async function probeTerminal(
 }
 
 /** Ce que possède le plein écran, de l'entrée à la restauration. */
+/**
+ * Une sélection dans l'invite : ses bornes en UNITÉS de l'éditeur (graphème
+ * ou pièce jointe), valables pour une version du tampon — la frappe suivante
+ * la rend caduque. La tête est incluse : on sélectionne ce qu'on survole.
+ */
+class PromptSelection {
+  /** Un glisser commencé sur un simple clic : rien ne se copie s'il ne bouge pas. */
+  moved = false;
+  /** Le bouton est encore enfoncé. */
+  dragging = true;
+
+  constructor(
+    readonly editor: LineEditor,
+    readonly version: number,
+    readonly unit: SelectionUnit,
+    readonly anchor: number,
+    public head: number,
+  ) {}
+
+  get from(): number {
+    return Math.min(this.anchor, this.head);
+  }
+
+  get to(): number {
+    return Math.min(Math.max(this.anchor, this.head) + 1, this.editor.length);
+  }
+}
+
 interface IFullscreenState {
   input: IDevTerminalInput;
   synchronized: boolean;
@@ -499,6 +529,8 @@ interface IFullscreenState {
   copy: ((text: string) => Promise<string>) | null;
   /** La sélection à la souris — `null` sans sélection. */
   selection: ISelection | null;
+  /** La sélection DANS l'invite — `null` sans sélection. */
+  promptSelection: PromptSelection | null;
   /** Le bouton est tenu depuis un `press` dans le journal. */
   selecting: boolean;
   /** La souris a bougé depuis le `press` : un simple clic ne sélectionne rien. */
@@ -1331,6 +1363,7 @@ export class DevTerminal {
       mouse: options.mouse === true,
       copy: options.copy ?? null,
       selection: null,
+      promptSelection: null,
       selecting: false,
       dragged: false,
       lastPress: null,
@@ -1454,7 +1487,13 @@ export class DevTerminal {
     return {
       handle: (event) => {
         if (event.kind === "key") {
-          if (event.key !== "escape" || full.selection === null) return false;
+          if (event.key !== "escape") return false;
+          if (this.#livePromptSelection(full) !== null) {
+            full.promptSelection = null;
+            this.#scheduleFrame();
+            return true;
+          }
+          if (full.selection === null) return false;
           this.#setSelection(full, null);
           return true;
         }
@@ -1483,6 +1522,13 @@ export class DevTerminal {
             column: event.column,
             clicks,
           };
+          if (this.#pressPrompt(full, event.row, event.column, clicks)) {
+            return true;
+          }
+          if (full.promptSelection !== null) {
+            full.promptSelection = null;
+            this.#scheduleFrame();
+          }
           full.selecting = point !== null;
           full.dragged = false;
           full.dragRow = event.row;
@@ -1499,6 +1545,16 @@ export class DevTerminal {
                   unit: CLICK_UNITS[clicks - 1] ?? "char",
                 },
           );
+          return true;
+        }
+        const marked = full.promptSelection;
+        if (marked?.dragging === true) {
+          if (event.action === "drag") {
+            this.#dragPrompt(full, marked, event.row, event.column);
+          } else if (event.action === "release") {
+            marked.dragging = false;
+            this.#finishPromptSelection(full, marked);
+          }
           return true;
         }
         if (!full.selecting || full.selection === null) return true;
@@ -1519,6 +1575,122 @@ export class DevTerminal {
         return true;
       },
     };
+  }
+
+  /**
+   * La ligne SAISIE de l'invite sous une ligne de l'écran (depuis 1), comptée
+   * dans les lignes rendues de l'éditeur — `null` hors de la saisie.
+   */
+  #promptLineAt(full: IFullscreenState, row: number): number | null {
+    const top = full.frame?.promptRow ?? -1;
+    const shown = this.#prompt?.frame ?? null;
+    if (top < 0 || shown === null) return null;
+    const line = row - 1 - top;
+    return line >= 0 && line < shown.lines.length - 1 ? line : null;
+  }
+
+  /**
+   * Un clic dans la saisie de l'invite : il pose la sélection de l'éditeur
+   * affiché — un caractère, un mot (double clic, la règle du journal), la
+   * saisie entière (triple). `false` : le clic n'y était pas.
+   */
+  #pressPrompt(
+    full: IFullscreenState,
+    row: number,
+    column: number,
+    clicks: number,
+  ): boolean {
+    const state = this.#prompt;
+    const line = this.#promptLineAt(full, row);
+    if (state === null || line === null) return false;
+    this.#setSelection(full, null);
+    const editor = this.#editorOf(state);
+    full.promptSelection = null;
+    if (editor.length > 0) {
+      const at = Math.max(0, column - 1);
+      let anchor = editor.indexAt(line, at);
+      let head = anchor;
+      if (clicks === 3) {
+        anchor = 0;
+        head = editor.length - 1;
+      } else if (clicks === 2) {
+        const [start, end] = wordBounds(state.frame?.lines[line + 1] ?? "", at);
+        if (end > start) {
+          anchor = editor.indexAt(line, start);
+          head = editor.indexAt(line, end - 1);
+        }
+      }
+      full.promptSelection = new PromptSelection(
+        editor,
+        editor.version,
+        CLICK_UNITS[clicks - 1] ?? "char",
+        anchor,
+        head,
+      );
+    }
+    this.#scheduleFrame();
+    return true;
+  }
+
+  /** Glisser dans l'invite : la tête suit, bornée à la saisie. */
+  #dragPrompt(
+    full: IFullscreenState,
+    marked: PromptSelection,
+    row: number,
+    column: number,
+  ): void {
+    const shown = this.#prompt?.frame ?? null;
+    const top = full.frame?.promptRow ?? -1;
+    if (shown === null || top < 0) return;
+    const last = shown.lines.length - 2;
+    const line = row - 1 - top;
+    const head =
+      line < 0
+        ? 0
+        : line > last
+          ? marked.editor.length - 1
+          : marked.editor.indexAt(line, Math.max(0, column - 1));
+    marked.head = Math.min(head, marked.editor.length - 1);
+    marked.moved = true;
+    this.#scheduleFrame();
+  }
+
+  /**
+   * Relâché dans l'invite : un simple clic ne laisse rien ; une vraie
+   * sélection reste surlignée et part au presse-papiers — le texte saisi,
+   * une pièce jointe par son contenu.
+   */
+  #finishPromptSelection(
+    full: IFullscreenState,
+    marked: PromptSelection,
+  ): void {
+    if (this.#livePromptSelection(full) !== marked) return;
+    if (marked.unit === "char" && !marked.moved) {
+      full.promptSelection = null;
+      this.#scheduleFrame();
+      return;
+    }
+    const text = marked.editor.textOf(marked.from, marked.to);
+    if (text.length > 0) this.#copyText(full, text);
+  }
+
+  /**
+   * La sélection de l'invite si elle vaut encore — même éditeur, même
+   * version du tampon ; caduque, elle est retirée.
+   */
+  #livePromptSelection(full: IFullscreenState): PromptSelection | null {
+    const marked = full.promptSelection;
+    if (marked === null) return null;
+    const state = this.#prompt;
+    if (
+      state !== null &&
+      marked.editor === this.#editorOf(state) &&
+      marked.version === marked.editor.version
+    ) {
+      return marked;
+    }
+    full.promptSelection = null;
+    return null;
   }
 
   /**
@@ -2461,7 +2633,7 @@ export class DevTerminal {
       state.frameWidth === width &&
       state.frameFocused === state.focused
     ) {
-      return state.frame;
+      return this.#markPrompt(state.frame, editor, width);
     }
     const rule = "─".repeat(width);
     // Le même objet tant que rien ne change : `renderFrame` ne le réajuste
@@ -2477,7 +2649,33 @@ export class DevTerminal {
     state.frameSource = drawn;
     state.frameWidth = width;
     state.frameFocused = state.focused;
-    return state.frame;
+    return this.#markPrompt(state.frame, editor, width);
+  }
+
+  /**
+   * L'invite surlignée par sa sélection — une image neuve tant qu'elle dure
+   * seulement ; sans sélection, l'image retenue telle quelle.
+   */
+  #markPrompt(
+    frame: IFramePrompt,
+    editor: LineEditor,
+    width: number,
+  ): IFramePrompt {
+    const full = this.#full;
+    const marked = full === null ? null : this.#livePromptSelection(full);
+    if (marked === null || marked.editor !== editor) return frame;
+    const start = editor.positionOf(marked.from);
+    const end = editor.positionOf(marked.to);
+    const lines = frame.lines.map((text, index) => {
+      const line = index - 1;
+      if (index === 0 || line < start.row || line > end.row) return text;
+      const from =
+        line === start.row
+          ? start.column
+          : editor.positionOf(editor.indexAt(line, 0)).column;
+      return invertColumns(text, from, line === end.row ? end.column : width);
+    });
+    return { ...frame, lines };
   }
 
   /**
