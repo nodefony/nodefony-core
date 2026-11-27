@@ -111,6 +111,11 @@ export interface IFrameTab {
    */
   readonly busy?: string;
   /**
+   * Une question y attend sa réponse : un `?` jaune, à la place du tourniquet
+   * — l'onglet quitté pendant qu'on lui demandait quelque chose ne s'oublie pas.
+   */
+  readonly asking?: boolean;
+  /**
    * Ouvert à la volée (une commande, un panneau), pas un onglet fixe
    * (serveur, Vite) : une ┃ marque la frontière des deux groupes.
    */
@@ -506,7 +511,7 @@ function tabsLine(
     // Trait ou blanc, état, numéro, blanc, titre, compteur, blanc, barre.
     widths[i] =
       1 +
-      (tab?.outcome || tab?.busy ? 2 : 0) +
+      (tab?.outcome || tab?.asking || tab?.busy ? 2 : 0) +
       String(i + 1).length +
       1 +
       visibleWidth(label) +
@@ -579,9 +584,11 @@ function tabsLine(
           ? ascii
             ? "x "
             : "✗ "
-          : tab?.busy
-            ? `${tab.busy} `
-            : "";
+          : tab?.asking
+            ? "? "
+            : tab?.busy
+              ? `${tab.busy} `
+              : "";
     if (!model.color) {
       const body = `${glyph}${i + 1} ${label}${counter}`;
       text += active ? `[${body}]` : ` ${body} `;
@@ -589,7 +596,7 @@ function tabsLine(
       const state =
         glyph === ""
           ? ""
-          : `\x1b[${outcome === "ok" ? "32" : outcome === "failed" ? "31" : "36"}m${glyph}\x1b[39m`;
+          : `\x1b[${outcome === "ok" ? "32" : outcome === "failed" ? "31" : tab?.asking ? "33" : "36"}m${glyph}\x1b[39m`;
       if (active) {
         const own = palette === null ? "" : `\x1b[${palette.active}m`;
         text += `${own}\x1b[34m${ascii ? "|" : "▎"}\x1b[39m${state}${faint(String(i + 1))} \x1b[1m${label}\x1b[22m ${bar}`;

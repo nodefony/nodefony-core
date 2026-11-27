@@ -1413,3 +1413,143 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     terminal.close();
   });
 });
+
+describe("plein écran — une question posée depuis l'invite (#538, lot 2b-2)", () => {
+  const ALT_1 = "\x1b1";
+  const settle = (): Promise<void> => nextFrame();
+  const tabs = (lines: readonly string[]): string =>
+    lines.find((l) => l.includes("1 serveur")) ?? "";
+
+  it("la question prend la place de la saisie ; Entrée répond, la ligne réglée reste au journal — le secret jamais", async () => {
+    const { action, runs } = launcher();
+    const { root, written, input, terminal } = prompted(
+      false,
+      COLS,
+      ROWS,
+      false,
+      [action],
+    );
+    input.type("/fake add" + ENTER);
+    await settle();
+    const run = runs[0];
+    if (run === undefined) throw new Error("rien de lancé");
+    const name = run.io.ask(
+      { kind: "input", key: "name", message: "Nom du compte", required: true },
+      run.signal,
+    );
+    await settle();
+    let lines = await screen(written);
+    expect(lines.at(-1)?.trimEnd()).to.equal("? Nom du compte");
+    // Une réponse vide est refusée sur place, par le moteur.
+    input.type(ENTER);
+    await settle();
+    expect((await screen(written)).join("\n")).to.contain(
+      "une réponse est requise",
+    );
+    input.type("alice" + ENTER);
+    expect(await name).to.deep.equal({ action: "accept", value: "alice" });
+    await settle();
+    lines = await screen(written);
+    expect(lines).to.contain("✔ Nom du compte alice");
+    expect(lines.at(-1)?.trimEnd()).to.equal("❯");
+    const secret = run.io.ask(
+      { kind: "secret", key: "password", message: "Mot de passe" },
+      run.signal,
+    );
+    await settle();
+    input.type("s3cret!");
+    await settle();
+    expect((await screen(written)).at(-1)?.trimEnd()).to.equal(
+      "? Mot de passe •••••••",
+    );
+    input.type(ENTER);
+    expect(await secret).to.deep.equal({ action: "accept", value: "s3cret!" });
+    await settle();
+    expect(await screen(written)).to.contain("✔ Mot de passe (saisi)");
+    // Ni l'écran, ni l'historique de l'invite n'ont vu le secret.
+    expect(written.join("")).to.not.contain("s3cret!");
+    const saved = path.join(root, PROMPT_HISTORY_FILE);
+    if (fs.existsSync(saved)) {
+      expect(fs.readFileSync(saved, "utf8")).to.not.contain("s3cret!");
+    }
+    terminal.close();
+  });
+
+  it("l'onglet quitté garde sa question et porte un ? ; revenu, Ctrl+C l'annule", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake add" + ENTER);
+    await settle();
+    const run = runs[0];
+    if (run === undefined) throw new Error("rien de lancé");
+    const outcome = run.io.ask(
+      { kind: "confirm", key: "go", message: "Créer le compte ?" },
+      run.signal,
+    );
+    input.type(ALT_1);
+    await settle();
+    let lines = await screen(written);
+    expect(tabs(lines)).to.match(/\? \d+ add/);
+    expect(lines.at(-1)?.trimEnd()).to.equal("❯");
+    input.type(ALT_2);
+    await settle();
+    lines = await screen(written);
+    expect(lines.at(-1)?.trimEnd()).to.equal("? Créer le compte ? (o/N)");
+    input.type(CTRL_C);
+    expect(await outcome).to.deep.equal({ action: "cancel" });
+    await settle();
+    lines = await screen(written);
+    expect(lines).to.contain("✗ Créer le compte ? (annulé)");
+    expect(tabs(lines)).to.not.match(/\? \d+ add/);
+    // Le Ctrl+C a annulé la question, pas la commande : elle décide seule.
+    expect(run.signal.aborted).to.equal(false);
+    terminal.close();
+  });
+
+  it("commande finie ou interrompue : sa question est retirée, la saisie revient", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake add" + ENTER);
+    await settle();
+    const run = runs[0];
+    if (run === undefined) throw new Error("rien de lancé");
+    const gone = new AbortController();
+    const outcome = run.io.ask(
+      { kind: "input", key: "name", message: "Nom du compte" },
+      gone.signal,
+    );
+    await settle();
+    expect((await screen(written)).at(-1)?.trimEnd()).to.equal(
+      "? Nom du compte",
+    );
+    gone.abort();
+    expect(await outcome).to.deep.equal({ action: "cancel" });
+    await settle();
+    expect((await screen(written)).at(-1)?.trimEnd()).to.equal("❯");
+    terminal.close();
+  });
+
+  it("une action de l'invite confirme par le même moteur (D8) : o accepte, n décline", async () => {
+    const { action, runs } = launcher();
+    const { input, terminal } = prompted(false, COLS, ROWS, false, [action]);
+    input.type("/fake rm" + ENTER);
+    await settle();
+    const run = runs[0];
+    if (run === undefined) throw new Error("rien de lancé");
+    const yes = run.io.confirm({ title: "Supprimer ?", risk: "destructive" });
+    await settle();
+    input.type("o");
+    expect((await yes).action).to.equal("accept");
+    const no = run.io.confirm({ title: "Encore ?", risk: "write" });
+    await settle();
+    input.type("n");
+    const decision = await no;
+    expect(decision.action).to.equal("decline");
+    expect(decision.id).to.not.equal((await yes).id);
+    terminal.close();
+  });
+});

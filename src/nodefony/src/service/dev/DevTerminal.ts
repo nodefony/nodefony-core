@@ -103,6 +103,15 @@ import { StatusLine, type IStatusStream } from "./statusLine";
 import { brandMiniMark } from "../../cli/brand";
 import { LineEditor, type IPromptRenderOptions } from "./lineEditor";
 import {
+  handleQuestion,
+  renderQuestion,
+  type IConfirmQuestion,
+  type IQuestion,
+  type IQuestionOutcome,
+  type QuestionPaint,
+} from "../../cli/question";
+import { PendingQuestion, QUESTION_CANCELLED } from "./devQuestion";
+import {
   PromptHistoryFile,
   describeHistorySkip,
   type PromptHistoryEntry,
@@ -110,6 +119,8 @@ import {
 import {
   describeUnmatchedInput,
   PROMPT_COMMAND_PREFIX,
+  type IConfirmDecision,
+  type IConfirmRequest,
   type IPromptAction,
   type IPromptIO,
 } from "./promptAction";
@@ -411,6 +422,23 @@ const RUN_HINT_RUNNING =
  */
 const RUN_SPIN_DELAY_MS = 150;
 const RUN_HINT_DONE = "terminée · Échap ou /close ferme cet onglet";
+/** Une question attend : la répondre, ou l'annuler — la commande s'arrête alors. */
+const RUN_HINT_ASKING =
+  "question · Entrée répond · Échap ou Ctrl+C l'annule et arrête la commande";
+
+/** La marque d'un onglet où une question attend (`?`, cf `IFrameTab.asking`). */
+const ASKING_TAB = Object.freeze({ asking: true as const });
+
+/** Lignes au plus d'une question dans l'invite : le journal reste visible. */
+const QUESTION_MAX_ROWS = 12;
+
+/** Les tons d'une question dans l'invite — ceux du pied de terminal. */
+const QUESTION_PAINT: QuestionPaint = (tone, text) =>
+  tone === "accent"
+    ? `\x1b[36m${text}\x1b[39m`
+    : tone === "error"
+      ? `\x1b[31m${text}\x1b[39m`
+      : `\x1b[90m${text}\x1b[39m`;
 const RUN_HINT_FAILED = "échec · Échap ou /close ferme cet onglet";
 /** Suffixe au plafond : le lancement suivant refermera le plus ancien fini. */
 const RUN_HINT_CAP = ` · ${PROMPT_RUN_MAX} ouverts : le prochain lancement ferme le plus ancien fini`;
@@ -675,6 +703,8 @@ export class DevTerminal {
   #prompt: IPromptState | null = null;
   /** Numéro du dernier onglet `run:<n>` ouvert par l'invite. */
   #runSeq = 0;
+  /** Numéro de la dernière confirmation demandée (`IConfirmDecision.id`). */
+  #confirmSeq = 0;
   /** Le foyer de la bande : l'invite se pose JUSTE APRÈS lui (D9). */
   #bandHandle: IInputFocus | null = null;
   /** Le foyer du panneau (#538, D9) — l'invite se range APRÈS lui. */
@@ -1584,7 +1614,10 @@ export class DevTerminal {
   #promptLineAt(full: IFullscreenState, row: number): number | null {
     const top = full.frame?.promptRow ?? -1;
     const shown = this.#prompt?.frame ?? null;
-    if (top < 0 || shown === null) return null;
+    // Une question à l'écran n'est pas la saisie : rien à y sélectionner.
+    if (top < 0 || shown === null || this.#shownQuestion() !== null) {
+      return null;
+    }
     const line = row - 1 - top;
     return line >= 0 && line < shown.lines.length - 1 ? line : null;
   }
@@ -2291,6 +2324,10 @@ export class DevTerminal {
             return false;
           }
         }
+        // Une question à l'écran prend la saisie (D7).
+        const pending = this.#shownQuestion();
+        if (pending !== null)
+          return this.#answerQuestion(state, pending, event);
         // Ctrl+C interrompt l'action de l'onglet AFFICHÉ, pas une autre.
         const running = this.#active.running;
         if (
@@ -2563,11 +2600,11 @@ export class DevTerminal {
       write,
       // Confirmer et prêter le terminal arrivent avec les commandes du CLI
       // (lot 2) : aucun verbe du superviseur n'en a besoin.
-      confirm: () =>
-        Promise.reject(new Error("confirmation indisponible dans l'invite")),
+      confirm: (request) =>
+        this.#confirmInView(view, request, controller.signal, write),
       suspend: () =>
         Promise.reject(new Error("le terminal ne se prête pas encore")),
-      ask: () => Promise.resolve({ action: "cancel" }),
+      ask: (question, signal) => this.#askInView(view, question, signal, write),
       columns: this.#size().columns,
     };
     let code = 1;
@@ -2608,6 +2645,168 @@ export class DevTerminal {
   }
 
   /**
+   * Pose une question dans un onglet (#538, lot 2b-2, D6-D7) : elle prend la
+   * place de la ligne d'édition quand l'onglet est à l'écran, attend sinon —
+   * l'onglet porte alors un `?`. `signal` la retire sans réponse.
+   *
+   * @param view - l'onglet de l'action qui demande.
+   * @param question - la question, donnée pure.
+   * @param signal - commande finie ou interrompue.
+   * @param write - l'historique de l'onglet, où la question réglée laisse sa
+   *   ligne (un secret n'y figure jamais).
+   * @returns l'issue : `accept` et la valeur, ou `cancel`.
+   */
+  #askInView(
+    view: DevView,
+    question: IQuestion,
+    signal: AbortSignal,
+    write: (chunk: string, stream?: "out" | "err") => void,
+  ): Promise<IQuestionOutcome> {
+    if (
+      signal.aborted ||
+      this.#prompt === null ||
+      !this.#views.includes(view)
+    ) {
+      return Promise.resolve(QUESTION_CANCELLED);
+    }
+    return new Promise<IQuestionOutcome>((resolve) => {
+      const onAbort = (): void =>
+        this.#settleQuestion(view, pending, QUESTION_CANCELLED);
+      const pending = new PendingQuestion(
+        question,
+        resolve,
+        () => signal.removeEventListener("abort", onAbort),
+        (line) => write(line, "out"),
+      );
+      signal.addEventListener("abort", onAbort, { once: true });
+      if (view.asking === null) view.asking = [pending];
+      else view.asking.push(pending);
+      const full = this.#full;
+      if (this.#active === view) {
+        // La saisie cède la place : ni complétion ni sélection ne la survivent.
+        this.#completion?.close();
+        this.#completion = null;
+        if (full !== null) full.promptSelection = null;
+      } else if (full !== null) {
+        this.#notify(full, `« ${view.title} » attend une réponse`);
+      }
+      this.#scheduleFrame();
+    });
+  }
+
+  /** Retire une question de son onglet et rend son issue (celle du moteur par défaut). */
+  #settleQuestion(
+    view: DevView,
+    pending: PendingQuestion,
+    outcome?: IQuestionOutcome,
+  ): void {
+    const queue = view.asking;
+    if (queue !== null) {
+      const index = queue.indexOf(pending);
+      if (index !== -1) queue.splice(index, 1);
+      if (queue.length === 0) view.asking = null;
+    }
+    pending.settle(outcome);
+    this.#scheduleFrame();
+  }
+
+  /**
+   * La confirmation d'une action de l'invite (D8) : une question oui/non dans
+   * son onglet, par le même moteur que celles des commandes. « Non » est le
+   * défaut dès que l'action écrit.
+   */
+  #confirmInView(
+    view: DevView,
+    request: IConfirmRequest,
+    signal: AbortSignal,
+    write: (chunk: string, stream?: "out" | "err") => void,
+  ): Promise<IConfirmDecision> {
+    const question: IConfirmQuestion = {
+      kind: "confirm",
+      key: "confirm",
+      message: request.title,
+      ...(request.detail === undefined ? {} : { note: request.detail }),
+      default: request.risk === "read",
+    };
+    return this.#askInView(view, question, signal, write).then((outcome) => {
+      this.#confirmSeq += 1;
+      return {
+        action:
+          outcome.action !== "accept"
+            ? "cancel"
+            : outcome.value === true
+              ? "accept"
+              : "decline",
+        id: `confirm-${this.#confirmSeq}`,
+        at: Date.now(),
+      };
+    });
+  }
+
+  /** La question à l'écran : la première de l'onglet affiché. */
+  #shownQuestion(): PendingQuestion | null {
+    return this.#active.asking?.[0] ?? null;
+  }
+
+  /**
+   * Le clavier d'une question à l'écran : tout va au moteur, sauf Alt (les
+   * onglets) — Échap et Ctrl+C l'annulent, et la commande sort en 130.
+   */
+  #answerQuestion(
+    state: IPromptState,
+    pending: PendingQuestion,
+    event: InputEvent,
+  ): boolean {
+    if (event.kind === "key" && event.alt) return false;
+    this.#setPromptFocus(state, true);
+    if (handleQuestion(pending.state, event)) pending.invalidate();
+    if (pending.state.outcome !== null) {
+      this.#settleQuestion(this.#active, pending);
+    }
+    this.#scheduleFrame();
+    return true;
+  }
+
+  /**
+   * La question à l'écran, à la place de la ligne d'édition (D7), son filet
+   * au-dessus. Un secret s'y montre en `•` (le moteur) ; rien de la saisie
+   * n'entre dans l'historique de l'invite. Rejouée tant que ni l'état, ni la
+   * largeur, ni le focus n'ont bougé.
+   */
+  #questionFrame(state: IPromptState, pending: PendingQuestion): IFramePrompt {
+    const { columns, rows } = this.#size();
+    const width = Math.max(1, columns - 1);
+    if (
+      pending.frame !== null &&
+      pending.frameWidth === width &&
+      pending.frameFocused === state.focused
+    ) {
+      return pending.frame;
+    }
+    const view = renderQuestion(
+      pending.state,
+      width,
+      Math.max(3, Math.min(QUESTION_MAX_ROWS, rows - 8)),
+      state.render.color ? QUESTION_PAINT : undefined,
+    );
+    const rule = "─".repeat(width);
+    const lines = [state.render.color ? `\x1b[2m${rule}\x1b[0m` : rule];
+    for (const line of view.lines) lines.push(line);
+    pending.frame = {
+      lines,
+      ruled: true,
+      cursor:
+        view.cursor === null
+          ? { row: lines.length - 1, column: 0 }
+          : { row: view.cursor.row + 1, column: view.cursor.column },
+      hidden: view.cursor === null || !state.focused,
+    };
+    pending.frameWidth = width;
+    pending.frameFocused = state.focused;
+    return pending.frame;
+  }
+
+  /**
    * L'image de l'invite de l'onglet affiché, son filet au-dessus — `null`
    * sans invite. Rejouée tant que ni l'éditeur ni la largeur n'ont bougé :
    * `#model` la redemande à chaque image.
@@ -2615,6 +2814,8 @@ export class DevTerminal {
   #promptFrame(): IFramePrompt | null {
     const state = this.#prompt;
     if (state === null) return null;
+    const pending = this.#shownQuestion();
+    if (pending !== null) return this.#questionFrame(state, pending);
     const editor = this.#editorOf(state);
     if (
       state.suggestionOf !== editor ||
@@ -2752,6 +2953,12 @@ export class DevTerminal {
     const index = this.#views.indexOf(view);
     if (index <= 0) return;
     this.#views.splice(index, 1);
+    // Ses questions partent sans réponse : personne ne les verrait plus.
+    while (view.asking !== null) {
+      const pending = view.asking[0];
+      if (pending === undefined) break;
+      this.#settleQuestion(view, pending, QUESTION_CANCELLED);
+    }
     // Son brouillon part avec lui.
     this.#prompt?.editors.delete(view.id);
     this.#prompt?.history.history.forget(view.id);
@@ -2830,7 +3037,8 @@ export class DevTerminal {
   }
 
   /** Le tourniquet d'un onglet dont l'action dure, passé le délai d'apparition. */
-  #busyOf(view: DevView): { busy: string } | null {
+  #busyOf(view: DevView): { busy: string } | typeof ASKING_TAB | null {
+    if (view.asking !== null) return ASKING_TAB;
     return view.running !== null &&
       Date.now() - view.runSince >= RUN_SPIN_DELAY_MS
       ? { busy: spinnerFrame(this.#charset) }
@@ -2892,6 +3100,7 @@ export class DevTerminal {
    */
   #runHint(view: DevView): string | null {
     if (view.kind !== "run") return null;
+    if (view.asking !== null) return RUN_HINT_ASKING;
     if (view.running !== null) {
       const elapsed = Date.now() - view.runSince;
       // Animée pendant l'action seulement : au repos, la règle reste une
