@@ -235,6 +235,38 @@ describe("sanitizeTerminalText — une ligne de journal ne pilote pas le termina
     expect(sanitizeTerminalText(hostile)).to.equal("abcdefgh");
   });
 
+  it("surfrappe de man : X⌫X en gras, _⌫X souligné, une séquence par série — jamais « NNAAMMEE »", () => {
+    expect(sanitizeTerminalText("N\bNA\bAM\bME\bE")).to.equal(
+      "\x1b[1mNAME\x1b[22m",
+    );
+    expect(sanitizeTerminalText("_\bC_\bO")).to.equal("\x1b[4mCO\x1b[24m");
+    // Gras, puis souligné, puis texte nu : chaque série se referme.
+    expect(sanitizeTerminalText("x N\bN _\bf y")).to.equal(
+      "x \x1b[1mN\x1b[22m \x1b[4mf\x1b[24m y",
+    );
+    expect(sanitizeTerminalText("B\bB_\bu")).to.equal(
+      "\x1b[1mB\x1b[22m\x1b[4mu\x1b[24m",
+    );
+    // Souligné ET gras (`_⌫X⌫X`) : la frappe en trop n'ajoute rien.
+    expect(sanitizeTerminalText("_\bX\bX")).to.equal("\x1b[4mX\x1b[24m");
+    // Un autre retour arrière : retiré, les DEUX caractères restent visibles —
+    // une ligne de journal ne masque rien.
+    expect(sanitizeTerminalText("rm\b\bls")).to.equal("rmls");
+    // Seul, en tête ou en fin : retiré, rien d'autre ne bouge.
+    expect(sanitizeTerminalText("\bab\b")).to.equal("ab");
+  });
+
+  it("la VRAIE sortie de man hors terminal ne double aucune lettre", () => {
+    // Octets constatés sur `MANPAGER=cat man nodefony.1` (groff et mandoc).
+    const page =
+      "N\bNA\bAM\bME\bE\n       n\bno\bod\bde\bef\bfo\bon\bny\by _\b[_\bC_\bO]";
+    const plain = page
+      .split("\n")
+      .map(sanitizeTerminalText)
+      .map((l) => l.replace(/\x1b\[[0-9;]*m/g, ""));
+    expect(plain).to.deep.equal(["NAME", "       nodefony [CO]"]);
+  });
+
   it("retire un hyperlien javascript:, garde son texte", () => {
     const evil = "\x1b]8;;javascript:alert(1)\x1b\\clic\x1b]8;;\x1b\\";
     expect(sanitizeTerminalText(evil)).to.equal("clic\x1b]8;;\x1b\\");

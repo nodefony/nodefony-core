@@ -391,6 +391,22 @@ const EDGE_INTERVAL_MS = 60;
 /** Durée d'affichage d'un message passager dans la barre. */
 const NOTICE_MS = 3000;
 
+/**
+ * La dernière ligne de la barre sur l'onglet d'une commande : la règle de
+ * fermeture, dite là où l'on regarde et tant qu'on y est — un message
+ * passager s'efface avant qu'on revienne sur l'onglet. Des constantes : la
+ * barre retenue se compare champ à champ, une chaîne neuve par image la
+ * ferait recomposer.
+ */
+const RUN_HINT_RUNNING =
+  "commande en cours · Ctrl+C l'interrompt · l'onglet reste ouvert après";
+const RUN_HINT_DONE = "terminée · Échap ou /close ferme cet onglet";
+const RUN_HINT_FAILED = "échec · Échap ou /close ferme cet onglet";
+/** Suffixe au plafond : le lancement suivant refermera le plus ancien fini. */
+const RUN_HINT_CAP = ` · ${PROMPT_RUN_MAX} ouverts : le prochain lancement ferme le plus ancien fini`;
+const RUN_HINT_DONE_CAP = RUN_HINT_DONE + RUN_HINT_CAP;
+const RUN_HINT_FAILED_CAP = RUN_HINT_FAILED + RUN_HINT_CAP;
+
 /** Dimensions de repli d'un flux qui n'en déclare pas. */
 const FALLBACK_SIZE: IFrameSize = { columns: 80, rows: 24 };
 
@@ -2614,12 +2630,27 @@ export class DevTerminal {
     this.#scheduleFrame();
   }
 
+  /**
+   * La règle de fermeture de l'onglet de commande affiché, pour la dernière
+   * ligne de la barre — `null` sur un autre onglet.
+   */
+  #runHint(view: DevView): string | null {
+    if (view.kind !== "run") return null;
+    if (view.running !== null) return RUN_HINT_RUNNING;
+    const atCap = this.#runViews(false) >= PROMPT_RUN_MAX;
+    if (view.outcome === "failed") {
+      return atCap ? RUN_HINT_FAILED_CAP : RUN_HINT_FAILED;
+    }
+    return atCap ? RUN_HINT_DONE_CAP : RUN_HINT_DONE;
+  }
+
   /** Ce que l'image lit : l'onglet à l'écran, la barre, la ligne d'onglets. */
   #model(
     full: IFullscreenState,
     views: readonly DevView[] = this.#shownViews(),
   ): IFrameModel {
     const view = this.#active;
+    const help = full.notice ?? this.#runHint(view);
     // Avant le premier bilan du serveur (un build peut durer), la barre dit
     // déjà la phase : un écran alternatif vide ressemble à un programme figé.
     const context =
@@ -2643,8 +2674,9 @@ export class DevTerminal {
               context: {
                 ...context,
                 ...(this.#runtime === null ? {} : { runtime: this.#runtime }),
-                // La dernière ligne du bloc n'accueille qu'un message passager.
-                ...(full.notice === null ? {} : { help: full.notice }),
+                // La dernière ligne du bloc : un message passager, sinon la
+                // règle de fermeture de l'onglet de commande affiché.
+                ...(help === null ? {} : { help }),
               },
               phase: this.#phase,
               notice: full.notice,

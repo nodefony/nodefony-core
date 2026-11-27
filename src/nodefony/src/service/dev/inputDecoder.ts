@@ -184,6 +184,16 @@ function param(value: string | undefined, fallback: number): number {
 }
 
 /**
+ * Le caractère qui suit `ESC` ouvre-t-il une séquence (CSI, SS3, OSC, DCS,
+ * APC) plutôt qu'une touche ?
+ */
+function isSequenceIntroducer(char: string | undefined): boolean {
+  return (
+    char === "[" || char === "O" || char === "]" || char === "P" || char === "_"
+  );
+}
+
+/**
  * Décode un caractère de contrôle C0 (ou DEL) en touche.
  *
  * @param code - le code du caractère.
@@ -425,6 +435,27 @@ export class InputDecoder {
       const end = Math.min(...ends);
       events.push({ kind: "unknown", bytes: input.slice(i, end) });
       return end - i;
+    }
+    // `ESC` suivi d'une SÉQUENCE (`ESC ESC [ …`) : la séquence se lit entière.
+    // Une touche devient Alt + touche (préfixe Méta : `ESC ESC [ A` = Alt+↑) ;
+    // un clic ou un collage gardent leur sens, précédés d'un Échap SEUL — celui
+    // dont le délai n'avait pas encore expiré quand le clic est arrivé. Lus en
+    // « Alt+Échap » puis texte, ils tapaient `[<0;20;23M` dans la saisie et
+    // perdaient l'appui du clic.
+    if (next === "\x1b" && isSequenceIntroducer(input[i + 2])) {
+      const inner: InputEvent[] = [];
+      const used = this.#readEscape(input, i + 1, inner);
+      if (used === 0) return 0;
+      const only = inner.length === 1 ? inner[0] : undefined;
+      if (only?.kind === "key") {
+        events.push(
+          keyEvent(only.key, { ctrl: only.ctrl, alt: true, shift: only.shift }),
+        );
+      } else {
+        events.push(keyEvent("escape"));
+        events.push(...inner);
+      }
+      return 1 + used;
     }
     // Alt + touche : Échap suivi du caractère.
     const code = next.charCodeAt(0);

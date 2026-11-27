@@ -181,8 +181,11 @@ const OTHER_CONTROL = /[\x00-\x09\x0b\x0c\x0e-\x1a\x1c-\x1f\x7f-\x9f]/;
  * de ligne et les hyperliens `http`/`https`/`file` ; retire tout le reste —
  * déplacement de curseur, titre de fenêtre, presse-papiers (OSC 52),
  * changement d'écran, contrôles C0 et C1. Les tabulations deviennent des
- * espaces. Ne traite NI `\r` NI `\n` : c'est le découpage qui leur donne un
- * sens.
+ * espaces. La SURFRAPPE (`X\bX` gras, `_\bX` souligné — ce qu'écrit `man`
+ * hors terminal) devient la couleur équivalente, comme `less` la montre ;
+ * tout autre retour arrière est retiré et laisse VOIR les deux caractères —
+ * une ligne de journal ne masque rien de ce qu'elle porte. Ne traite NI `\r` NI `\n` : c'est le
+ * découpage qui leur donne un sens.
  *
  * @param text - le texte brut, d'une source quelconque.
  * @returns le texte sans aucune séquence qui piloterait le terminal.
@@ -203,10 +206,34 @@ export function sanitizeTerminalText(text: string): string {
   return sanitizeSlow(text);
 }
 
+/** Un caractère qu'une surfrappe peut porter : imprimable, d'une seule unité UTF-16. */
+function isOverstrikable(code: number): boolean {
+  return (
+    code >= 0x20 &&
+    code !== 0x7f &&
+    !(code >= 0x80 && code <= 0x9f) &&
+    !(code >= 0xd800 && code <= 0xdfff)
+  );
+}
+
+/** Ouverture et fermeture SGR d'une surfrappe : 1 gras, 4 souligné. */
+const OVERSTRIKE_OPEN = ["", "\x1b[1m", "", "", "\x1b[4m"] as const;
+const OVERSTRIKE_CLOSE = ["", "\x1b[22m", "", "", "\x1b[24m"] as const;
+
 /** {@link sanitizeTerminalText}, caractère par caractère. */
 function sanitizeSlow(text: string): string {
   let out = "";
   let start = 0;
+  // Surfrappe en cours : 0 aucune, 1 gras, 4 souligné — UNE séquence par
+  // série (`NAME` en gras = 2 séquences, pas 8).
+  let mode = 0;
+  let lastStruck = -1;
+  const close = (): void => {
+    if (mode !== 0) {
+      out += OVERSTRIKE_CLOSE[mode];
+      mode = 0;
+    }
+  };
   for (let i = 0; i < text.length; i++) {
     const code = text.charCodeAt(i);
     const isControl =
@@ -221,7 +248,45 @@ function sanitizeSlow(text: string): string {
         continue;
       }
     }
-    out += text.slice(start, i);
+    if (code === 0x08) {
+      const next = i + 1 < text.length ? text.charCodeAt(i + 1) : -1;
+      const prev = i > start ? text.charCodeAt(i - 1) : -1;
+      const want =
+        !isOverstrikable(prev) || !isOverstrikable(next)
+          ? 0
+          : prev === next
+            ? 1
+            : prev === 0x5f || next === 0x5f
+              ? 4
+              : 0;
+      if (want !== 0) {
+        // `X\bX` gras ; `_\bX` (ou `X\b_`) souligné. Rien d'autre : effacer
+        // un caractère cacherait ce que la ligne a écrit.
+        const shown = want === 4 && next === 0x5f ? prev : next;
+        const plain = text.slice(start, i - 1);
+        if (plain !== "") close();
+        out += plain;
+        if (want !== mode) {
+          close();
+          out += OVERSTRIKE_OPEN[want];
+          mode = want;
+        }
+        out += String.fromCharCode(shown);
+        lastStruck = shown;
+        i += 1;
+        start = i + 1;
+        continue;
+      }
+      // `_\bX\bX` : la seconde frappe d'un caractère déjà rendu n'ajoute rien.
+      if (i === start && mode !== 0 && next === lastStruck) {
+        i += 1;
+        start = i + 1;
+        continue;
+      }
+    }
+    const plain = text.slice(start, i);
+    if (plain !== "") close();
+    out += plain;
     if (code === 0x1b) {
       const length = controlSequenceLength(text, i) || 1;
       const sequence = text.slice(i, i + length);
@@ -232,7 +297,12 @@ function sanitizeSlow(text: string): string {
     }
     start = i + 1;
   }
-  return start === 0 ? text : out + text.slice(start);
+  if (start === 0) return text;
+  const rest = text.slice(start);
+  if (rest !== "") close();
+  out += rest;
+  close();
+  return out;
 }
 
 /** La ligne en cours d'un couple (canal, flux). */
