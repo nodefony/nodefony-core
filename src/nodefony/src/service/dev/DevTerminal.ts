@@ -2567,6 +2567,7 @@ export class DevTerminal {
         Promise.reject(new Error("confirmation indisponible dans l'invite")),
       suspend: () =>
         Promise.reject(new Error("le terminal ne se prête pas encore")),
+      ask: () => Promise.resolve({ action: "cancel" }),
       columns: this.#size().columns,
     };
     let code = 1;
