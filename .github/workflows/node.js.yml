@@ -933,6 +933,8 @@ jobs:
           NF_GATES_ALLOW: NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL
         run: |
           npm i --no-save --no-audit --no-fund node-pty@1.1.0
+          # Le cas `security:user:add` se SAUTE sans annuaire : dire pourquoi.
+          node src/nodefony/bin/nodefony security:user:list --json || echo "::notice title=Annuaire::security:user:list ne répond pas sous ${{ runner.os }} (sortie ci-dessus)"
           cd src/nodefony
           node ../../scripts/ci/run-watched.mjs npx vitest run src/tests/CliIntegration.test.ts -t "node-pty"
 

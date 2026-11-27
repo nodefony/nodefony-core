@@ -1467,6 +1467,7 @@ export {
   ask,
   askSecretTwice,
   canAsk,
+  exitCodeOfQuestions,
   QuestionCancelledError,
   QuestionRefusedError,
   QUESTION_CANCELLED_EXIT_CODE,

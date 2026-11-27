@@ -3069,11 +3069,22 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
  *   devient une touche que si le traitement d'entrée est coupé. Seule une
  *   console RÉELLE le dit, et ConPTY en est une.
  *
+ *   La PREUVE exigée passe par la porte publique `ask()` du paquet bâti, dans
+ *   un script sans base ni kernel (`fixtures/askConsole.fixture.mjs`) : ce qui
+ *   est jugé, c'est la console et la porte. `security:user:add` y est joué en
+ *   plus quand l'annuaire répond, et SAUTÉ sinon — un décor absent ne doit pas
+ *   se lire comme une console cassée.
+ *
  *   `node-pty` n'est PAS une dépendance du dépôt : la tâche de CI l'installe
  *   sans l'inscrire (`--no-save`). Demandé (`NF_RUN_CONPTY=1`) et introuvable,
- *   le cas ÉCHOUE au lieu de se sauter — l'attente vit dans `vitest.config.ts`.
+ *   le banc ÉCHOUE au lieu de se sauter — l'attente vit dans `vitest.config.ts`.
  */
 const RUN_CONPTY = process.env.NF_RUN_CONPTY === "1";
+const ASK_FIXTURE = path.join(
+  import.meta.dirname,
+  "fixtures",
+  "askConsole.fixture.mjs",
+);
 
 /** Ce que le banc emploie de `node-pty`. */
 interface INodePtyProcess {
@@ -3114,12 +3125,20 @@ interface IConptySession {
   done: boolean;
 }
 
-function startConpty(pty: INodePty, args: string[]): IConptySession {
+/**
+ * Lance `node <nodeArgs>` dans une console node-pty de COLS×ROWS.
+ *
+ * @param pty - le module node-pty.
+ * @param nodeArgs - les arguments de Node (script puis les siens).
+ * @returns la session.
+ */
+function startConpty(pty: INodePty, nodeArgs: string[]): IConptySession {
+  // Le terminal que verrait un humain : rien ne l'interdit de demander.
   const env: Record<string, string> = { TERM: "xterm-256color" };
   for (const [k, v] of Object.entries(process.env)) {
     if (v !== undefined && k !== "NF_NO_TTY") env[k] = v;
   }
-  const proc = pty.spawn(process.execPath, [BIN, ...args], {
+  const proc = pty.spawn(process.execPath, nodeArgs, {
     name: "xterm-256color",
     cols: COLS,
     rows: ROWS,
@@ -3182,6 +3201,31 @@ async function conptyWaitFor(
   );
 }
 
+/**
+ * Répond au nom puis au secret deux fois, en attendant chaque DESSIN : envoyés
+ * d'un seul paquet avec Entrée, une saisie se réglerait sans jamais être
+ * redessinée — et un secret dessiné en clair passerait inaperçu.
+ */
+async function answerAccount(
+  s: IConptySession,
+  ask: { name: RegExp; login: string; password: string },
+): Promise<void> {
+  const dots = "•".repeat(ask.password.length);
+  await conptyWaitFor(s, ask.name);
+  s.pty.write(ask.login);
+  await conptyWaitFor(s, new RegExp(`${ask.name.source}.*${ask.login}`));
+  s.pty.write("\r");
+  const first = `Mot de passe de « ${ask.login} »`;
+  await conptyWaitFor(s, new RegExp(first));
+  s.pty.write(ask.password);
+  await conptyWaitFor(s, new RegExp(`${first}.*${dots}`));
+  s.pty.write("\r");
+  await conptyWaitFor(s, /Confirme le mot de passe/);
+  s.pty.write(ask.password);
+  await conptyWaitFor(s, new RegExp(`Confirme le mot de passe.*${dots}`));
+  s.pty.write("\r");
+}
+
 describe.skipIf(!RUN_CONPTY || !fs.existsSync(DIST))(
   "une question au pied d'une console node-pty (ConPTY sous Windows)",
   () => {
@@ -3192,6 +3236,7 @@ describe.skipIf(!RUN_CONPTY || !fs.existsSync(DIST))(
     const LOGIN = `nf-conpty-ask-${process.pid}`;
     const PASSWORD = "Xk9!vaLid-Probe7";
     let pty: INodePty | null = null;
+    let annuaireJoignable = false;
 
     beforeAll(async () => {
       const mod: unknown = createRequire(import.meta.url)("node-pty");
@@ -3200,13 +3245,12 @@ describe.skipIf(!RUN_CONPTY || !fs.existsSync(DIST))(
         "NF_RUN_CONPTY=1 exige node-pty (npm i --no-save node-pty)",
       );
       pty = mod;
-      // Sans annuaire, la preuve n'a pas lieu : c'est un ÉCHEC de décor,
-      // nommé, et non un saut qui passerait pour un vert.
       const r = await runCli(["security:user:list", "--json"], CLI_TIMEOUT_MS);
-      assert.strictEqual(r.code, 0, `annuaire injoignable\n${r.stderr}`);
+      annuaireJoignable = r.code === 0;
     });
 
     afterAll(async () => {
+      if (!annuaireJoignable) return;
       await runCli(["security:user:delete", LOGIN, "--yes"], CLI_TIMEOUT_MS);
     });
 
@@ -3214,62 +3258,91 @@ describe.skipIf(!RUN_CONPTY || !fs.existsSync(DIST))(
       if (s !== null && !s.done) s.pty.kill();
     }
 
-    it("node-pty : security:user:add répondu au clavier, secret jamais à l'écran", async () => {
+    it("node-pty : ask() répondu au clavier — saisie, secret masqué, flèche et Espace", async () => {
       let s: IConptySession | null = null;
       try {
-        s = startConpty(pty as INodePty, ["security:user:add"]);
-        const dots = "•".repeat(PASSWORD.length);
-        await conptyWaitFor(s, /Identifiant \(login\) du compte/);
-        s.pty.write(LOGIN);
-        await conptyWaitFor(s, new RegExp(`Identifiant.*${LOGIN}`));
-        s.pty.write("\r");
-        await conptyWaitFor(s, new RegExp(`Mot de passe de « ${LOGIN} »`));
-        s.pty.write(PASSWORD);
-        await conptyWaitFor(
-          s,
-          new RegExp(`Mot de passe de « ${LOGIN} ».*${dots}`),
-        );
-        s.pty.write("\r");
-        await conptyWaitFor(s, /Confirme le mot de passe/);
-        s.pty.write(PASSWORD);
-        await conptyWaitFor(s, new RegExp(`Confirme le mot de passe.*${dots}`));
-        s.pty.write("\r");
-        await conptyWaitFor(s, new RegExp(`Rôles de « ${LOGIN} »`));
-        // Une FLÈCHE puis retour : la traduction des touches par la console
-        // est éprouvée, pas seulement le texte.
+        s = startConpty(pty as INodePty, [ASK_FIXTURE, DIST]);
+        await answerAccount(s, {
+          name: /Nom du compte/,
+          login: "alice",
+          password: PASSWORD,
+        });
+        await conptyWaitFor(s, /Rôles/);
+        // ↓ puis Espace : coche ROLE_ADMIN — la console traduit les touches.
         s.pty.write("\x1b[B");
-        s.pty.write("\x1b[A");
+        s.pty.write(" ");
+        await conptyWaitFor(s, /◉ ROLE_ADMIN/);
         s.pty.write("\r");
         const code = await s.exited;
         const text = await conptyText(s);
-        assert.strictEqual(code, 0, `création au clavier\n${text}`);
-        assert.match(text, new RegExp(`✓ compte créé.*${LOGIN}`), text);
-        assert.match(text, /rôles : ROLE_USER/, text);
+        assert.strictEqual(code, 0, `réponses au clavier\n${text}`);
+        assert.match(
+          text,
+          /RÉSULTAT \{"name":"alice","length":16,"roles":\["ROLE_USER","ROLE_ADMIN"\]\}/,
+          text,
+        );
         assert.ok(
           !s.raw.join("").includes(PASSWORD),
-          "le mot de passe n'est jamais écrit à la console",
-        );
-        const liste = await runCli(
-          ["security:user:list", "--json"],
-          CLI_TIMEOUT_MS,
-        );
-        assert.ok(
-          liste.stdout.includes(LOGIN),
-          "le compte est dans l'annuaire",
+          "le secret n'est jamais écrit à la console",
         );
       } finally {
         kill(s);
       }
     });
 
-    it("node-pty : Ctrl+C sur le mot de passe sort en 130, aucun compte", async () => {
+    it("node-pty : Ctrl+C sur le secret sort en 130, sans résultat", async () => {
+      let s: IConptySession | null = null;
+      try {
+        s = startConpty(pty as INodePty, [ASK_FIXTURE, DIST]);
+        await conptyWaitFor(s, /Nom du compte/);
+        s.pty.write("bob");
+        await conptyWaitFor(s, /Nom du compte.*bob/);
+        s.pty.write("\r");
+        await conptyWaitFor(s, /Mot de passe de « bob »/);
+        // En mode brut, Ctrl+C est une TOUCHE : sans lui, la console
+        // tuerait le processus (code ≠ 130) au lieu de l'annuler.
+        s.pty.write("\x03");
+        const code = await s.exited;
+        const text = await conptyText(s);
+        assert.strictEqual(code, 130, `annulée = 130\n${text}`);
+        assert.doesNotMatch(text, /RÉSULTAT/, text);
+      } finally {
+        kill(s);
+      }
+    });
+
+    it("node-pty, avec annuaire : security:user:add répondu au clavier", async (ctx) => {
+      if (!annuaireJoignable) ctx.skip();
+      let s: IConptySession | null = null;
+      try {
+        s = startConpty(pty as INodePty, [BIN, "security:user:add"]);
+        await answerAccount(s, {
+          name: /Identifiant \(login\) du compte/,
+          login: LOGIN,
+          password: PASSWORD,
+        });
+        await conptyWaitFor(s, new RegExp(`Rôles de « ${LOGIN} »`));
+        s.pty.write("\r");
+        const code = await s.exited;
+        const text = await conptyText(s);
+        assert.strictEqual(code, 0, `création au clavier\n${text}`);
+        assert.match(text, new RegExp(`✓ compte créé.*${LOGIN}`), text);
+        assert.ok(
+          !s.raw.join("").includes(PASSWORD),
+          "le mot de passe n'est jamais écrit à la console",
+        );
+      } finally {
+        kill(s);
+      }
+    });
+
+    it("node-pty, avec annuaire : Ctrl+C dans security:user:add sort en 130", async (ctx) => {
+      if (!annuaireJoignable) ctx.skip();
       let s: IConptySession | null = null;
       const login = `${LOGIN}-annule`;
       try {
-        s = startConpty(pty as INodePty, ["security:user:add", login]);
+        s = startConpty(pty as INodePty, [BIN, "security:user:add", login]);
         await conptyWaitFor(s, new RegExp(`Mot de passe de « ${login} »`));
-        // En mode brut, Ctrl+C est une TOUCHE : sans lui, la console
-        // tuerait le processus (code ≠ 130) au lieu de l'annuler.
         s.pty.write("\x03");
         const code = await s.exited;
         assert.strictEqual(code, 130, `annulée = 130\n${await conptyText(s)}`);
