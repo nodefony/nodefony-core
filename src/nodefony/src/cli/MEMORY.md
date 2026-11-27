@@ -152,6 +152,16 @@ await cmd.done;
 
 **examples** : `readonly string[] | () => readonly string[]` (fonction = paresseux, ctor exécuté à CHAQUE lancement). Rangés par `Cmd` Commander (`WeakMap`, `commandExamples(cmd)` — une commande de module n'est dans aucun registre du CLI). Rendus sous `--help` (`addHelpText` à fonction) + 2 premiers sous une erreur d'usage. Gate `tests/commandDescriptions.test.ts` : ≥ 1, chacun `nodefony <nom>` (alias refusé). Commande autonome : `examples: () => usageExamples(<PAGE>)` (`cli/usageReport.ts`, garde les invocations directes seules).
 
+**Questions = UN moteur** (`cli/question.ts` pur · `cli/questionFooter.ts` hôte · `cli/ask.ts` porte) :
+
+- Six formes `IQuestion` (`input secret confirm select checkbox list`), base `key message note? flag? error?` ; `questionFlag(q)` = `flag ?? --key`. `QuestionState` forme stable ; `handleQuestion` lit les évènements de `InputDecoder` (Espace nu = `text`) ; `renderQuestion(state,width,height,paint)` seul rendu ; `checkAnswer` = SEULE validation (drapeau, terminal, Studio) ; `summarizeQuestion` ne contient JAMAIS un secret. Réponse = triplet élicitation MCP `{action: accept|decline|cancel, value?}`.
+- Hôte `askInFooter` : mode brut + écouteur AVANT le dessin, bloc redessiné en place (`ESC[nA`,`\r`,`ESC[J`), `guardTerminal`, Échap différé `ESCAPE_TIMEOUT_MS`, fin de flux = annulé. Chargé par `import()` à la 1ʳᵉ question : le barrel ne charge ni lui ni `inputDecoder` (+2,48 ms au barrel, médiane 15 process).
+- Porte `ask(q, {answer, prompt, terminal, fallback, input, output})` : réponse fournie (validée ; refusée → reposée devant un terminal) → terminal (`canAsk()` = stdin ET stdout terminaux, sans `NF_NO_TTY`) → `fallback` → `QuestionRefusedError` (« … : passe --flag <valeur> »). Repli invalide = `Error` (faute de la commande). `askSecretTwice` redemande tant que ça diffère.
+- `Command.ask` délègue ; `Command.action` : `QuestionCancelledError` → exit **130** (`QUESTION_CANCELLED_EXIT_CODE`), `QuestionRefusedError` → `refuseMissingArgument` (1 + aide). Commande autonome → `exitCodeOfQuestions(run)` (130 / 64). `askArgument` passe par `ask` (spec `io?` pour les tests).
+- Gate `tests/promptsAncre.test.ts` (dépôt entier, commentaires ôtés) : aucune garde `stdin.isTTY`/`isTerminal(stdin)` hors `ask.ts` (+ `DevSupervisor`, clavier brut) ; inquirer seulement dans `prompts.ts`, `promptPassword.ts`, `Command.ts`, `MenuCommand.ts` (D5) ; exception inactive = rouge.
+- DÉPRÉCIÉS 10.1 → retrait 11.0 : `Command.prompts`, `loadPrompts`, `chargePrompts`, `IPrompts`, `askPasswordMasked`. Comportement identique (inquirer chargé sur `-i` ou au menu, déjà en cache). `typescript/no-deprecated` désactivée ligne à ligne, avec raison.
+- Preuves : `tests/question.test.ts`, `questionFooter.test.ts`, `ask.test.ts` (faux terminal `tests/questionTerminal.ts`, écran lu par `@xterm/headless`) ; `CliIntegration.test.ts` « une question au pied d'un vrai terminal » (`script(1)`, `NF_RUN_CLI_BOOT=1`). Piège : envoyer saisie + Entrée d'un seul paquet règle la question sans redessiner la saisie — taper, ATTENDRE le dessin, puis Entrée.
+
 **Erreur d'usage** (`cli/usageHint.ts`) : `USAGE_ERROR_CODES` (unknownOption, missingArgument, excessArguments, optionMissingArgument, missingMandatoryOptionValue, invalidArgument, conflictingOption ; PAS unknownCommand) → `CliKernel.writeUsageHint` sur les DEUX chemins (intégrée + dispatch module) → `usageHint()` PUR : `usage` (`cmd.usage()`), `options`, `exemple` (≤ 2), `détail` → exit 64. Commandes autonomes : leur parseur rend `{error}` → `printUsageError(PAGE)` (page entière, EXEMPLES compris). Surcoût mesuré : ~46 µs/lancement pour 50 commandes (écouteur `addHelpText`).
 
 ---
@@ -315,7 +325,7 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
 ## Deps
 
 - `Cli` → Service, Container, Event, Command, Tools(extend), FileClass, Syslog, Kernel, clui, cli-color, commander, moment, semver, asciify, shelljs, node-emoji
-- `Command` → Service, Container, Cli, CliKernel, Tools(extend), Builder, commander, clui, @inquirer/prompts
+- `Command` → Service, Container, Cli, CliKernel, Tools(extend), Builder, commander, clui, `cli/ask` ; `@inquirer/prompts` (déprécié, import dynamique)
 
 ## Gotchas
 
