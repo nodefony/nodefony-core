@@ -2017,9 +2017,30 @@ function garbage(sc: IScreen): string[] {
  */
 const SCROLL_RE = /\x1b\[1;\d+r\x1b\[\d+S\x1b\[r/;
 
-/** Ctrl+C TAPÉ : le terminal signale le groupe de premier plan, comme devant un humain. */
+/**
+ * Ctrl+C TAPÉ, comme devant un humain : invite branchée, le premier appui
+ * PRÉVIENT (« Ctrl+C encore… ») et seul le second arrête ; sans invite, le
+ * premier suffit. Le second n'est tapé qu'APRÈS avoir lu l'avertissement à
+ * l'écran — jamais deux appuis à l'aveugle, qui confondraient un arrêt au
+ * premier appui avec un avertissement jamais affiché.
+ */
 async function ctrlC(s: IPtySession): Promise<number | null> {
+  const warned = "Ctrl+C encore pour arrêter";
+  const seen = async (): Promise<number> => {
+    const sc = await snap(s);
+    return [...sc.history, ...sc.screen].filter((l) => l.includes(warned))
+      .length;
+  };
+  const before = await seen();
   s.child.stdin?.write("\x03");
+  const end = Date.now() + 10_000;
+  while (s.child.exitCode === null && Date.now() < end) {
+    if ((await seen()) > before) {
+      s.child.stdin?.write("\x03");
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
   const timeout = new Promise<"pendu">((r) =>
     setTimeout(() => r("pendu"), 30_000),
   );
