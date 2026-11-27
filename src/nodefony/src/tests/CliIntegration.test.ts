@@ -3311,6 +3311,32 @@ describe.skipIf(!RUN_CONPTY || !fs.existsSync(DIST))(
       }
     });
 
+    it("node-pty : Échap SEUL annule les cases à cocher — sortie 130, sans résultat", async () => {
+      let s: IConptySession | null = null;
+      try {
+        s = startConpty(pty as INodePty, [ASK_FIXTURE, DIST]);
+        await answerAccount(s, {
+          name: /Nom du compte/,
+          login: "carol",
+          password: PASSWORD,
+        });
+        await conptyWaitFor(s, /Rôles/);
+        // ↓ d'abord : la console vient de livrer une séquence qui COMMENCE
+        // par Échap. L'Échap seul qui suit doit encore se lire comme une
+        // touche (délai du décodeur), et non attendre la suite d'une séquence.
+        s.pty.write("\x1b[B");
+        s.pty.write(" ");
+        await conptyWaitFor(s, /◉ ROLE_ADMIN/);
+        s.pty.write("\x1b");
+        const code = await s.exited;
+        const text = await conptyText(s);
+        assert.strictEqual(code, 130, `Échap = annulée = 130\n${text}`);
+        assert.doesNotMatch(text, /RÉSULTAT/, text);
+      } finally {
+        kill(s);
+      }
+    });
+
     it("node-pty, avec annuaire : security:user:add répondu au clavier", async (ctx) => {
       if (!annuaireJoignable) ctx.skip();
       let s: IConptySession | null = null;
