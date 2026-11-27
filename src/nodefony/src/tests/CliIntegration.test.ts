@@ -901,6 +901,33 @@ describe.skipIf(!fs.existsSync(DIST))(
       );
     });
 
+    // #538 lot 2b-1 : sans terminal, la porte `ask()` REFUSE au lieu d'attendre
+    // une frappe que personne ne donnera — et nomme le drapeau qui répond.
+    it("sans terminal ni --password : refus qui nomme --password, aucun compte", async () => {
+      const r = await runCli(
+        ["security:user:add", `${LOGIN}-sans-tty`],
+        CLI_TIMEOUT_MS,
+      );
+      assert.strictEqual(
+        r.code,
+        1,
+        `un refus, pas une annulation (130) ni un succès\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+      );
+      assert.match(
+        `${r.stdout}${r.stderr}`,
+        /--password <valeur>/,
+        `le refus nomme le drapeau à passer\n${r.stderr}`,
+      );
+      const liste = await runCli(
+        ["security:user:list", "--json"],
+        CLI_TIMEOUT_MS,
+      );
+      assert.ok(
+        !liste.stdout.includes(`${LOGIN}-sans-tty`),
+        "un compte refusé ne doit pas figurer dans l'annuaire",
+      );
+    });
+
     it("compte inconnu → exit non nul, et la sortie d'erreur NOMME le compte et le geste", async () => {
       const r = await runCli(
         [
@@ -2882,5 +2909,152 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
       },
       SCREEN_READY_TIMEOUT_MS + 60_000,
     );
+  },
+);
+
+/**
+ * Filet SANS `nodefony stop` : la commande ne démarre aucun serveur, et un
+ * `stop` arrêterait celui du développeur.
+ */
+function killPty(s: IPtySession | null): void {
+  if (s?.child.exitCode === null) {
+    s.child.stdin?.end();
+    s.child.kill("SIGKILL");
+  }
+}
+
+/**
+ * Une question posée au pied d'un VRAI terminal, de bout en bout (#538 lot 2b-1).
+ *
+ * Le moteur et son hôte sont éprouvés par octets devant un faux clavier ; ce
+ * qu'un faux clavier ne voit pas, c'est la discipline de ligne d'un vrai
+ * terminal — l'écho qu'elle ajoute tant que le mode brut n'est pas posé, le
+ * Ctrl+C qu'elle change en signal, le mode qu'il faut lui rendre. D'où
+ * `security:user:add` joué sous `script(1)` : quatre questions (identifiant,
+ * mot de passe deux fois, rôles), un secret qui ne doit paraître nulle part.
+ *
+ * Comptes jetables (pid), retirés en `afterAll`. Annuaire injoignable → les cas
+ * se SAUTENT en le disant, comme le banc des comptes.
+ */
+describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
+  "une question au pied d'un vrai terminal",
+  () => {
+    vi.setConfig({
+      testTimeout: SCREEN_READY_TIMEOUT_MS + 60_000,
+      hookTimeout: CLI_TIMEOUT_MS + 10_000,
+    });
+    const flavor = FLAVOR as ScriptFlavor;
+    const LOGIN = `nf-pty-ask-${process.pid}`;
+    const PASSWORD = "Xk9!vaLid-Probe7";
+    // Le terminal que verrait un humain : rien ne l'interdit de demander.
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    delete env.NF_NO_TTY;
+    let annuaireJoignable = false;
+
+    beforeAll(async () => {
+      const r = await runCli(["security:user:list", "--json"], CLI_TIMEOUT_MS);
+      annuaireJoignable = r.code === 0;
+    });
+
+    afterAll(async () => {
+      if (!annuaireJoignable) return;
+      await runCli(["security:user:delete", LOGIN, "--yes"], CLI_TIMEOUT_MS);
+    });
+
+    beforeEach((ctx) => {
+      if (!annuaireJoignable) ctx.skip();
+    });
+
+    it("security:user:add répondu au clavier : compte créé, secret jamais à l'écran", async () => {
+      let s: IPtySession | null = null;
+      try {
+        s = startPty(flavor, ["security:user:add"], env);
+        await waitFor(s, /Identifiant \(login\) du compte/);
+        s.child.stdin?.write(`${LOGIN}\r`);
+        // La saisie, PUIS Entrée : envoyés d'un seul paquet, la question se
+        // réglerait sans jamais redessiner ce qui a été tapé — et un secret
+        // dessiné en clair passerait inaperçu.
+        const dots = "•".repeat(PASSWORD.length);
+        await waitFor(s, new RegExp(`Mot de passe de « ${LOGIN} »`));
+        s.child.stdin?.write(PASSWORD);
+        await waitFor(s, new RegExp(`Mot de passe de « ${LOGIN} ».*${dots}`));
+        s.child.stdin?.write("\r");
+        await waitFor(s, /Confirme le mot de passe/);
+        s.child.stdin?.write(PASSWORD);
+        await waitFor(s, new RegExp(`Confirme le mot de passe.*${dots}`));
+        s.child.stdin?.write("\r");
+        await waitFor(s, new RegExp(`Rôles de « ${LOGIN} »`));
+        // ROLE_USER est coché d'office : Entrée le garde.
+        s.child.stdin?.write("\r");
+        const code = await s.exited;
+        const final = await snap(s);
+        assert.strictEqual(
+          code,
+          0,
+          `création au clavier\n${screenText(final)}`,
+        );
+        const all = [...final.history, ...final.screen];
+        assert.ok(
+          all.some((l) => l.includes("✓ compte créé") && l.includes(LOGIN)),
+          `la création nomme le compte\n${screenText(final)}`,
+        );
+        assert.ok(
+          all.some((l) => l.includes("rôles : ROLE_USER")),
+          `le rôle coché d'office est retenu\n${screenText(final)}`,
+        );
+        // Le secret : ni à l'écran rendu, ni dans un seul octet émis.
+        assert.ok(
+          !s.raw.join("").includes(PASSWORD),
+          "le mot de passe n'est jamais écrit au terminal",
+        );
+        assert.deepStrictEqual(garbage(final), [], "aucune séquence en clair");
+        const liste = await runCli(
+          ["security:user:list", "--json"],
+          CLI_TIMEOUT_MS,
+        );
+        assert.ok(
+          liste.stdout.includes(LOGIN),
+          "le compte figure dans l'annuaire",
+        );
+      } finally {
+        killPty(s);
+      }
+    });
+
+    it("Ctrl+C sur le mot de passe : sortie 130, aucun compte, terminal rendu", async () => {
+      let s: IPtySession | null = null;
+      const login = `${LOGIN}-annule`;
+      try {
+        // `after` : le shell du développeur, une fois la commande sortie —
+        // son code, puis le mode du terminal qu'on lui a rendu.
+        s = startPty(
+          flavor,
+          ["security:user:add", login],
+          env,
+          false,
+          `echo "nf-exit=$?"; stty -a`,
+        );
+        await waitFor(s, new RegExp(`Mot de passe de « ${login} »`));
+        s.child.stdin?.write("\x03");
+        await s.exited;
+        const final = await snap(s);
+        const text = [...final.history, ...final.screen].join("\n");
+        assert.match(text, /nf-exit=130\b/, `annulée = 130\n${text}`);
+        // Mode canonique et écho rendus : sinon le shell reste muet après coup.
+        // ⚠️ Node remet lui-même le terminal à la sortie : retirer la
+        // restauration de l'hôte laisse ce cas VERT (mutation jouée). Ce que
+        // l'hôte rend, lui, est tenu par `questionFooter.test.ts` (`modes`).
+        assert.match(text, /(^|\s)icanon\b/, `icanon rendu\n${text}`);
+        assert.doesNotMatch(text, /(^|\s)-icanon\b/, `icanon rendu\n${text}`);
+        assert.doesNotMatch(text, /(^|\s)-echo\b/, `écho rendu\n${text}`);
+        const liste = await runCli(
+          ["security:user:list", "--json"],
+          CLI_TIMEOUT_MS,
+        );
+        assert.ok(!liste.stdout.includes(login), "aucun compte créé");
+      } finally {
+        killPty(s);
+      }
+    });
   },
 );
