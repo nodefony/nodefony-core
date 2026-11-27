@@ -166,8 +166,7 @@ class Inspect extends Command {
         ...(opts.json ? { isTTY: false } : {}),
       });
     } catch (e) {
-      this.log((e as Error).message, "ERROR");
-      process.exitCode = 1;
+      this.refuseMissingArgument(e);
       return this;
     }
     const broker = this.kernel?.container?.get("adminBroker") as

@@ -55,6 +55,7 @@ describe("supervisorActions — les verbes de l'invite", () => {
   const verbs = {
     restart: vi.fn(async () => true),
     clear: vi.fn(),
+    close: vi.fn(() => true),
     help: vi.fn(),
     quit: vi.fn(),
     status: vi.fn(async (_signal: AbortSignal) => {}),
@@ -85,10 +86,29 @@ describe("supervisorActions — les verbes de l'invite", () => {
 
   it("chaque verbe appelle SON geste et rend 0", async () => {
     const signal = new AbortController().signal;
-    for (const id of ["clear", "help", "quit", "restart", "status"] as const) {
+    for (const id of [
+      "clear",
+      "close",
+      "help",
+      "quit",
+      "restart",
+      "status",
+    ] as const) {
       expect(await find(`/${id}`)?.run(`/${id}`, io(), signal)).to.equal(0);
       expect(verbs[id]).toHaveBeenCalledTimes(1);
     }
+  });
+
+  it("close refusé (onglet qui ne se ferme pas) : code 1, et il le dit", async () => {
+    const close = supervisorActions({
+      ...verbs,
+      close: () => false,
+    }).find((a) => a.id === "close");
+    const sink = io();
+    expect(
+      await close?.run("/close", sink, new AbortController().signal),
+    ).to.equal(1);
+    expect(sink.out[0]).to.contain("cet onglet ne se ferme pas");
   });
 
   it("restart refusé (rechargement en cours) : code 1, et il le dit", async () => {

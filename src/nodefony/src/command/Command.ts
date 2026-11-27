@@ -18,6 +18,7 @@ import { extend } from "../Tools";
 import type { KernelEventKey, RunLifetime } from "../types/ICommand";
 import type { IRunProfile } from "../kernel/runProfile";
 import { tagCommandAction } from "../kernel/lifecycleTags";
+import { usageHint } from "../cli/usageHint";
 
 interface OptionsCommandInterface extends DefaultOptionsService {
   showBanner?: boolean;
@@ -153,6 +154,31 @@ const PROMPT_POLICIES = new WeakMap<Cmd, PromptPolicy>();
  */
 export function commandPromptPolicy(cmd: Cmd): PromptPolicy | undefined {
   return PROMPT_POLICIES.get(cmd);
+}
+
+/**
+ * L'extrait de doc d'une commande Commander après un refus d'usage — usage,
+ * options, deux exemples, chemin de l'aide (`cli/usageHint.ts`). La SEULE
+ * composition : sous une erreur de Commander comme sous un argument
+ * qu'aucun terminal ne peut demander ({@link Command.refuseMissingArgument}).
+ *
+ * @param cmd - la commande telle que Commander la tient.
+ * @param code - le code du refus (`commander.missingArgument`…).
+ * @param message - la ligne du refus.
+ * @returns les lignes à écrire sur la sortie d'erreur, ou `null` si le code
+ *   n'est pas un mauvais usage.
+ */
+export function commandUsageHint(
+  cmd: Cmd,
+  code: string,
+  message: string,
+): string | null {
+  return usageHint(code, message, {
+    name: cmd.name(),
+    usage: cmd.usage(),
+    flags: cmd.options.filter((o) => !o.hidden).map((o) => o.flags),
+    examples: commandExamples(cmd),
+  });
 }
 
 /**
@@ -420,8 +446,33 @@ class Command extends Service {
    * @param spec - nom de l'argument, question posée, choix éventuels ; `isTTY`
    *               est INJECTABLE pour que la règle s'éprouve sans terminal
    * @returns la valeur, taillée
-   * @throws Si l'argument manque et qu'aucun terminal ne peut le demander
+   * @throws Si l'argument manque et qu'aucun terminal ne peut le demander —
+   *   à rendre par {@link Command.refuseMissingArgument}.
    */
+  /**
+   * Refuse, sans terminal, un argument qu'{@link Command.askArgument} n'a pas
+   * pu demander : la ligne du refus, puis l'extrait de doc de la commande —
+   * le même que sous une option inconnue —, sortie 1.
+   *
+   * 🔴 Une seule implémentation pour les commandes qui demandent : chacune
+   * recopiait « log + `exitCode = 1` », et aucune ne montrait l'aide, là où
+   * le refus d'une option inconnue la montre (vécu dans l'invite du serveur de
+   * développement, où une commande n'a jamais de terminal).
+   *
+   * @param error - ce qu'`askArgument` a levé.
+   */
+  public refuseMissingArgument(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    this.log(message, "ERROR");
+    const hint = commandUsageHint(
+      this.command,
+      "commander.missingArgument",
+      message,
+    );
+    if (hint) process.stderr.write(`${hint}\n`);
+    process.exitCode = 1;
+  }
+
   public async askArgument(
     value: string | undefined,
     spec: {

@@ -73,6 +73,7 @@ export function screenGestures(options: {
       { keys: "Alt+Entrée", does: "saut de ligne" },
       { keys: "Ctrl+W Ctrl+U", does: "effacer le mot / la ligne" },
       { keys: "Début Fin", does: "invite vide : haut / direct" },
+      { keys: "Échap", does: "invite vide : fermer une commande finie" },
     );
   } else {
     gestures.push(
@@ -90,7 +91,7 @@ export function screenGestures(options: {
   gestures.push(
     { keys: "Échap", does: "effacer la sélection" },
     options.prompt === true
-      ? { keys: "Ctrl+C", does: "effacer ; invite vide : arrêter" }
+      ? { keys: "Ctrl+C", does: "effacer ; invite vide : 2× pour arrêter" }
       : { keys: "Ctrl+C", does: "arrêter le serveur" },
   );
   return gestures;

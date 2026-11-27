@@ -95,10 +95,11 @@ function opened(draft: string) {
 describe("buildPromptMenu — le menu de l'invite", () => {
   it("les verbes d'abord, sous « Invite », puis les commandes du CLI en ligne d'invite", () => {
     const values = choices(menu(), "/");
-    expect(values.slice(0, 5)).to.deep.equal([
+    expect(values.slice(0, 6)).to.deep.equal([
       "/status",
       "/restart",
       "/clear",
+      "/close",
       "/help",
       "/quit",
     ]);
@@ -129,7 +130,7 @@ describe("buildPromptMenu — le menu de l'invite", () => {
 
   it("sans manifeste : les verbes seuls", () => {
     const bare = buildPromptMenu({ manifest: null, inspectSubjects: subjects });
-    expect(choices(bare, "/")).to.have.length(5);
+    expect(choices(bare, "/")).to.have.length(6);
   });
 
   it("inspect : les sujets SANS paramètre, en ligne d'invite", () => {

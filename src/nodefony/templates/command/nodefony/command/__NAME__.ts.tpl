@@ -107,14 +107,22 @@ class <%= it.nameClass %> extends Command {
       this.log(`argument reçu : ${who}`, "DEBUG");
     }
 <% } else { %>    // Un argument dont tu ne peux pas te passer se DEMANDE, il ne se refuse pas :
-    //   const cible = await this.askArgument(who, {
-    //     name: "who",
-    //     message: "Qui saluer ?",
-    //     // choices: ["monde", "toi"],  // → une liste plutôt qu'une saisie
-    //   });
-    // En terminal il pose la question ; sans terminal (CI, script) il échoue
-    // avec la ligne exacte à taper. Ici l'argument a un défaut, donc rien à
-    // demander.
+    //   let cible: string;
+    //   try {
+    //     cible = await this.askArgument(who, {
+    //       name: "who",
+    //       message: "Qui saluer ?",
+    //       // choices: ["monde", "toi"],  // → une liste plutôt qu'une saisie
+    //     });
+    //   } catch (e) {
+    //     this.refuseMissingArgument(e);
+    //     return this;
+    //   }
+    // En terminal il pose la question. Sans terminal (CI, script, onglet de
+    // l'invite du serveur de développement) il lève : `refuseMissingArgument`
+    // écrit alors la ligne exacte à taper ET l'aide de la commande (usage,
+    // options, exemples), puis sort en 1. Ici l'argument a un défaut, donc
+    // rien à demander.
     const message = `Bonjour, ${who ?? "monde"} !`;
 <% } %>    // 🔴 La SORTIE va sur la sortie standard, JAMAIS dans le journal.
     // `this.log(message, "INFO")` semble marcher — jusqu'au jour où un filtre

@@ -270,6 +270,46 @@ describe("Command — askArgument()", () => {
     assert.match(erreur?.message, /ask-2/u, "la commande à taper manque");
   });
 
+  it("🔴 le refus montre l'AIDE de la commande — usage, exemples, détail — comme une option inconnue", async () => {
+    // Vécu dans l'invite du serveur de développement : une seule ligne
+    // ERROR, sans l'extrait que montre pourtant une option inconnue.
+    const cmd = new Command("ask-hint", "test", cli, {
+      examples: ["nodefony ask-hint alice"],
+    });
+    cmd.addArgument("[identifier]", "identifiant");
+    let erreur: unknown = null;
+    try {
+      await cmd.askArgument(undefined, {
+        name: "identifier",
+        message: "identifiant",
+        isTTY: false,
+      });
+    } catch (e) {
+      erreur = e;
+    }
+    const written: string[] = [];
+    const write = process.stderr.write;
+    const before = process.exitCode;
+    process.stderr.write = ((chunk: string | Uint8Array): boolean => {
+      written.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      cmd.refuseMissingArgument(erreur);
+    } finally {
+      process.stderr.write = write;
+    }
+    const exitCode = process.exitCode;
+    process.exitCode = before;
+    const out = written.join("");
+    expect(out).to.contain(
+      "usage   : nodefony ask-hint [options] [identifier]",
+    );
+    expect(out).to.contain("exemple : nodefony ask-hint alice");
+    expect(out).to.contain("détail  : nodefony ask-hint --help");
+    expect(exitCode).to.equal(1);
+  });
+
   it("en TTY, elle demande — saisie libre", async () => {
     const cmd = new Command("ask-3", "test", cli);
     cmd.loadPrompts = async () => {};

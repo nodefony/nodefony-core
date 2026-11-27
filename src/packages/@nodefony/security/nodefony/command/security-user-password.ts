@@ -91,8 +91,7 @@ class SecurityUserPassword extends Command {
         message: "Compte dont changer le mot de passe :",
       });
     } catch (e) {
-      this.log((e as Error).message, "ERROR");
-      process.exitCode = 1;
+      this.refuseMissingArgument(e);
       return this;
     }
 

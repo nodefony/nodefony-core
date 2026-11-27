@@ -99,6 +99,7 @@ function prompted(
   const verbs = {
     restart: vi.fn(async () => true),
     clear: vi.fn(),
+    close: vi.fn(() => terminal.closeView()),
     help: vi.fn(() => terminal.showHelp()),
     quit: vi.fn(),
     status: vi.fn(async () => {}),
@@ -216,16 +217,45 @@ describe("plein écran — l'invite (#538)", () => {
     terminal.close();
   });
 
-  it("Ctrl+C efface une saisie ; sur une invite vide, il demande l'arrêt", async () => {
+  it("Ctrl+C efface une saisie ; sur une invite vide, le PREMIER prévient, le second arrête", async () => {
     const { written, input, quit, terminal } = prompted();
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
     input.type("rest" + CTRL_C);
     expect(quit).not.toHaveBeenCalled();
     await nextFrame();
     const lines = await screen(written);
-    expect(lines.at(-1)).to.equal("❯ ");
+    expect(lines.some((l) => l === "❯ ")).to.equal(true);
+    input.type(CTRL_C);
+    expect(quit).not.toHaveBeenCalled();
+    await nextFrame();
+    expect((await screen(written)).join("\n")).to.contain(
+      "Ctrl+C encore pour arrêter le serveur",
+    );
     input.type(CTRL_C);
     expect(quit).toHaveBeenCalledTimes(1);
     terminal.close();
+  });
+
+  it("le second Ctrl+C après le délai ne fait que prévenir à nouveau", () => {
+    const { input, quit, terminal } = prompted();
+    const now = vi.spyOn(Date, "now");
+    try {
+      now.mockReturnValue(1_000_000);
+      input.type(CTRL_C);
+      now.mockReturnValue(1_000_000 + 2_500);
+      input.type(CTRL_C);
+      expect(quit).not.toHaveBeenCalled();
+      now.mockReturnValue(1_000_000 + 3_000);
+      input.type(CTRL_C);
+      expect(quit).toHaveBeenCalledTimes(1);
+    } finally {
+      now.mockRestore();
+      terminal.close();
+    }
   });
 
   it("`?` ouvre l'aide sur une invite vide, et s'écrit dans une saisie", async () => {
@@ -265,13 +295,18 @@ describe("plein écran — l'invite (#538)", () => {
     terminal.close();
   });
 
-  it("action en vol : Ctrl+C l'interrompt, un second Ctrl+C arrête quand même", async () => {
+  it("action en vol : Ctrl+C l'interrompt SANS compter pour l'arrêt ; qui l'ignore n'empêche pas d'arrêter", async () => {
     const { input, quit, terminal, verbs } = prompted();
     verbs.restart.mockImplementation(() => new Promise<boolean>(() => {}));
     input.type("/restart" + ENTER);
     await nextFrame();
     input.type(CTRL_C);
     expect(quit).not.toHaveBeenCalled();
+    // Le premier a interrompu : le deuxième ne fait que prévenir — un
+    // « Ctrl+C Ctrl+C » réflexe pour couper une commande ne tue plus tout.
+    input.type(CTRL_C);
+    expect(quit).not.toHaveBeenCalled();
+    // L'action ignore le signal : elle ne prend pas le terminal en otage.
     input.type(CTRL_C);
     expect(quit).toHaveBeenCalledTimes(1);
     terminal.close();
@@ -593,9 +628,14 @@ describe("plein écran — la bande /nodefony (#538, D9, D10)", () => {
     terminal.close();
   });
 
-  it("Entrée lance l'entrée choisie : « /cl » envoie /clear, la bande se referme", async () => {
+  it("Entrée lance l'entrée choisie : « /cle » envoie /clear, la bande se referme", async () => {
     const { written, input, terminal, verbs } = withMenu();
+    // « /cl » prolonge /clear ET /close : Entrée n'y choisit pas à notre place.
     input.type("/cl" + ENTER);
+    await nextFrame();
+    expect(verbs.clear).not.toHaveBeenCalled();
+    expect(verbs.close).not.toHaveBeenCalled();
+    input.type("\x15/cle" + ENTER);
     await nextFrame();
     expect(verbs.clear).toHaveBeenCalledTimes(1);
     expect(terminal.band).to.equal(null);
@@ -1001,6 +1041,67 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     // L'onglet affiché est le neuf : la saisie de « build » n'y est pas.
     expect(lines.some((l) => l === "❯ /fake build")).to.equal(false);
     expect(lines.some((l) => l === "❯ /fake test")).to.equal(true);
+    terminal.close();
+  });
+
+  it("fini : la barre dit qu'Échap ferme l'onglet ; Échap sur l'invite vide le ferme et rend serveur", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
+    input.type("/fake inspect" + ENTER);
+    await settle();
+    // Tant qu'elle tourne, Échap ne ferme rien.
+    input.type("\x1b");
+    await settle();
+    await settle();
+    expect(tabs(await screen(written))).to.contain("inspect");
+    runs[0]?.done(1);
+    await settle();
+    expect((await screen(written)).join("\n")).to.contain(
+      "Échap ferme cet onglet",
+    );
+    // Une saisie en cours n'est pas effacée : la barre dit le geste.
+    input.type("x");
+    input.type("\x1b");
+    await vi.waitFor(async () =>
+      expect((await screen(written)).join("\n")).to.contain(
+        "saisie en cours — Ctrl+C l'efface",
+      ),
+    );
+    const kept = await screen(written);
+    expect(tabs(kept)).to.contain("inspect");
+    expect(kept.some((l) => l === "❯ x")).to.equal(true);
+    input.type("\x15");
+    input.type("\x1b");
+    await vi.waitFor(async () =>
+      expect(tabs(await screen(written))).to.not.contain("inspect"),
+    );
+    terminal.close();
+  });
+
+  it("/close ferme l'onglet d'une commande finie ; sur serveur, il refuse en le disant", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/close" + ENTER);
+    await settle();
+    expect((await screen(written)).join("\n")).to.contain(
+      "cet onglet ne se ferme pas",
+    );
+    input.type("/fake build" + ENTER);
+    await settle();
+    runs[0]?.done(0);
+    await settle();
+    input.type("/close" + ENTER);
+    await settle();
+    expect(tabs(await screen(written))).to.not.contain("build");
     terminal.close();
   });
 

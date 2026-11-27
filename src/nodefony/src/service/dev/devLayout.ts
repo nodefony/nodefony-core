@@ -1,7 +1,7 @@
 import type { IFrameSize } from "./devFrame";
 
 /** Ce qu'une région de l'écran affiche. */
-export type RegionKind = "tabs" | "view" | "band" | "prompt" | "bar";
+export type RegionKind = "tabs" | "gap" | "view" | "band" | "prompt" | "bar";
 
 /**
  * Un rectangle de l'écran du superviseur, en coordonnées absolues (ligne et
@@ -40,13 +40,20 @@ export interface ILayoutState {
 const BAND_SHARE = 3;
 
 /**
+ * Lignes vides entre la ligne d'onglets et la vue : le journal ne colle pas
+ * aux onglets, quel que soit l'onglet montré.
+ */
+const TABS_GAP = 1;
+
+/**
  * Calcule les régions de l'écran du superviseur — fonction PURE, rendue en
  * liste PLATE de rectangles disjoints (ADR-0013 §11).
  *
  * Une seule vue occupe la zone centrale : changer d'onglet change toute la
  * zone, jamais une partie. Quand la hauteur manque, la priorité part du bas :
- * la barre, puis l'invite, puis la bande, puis les onglets ; la vue prend ce
- * qui reste. Sans onglets ni bande, le résultat est exactement les trois
+ * la barre, puis l'invite, puis la bande, puis les onglets ; la marge entre
+ * onglets et vue ({@link TABS_GAP}) cède avant la vue, qui garde au moins une
+ * ligne, et prend ce qui reste. Sans onglets ni bande, le résultat est exactement les trois
  * zones de l'écran d'avant : journal (la vue), invite, barre.
  *
  * La largeur utile est `columns - 1` : la dernière colonne reste vide, pour
@@ -69,12 +76,14 @@ export function layout(size: IFrameSize, state: ILayoutState): IRegion[] {
   const prompt = take(state.prompt);
   const band = take(Math.min(state.band, Math.floor(rows / BAND_SHARE)));
   const tabs = take(state.tabs === "none" ? 0 : 1);
+  const gap = tabs > 0 && free > TABS_GAP ? take(TABS_GAP) : 0;
   const view = free;
 
   const heights: [RegionKind, number][] =
     state.tabs === "top"
       ? [
           ["tabs", tabs],
+          ["gap", gap],
           ["view", view],
           ["band", band],
           ["prompt", prompt],
@@ -82,6 +91,7 @@ export function layout(size: IFrameSize, state: ILayoutState): IRegion[] {
         ]
       : [
           ["view", view],
+          ["gap", gap],
           ["tabs", tabs],
           ["band", band],
           ["prompt", prompt],

@@ -90,8 +90,7 @@ class SecurityUserDelete extends Command {
         message: "Compte à SUPPRIMER :",
       });
     } catch (e) {
-      this.log((e as Error).message, "ERROR");
-      process.exitCode = 1;
+      this.refuseMissingArgument(e);
       return this;
     }
 
