@@ -300,6 +300,15 @@ const CLEAR = "\x1b[2J";
 const FRAME_INTERVAL_MS = 16;
 
 /**
+ * Délai dans lequel un SECOND Ctrl+C, sur une invite vide, arrête le
+ * superviseur. Le premier ne fait que prévenir : un Ctrl+C réflexe — pour
+ * couper une commande déjà finie, ou deux fois par habitude — ne tue plus le
+ * serveur et tout ce qui tourne. Sans invite branchée, Ctrl+C arrête tout de
+ * suite, comme partout.
+ */
+const QUIT_CONFIRM_MS = 2000;
+
+/**
  * Entrée en plein écran : écran alternatif, défilement alterné (mode 1007),
  * collage entre crochets, curseur masqué, page vierge.
  *
@@ -494,6 +503,8 @@ interface IFullscreenState {
   onData: (chunk: Buffer | string) => void;
   decoder: InputDecoder;
   escapeTimer: NodeJS.Timeout | null;
+  /** Instant (`Date.now`) du Ctrl+C qui a demandé l'arrêt, ou 0. */
+  quitArmedAt: number;
   frameTimer: NodeJS.Timeout | null;
   lastFrameAt: number;
   /** L'image à l'écran — `null` : tout redessiner. */
@@ -1308,6 +1319,7 @@ export class DevTerminal {
       onData: (chunk) => this.#onInput(chunk),
       decoder: new InputDecoder(),
       escapeTimer: null,
+      quitArmedAt: 0,
       frameTimer: null,
       lastFrameAt: 0,
       frame: null,
@@ -1681,7 +1693,8 @@ export class DevTerminal {
   }
 
   /**
-   * Foyer global : Ctrl+C et Ctrl+D demandent l'arrêt au propriétaire ;
+   * Foyer global : Ctrl+D demande l'arrêt au propriétaire, Ctrl+C aussi —
+   * mais, invite branchée, au SECOND appui dans {@link QUIT_CONFIRM_MS} ;
    * `?` et F1 ouvrent l'aide des gestes ; Alt+1 à Alt+9 montrent l'onglet
    * de ce rang (`Ctrl+Tab` n'atteint pas
    * l'application dans la plupart des terminaux).
@@ -1694,6 +1707,20 @@ export class DevTerminal {
           return true;
         }
         if (event.kind !== "key") return false;
+        if (event.ctrl && event.key === "c" && this.#prompt !== null) {
+          // Invite branchée : le premier Ctrl+C prévient, le second arrête.
+          // Celui qui interrompt une commande ne compte pas : l'invite l'a
+          // déjà pris avant ce foyer.
+          const now = Date.now();
+          if (now - full.quitArmedAt <= QUIT_CONFIRM_MS) {
+            full.quitArmedAt = 0;
+            full.onQuit();
+          } else {
+            full.quitArmedAt = now;
+            this.#notify(full, "Ctrl+C encore pour arrêter le serveur");
+          }
+          return true;
+        }
         if (event.ctrl && (event.key === "c" || event.key === "d")) {
           full.onQuit();
           return true;

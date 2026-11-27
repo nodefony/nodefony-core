@@ -217,16 +217,45 @@ describe("plein écran — l'invite (#538)", () => {
     terminal.close();
   });
 
-  it("Ctrl+C efface une saisie ; sur une invite vide, il demande l'arrêt", async () => {
+  it("Ctrl+C efface une saisie ; sur une invite vide, le PREMIER prévient, le second arrête", async () => {
     const { written, input, quit, terminal } = prompted();
+    terminal.setStatus(
+      null,
+      { project: "mon-app", readyAt: "16:48", reloads: 0 },
+      "ready",
+    );
     input.type("rest" + CTRL_C);
     expect(quit).not.toHaveBeenCalled();
     await nextFrame();
     const lines = await screen(written);
-    expect(lines.at(-1)).to.equal("❯ ");
+    expect(lines.some((l) => l === "❯ ")).to.equal(true);
+    input.type(CTRL_C);
+    expect(quit).not.toHaveBeenCalled();
+    await nextFrame();
+    expect((await screen(written)).join("\n")).to.contain(
+      "Ctrl+C encore pour arrêter le serveur",
+    );
     input.type(CTRL_C);
     expect(quit).toHaveBeenCalledTimes(1);
     terminal.close();
+  });
+
+  it("le second Ctrl+C après le délai ne fait que prévenir à nouveau", () => {
+    const { input, quit, terminal } = prompted();
+    const now = vi.spyOn(Date, "now");
+    try {
+      now.mockReturnValue(1_000_000);
+      input.type(CTRL_C);
+      now.mockReturnValue(1_000_000 + 2_500);
+      input.type(CTRL_C);
+      expect(quit).not.toHaveBeenCalled();
+      now.mockReturnValue(1_000_000 + 3_000);
+      input.type(CTRL_C);
+      expect(quit).toHaveBeenCalledTimes(1);
+    } finally {
+      now.mockRestore();
+      terminal.close();
+    }
   });
 
   it("`?` ouvre l'aide sur une invite vide, et s'écrit dans une saisie", async () => {
@@ -266,13 +295,18 @@ describe("plein écran — l'invite (#538)", () => {
     terminal.close();
   });
 
-  it("action en vol : Ctrl+C l'interrompt, un second Ctrl+C arrête quand même", async () => {
+  it("action en vol : Ctrl+C l'interrompt SANS compter pour l'arrêt ; qui l'ignore n'empêche pas d'arrêter", async () => {
     const { input, quit, terminal, verbs } = prompted();
     verbs.restart.mockImplementation(() => new Promise<boolean>(() => {}));
     input.type("/restart" + ENTER);
     await nextFrame();
     input.type(CTRL_C);
     expect(quit).not.toHaveBeenCalled();
+    // Le premier a interrompu : le deuxième ne fait que prévenir — un
+    // « Ctrl+C Ctrl+C » réflexe pour couper une commande ne tue plus tout.
+    input.type(CTRL_C);
+    expect(quit).not.toHaveBeenCalled();
+    // L'action ignore le signal : elle ne prend pas le terminal en otage.
     input.type(CTRL_C);
     expect(quit).toHaveBeenCalledTimes(1);
     terminal.close();

@@ -91,7 +91,7 @@ export function screenGestures(options: {
   gestures.push(
     { keys: "Échap", does: "effacer la sélection" },
     options.prompt === true
-      ? { keys: "Ctrl+C", does: "effacer ; invite vide : arrêter" }
+      ? { keys: "Ctrl+C", does: "effacer ; invite vide : 2× pour arrêter" }
       : { keys: "Ctrl+C", does: "arrêter le serveur" },
   );
   return gestures;
