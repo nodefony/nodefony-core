@@ -1469,11 +1469,10 @@ export {
   QUESTION_CANCELLED_EXIT_CODE,
   type IAskOptions,
 } from "./cli/ask";
-export {
-  askInFooter,
-  type IQuestionFooterInput,
-  type IQuestionFooterOptions,
-  type IQuestionFooterOutput,
+export type {
+  IQuestionFooterInput,
+  IQuestionFooterOptions,
+  IQuestionFooterOutput,
 } from "./cli/questionFooter";
 export type {
   ICard,

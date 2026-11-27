@@ -11,7 +11,7 @@ import {
   ADMIN_SCOPE_READ,
   ADMIN_SCOPE_WRITE,
   AGENT_TARGETS,
-  chargePrompts,
+  canAsk,
   agentsPresents,
   requestedAgents,
   poseVariable,
@@ -452,16 +452,23 @@ class SecurityMcpToken extends Command {
     // Taper un identifiant de mémoire est la meilleure façon de se tromper —
     // et l'erreur ne se voit qu'après le boot complet.
     let identifier = identifierArg?.trim() ?? "";
-    if (!identifier && process.stdin.isTTY) {
+    // Sans terminal, rien n'est listé : le compte par défaut, sans requête.
+    if (!identifier && canAsk()) {
       const page = await users.listPage({ limit: 25 });
       if (page.items.length > 0) {
-        await this.loadPrompts();
-        identifier = await this.prompts.select({
-          message: "Compte porteur du jeton :",
-          choices: page.items.map((u) => ({
-            name: `${u.identifier}${u.roles.length ? ` ${DIM}(${u.roles.join(", ")})${RESET}` : ""}`,
-            value: u.identifier,
-          })),
+        identifier = await this.ask({
+          kind: "select",
+          key: "identifier",
+          message: "Compte porteur du jeton",
+          choices: page.items.map((u) =>
+            u.roles.length > 0
+              ? {
+                  value: u.identifier,
+                  label: u.identifier,
+                  hint: u.roles.join(", "),
+                }
+              : { value: u.identifier, label: u.identifier },
+          ),
         });
       }
     }
@@ -526,12 +533,17 @@ class SecurityMcpToken extends Command {
     // terminal, on propose de poser la valeur plutôt que de laisser copier un
     // jeton de 400 caractères à la main.
     let write = opts.write === true;
-    if (!write && !opts.json && !otherGate && process.stdin.isTTY) {
-      await this.loadPrompts();
-      write = await this.prompts.confirm({
-        message: `Poser ${MCP_TOKEN_ENV} dans la configuration des agents présents ?`,
-        default: true,
-      });
+    if (!write) {
+      // Sous `--json`, pour une autre porte ou sans terminal : on n'écrit pas.
+      write = await this.ask(
+        {
+          kind: "confirm",
+          key: "write",
+          message: `Poser ${MCP_TOKEN_ENV} dans la configuration des agents présents ?`,
+          default: true,
+        },
+        { prompt: opts.json !== true && !otherGate, fallback: false },
+      );
     }
     const ttlS = tokenTtlSeconds(opts.ttl, write);
     if (ttlS instanceof Error) {
@@ -674,25 +686,26 @@ class SecurityMcpToken extends Command {
         );
         const added = presents.filter((c) => !carriers.includes(c));
         targets = carriers;
-        if (carriers.length === 0 && added.length > 0 && process.stdin.isTTY) {
+        if (carriers.length === 0 && added.length > 0) {
           // PREMIÈRE fois : écrire dans la configuration d'un autre outil est un
-          // geste qui se voit et se refuse, donc on propose.
-          // Par la porte du cœur : les questions en sortent ancrées sur l'event
-          // loop (cf `cli/prompts.ts`). Un import direct recrée le défaut.
-          const { checkbox } = await chargePrompts();
-          const chosen = (await checkbox({
-            message: "Poser le jeton chez quels agents ?",
-            choices: added.map((c) => ({
-              name: `${c.name} — ${c.scope === "projet" ? c.file : `$${c.home}/${c.file}`}`,
-              value: c.key,
-              checked: true,
-            })),
-          })) as string[];
+          // geste qui se voit et se refuse, donc on propose. Hors terminal :
+          // servir ce qui est détecté, sinon la commande ne ferait rien du tout
+          // dans un script.
+          const chosen = await this.ask(
+            {
+              kind: "checkbox",
+              key: "agent",
+              message: "Poser le jeton chez quels agents ?",
+              choices: added.map((c) => ({
+                value: c.key,
+                label: c.name,
+                hint: c.scope === "projet" ? c.file : `$${c.home}/${c.file}`,
+                checked: true,
+              })),
+            },
+            { fallback: added.map((c) => c.key) },
+          );
           targets = added.filter((c) => chosen.includes(c.key));
-        } else if (carriers.length === 0) {
-          // Hors terminal : servir ce qui est détecté, sinon la commande ne
-          // ferait rien du tout dans un script.
-          targets = added;
         } else if (added.length > 0) {
           // Des agents sont là mais n'ont jamais été câblés : le DIRE, sans
           // décider à leur place — la rotation ne doit pas élargir le périmètre.

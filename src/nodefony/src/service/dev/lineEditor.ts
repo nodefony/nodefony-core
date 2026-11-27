@@ -28,7 +28,18 @@ const TAB_STOP = 4;
 const DIM = "\x1b[2m";
 const RESET = "\x1b[0m";
 const ATTACHMENT_COLOR = "\x1b[36m";
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
+/**
+ * Le format des nombres d'une étiquette de collage, créé au PREMIER collage :
+ * `new Intl.NumberFormat` charge les données ICU de la locale, ~18 ms mesurés
+ * à l'import — payés jusqu'ici par tout `import "nodefony"`, serveur compris,
+ * pour une étiquette que la plupart des processus n'affichent jamais.
+ */
+let numberFormat: Intl.NumberFormat | null = null;
+
+function formatCount(n: number): string {
+  numberFormat ??= new Intl.NumberFormat("fr-FR");
+  return numberFormat.format(n);
+}
 
 /**
  * Une pièce jointe de l'invite : un collage trop long pour s'afficher, gardé
@@ -56,8 +67,8 @@ export class PromptAttachment {
     this.chars = chars;
     this.label =
       lines > 1
-        ? `[Collé #${id} · ${NUMBER_FORMAT.format(lines)} lignes]`
-        : `[Collé #${id} · ${NUMBER_FORMAT.format(chars)} caractères]`;
+        ? `[Collé #${id} · ${formatCount(lines)} lignes]`
+        : `[Collé #${id} · ${formatCount(chars)} caractères]`;
     let width = 0;
     for (const unit of textUnits(this.label)) width += unit.width;
     this.width = width;

@@ -3,7 +3,7 @@ import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { writeAgentPointers } from "./scaffold/engine";
 import { SysExit } from "./sysexits";
-import { chargePrompts } from "./prompts";
+import { ask, canAsk } from "./ask";
 import {
   ADMIN_SCOPE_READ,
   ADMIN_SCOPE_WRITE,
@@ -34,7 +34,6 @@ import {
   type IAgentTarget,
 } from "./agentTargets";
 import { spawnedOutput } from "../runtime/spawnedOutput";
-import { isTerminal } from "../runtime/isTerminal";
 import { stripTrailingSlashes } from "../Tools";
 
 /**
@@ -1125,14 +1124,15 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     !parsed.dryRun &&
     !parsed.json &&
     parsed.url === null;
-  if (nothingRequested && process.stdin.isTTY) {
+  if (nothingRequested && canAsk()) {
     const alreadyAuth = Boolean(
       readMcpConfig(path.join(projectRoot, MCP_CONFIG_FILE))?.mcpServers?.[
         "nodefony"
       ]?.headers?.Authorization,
     );
-    const { confirm } = await chargePrompts();
-    parsed.auth = await confirm({
+    parsed.auth = await ask({
+      kind: "confirm",
+      key: "auth",
       message: `Mode authentifié ? (en-tête \${${MCP_TOKEN_ENV}}${alreadyAuth ? " — répondre non le RETIRE" : ""})`,
       default: alreadyAuth,
     });
@@ -1193,10 +1193,12 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     // jamais rafraîchie. Mais les taire fait chercher, puis conclure qu'ils ne
     // sont pas gérés — vécu.
     const byFile = detected.filter((c) => c.declaration === "fichier-projet");
-    if (detected.length > 0 && process.stdin.isTTY) {
-      const { checkbox } = await chargePrompts();
-      const chosen = (await checkbox({
-        message: `Déclarer la porte chez quels agents ? (espace pour cocher — ENTRÉE sans rien cocher : aucun, je code seul)`,
+    if (detected.length > 0 && canAsk()) {
+      const chosen = await ask({
+        kind: "checkbox",
+        key: "agent",
+        message: "Déclarer la porte chez quels agents ?",
+        note: "Entrée sans rien cocher : aucun agent — tu codes seul.",
         choices: [
           // ⚠️ Les agents servis par le FICHIER de projet figurent dans la
           // liste, cochés et non décochables. Les taire était un contresens
@@ -1205,8 +1207,8 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
           // n'ait rien à attendre de cette question. Un choix inerte qui
           // s'EXPLIQUE vaut mieux qu'une absence qui s'interprète.
           ...byFile.map((c) => ({
-            name: `${c.name} — servi par le ${path.basename(file)} de ce projet`,
             value: c.key,
+            label: `${c.name} — servi par le ${path.basename(file)} de ce projet`,
             checked: true,
             disabled: "déjà à jour, rien à lancer",
           })),
@@ -1214,7 +1216,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
             // Le libellé dit le GESTE réel. Écrit sur le seul `c.bin`, il
             // rendait « undefined mcp add » pour un agent sans CLI — une ligne
             // qui fait douter de tout le reste de la liste.
-            name:
+            label:
               c.declaration === "fichier-agent"
                 ? `${c.name} — ${parsed.remove ? "retirer de" : "écrire"} ${c.mcpFile?.file}`
                 : `${c.name} — ${c.bin} mcp ${parsed.remove ? "remove" : "add"}`,
@@ -1222,8 +1224,8 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
             checked: false,
           })),
         ],
-      })) as string[];
-      // Un choix désactivé n'est jamais rendu par la question : le filtre porte
+      });
+      // Un choix désactivé n'entre jamais dans la réponse : le filtre porte
       // donc bien sur les seuls agents qui ont une CLI à lancer.
       targets = presents.filter((c) => chosen.includes(c.key));
     }
@@ -1328,10 +1330,9 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
   // lui, l'émission échoue sur une audience que l'application ne sert pas.
   const chainage = planTokenChaining(parsed, {
     projectRoot,
-    isTTY: isTerminal(process.stdin),
+    isTTY: canAsk(),
   });
   if (chainage) {
-    const { confirm, select } = await chargePrompts();
     // ⭐ CONSTATER avant de proposer. Le jeton part dans un en-tête statique
     // que rien ne rafraîchit : expiré, il produit un `401` qui accuse la
     // configuration, l'audience ou le serveur — jamais l'échéance. Une ligne
@@ -1359,7 +1360,9 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     const perime =
       detectedForToken.length === 0 ||
       [...states.values()].some((s) => s.problem !== null);
-    const now = await confirm({
+    const now = await ask({
+      kind: "confirm",
+      key: "token",
       message: `${perime ? "Obtenir" : "Réémettre"} un jeton maintenant (${MCP_TOKEN_ENV}) ?`,
       default: perime,
     });
@@ -1370,34 +1373,46 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
       // (15 min) oblige à tout recommencer au quart d'heure, et le refus qui
       // s'ensuit accuse le jeton alors qu'il a simplement vécu. Un choix fermé
       // plutôt qu'une saisie libre — on ne se trompe pas d'unité.
-      const ttlMinutes = await select({
-        message: "Durée de validité du jeton",
-        default: 7 * 24 * 60,
-        choices: [
-          {
-            name: "7 jours (recommandé pour un agent local)",
-            value: 7 * 24 * 60,
-          },
-          { name: "30 jours (maximum)", value: 30 * 24 * 60 },
-          { name: "12 heures", value: 12 * 60 },
-          { name: "15 minutes (le défaut de la configuration)", value: 15 },
-        ],
-      });
+      const ttlMinutes = Number(
+        await ask({
+          kind: "select",
+          key: "ttl",
+          message: "Durée de validité du jeton",
+          default: String(7 * 24 * 60),
+          choices: [
+            {
+              value: String(7 * 24 * 60),
+              label: "7 jours",
+              hint: "recommandé pour un agent local",
+            },
+            { value: String(30 * 24 * 60), label: "30 jours", hint: "maximum" },
+            { value: String(12 * 60), label: "12 heures" },
+            {
+              value: "15",
+              label: "15 minutes",
+              hint: "le défaut de la configuration",
+            },
+          ],
+        }),
+      );
       // ⭐ Le RÔLE du jeton se choisit, il ne se subit pas. Le défaut de la
       // commande d'émission est la lecture SEULE — le plus étroit se durcit
       // tout seul dans le bon sens — mais qui veut muter par la porte MCP
       // devait jusqu'ici connaître `--scope` et l'écrire à la main.
-      const scopes = await select({
+      const scopes = await ask({
+        kind: "select",
+        key: "scope",
         message: "Ce que le jeton autorise",
         default: ADMIN_SCOPE_READ,
         choices: [
           {
-            name: `Lecture seule (${ADMIN_SCOPE_READ}) — recommandé`,
             value: ADMIN_SCOPE_READ,
+            label: `Lecture seule (${ADMIN_SCOPE_READ})`,
+            hint: "recommandé",
           },
           {
-            name: `Lecture et mutations (${ADMIN_SCOPE_READ} ${ADMIN_SCOPE_WRITE})`,
             value: `${ADMIN_SCOPE_READ} ${ADMIN_SCOPE_WRITE}`,
+            label: `Lecture et mutations (${ADMIN_SCOPE_READ} ${ADMIN_SCOPE_WRITE})`,
           },
         ],
       });

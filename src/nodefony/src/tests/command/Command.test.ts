@@ -6,7 +6,7 @@ import {
   FakeKeyboard,
   FakeScreen,
   readScreen,
-  tick,
+  whenAsking,
 } from "../questionTerminal";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -326,7 +326,7 @@ describe("Command — askArgument()", () => {
       isTTY: true,
       io: { input: keyboard, output: screen },
     });
-    await tick();
+    await whenAsking(keyboard);
     // Vide : refusé sur place, la question reste ouverte.
     keyboard.press("\r");
     expect((await readScreen(screen)).lines).to.include(
@@ -348,7 +348,7 @@ describe("Command — askArgument()", () => {
       isTTY: true,
       io: { input: keyboard, output: screen },
     });
-    await tick();
+    await whenAsking(keyboard);
     expect((await readScreen(screen)).lines.slice(0, 3)).to.deep.equal([
       "? sujet",
       "▸ routes",
@@ -399,7 +399,7 @@ describe("Command — une question annulée ou refusée par la porte", () => {
         { kind: "confirm", key: "go", message: "Continuer ?" },
         { terminal: true, input: keyboard, output: new FakeScreen() },
       );
-      await tick();
+      await whenAsking(keyboard);
       keyboard.press("\x03");
       return pending;
     });

@@ -12,7 +12,6 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { PassThrough } from "node:stream";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -69,12 +68,17 @@ import {
   manifestFileWith,
   readManifestCode,
 } from "../kernel/checks/sourceText";
+import { askMissing, scaffoldQuestion } from "../cli/scaffold/interactive";
+import { ask } from "../cli/ask";
+import type { IQuestion } from "../cli/question";
 import {
-  askMissing,
-  askRich,
-  loadRichPrompts,
-} from "../cli/scaffold/interactive";
-import type { IPrompts } from "../cli/prompts";
+  answerEachQuestion,
+  FakeKeyboard,
+  FakeScreen,
+  pick,
+  readScreen,
+  whenAsking,
+} from "./questionTerminal";
 import type { IScaffoldTypeSpec } from "../cli/scaffold/spec";
 import { SysExit } from "../cli/sysexits";
 import { SCAFFOLD_VERSIONS as VERSION_CATALOG } from "../cli/scaffold/versions";
@@ -12529,34 +12533,22 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
-  describe("front interactif (readline sur streams factices)", () => {
-    /**
-     * Répond AU RYTHME des prompts : readline ne met pas en file les lignes
-     * arrivées entre deux `question()` — on pousse la réponse suivante quand
-     * l'output affiche une invite (comme un humain).
-     */
-    const feedAnswers = (
-      input: PassThrough,
-      output: PassThrough,
-      replies: string[],
-    ): void => {
-      const queue = [...replies];
-      output.on("data", (chunk: Buffer) => {
-        const text = chunk.toString();
-        if (/[:\]] $/u.test(text) && queue.length > 0) {
-          input.write(`${queue.shift()}\n`);
-        }
-      });
-    };
-
-    it("pose les questions manquantes, choix numérotés, défauts sur entrée vide", async () => {
+  describe("front interactif (moteur de question sur un faux terminal, par octets)", () => {
+    it("pose les questions manquantes, choix en liste, défauts sur Entrée", async () => {
       const [spec] = getScaffoldSpec("app");
-      const input = new PassThrough();
-      const output = new PassThrough();
-      // name → "demo" · preset → 2 (minimal) · frontend → 2 (react)
-      // · packageManager → 2 (pnpm) · link → o
-      // · agents → ENTRÉE (aucun : rien n'est jamais coché par défaut)
-      feedAnswers(input, output, ["demo", "2", "2", "2", "o", ""]);
+      const input = new FakeKeyboard();
+      const output = new FakeScreen(100, 40);
+      // name → "demo" · preset → 2ᵉ (minimal) · frontend → 2ᵉ (react)
+      // · packageManager → 2ᵉ (pnpm) · link → o
+      // · agents → Entrée (aucun : rien n'est jamais coché par défaut)
+      answerEachQuestion(input, output, [
+        "demo\r",
+        pick(2),
+        pick(2),
+        pick(2),
+        "o",
+        "\r",
+      ]);
       const answers = await askMissing(
         spec!,
         {},
@@ -12576,12 +12568,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
     it("ne redemande pas ce que les flags ont déjà dit ; saute link sans checkout", async () => {
       const [spec] = getScaffoldSpec("app");
-      const input = new PassThrough();
-      const output = new PassThrough();
-      // frontend, gestionnaire, puis agents : trois entrées vides = les trois
-      // défauts (none, npm, aucun). Au RYTHME des invites — readline ne met pas
-      // en file ce qui arrive entre deux `question()`.
-      feedAnswers(input, output, ["", "", ""]);
+      const input = new FakeKeyboard();
+      const output = new FakeScreen(100, 40);
+      // frontend, gestionnaire, puis agents : trois Entrée = les trois défauts
+      // (none, npm, aucun), au RYTHME où les questions s'ouvrent.
+      answerEachQuestion(input, output, ["\r", "\r", "\r"]);
       const answers = await askMissing(
         spec!,
         { name: "demo", preset: "minimal" },
@@ -13319,130 +13310,105 @@ describe("create app — quand la base ne répond pas, la cause se NOMME (#302)"
 });
 
 describe("create app — le dialogue d'un vrai terminal", () => {
-  /** Ce que le double a reçu — c'est la QUESTION posée qu'on éprouve. */
-  interface IAppel {
-    kind: "confirm" | "select" | "checkbox" | "input";
-    message: string;
-    choices: { name: string; value: string; description?: string }[];
-  }
-
-  /**
-   * Un double de la porte à questions : il n'affiche rien, il enregistre.
-   *
-   * Le VRAI `@inquirer/prompts` exige un terminal ; l'éprouver ici mesurerait
-   * la bibliothèque, pas ce que le scaffold lui demande.
-   */
-  const doubleInvites = (
-    reponses: Record<string, unknown>,
-  ): { prompts: IPrompts; appels: IAppel[] } => {
-    const appels: IAppel[] = [];
-    const note = (
-      kind: IAppel["kind"],
-      config: { message: string; choices?: readonly unknown[] },
-    ): void => {
-      appels.push({
-        kind,
-        message: config.message,
-        choices: (config.choices ?? []) as IAppel["choices"],
-      });
-    };
-    const prompts: IPrompts = {
-      confirm: async (c) => {
-        note("confirm", c);
-        return reponses.confirm as boolean;
-      },
-      select: async <T>(c: {
-        message: string;
-        choices: readonly unknown[];
-      }) => {
-        note("select", c);
-        return reponses.select as T;
-      },
-      checkbox: async (c) => {
-        note("checkbox", c);
-        return reponses.checkbox as unknown[];
-      },
-      input: async (c) => {
-        note("input", c);
-        return reponses.input as string;
-      },
-    };
-    return { prompts, appels };
-  };
-
-  const question = (cle: string): IScaffoldTypeSpec["questions"][number] => {
-    const [spec] = getScaffoldSpec("app");
+  const question = (
+    cle: string,
+    type: "app" | "entity" = "app",
+  ): IScaffoldTypeSpec["questions"][number] => {
+    const [spec] = getScaffoldSpec(type);
     const q = spec!.questions.find((x) => x.key === cle);
     assert.isDefined(q, `question ${cle} absente de la spec`);
     return q;
   };
 
-  it("🔴 un choix MULTIPLE se coche — on ne compose plus « 2,5,7 »", async () => {
-    const { prompts, appels } = doubleInvites({
-      checkbox: ["claude-code", "cursor"],
+  /** Une question du moteur, posée au pied d'un faux terminal, octets versés. */
+  const answer = async (
+    q: IQuestion,
+    ...keys: string[]
+  ): Promise<{ value: unknown; screen: FakeScreen }> => {
+    const keyboard = new FakeKeyboard();
+    const screen = new FakeScreen(100, 40);
+    answerEachQuestion(keyboard, screen, keys);
+    const value = await ask(q, {
+      terminal: true,
+      input: keyboard,
+      output: screen,
+      color: false,
     });
-    const reponse = await askRich(prompts, question("agents"));
+    return { value, screen };
+  };
+
+  it("🔴 un choix MULTIPLE se coche — on ne compose plus « 2,5,7 »", async () => {
+    const q = scaffoldQuestion(question("agents"));
+    assert.equal(q.kind, "checkbox");
+    // Rien n'est coché d'avance : câbler un agent écrit dans la configuration
+    // d'un autre outil.
+    assert.isTrue(
+      q.kind === "checkbox" && q.choices.every((c) => c.checked !== true),
+    );
     // Deux agents cochés ressortent ENTIERS, chacun sa valeur : c'est ce qui
     // permet à la génération d'en câbler deux.
-    assert.deepEqual(reponse, ["claude-code", "cursor"]);
-    assert.lengthOf(appels, 1);
-    assert.equal(appels[0]!.kind, "checkbox");
-    // Et rien n'est coché d'avance : câbler un agent écrit dans la
-    // configuration d'un autre outil.
-    assert.isTrue(
-      appels[0]!.choices.every(
-        (c) => (c as { checked?: boolean }).checked !== true,
-      ),
-    );
+    const first = q.kind === "checkbox" ? q.choices[0]!.value : "";
+    const second = q.kind === "checkbox" ? q.choices[1]!.value : "";
+    const { value } = await answer(q, " \x1b[B \r");
+    assert.deepEqual(value, [first, second]);
   });
 
-  it("🔴 un choix unique montre son DÉFAUT, pas seulement sa position", async () => {
-    const { prompts, appels } = doubleInvites({ select: "sqlite" });
-    await askRich(prompts, question("database"));
-    assert.equal(appels[0]!.kind, "select");
-    const parDefaut = appels[0]!.choices.filter((c) =>
-      c.name.includes("défaut"),
-    );
+  it("🔴 un choix unique montre son DÉFAUT, pas seulement sa position", () => {
+    const q = scaffoldQuestion(question("database"));
+    assert.equal(q.kind, "select");
+    const choices = q.kind === "select" ? q.choices : [];
+    const parDefaut = choices.filter((c) => c.label.includes("défaut"));
     // UN seul, et c'est celui que la spec déclare : marquer deux lignes ne
     // dirait plus rien.
     assert.lengthOf(parDefaut, 1);
-    assert.include(parDefaut[0]!.name, "sqlite");
-    // Le `hint` passe en description — il cesse d'allonger chaque ligne.
-    assert.isTrue(appels[0]!.choices.some((c) => Boolean(c.description)));
+    assert.equal(parDefaut[0]!.value, "sqlite");
+    // Le `hint` reste une précision à part — il n'allonge pas le libellé.
+    assert.isTrue(choices.some((c) => Boolean(c.hint)));
   });
 
-  it("🔴 la validation de la spec vaut AUSSI dans le terminal riche", async () => {
-    // « Mon App » ne satisfait pas le kebab-case : la question est REPOSÉE.
-    let tours = 0;
-    const prompts: IPrompts = {
-      confirm: async () => false,
-      select: async <T>() => "" as T,
-      checkbox: async () => [],
-      input: async () => (++tours === 1 ? "Mon App" : "mon-app"),
-    };
-    assert.equal(await askRich(prompts, question("name")), "mon-app");
-    assert.equal(tours, 2);
-  });
-
-  it("🔴 des flux INJECTÉS retombent sur le readline — un banc ne se bloque pas", async () => {
-    // 🔴 Le terminal est FEINT : sans cela, l'absence de TTY suffirait à rendre
-    // `null` et ce contrôle passerait pour une raison qui n'est pas la sienne —
-    // la garde d'identité des flux ne serait jamais éprouvée.
-    const tty = process.stdin.isTTY;
-    Object.defineProperty(process.stdin, "isTTY", {
-      value: true,
-      configurable: true,
+  it("🔴 la validation de la spec vaut AUSSI dans le terminal", async () => {
+    // « Mon App » ne satisfait pas le kebab-case : la question est REPOSÉE,
+    // son refus à l'écran.
+    const keyboard = new FakeKeyboard();
+    const screen = new FakeScreen(100, 40);
+    const pending = ask(scaffoldQuestion(question("name")), {
+      terminal: true,
+      input: keyboard,
+      output: screen,
+      color: false,
     });
-    try {
-      assert.isNull(
-        await loadRichPrompts(new PassThrough(), new PassThrough()),
-      );
-    } finally {
-      Object.defineProperty(process.stdin, "isTTY", {
-        value: tty,
-        configurable: true,
-      });
-    }
+    await whenAsking(keyboard);
+    keyboard.press("Mon App\r");
+    assert.isTrue(
+      (await readScreen(screen)).lines.some((l) => l.startsWith("  → ")),
+    );
+    keyboard.press("\x15mon-app\r");
+    assert.equal(await pending, "mon-app");
+  });
+
+  it("🔴 un `list` sans choix se saisit valeur par valeur : deux index = `--index a,b --index c,d`", async () => {
+    const q = scaffoldQuestion(question("index", "entity"));
+    assert.equal(q.kind, "list");
+    // Une seule question : chaque Entrée ajoute, la ligne vide termine.
+    const { value } = await answer(
+      q,
+      "siteId,createdAt\rvisitId,createdAt\r\r",
+    );
+    const parsed = parseCreateArgv([
+      "node",
+      "nodefony",
+      "create",
+      "entity",
+      "Visit",
+      "siteId:string",
+      "--index",
+      "siteId,createdAt",
+      "--index",
+      "visitId,createdAt",
+    ]);
+    assert.isFalse("error" in parsed);
+    assert.deepEqual(value, "error" in parsed ? null : parsed.answers.index);
+    assert.deepEqual(value, ["siteId,createdAt", "visitId,createdAt"]);
   });
 });
 

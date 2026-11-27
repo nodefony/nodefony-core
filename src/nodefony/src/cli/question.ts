@@ -31,8 +31,12 @@ export interface IQuestionChoice {
   readonly label: string;
   /** Une précision grisée, après le libellé. */
   readonly hint?: string;
-  /** Visible mais inatteignable. */
-  readonly disabled?: boolean;
+  /**
+   * Visible mais inatteignable ; une chaîne dit POURQUOI, à la place de
+   * « indisponible ». Un choix indisponible n'entre jamais dans la réponse,
+   * même coché d'origine.
+   */
+  readonly disabled?: boolean | string;
   /** `checkbox` : coché à l'ouverture. */
   readonly checked?: boolean;
 }
@@ -193,7 +197,7 @@ export class QuestionState {
     switch (question.kind) {
       case "select": {
         const at = question.choices.findIndex(
-          (c) => c.value === question.default && c.disabled !== true,
+          (c) => c.value === question.default && !isDisabled(c),
         );
         this.cursor = at >= 0 ? at : firstEnabled(question.choices);
         break;
@@ -225,9 +229,18 @@ export class QuestionState {
   }
 }
 
+/** Un choix indisponible (`disabled: true` ou une raison). */
+function isDisabled(choice: IQuestionChoice | undefined): boolean {
+  return (
+    choice !== undefined &&
+    choice.disabled !== undefined &&
+    choice.disabled !== false
+  );
+}
+
 /** Le premier choix atteignable (0 si aucun). */
 function firstEnabled(choices: readonly IQuestionChoice[]): number {
-  const at = choices.findIndex((c) => c.disabled !== true);
+  const at = choices.findIndex((c) => !isDisabled(c));
   return at >= 0 ? at : 0;
 }
 
@@ -263,7 +276,7 @@ export function checkAnswer(
       const choice = question.choices.find((c) => c.value === value);
       if (!choice)
         return `choix inconnu : ${value} (${allowed(question.choices)})`;
-      return choice.disabled === true ? `choix indisponible : ${value}` : null;
+      return isDisabled(choice) ? `choix indisponible : ${value}` : null;
     }
     case "checkbox": {
       if (!isStringArray(value)) return "une liste de choix est attendue";
@@ -271,7 +284,7 @@ export function checkAnswer(
         const choice = question.choices.find((c) => c.value === v);
         if (!choice)
           return `choix inconnu : ${v} (${allowed(question.choices)})`;
-        if (choice.disabled === true) return `choix indisponible : ${v}`;
+        if (isDisabled(choice)) return `choix indisponible : ${v}`;
       }
       return value.length === 0 && question.required === true
         ? "coche au moins une case"
@@ -296,7 +309,7 @@ function isStringArray(value: unknown): value is string[] {
 
 function allowed(choices: readonly IQuestionChoice[]): string {
   return choices
-    .filter((c) => c.disabled !== true)
+    .filter((c) => !isDisabled(c))
     .map((c) => c.value)
     .join(" | ");
 }
@@ -414,7 +427,7 @@ function handleChoices(
     state.checked !== null
   ) {
     const choice = choices[state.cursor];
-    if (choice === undefined || choice.disabled === true) return false;
+    if (choice === undefined || isDisabled(choice)) return false;
     if (state.checked.has(choice.value)) state.checked.delete(choice.value);
     else state.checked.add(choice.value);
     state.error = null;
@@ -432,7 +445,7 @@ function moveChoice(
 ): boolean {
   const last = choices.length - 1;
   let at = Math.max(0, Math.min(last, target));
-  while (choices[at]?.disabled === true) {
+  while (isDisabled(choices[at])) {
     const next = at + step;
     if (next < 0 || next > last) {
       // Aucun choix atteignable plus loin dans ce sens : on reste où l'on est.
@@ -452,15 +465,16 @@ function submitChoices(
 ): boolean {
   if (question.kind === "select") {
     const choice = question.choices[state.cursor];
-    if (choice === undefined || choice.disabled === true) {
+    if (choice === undefined || isDisabled(choice)) {
       return refuse(state, "aucun choix disponible");
     }
     return accept(state, choice.value);
   }
   const checked = state.checked ?? new Set<string>();
-  // L'ordre des choix, jamais celui des coches.
+  // L'ordre des choix, jamais celui des coches ; un choix indisponible coché
+  // d'origine se montre coché mais n'entre pas dans la réponse.
   const value = question.choices
-    .filter((c) => checked.has(c.value))
+    .filter((c) => checked.has(c.value) && !isDisabled(c))
     .map((c) => c.value);
   const error = checkAnswer(question, value);
   return error === null ? accept(state, value) : refuse(state, error);
@@ -653,18 +667,18 @@ function pushEditorLine(
   cols: number,
 ): IQuestionView["cursor"] {
   const row = lines.length;
-  const units: { text: string; width: number }[] = [];
+  // Deux listes à plat plutôt qu'un objet par graphème : l'image se refait à
+  // chaque frappe.
+  const texts: string[] = [];
+  const widths: number[] = [];
   if (editor !== null) {
     for (const unit of textUnits(editor.display)) {
       if (unit.control) continue;
-      units.push(
-        masked
-          ? { text: "•", width: 1 }
-          : { text: unit.text, width: unit.width },
-      );
+      texts.push(masked ? "•" : unit.text);
+      widths.push(masked ? 1 : unit.width);
     }
   }
-  const at = editor === null ? 0 : Math.min(editor.cursor, units.length);
+  const at = editor === null ? 0 : Math.min(editor.cursor, texts.length);
   const prefixWidth = visibleWidth(prefix);
   // Pas de place pour le préfixe : la saisie passe avant le libellé.
   const shownPrefix = prefixWidth < cols - 8 ? prefix : "";
@@ -672,18 +686,18 @@ function pushEditorLine(
   // Fenêtre qui FINIT au curseur quand la saisie déborde.
   let start = 0;
   let before = 0;
-  for (let i = 0; i < at; i++) before += units[i]?.width ?? 0;
+  for (let i = 0; i < at; i++) before += widths[i] ?? 0;
   while (before > room - 1 && start < at) {
-    before -= units[start]?.width ?? 0;
+    before -= widths[start] ?? 0;
     start++;
   }
   let text = "";
   let used = 0;
-  for (let i = start; i < units.length; i++) {
-    const unit = units[i];
-    if (unit === undefined || used + unit.width > room) break;
-    text += unit.text;
-    used += unit.width;
+  for (let i = start; i < texts.length; i++) {
+    const width = widths[i] ?? 0;
+    if (used + width > room) break;
+    text += texts[i] ?? "";
+    used += width;
   }
   lines.push(`${shownPrefix}${text}`);
   return {
@@ -724,7 +738,12 @@ function pushChoices(
         : "";
     const hint =
       choice.hint !== undefined ? paint("dim", ` — ${choice.hint}`) : "";
-    const off = choice.disabled === true ? paint("dim", " (indisponible)") : "";
+    const off = isDisabled(choice)
+      ? paint(
+          "dim",
+          ` (${typeof choice.disabled === "string" ? choice.disabled : "indisponible"})`,
+        )
+      : "";
     const label = on ? paint("accent", choice.label) : choice.label;
     lines.push(
       fitToWidth(

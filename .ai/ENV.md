@@ -248,7 +248,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:761` |
 | `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:71` |
 | `NF_MONGODB_DEBUG` | `src/packages/@nodefony/mongoose/tests/unit/config.test.ts:177` |
-| `NF_NO_TTY` | `src/nodefony/src/cli/ask.ts:95` |
+| `NF_NO_TTY` | `src/nodefony/src/cli/ask.ts:102` |
 | `NF_NO_UPDATE_CHECK` | `src/nodefony/src/tests/vitest.setup.ts:16` |
 | `NF_NODE_DIST_URL` | `src/nodefony/src/kernel/checks/nodeSecurity.ts:132` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:102` |

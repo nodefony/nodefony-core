@@ -114,36 +114,3 @@ export async function chargePrompts(): Promise<
     input: (config) => request(() => brut.input(config)),
   };
 }
-
-/**
- * Interface `readline` ANCRÉE — même garantie, pour le front natif du scaffold.
- *
- * Le scaffold de `create app` ne passe pas par `@inquirer/prompts` : il pose ses
- * questions en `node:readline/promises`, sans aucune dépendance. Le besoin est
- * pourtant identique, et l'exposition la même — `create app` est servi sans rien
- * démarrer. Fournir la fabrique ICI évite d'écrire l'ancre à la main là-bas :
- * une règle qu'on doit se rappeler d'appliquer est une règle qui manquera un
- * jour.
- *
- * @param input - flux d'entrée (injectable pour les bancs).
- * @param output - flux de sortie.
- * @returns l'interface, et la fermeture qui relâche AUSSI l'ancre.
- */
-export async function ouvreReadline(
-  input: NodeJS.ReadableStream,
-  output: NodeJS.WritableStream,
-): Promise<{
-  rl: import("node:readline/promises").Interface;
-  close: () => void;
-}> {
-  const readline = await import("node:readline/promises");
-  const relache = anchorEventLoop();
-  const rl = readline.createInterface({ input, output });
-  return {
-    rl,
-    close: () => {
-      rl.close();
-      relache();
-    },
-  };
-}

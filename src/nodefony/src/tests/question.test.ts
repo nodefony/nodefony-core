@@ -250,6 +250,27 @@ describe("question — checkbox", () => {
     expect(s.error).toBe("coche au moins une case");
   });
 
+  it("un choix indisponible coché d'origine se MONTRE coché, avec sa raison, mais n'entre pas dans la réponse", () => {
+    const q: IQuestion = {
+      kind: "checkbox",
+      key: "agent",
+      message: "Agents",
+      choices: [
+        {
+          value: "claude",
+          label: "Claude",
+          checked: true,
+          disabled: "déjà à jour",
+        },
+        { value: "codex", label: "Codex" },
+      ],
+    };
+    const s = ask(q);
+    expect(renderQuestion(s, 80).lines[1]).toContain("◉ Claude (déjà à jour)");
+    type(s, " ", ENTER);
+    expect(s.outcome).toEqual({ action: "accept", value: ["codex"] });
+  });
+
   it("le résumé nomme les libellés", () => {
     const s = ask(roles, DOWN, " ", ENTER);
     expect(summarizeQuestion(s)).toBe("✔ Rôles Utilisateur, Administrateur");

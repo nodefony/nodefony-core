@@ -7,7 +7,8 @@
  * 1. une réponse déjà fournie (un drapeau) est validée par `checkAnswer` et
  *    rendue ; refusée, elle est reposée avec son refus si un terminal est là ;
  * 2. sinon, un vrai terminal en entrée ET en sortie → le pied de terminal ;
- * 3. sinon → {@link QuestionRefusedError}, qui nomme le DRAPEAU à passer —
+ * 3. sinon, le repli d'une question facultative (`fallback`) ;
+ * 4. sinon → {@link QuestionRefusedError}, qui nomme le DRAPEAU à passer —
  *    jamais une attente que personne ne lira.
  *
  * Une question annulée (Échap, Ctrl+C) lève {@link QuestionCancelledError} :
@@ -28,7 +29,7 @@ import {
   type ISelectQuestion,
   type QuestionValue,
 } from "./question";
-import { askInFooter, type IQuestionFooterOptions } from "./questionFooter";
+import type { IQuestionFooterOptions } from "./questionFooter";
 
 /** Code de sortie d'une question annulée (128 + SIGINT, la convention des shells). */
 export const QUESTION_CANCELLED_EXIT_CODE = 130;
@@ -82,6 +83,12 @@ export interface IAskOptions extends IQuestionFooterOptions {
   readonly prompt?: boolean;
   /** Verdict de terminal INJECTÉ (tests) ; constaté sur le processus sinon. */
   readonly terminal?: boolean;
+  /**
+   * La réponse d'une question FACULTATIVE quand personne ne peut répondre
+   * (sans terminal, ou `prompt: false`) — au lieu du refus. Devant un
+   * terminal, la question est posée : le repli n'en dispense pas.
+   */
+  readonly fallback?: unknown;
 }
 
 /**
@@ -140,8 +147,21 @@ export async function ask(
     asked = { ...question, error: `${questionFlag(question)} : ${reason}` };
   }
   if (!interactive) {
+    if (options.fallback !== undefined) {
+      const error = checkAnswer(question, options.fallback);
+      if (error === null && isQuestionValue(options.fallback)) {
+        return options.fallback;
+      }
+      // Un repli invalide est une faute de la COMMANDE, jamais de la personne.
+      throw new Error(
+        `${question.key} : repli invalide (${error ?? "réponse illisible"})`,
+      );
+    }
     throw new QuestionRefusedError(question, "aucun terminal pour le demander");
   }
+  // Chargé au premier VRAI dialogue : décodeur et hôte n'ont rien à faire
+  // dans un processus qui ne pose aucune question — le serveur, d'abord.
+  const { askInFooter } = await import("./questionFooter");
   const outcome = await request(() =>
     askInFooter(asked, {
       ...options,
@@ -152,6 +172,35 @@ export async function ask(
     throw new QuestionCancelledError(question);
   }
   return outcome.value;
+}
+
+/** `EX_USAGE` (sysexits) : la réponse manquait à la ligne de commande. */
+const USAGE_EXIT_CODE = 64;
+
+/**
+ * Rend le code de sortie d'une commande STANDALONE qui pose des questions —
+ * celles qui ne passent pas par `Command.action` : annulée → 130, sans pile ;
+ * refusée sans terminal → le refus (qui nomme le drapeau) sur la sortie
+ * d'erreur, 64. Toute autre erreur remonte telle quelle.
+ *
+ * @param run - le corps de la commande.
+ * @returns son code de sortie.
+ */
+export async function exitCodeOfQuestions(
+  run: () => Promise<number>,
+): Promise<number> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof QuestionCancelledError) {
+      return QUESTION_CANCELLED_EXIT_CODE;
+    }
+    if (error instanceof QuestionRefusedError) {
+      process.stderr.write(`${error.message}\n`);
+      return USAGE_EXIT_CODE;
+    }
+    throw error;
+  }
 }
 
 function isQuestionValue(value: unknown): value is QuestionValue {
