@@ -690,20 +690,23 @@ describe("renderFrame — la ligne d'onglets (#903)", () => {
   };
   const size = { columns: 40, rows: 10 };
 
-  it("en bas, sous le journal qui perd une ligne ; ses colonnes disent quel onglet un clic vise", () => {
+  it("en bas, sous le journal qui perd une ligne et une marge vide ; ses colonnes disent quel onglet un clic vise", () => {
     const t = transcriptOf(range(30));
     const frame = renderFrame(model(t, { status: null, tabs }), size);
     expect(frame.lines).to.have.length(10);
     expect(frame.tabs?.row).to.equal(9);
     expect(frame.lines[9]).to.equal("[1 serveur]│ 2 vite ·5 │");
-    expect(frame.lines[8]).to.equal("l30");
+    // La marge : une ligne vide entre le journal et les onglets, hors journal.
+    expect(frame.lines[8]).to.equal("");
+    expect(frame.origins?.[8]).to.equal(null);
+    expect(frame.lines[7]).to.equal("l30");
     expect(frame.origins?.[9]).to.equal(null);
     expect(frame.tabs?.spans).to.deep.equal([
       { start: 0, end: 11, index: 0 },
       { start: 12, end: 23, index: 1 },
     ]);
     expect(frameJournalRows(model(t, { status: null, tabs }), size)).to.equal(
-      9,
+      8,
     );
     expect(frameJournalRows(model(t, { status: null }), size)).to.equal(10);
   });
@@ -1005,8 +1008,9 @@ describe("renderFrame — la bande (#903)", () => {
     expect(asked).to.equal(39);
     expect(frame.tabs?.row).to.equal(7);
     expect(frame.band).to.deep.equal({ row: 8, height: 2 });
-    expect(frame.lines.slice(6)).to.deep.equal([
+    expect(frame.lines.slice(5)).to.deep.equal([
       "l30",
+      "",
       "[1 serveur]│ 2 vite │",
       "b1",
       "b2",

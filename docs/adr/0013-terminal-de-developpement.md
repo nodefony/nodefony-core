@@ -705,10 +705,12 @@ remplace entière.
 
 **Mise en page** : une fonction PURE `layout(taille, état) → régions`
 (`src/nodefony/src/service/dev/devLayout.ts#layout`), rendant une liste PLATE de rectangles :
-vue (la zone centrale), onglets (1 ligne), bande (menu, complétion, confirmation ; hauteur 0 si
+vue (la zone centrale), marge (1 ligne vide entre la vue et les onglets, présente seulement avec
+la ligne d'onglets : le journal ne colle pas aux onglets), onglets (1 ligne), bande (menu, complétion, confirmation ; hauteur 0 si
 absente, un tiers de l'écran au plus), invite, barre. Les onglets vivent **en bas, collés à
 l'invite** : onglet actif, bande et invite forment un bloc — on voit à qui on parle. Quand la
-hauteur manque, la priorité part du bas : barre, invite, bande, onglets ; la vue prend le reste.
+hauteur manque, la priorité part du bas : barre, invite, bande, onglets, puis la marge, qui cède tant que
+la vue n'a pas au moins une ligne ; la vue prend le reste.
 Sans onglets ni bande, la mise en page rend exactement les trois zones d'aujourd'hui : c'est la
 preuve d'équivalence de la refonte.
 

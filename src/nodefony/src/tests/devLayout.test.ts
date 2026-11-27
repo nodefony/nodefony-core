@@ -42,19 +42,32 @@ describe("layout — équivalence avec l'écran d'avant", () => {
 });
 
 describe("layout — placement des onglets", () => {
-  it("en bas : vue, onglets, bande, invite, barre — le bloc de saisie se suit", () => {
+  it("en bas : vue, marge, onglets, bande, invite, barre — le bloc de saisie se suit", () => {
     const regions = layout(
       { columns: 100, rows: 30 },
       state({ tabs: "bottom", band: 4 }),
     );
-    expect(kinds(regions)).toEqual(["view", "tabs", "band", "prompt", "bar"]);
+    expect(kinds(regions)).toEqual([
+      "view",
+      "gap",
+      "tabs",
+      "band",
+      "prompt",
+      "bar",
+    ]);
     expect(heightOf(regions, "tabs")).toBe(1);
+    expect(heightOf(regions, "gap")).toBe(1);
   });
 
   it("en haut : la ligne d'onglets ouvre l'écran", () => {
     const regions = layout({ columns: 100, rows: 30 }, state({ tabs: "top" }));
-    expect(kinds(regions)).toEqual(["tabs", "view", "prompt", "bar"]);
+    expect(kinds(regions)).toEqual(["tabs", "gap", "view", "prompt", "bar"]);
     expect(regions[0]?.row).toBe(0);
+  });
+
+  it("sans ligne d'onglets, aucune marge : la vue garde toute sa hauteur", () => {
+    const regions = layout({ columns: 100, rows: 30 }, state({ band: 4 }));
+    expect(kinds(regions)).not.toContain("gap");
   });
 });
 
@@ -85,6 +98,11 @@ describe("layout — hauteur qui manque", () => {
       state({ tabs: "bottom", band: 3 }),
     );
     expect(kinds(four)).toEqual(["tabs", "band", "prompt", "bar"]);
+    // La marge cède avant la vue : elle n'existe que si la vue garde une ligne.
+    const room = (rows: number) =>
+      kinds(layout({ columns: 80, rows }, state({ tabs: "bottom" })));
+    expect(room(4)).toEqual(["view", "tabs", "prompt", "bar"]);
+    expect(room(5)).toEqual(["view", "gap", "tabs", "prompt", "bar"]);
     const one = layout(
       { columns: 80, rows: 1 },
       state({ tabs: "top", band: 3 }),

@@ -811,6 +811,8 @@ interface IFrameLayout {
   bar: readonly string[];
   promptLines: readonly string[];
   indicator: string[];
+  /** La marge vide entre la vue et la ligne d'onglets (zéro ou une ligne). */
+  gapLines: readonly string[];
   /** La ligne d'onglets (zéro ou une), et les colonnes de chaque onglet. */
   tabLines: readonly string[];
   tabSpans: readonly ITabSpan[];
@@ -966,6 +968,14 @@ export class StatusBarCache {
 
 /** Sans onglets : rien à allouer à chaque image. */
 const NO_TAB_LINES: readonly string[] = [];
+/** La marge d'une ligne sous la vue : partagée, aucune allocation par image. */
+const ONE_GAP_LINE: readonly string[] = Object.freeze([""]);
+
+/** Les lignes vides d'une marge de `height` lignes. */
+function gapLinesOf(height: number): readonly string[] {
+  if (height <= 0) return NO_TAB_LINES;
+  return height === 1 ? ONE_GAP_LINE : Array.from({ length: height }, () => "");
+}
 const NO_TAB_SPANS: readonly ITabSpan[] = [];
 
 /** La dernière mise en page et ses entrées : une image sur l'autre, elles ne changent pas. */
@@ -1065,8 +1075,10 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
   );
   let view: IRegion | undefined;
   let bandLines: readonly string[] = NO_TAB_LINES;
+  let gapLines: readonly string[] = NO_TAB_LINES;
   for (const region of regions) {
     if (region.kind === "view") view = region;
+    else if (region.kind === "gap") gapLines = gapLinesOf(region.height);
     else if (region.kind === "band" && model.band) {
       // Toujours la hauteur donnée : une bande courte ne rend pas de lignes au
       // journal, une bande trop longue ne pousse pas l'invite.
@@ -1097,6 +1109,7 @@ function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
     bar,
     promptLines,
     indicator,
+    gapLines,
     tabLines: tabs === null ? NO_TAB_LINES : [tabs.text],
     tabSpans: tabs === null ? NO_TAB_SPANS : tabs.spans,
     bandLines,
@@ -1274,6 +1287,7 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
     bar,
     promptLines,
     indicator,
+    gapLines,
     tabLines,
     tabSpans,
     bandLines,
@@ -1287,6 +1301,7 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
   const all = [
     ...journal.lines,
     ...indicator,
+    ...gapLines,
     ...tabLines,
     ...bandLines,
     ...promptLines,
@@ -1298,6 +1313,7 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
       {
         length:
           indicator.length +
+          gapLines.length +
           tabLines.length +
           bandLines.length +
           promptLines.length +
@@ -1335,7 +1351,8 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
       cursor = { row, column: Math.min(prompt.cursor.column, width) };
     }
   }
-  const tabRow = journal.lines.length + indicator.length - cut;
+  const tabRow =
+    journal.lines.length + indicator.length + gapLines.length - cut;
   const bandRow = tabRow + tabLines.length;
   const hasTabs = tabLines.length > 0 && tabRow >= 0;
   const hasBand = bandLines.length > 0 && bandRow >= 0;
