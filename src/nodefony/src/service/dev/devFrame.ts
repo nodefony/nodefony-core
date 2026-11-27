@@ -106,6 +106,11 @@ export interface IFrameTab {
   /** Son travail est fini : ✓ ou ✗ devant le titre, jusqu'à sa fermeture. */
   readonly outcome?: ViewOutcome | null;
   /**
+   * Son travail tourne : l'image courante du tourniquet, à la place de ✓/✗ —
+   * un onglet muet pendant le démarrage d'une commande ressemblait à un figé.
+   */
+  readonly busy?: string;
+  /**
    * Ouvert à la volée (une commande, un panneau), pas un onglet fixe
    * (serveur, Vite) : une ┃ marque la frontière des deux groupes.
    */
@@ -496,7 +501,7 @@ function tabsLine(
     // Trait ou blanc, état, numéro, blanc, titre, compteur, blanc, barre.
     widths[i] =
       1 +
-      (tab?.outcome ? 2 : 0) +
+      (tab?.outcome || tab?.busy ? 2 : 0) +
       String(i + 1).length +
       1 +
       visibleWidth(label) +
@@ -569,7 +574,9 @@ function tabsLine(
           ? ascii
             ? "x "
             : "✗ "
-          : "";
+          : tab?.busy
+            ? `${tab.busy} `
+            : "";
     if (!model.color) {
       const body = `${glyph}${i + 1} ${label}${counter}`;
       text += active ? `[${body}]` : ` ${body} `;
@@ -577,7 +584,7 @@ function tabsLine(
       const state =
         glyph === ""
           ? ""
-          : `\x1b[${outcome === "ok" ? "32" : "31"}m${glyph}\x1b[39m`;
+          : `\x1b[${outcome === "ok" ? "32" : outcome === "failed" ? "31" : "36"}m${glyph}\x1b[39m`;
       if (active) {
         const own = palette === null ? "" : `\x1b[${palette.active}m`;
         text += `${own}\x1b[34m${ascii ? "|" : "▎"}\x1b[39m${state}${faint(String(i + 1))} \x1b[1m${label}\x1b[22m ${bar}`;

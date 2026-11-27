@@ -90,6 +90,7 @@ import { PanelCursor, type IPanelSpec } from "./devPanel";
 import type { ProcessOutputStream } from "./heldChannel";
 import { CLEAR_SCREEN, type DevPaint } from "./outputMode";
 import {
+  formatSeconds,
   renderStatusBar,
   type IRuntimeSample,
   type IStartupView,
@@ -401,6 +402,12 @@ const NOTICE_MS = 3000;
  */
 const RUN_HINT_RUNNING =
   "commande en cours · Ctrl+C l'interrompt · l'onglet reste ouvert après";
+
+/**
+ * Délai avant que le tourniquet d'un onglet paraisse : une commande plus
+ * rapide (`/clear`, `/status`) ne fait pas sauter la ligne d'onglets.
+ */
+const RUN_SPIN_DELAY_MS = 150;
 const RUN_HINT_DONE = "terminée · Échap ou /close ferme cet onglet";
 const RUN_HINT_FAILED = "échec · Échap ou /close ferme cet onglet";
 /** Suffixe au plafond : le lancement suivant refermera le plus ancien fini. */
@@ -876,10 +883,13 @@ export class DevTerminal {
   #syncSpinner(): void {
     const full = this.#full;
     if (!full) return;
+    // Une action en cours anime aussi : son onglet et sa ligne de règle
+    // disent qu'elle travaille — le démarrage d'un kernel est muet.
     const busy =
       this.#phase === "building" ||
       this.#phase === "booting" ||
-      this.#phase === "restarting";
+      this.#phase === "restarting" ||
+      this.#views.some((view) => view.running !== null);
     if (busy && full.spinTimer === null) {
       full.spinTimer = setInterval(
         () => this.#scheduleFrame(),
@@ -2288,6 +2298,8 @@ export class DevTerminal {
     }
     const controller = new AbortController();
     target.running = controller;
+    target.runSince = Date.now();
+    this.#syncSpinner();
     void this.#runAction(
       state,
       action,
@@ -2394,7 +2406,11 @@ export class DevTerminal {
         "err",
       );
     } finally {
-      if (view.running === controller) view.running = null;
+      if (view.running === controller) {
+        view.running = null;
+        view.runSince = 0;
+      }
+      this.#syncSpinner();
     }
     // L'issue se lit sur l'onglet du lancement, tant qu'il est ouvert.
     if (view.kind === "run" && this.#views.includes(view)) {
@@ -2614,6 +2630,14 @@ export class DevTerminal {
     );
   }
 
+  /** Le tourniquet d'un onglet dont l'action dure, passé le délai d'apparition. */
+  #busyOf(view: DevView): { busy: string } | null {
+    return view.running !== null &&
+      Date.now() - view.runSince >= RUN_SPIN_DELAY_MS
+      ? { busy: spinnerFrame(this.#charset) }
+      : null;
+  }
+
   /** La ligne d'onglets de l'image — `null` quand un seul est montré. */
   #tabs(views: readonly DevView[]): IFrameTabs | null {
     if (views.length < 2) return null;
@@ -2628,6 +2652,7 @@ export class DevTerminal {
               alert: false,
               outcome: view.outcome,
               adHoc: view.alwaysShown,
+              ...this.#busyOf(view),
             }
           : {
               title: view.title,
@@ -2635,6 +2660,7 @@ export class DevTerminal {
               alert: view.alert,
               outcome: view.outcome,
               adHoc: view.alwaysShown,
+              ...this.#busyOf(view),
             },
       ),
     };
@@ -2667,7 +2693,14 @@ export class DevTerminal {
    */
   #runHint(view: DevView): string | null {
     if (view.kind !== "run") return null;
-    if (view.running !== null) return RUN_HINT_RUNNING;
+    if (view.running !== null) {
+      const elapsed = Date.now() - view.runSince;
+      // Animée pendant l'action seulement : au repos, la règle reste une
+      // constante que la barre retenue compare sans recomposer.
+      return elapsed < RUN_SPIN_DELAY_MS
+        ? RUN_HINT_RUNNING
+        : `${spinnerFrame(this.#charset)} ${RUN_HINT_RUNNING} · ${formatSeconds(elapsed)}`;
+    }
     const atCap = this.#runViews(false) >= PROMPT_RUN_MAX;
     if (view.outcome === "failed") {
       return atCap ? RUN_HINT_FAILED_CAP : RUN_HINT_FAILED;

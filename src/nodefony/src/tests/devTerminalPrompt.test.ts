@@ -1200,6 +1200,41 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     terminal.close();
   });
 
+  it("une commande lente se voit travailler : tourniquet dans son onglet, durée sur la dernière ligne ; rien pour une commande rapide", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const { action, runs } = launcher();
+      const { written, input, terminal } = prompted(false, 100, ROWS, false, [
+        action,
+      ]);
+      terminal.setStatus(
+        null,
+        { project: "mon-app", readyAt: "16:48", reloads: 0 },
+        "ready",
+      );
+      input.type("/fake lent" + ENTER);
+      await settle();
+      // Sous le délai d'apparition : l'onglet et la règle restent fixes.
+      let lines = await screen(written, 100);
+      expect(tabs(lines)).to.not.match(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u);
+      vi.setSystemTime(Date.now() + 1500);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      lines = await screen(written, 100);
+      expect(tabs(lines)).to.match(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] \d+ lent/u);
+      expect(lines.join("\n")).to.match(
+        /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] commande en cours · Ctrl\+C l'interrompt · l'onglet reste ouvert après · 1,5 s/u,
+      );
+      runs[0]?.done(0);
+      await settle();
+      lines = await screen(written, 100);
+      expect(tabs(lines)).to.match(/✓ \d+ lent/);
+      expect(lines.join("\n")).to.not.contain("commande en cours");
+      terminal.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("la dernière ligne dit la règle de fermeture : en cours, puis fini — même en revenant sur l'onglet", async () => {
     const { action, runs } = launcher();
     const { written, input, terminal } = prompted(false, 100, ROWS, false, [

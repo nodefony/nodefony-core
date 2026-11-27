@@ -100,6 +100,8 @@ export class DevView {
    * `/status` ailleurs.
    */
   running: AbortController | null = null;
+  /** L'instant (`Date.now()`) où l'action en cours a démarré — `0` au repos. */
+  runSince = 0;
   /**
    * Onglet `run` : le libellé de la commande qu'il porte, AVANT tout suffixe
    * de doublon (`build` pour l'onglet `build 2`). Une saisie n'y relance que
