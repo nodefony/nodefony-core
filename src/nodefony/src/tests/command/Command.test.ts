@@ -244,16 +244,14 @@ describe("Command — askArgument()", () => {
    */
   it("une valeur déjà fournie n'est JAMAIS redemandée", async () => {
     const cmd = new Command("ask-1", "test", cli);
-    let demande = false;
-    cmd.loadPrompts = async () => {
-      demande = true;
-    };
-    const v = await cmd.askArgument("bob", {
+    // Sans terminal, la moindre question LÈVERAIT : rendre la valeur prouve
+    // qu'aucune n'a été posée.
+    const v = await cmd.askArgument("  bob ", {
       name: "identifier",
       message: "identifiant",
+      isTTY: false,
     });
     assert.strictEqual(v, "bob");
-    assert.strictEqual(demande, false, "les prompts ont été chargés pour rien");
   });
 
   it("🔴 HORS TTY, elle ÉCHOUE avec la ligne à taper — jamais un prompt qui pend", async () => {

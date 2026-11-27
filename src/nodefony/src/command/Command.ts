@@ -253,8 +253,12 @@ class Command extends Service {
   /**
    * Namespace `@inquirer/prompts` — chargé LAZY via {@link loadPrompts} (import
    * dynamique) uniquement pour les commandes interactives. Évite ~39 ms + ~7 MB
-   * d'import eager sur CHAQUE boot non-interactif (la quasi-totalité). Garanti peuplé
-   * avant tout usage (action() le charge si interactif ; Builder le charge défensivement).
+   * d'import eager sur CHAQUE boot non-interactif (la quasi-totalité). Peuplé par
+   * `action()` pour une commande interactive.
+   *
+   * @deprecated Depuis 10.1, retiré en 11.0 : poser la question par
+   * `Command.ask()` (moteur unique, réponse par drapeau, refus sans terminal,
+   * annulation en 130). Le champ reste peuplé à l'identique toute la série 10.
    */
   public prompts!: typeof import("@inquirer/prompts");
   /** Options de la commande — le type précis du champ hérité de `Service`. */
@@ -427,18 +431,22 @@ class Command extends Service {
    * Charge `@inquirer/prompts` à la demande (import dynamique, idempotent) et le pose
    * sur {@link prompts}. Appelé pour les commandes interactives — garde l'import lourd
    * (~39 ms / ~7 MB) HORS du boot des commandes non-interactives.
+   *
+   * @deprecated Depuis 10.1, retiré en 11.0 : `Command.ask()` ne demande
+   * aucun chargement. Comportement inchangé toute la série 10.
    */
   public async loadPrompts(): Promise<void> {
     // Champ `!` : `undefined` jusqu'au premier appel, et c'est un comportement
     // observable (un appelant peut tester `cmd.prompts`). Le type le dit
     // toujours présent ; ce test est ce qui le rend vrai.
-    // oxlint-disable-next-line typescript/no-unnecessary-condition
+    // oxlint-disable-next-line typescript/no-unnecessary-condition, typescript/no-deprecated -- l'API dépréciée elle-même
     if (!this.prompts) {
       // ⭐ Par la porte UNIQUE, jamais par un import direct : les questions en
       // sortent ANCRÉES sur l'event loop. Attendre une frappe est une promesse
       // en attente, et Node ne compte que les HANDLES — une commande qui ne
       // démarre rien s'arrête donc AU MILIEU de sa question, sans erreur et
       // avec un code de sortie nul. Cf `cli/prompts.ts`.
+      // oxlint-disable-next-line typescript/no-deprecated -- l'API dépréciée elle-même
       this.prompts = (await chargePrompts()) as unknown as typeof this.prompts;
     }
   }
@@ -601,6 +609,7 @@ class Command extends Service {
     // Charge les prompts AVANT builder + interaction (qui les consomment), seulement
     // si interactif → 0 import @inquirer pour les commandes non-interactives.
     if (this.interactive || this.forceInteractive) {
+      // oxlint-disable-next-line typescript/no-deprecated -- `this.prompts` reste peuplé à l'identique toute la série 10
       await this.loadPrompts();
     }
     if (this.options.showBanner) {

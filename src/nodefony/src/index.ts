@@ -79,6 +79,7 @@ export type {
   ProgressRenderer,
   SpinnerRenderer,
 } from "./cli/progress";
+// oxlint-disable-next-line typescript/no-deprecated -- publié toute la série 10 (retrait 11.0, #538)
 export { askPasswordMasked } from "./cli/promptPassword";
 // La règle du shell Windows — publiée parce que ce sont les CONSOMMATEURS du
 // framework (modules, bancs, outillage) qui la subissent autant que lui.
@@ -1431,9 +1432,11 @@ export type {
 
 export { buildCard, renderCard } from "./cli/cardReport";
 export {
+  // oxlint-disable-next-line typescript/no-deprecated -- publié toute la série 10 (retrait 11.0, #538)
   chargePrompts,
   request,
   anchorEventLoop,
+  // oxlint-disable-next-line typescript/no-deprecated -- publié toute la série 10 (retrait 11.0, #538)
   type IPrompts,
 } from "./cli/prompts";
 // Le moteur de question unique (#538) : six formes, une porte, un hôte.

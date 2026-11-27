@@ -21,6 +21,9 @@ import { Writable } from "node:stream";
  *
  * @param question - invite écrite telle quelle (ajouter les deux points et l'espace)
  * @returns ce qui a été tapé, sans le retour à la ligne
+ * @deprecated Depuis 10.1, retiré en 11.0 : `ask({ kind: "secret", … })`, ou
+ * `askSecretTwice()` pour un secret neuf (`cli/ask.ts`) — qui refusent sans
+ * terminal au lieu d'attendre. Comportement inchangé toute la série 10.
  */
 export async function askPasswordMasked(question: string): Promise<string> {
   const muted = new Writable({

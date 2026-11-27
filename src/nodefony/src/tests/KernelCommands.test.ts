@@ -302,11 +302,14 @@ describe("KernelCommand — MenuCommand", () => {
   it("prompts est LAZY : undefined avant loadPrompts, peuplé après", async () => {
     const cmd = new MenuCommand(cli);
     // @inquirer/prompts n'est PAS importé eager (gain boot non-interactif).
+    // L'API dépréciée reste éprouvée tant qu'elle existe (retrait 11.0, #538).
+    /* oxlint-disable typescript/no-deprecated */
     expect(cmd.prompts).to.equal(undefined);
     await cmd.loadPrompts();
     expect(cmd.prompts.select).to.be.a("function");
     expect(cmd.prompts.confirm).to.be.a("function");
     expect(cmd.prompts.Separator).to.be.a("function");
+    /* oxlint-enable typescript/no-deprecated */
   });
 });
 
