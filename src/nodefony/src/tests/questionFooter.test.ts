@@ -5,45 +5,14 @@
  * Un rendu en place ne se juge qu'à l'écran : une remontée de curseur fausse
  * d'une ligne laisse des débris que les octets ne montrent pas.
  */
-import { EventEmitter } from "node:events";
 import { describe, it, expect } from "vitest";
-import xterm from "@xterm/headless";
 import { askInFooter } from "../cli/questionFooter";
 import type { IQuestion, IQuestionOutcome } from "../cli/question";
+import { FakeKeyboard, FakeScreen, readScreen } from "./questionTerminal";
 
 const COLS = 40;
-const ROWS = 12;
 const ENTER = "\r";
 const DOWN = "\x1b[B";
-
-class FakeKeyboard extends EventEmitter {
-  isRaw = false;
-  readonly modes: boolean[] = [];
-  paused = true;
-  setRawMode(mode: boolean): this {
-    this.isRaw = mode;
-    this.modes.push(mode);
-    return this;
-  }
-  resume(): this {
-    this.paused = false;
-    return this;
-  }
-  pause(): this {
-    this.paused = true;
-    return this;
-  }
-}
-
-class FakeScreen extends EventEmitter {
-  readonly written: string[] = [];
-  columns = COLS;
-  rows = ROWS;
-  write(chunk: string): boolean {
-    this.written.push(chunk);
-    return true;
-  }
-}
 
 interface IRun {
   readonly keyboard: FakeKeyboard;
@@ -54,39 +23,18 @@ interface IRun {
 /** Pose une question sous une ligne déjà écrite par la commande. */
 function open(question: IQuestion): IRun {
   const keyboard = new FakeKeyboard();
-  const screen = new FakeScreen();
+  const screen = new FakeScreen(COLS);
   screen.write("sortie de la commande\r\n");
   const done = askInFooter(question, { input: keyboard, output: screen });
   return { keyboard, screen, done };
 }
 
 function press(run: IRun, ...chunks: string[]): void {
-  for (const bytes of chunks)
-    run.keyboard.emit("data", Buffer.from(bytes, "utf8"));
+  run.keyboard.press(...chunks);
 }
 
-/** L'écran tel qu'un terminal l'afficherait, et la place de son curseur. */
-async function read(
-  run: IRun,
-): Promise<{ lines: string[]; x: number; y: number }> {
-  const term = new xterm.Terminal({
-    cols: COLS,
-    rows: ROWS,
-    allowProposedApi: true,
-  });
-  await new Promise<void>((resolve) =>
-    term.write(run.screen.written.join(""), resolve),
-  );
-  const buf = term.buffer.active;
-  const lines: string[] = [];
-  for (let i = 0; i < ROWS; i++) {
-    lines.push(buf.getLine(buf.baseY + i)?.translateToString(true) ?? "");
-  }
-  const at = { x: buf.cursorX, y: buf.cursorY };
-  term.dispose();
-  // Les lignes vides du bas ne disent rien.
-  while (lines.length > 0 && lines.at(-1) === "") lines.pop();
-  return { lines, ...at };
+function read(run: IRun): ReturnType<typeof readScreen> {
+  return readScreen(run.screen);
 }
 
 const roles: IQuestion = {

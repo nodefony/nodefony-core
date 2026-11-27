@@ -1436,6 +1436,45 @@ export {
   anchorEventLoop,
   type IPrompts,
 } from "./cli/prompts";
+// Le moteur de question unique (#538) : six formes, une porte, un hôte.
+export {
+  QuestionState,
+  checkAnswer,
+  handleQuestion,
+  questionFlag,
+  renderQuestion,
+  summarizeQuestion,
+  type IQuestion,
+  type IQuestionChoice,
+  type IQuestionOutcome,
+  type IQuestionView,
+  type IInputQuestion,
+  type ISecretQuestion,
+  type IConfirmQuestion,
+  type ISelectQuestion,
+  type ICheckboxQuestion,
+  type IListQuestion,
+  type QuestionAnswer,
+  type QuestionKind,
+  type QuestionPaint,
+  type QuestionTone,
+  type QuestionValue,
+} from "./cli/question";
+export {
+  ask,
+  askSecretTwice,
+  canAsk,
+  QuestionCancelledError,
+  QuestionRefusedError,
+  QUESTION_CANCELLED_EXIT_CODE,
+  type IAskOptions,
+} from "./cli/ask";
+export {
+  askInFooter,
+  type IQuestionFooterInput,
+  type IQuestionFooterOptions,
+  type IQuestionFooterOutput,
+} from "./cli/questionFooter";
 export type {
   ICard,
   ICardAppInfo,

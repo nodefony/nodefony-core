@@ -228,7 +228,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_WIDTHS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:1035` |
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:66` |
-| `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2818` |
+| `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2839` |
 | `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:86` |
 | `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:84` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:142` |
@@ -246,9 +246,9 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_INSTANCE_ID` | `src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts:105` |
 | `NF_JWT_KEYSET` | `src/packages/@nodefony/security/tests/support/keystoreProcess.ts:18` |
 | `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:761` |
-| `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:69` |
+| `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:71` |
 | `NF_MONGODB_DEBUG` | `src/packages/@nodefony/mongoose/tests/unit/config.test.ts:177` |
-| `NF_NO_TTY` | `src/nodefony/src/cli/scaffold/interactive.ts:84` |
+| `NF_NO_TTY` | `src/nodefony/src/cli/ask.ts:95` |
 | `NF_NO_UPDATE_CHECK` | `src/nodefony/src/tests/vitest.setup.ts:16` |
 | `NF_NODE_DIST_URL` | `src/nodefony/src/kernel/checks/nodeSecurity.ts:132` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:102` |
