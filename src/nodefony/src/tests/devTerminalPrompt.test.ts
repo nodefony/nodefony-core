@@ -1590,6 +1590,39 @@ describe("plein écran — la fin d'une commande se lit au bas de sa sortie (#53
     terminal.close();
   });
 
+  it("l'onglet d'une commande montre sa ligne EN COURS — un `Password:` sur la sortie d'erreur, puis un tourniquet", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(false, 100, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake login" + ENTER);
+    await settle();
+    // Sans fin de ligne : un terminal la montre, l'onglet aussi.
+    runs[0]?.io.write("Mot de passe : ", "err");
+    await settle();
+    let lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    expect(lines, lines.join("\n")).to.include("Mot de passe :");
+    // Le tourniquet écrit ensuite : seule sa dernière image se voit.
+    runs[0]?.io.write("\r⠋ chargement", "out");
+    runs[0]?.io.write("\r⠙ chargement", "out");
+    await settle();
+    lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    expect(lines, lines.join("\n")).to.include("⠙ chargement");
+    expect(lines.some((l) => l.includes("⠋"))).to.equal(false);
+    expect(lines).to.not.include("Mot de passe :");
+    // Interrompue sans fin de ligne : le reste entre au journal, AU-DESSUS de
+    // la ligne de fin, et rien ne reste « en cours » sous elle.
+    runs[0]?.io.write("\r\x1b[2K", "out");
+    runs[0]?.done(130);
+    await settle();
+    lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    const at = lines.indexOf("Mot de passe :");
+    expect(at, lines.join("\n")).to.be.greaterThan(-1);
+    expect(lines[at + 1]).to.match(/^── ✗ interrompue · /u);
+    expect(lines.some((l) => l.includes("chargement"))).to.equal(false);
+    terminal.close();
+  });
+
   it("interrompue : « interrompue », pas un échec chiffré ; un onglet sans lancement n'en reçoit aucune", async () => {
     const { action, runs } = launcher();
     const { written, input, terminal } = prompted(false, 100, ROWS, false, [

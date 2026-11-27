@@ -2602,29 +2602,22 @@ export class DevTerminal {
     entry: PromptHistoryEntry | null,
   ): Promise<void> {
     const started = performance.now();
-    // La ligne de fin doit commencer une ligne : retenir si la sortie en finit une.
-    const output = { atLineStart: true };
-    const tracked = (chunk: string, stream?: "out" | "err"): void => {
-      if (chunk.length > 0) output.atLineStart = chunk.endsWith("\n");
-      write(chunk, stream);
-    };
     const io: IPromptIO = {
-      write: tracked,
+      write,
       // Confirmer et prêter le terminal arrivent avec les commandes du CLI
       // (lot 2) : aucun verbe du superviseur n'en a besoin.
       confirm: (request) =>
-        this.#confirmInView(view, request, controller.signal, tracked),
+        this.#confirmInView(view, request, controller.signal, write),
       suspend: () =>
         Promise.reject(new Error("le terminal ne se prête pas encore")),
-      ask: (question, signal) =>
-        this.#askInView(view, question, signal, tracked),
+      ask: (question, signal) => this.#askInView(view, question, signal, write),
       columns: this.#size().columns,
     };
     let code = 1;
     try {
       code = await action.run(text, io, controller.signal);
     } catch (error) {
-      tracked(
+      write(
         `${action.id} : ${error instanceof Error ? error.message : String(error)}\n`,
         "err",
       );
@@ -2638,10 +2631,12 @@ export class DevTerminal {
     // L'issue se lit sur l'onglet du lancement, tant qu'il est ouvert.
     if (view.kind === "run" && this.#views.includes(view)) {
       view.outcome = code === 0 ? "ok" : "failed";
-      write(
-        `${output.atLineStart ? "" : "\n"}${this.#endLine(code, performance.now() - started)}\n`,
-        "out",
-      );
+      // Ce que la commande a laissé sans fin de ligne — sur l'un ou l'autre
+      // flux (un `Password:` sur la sortie d'erreur, puis Ctrl+C) — entre au
+      // journal : la ligne de fin commence ainsi une ligne, et rien ne reste
+      // « en cours » sous elle une fois la commande morte.
+      this.#history.flush(view.id);
+      write(`${this.#endLine(code, performance.now() - started)}\n`, "out");
       // Le geste qui retire l'onglet se dit là où l'on regarde.
       const full = this.#full;
       if (full !== null && this.#active === view) {
@@ -3154,6 +3149,23 @@ export class DevTerminal {
     return atCap ? RUN_HINT_DONE_CAP : RUN_HINT_DONE;
   }
 
+  /**
+   * La ligne en cours qu'un onglet montre sous son journal : celle du canal
+   * où écrit sa commande (onglet `run`), celle du superviseur pour l'onglet
+   * qui le lit — aucune ailleurs.
+   */
+  #partialOf(view: DevView): string {
+    const channel =
+      view.kind === "run"
+        ? view.id
+        : view.match("supervisor")
+          ? "supervisor"
+          : null;
+    return channel === null
+      ? ""
+      : (this.#history.channel(channel)?.partial(channel) ?? "");
+  }
+
   /** Ce que l'image lit : l'onglet à l'écran, la barre, la ligne d'onglets. */
   #model(
     full: IFullscreenState,
@@ -3207,12 +3219,11 @@ export class DevTerminal {
       heights: view.heights,
       statusBar: full.statusBar,
       ...(view.floorSeq === undefined ? {} : { floorSeq: view.floorSeq }),
-      // L'indicateur de build du superviseur se réécrit sur place, sans fin
-      // de ligne : sans lui, un long build laissait l'écran figé.
-      partial: view.match("supervisor")
-        ? (this.#history.channel("supervisor")?.partial("supervisor", "out") ??
-          "")
-        : "",
+      // La ligne en cours, sans fin de ligne : l'indicateur de build du
+      // superviseur (sans lui, un long build laissait l'écran figé), et dans
+      // l'onglet d'une commande un `Password:` ou un tourniquet — invisibles
+      // sinon tant que la commande ne passe pas à la ligne.
+      partial: this.#partialOf(view),
       tabs: this.#tabs(views),
       tabPalette: full.tabPalette,
       band: this.#bands.at(-1) ?? null,

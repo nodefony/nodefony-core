@@ -750,14 +750,13 @@ function journalLines(
         model.anchor === null
           ? (model.floorSeq ?? -1)
           : Number.NEGATIVE_INFINITY;
-      // En direct, la ligne en cours prend le bas du journal.
-      const tail =
+      // En direct, la ligne en cours prend le bas du journal. Un effacement
+      // seul (`\r\x1b[2K` d'un tourniquet qui s'arrête) n'y laisse rien.
+      const live =
         model.anchor === null && model.partial
-          ? fitRows(
-              wrapToWidth(model.partial.replace(ERASE_IN_LINE, ""), width),
-              width,
-            )
-          : [];
+          ? model.partial.replace(ERASE_IN_LINE, "")
+          : "";
+      const tail = live === "" ? [] : fitRows(wrapToWidth(live, width), width);
       const budget = Math.max(0, height - tail.length);
       for (let i = index; i >= 0 && out.length < budget; i--) {
         const entry = transcript.at(i);

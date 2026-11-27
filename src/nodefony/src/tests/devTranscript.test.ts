@@ -91,7 +91,27 @@ describe("DevTranscript — découpe", () => {
     t.ingest("vite:admin", "out", "long");
     t.flush("vite");
     expect(t.since(0).map((e) => e.text)).to.deep.equal(["court"]);
-    expect(t.partial("vite:admin", "out")).to.equal("long");
+    expect(t.partial("vite:admin")).to.equal("long");
+  });
+
+  it("la ligne en cours d'un canal est celle du flux écrit en DERNIER — là où est le curseur", () => {
+    const t = new DevTranscript();
+    t.ingest("run:1", "err", "Mot de passe : ");
+    expect(t.partial("run:1")).to.equal("Mot de passe : ");
+    t.ingest("run:1", "out", "\r⠋ chargement");
+    t.ingest("run:1", "out", "\r⠙ chargement");
+    expect(t.partial("run:1")).to.equal("⠙ chargement");
+    t.ingest("run:1", "err", "?");
+    expect(t.partial("run:1")).to.equal("Mot de passe : ?");
+    expect(t.partial("run:2")).to.equal("");
+  });
+
+  it("flush ne verse pas une ligne réduite à son effacement (tourniquet arrêté)", () => {
+    const t = new DevTranscript();
+    t.ingest("run:1", "out", "\r⠋ chargement\r\x1b[2K");
+    t.ingest("run:1", "err", "Mot de passe : ");
+    t.flush("run:1");
+    expect(t.since(0).map((e) => e.text)).to.deep.equal(["Mot de passe : "]);
   });
 
   it("ESC[2J devient un évènement, jamais un caractère de l'historique", () => {

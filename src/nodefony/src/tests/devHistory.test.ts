@@ -131,7 +131,7 @@ describe("DevHistory — un anneau par canal, une numérotation commune", () => 
     h.ingest("vite:default", "out", "en cours");
     h.flush("server");
     expect(h.since(0).map((e) => e.text)).to.deep.equal(["sans fin"]);
-    expect(h.channel("vite:default")?.partial("vite:default", "out")).to.equal(
+    expect(h.channel("vite:default")?.partial("vite:default")).to.equal(
       "en cours",
     );
   });
