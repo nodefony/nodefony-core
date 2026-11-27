@@ -297,9 +297,16 @@ function isQuestionValue(value: unknown): value is QuestionValue {
  * saisies diffèrent. Fourni par un drapeau, il n'est pas confirmé : la ligne
  * de commande l'a écrit une fois, en clair, sous les yeux de celui qui l'a tapée.
  *
+ * `validate` juge la PREMIÈRE saisie — une règle que la question ne sait pas
+ * déclarer (politique de mot de passe) : refusée, la question est reposée
+ * avec le refus, avant même la confirmation, au lieu d'échouer une fois tout
+ * le reste demandé. Un secret fourni par drapeau n'y passe pas : l'appelant
+ * l'écrit et rend le refus.
+ *
  * @param question - le secret à demander.
  * @param confirmMessage - le libellé de la seconde saisie.
  * @param options - comme {@link ask}.
+ * @param validate - rend la règle enfreinte, ou `null` si le secret tient.
  * @returns le secret.
  * @throws comme {@link ask}.
  */
@@ -307,11 +314,17 @@ export async function askSecretTwice(
   question: ISecretQuestion,
   confirmMessage: string,
   options: IAskOptions = {},
+  validate?: (secret: string) => string | null | Promise<string | null>,
 ): Promise<string> {
   if (options.answer !== undefined) return ask(question, options);
   let first: ISecretQuestion = question;
   for (;;) {
     const secret = await ask(first, options);
+    const problem = validate === undefined ? null : await validate(secret);
+    if (problem !== null) {
+      first = { ...question, error: problem };
+      continue;
+    }
     const again = await ask(
       {
         kind: "secret",
