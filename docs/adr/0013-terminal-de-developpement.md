@@ -554,7 +554,7 @@ render? }`, calqué sur le résultat de `inspect`) : ni sortie standard, ni `ter
   qui prendrait l'entrée et la sortie standard.
 - **Une question prend la place de la ligne d'édition de son onglet** (lot 2b-2) — celle d'une
   commande en sous-processus comme `confirm`. La commande n'a pas de terminal : sa porte `ask()`
-  envoie la question par un canal IPC propre au lancement (4ᵉ descripteur, `NF_DEV_PROMPT=1`,
+  envoie la question par un canal IPC propre au lancement (4ᵉ descripteur, `NF_DEV_PROMPT` = pid du superviseur, comparé au parent,
   messages `question`/`answer` du canal `nf-dev`) ; le superviseur la fait tourner par le moteur
   unique (`src/nodefony/src/cli/question.ts#handleQuestion`) et ne rend que la réponse, que la
   commande REVALIDE (`src/nodefony/src/cli/question.ts#checkAnswer`). Onglet quitté : la question

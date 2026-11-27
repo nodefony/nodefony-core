@@ -112,7 +112,9 @@ function askRoute(injected: boolean | undefined): AskRoute | null {
     return "terminal";
   }
   // Lancée depuis l'invite : l'entrée est fermée, mais le superviseur écoute.
-  return process.env[DEV_PROMPT_ENV] === "1" &&
+  // La variable nomme le superviseur : hérité par un petit-enfant dont le
+  // canal IPC mène à un autre parent (un `fork`), le relais ne s'ouvre pas.
+  return process.env[DEV_PROMPT_ENV] === String(process.ppid) &&
     typeof process.send === "function" &&
     process.connected
     ? "relay"

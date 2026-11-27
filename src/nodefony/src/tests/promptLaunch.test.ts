@@ -207,7 +207,7 @@ describe("launchPromptCommand — les questions remontent au superviseur (lot 2b
     const code = await launchPromptCommand(
       askConsole(),
       s.io,
-      new AbortController().signal,
+      AbortSignal.timeout(20000),
     );
     expect(s.err.join("")).to.equal("");
     expect(code).to.equal(0);
@@ -236,7 +236,7 @@ describe("launchPromptCommand — les questions remontent au superviseur (lot 2b
     const code = await launchPromptCommand(
       askConsole(),
       s.io,
-      new AbortController().signal,
+      AbortSignal.timeout(20000),
     );
     expect(code).to.equal(130);
     expect(s.asked.map((q) => q.key)).to.deep.equal(["name"]);
@@ -271,5 +271,27 @@ describe("launchPromptCommand — les questions remontent au superviseur (lot 2b
     controller.abort();
     expect(await ended).to.equal(PROMPT_INTERRUPTED_CODE);
     expect((pending as AbortSignal | null)?.aborted).to.equal(true);
+  }, 30000);
+});
+
+describe("launchPromptCommand — un petit-enfant n'hérite pas du relais", () => {
+  it("un `fork` de la commande refuse en nommant le drapeau, au lieu d'attendre une réponse qui ne viendra pas", async () => {
+    const { err, io } = recorder();
+    // La commande lance la fixture en `fork` : celle-ci hérite de la variable
+    // ET d'un canal IPC — mais vers la commande, pas vers le superviseur.
+    const script = [
+      'const { fork } = require("node:child_process");',
+      `const c = fork(${JSON.stringify(ASK_FIXTURE)}, [${JSON.stringify(ASK_SOURCE)}], { execArgv: ["--import", ${JSON.stringify(TSX)}], env: { ...process.env, NF_NO_TTY: "" } });`,
+      'c.on("exit", (code) => process.exit(code ?? 1));',
+    ].join("\n");
+    // Borné : une régression ferait attendre la fixture sans fin — l'arbre
+    // est alors tué (130), et le test rougit sans laisser d'orphelin.
+    const code = await launchPromptCommand(
+      node(script),
+      io,
+      AbortSignal.timeout(20000),
+    );
+    expect(code).to.equal(64);
+    expect(err.join("")).to.contain("aucun terminal pour le demander");
   }, 30000);
 });

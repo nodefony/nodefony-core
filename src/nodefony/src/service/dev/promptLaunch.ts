@@ -82,7 +82,9 @@ export function launchPromptCommand(
     try {
       child = spawn(launch.file, launch.args, {
         cwd: launch.cwd,
-        env: { ...launch.env, [DEV_PROMPT_ENV]: "1" },
+        // Le pid du superviseur, pas `1` : un petit-enfant hérite de la
+        // variable, et son propre canal IPC (un `fork`) ne mène pas ici.
+        env: { ...launch.env, [DEV_PROMPT_ENV]: String(process.pid) },
         // 4ᵉ descripteur : le canal des questions. Tubes nommés sous Windows.
         stdio: ["ignore", "pipe", "pipe", "ipc"],
         // POSIX : leader de groupe, pour que `kill(-pid)` emporte les

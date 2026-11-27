@@ -173,7 +173,7 @@ export const RESERVED_ENV = Object.freeze({
   },
   NF_DEV_PROMPT: {
     name: "NF_DEV_PROMPT",
-    role: "posée par le superviseur de développement dans une commande lancée depuis son invite : ses questions lui remontent par le canal IPC",
+    role: "posée par le superviseur de développement (son pid) dans une commande lancée depuis son invite : ses questions lui remontent par le canal IPC",
   },
   NF_DEV_TERMINAL: {
     name: "NF_DEV_TERMINAL",
