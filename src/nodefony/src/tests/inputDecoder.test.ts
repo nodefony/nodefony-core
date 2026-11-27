@@ -80,6 +80,14 @@ describe("InputDecoder — frappe et touches", () => {
     ]);
   });
 
+  it("préfixe Méta : Échap suivi d'une séquence de touche = Alt + cette touche", () => {
+    expect(decode("\x1b\x1b[A\x1b\x1b[5~\x1b\x1bOP")).to.deep.equal([
+      key("up", { alt: true }),
+      key("pageup", { alt: true }),
+      key("f1", { alt: true }),
+    ]);
+  });
+
   it("Alt+touche : Échap suivi du caractère", () => {
     expect(decode("\x1bb\x1b\x7f\x1b\r")).to.deep.equal([
       key("b", { alt: true }),
@@ -162,6 +170,21 @@ const mouse = (
 });
 
 describe("InputDecoder — souris captée (SGR 1006)", () => {
+  it("un Échap encore en attente quand le clic arrive : Échap SEUL, puis le clic entier — jamais du texte", () => {
+    // Délai d'Échap pas encore expiré (boucle occupée) : le clic suit, dans
+    // le même paquet ou le suivant. Lu en « Alt+Échap », il tapait
+    // `[<0;20;23M` dans la saisie et perdait l'appui.
+    const expected = [
+      key("escape"),
+      mouse("press", 0, 20, 23),
+      mouse("release", 0, 20, 23),
+    ];
+    expect(decode("\x1b\x1b[<0;20;23M\x1b[<0;20;23m")).to.deep.equal(expected);
+    expect(decode("\x1b", "\x1b[<0;20;23M\x1b[<0;20;23m")).to.deep.equal(
+      expected,
+    );
+  });
+
   it("enfoncer, glisser, relâcher — bouton gauche, puis milieu et droit", () => {
     expect(
       decode(

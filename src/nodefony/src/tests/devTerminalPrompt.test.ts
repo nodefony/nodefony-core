@@ -1115,6 +1115,38 @@ describe("plein écran — un lancement, son onglet (#538, lot 2a)", () => {
     terminal.close();
   });
 
+  it("Échap sur le 4ᵉ onglet fini, clic sur le 3ᵉ avant l'expiration du délai d'Échap : le 4ᵉ se ferme, le 3ᵉ s'ouvre et RESTE", async () => {
+    const { action, runs } = launcher();
+    const { written, input, terminal } = prompted(true, COLS, ROWS, false, [
+      action,
+    ]);
+    input.type("/fake a" + ENTER);
+    await settle();
+    runs[0]?.done(0);
+    await settle();
+    input.type("/fake b" + ENTER);
+    await settle();
+    runs[1]?.done(0);
+    await settle();
+    expect(terminal.activeView).to.equal("run:2");
+    const lines = await screen(written);
+    const row = lines.findIndex((l) => l.includes("1 serveur"));
+    expect(row, lines.join("\n")).to.be.greaterThan(-1);
+    const column = (lines[row] ?? "").indexOf(" a") + 2;
+    // Le délai d'Échap n'a pas expiré (boucle occupée) : le clic arrive
+    // collé à lui, dans le même paquet.
+    input.type(
+      `\x1b\x1b[<0;${column};${row + 1}M\x1b[<0;${column};${row + 1}m`,
+    );
+    await new Promise((r) => setTimeout(r, 120));
+    await settle();
+    expect(terminal.activeView).to.equal("run:1");
+    const after = tabs(await screen(written));
+    expect(after).to.not.contain(" b");
+    expect(after).to.contain(" a");
+    terminal.close();
+  });
+
   it("la dernière ligne dit la règle de fermeture : en cours, puis fini — même en revenant sur l'onglet", async () => {
     const { action, runs } = launcher();
     const { written, input, terminal } = prompted(false, 100, ROWS, false, [
