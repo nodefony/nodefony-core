@@ -629,6 +629,12 @@ interface IFullscreenState {
    */
   mouseState: "unknown" | "reported" | "refused";
   releaseGuard: () => void;
+  /**
+   * Le terminal est PRÊTÉ (`suspend`) : ni image ni clavier, l'ingestion
+   * continue. La valeur reprend la main tout de suite — l'arrêt n'attend pas
+   * la touche du retour. `null` : le terminal est à nous.
+   */
+  lent: (() => void) | null;
 }
 
 /**
@@ -1017,11 +1023,13 @@ export class DevTerminal {
     if (!full) return;
     // Une action en cours anime aussi : son onglet et sa ligne de règle
     // disent qu'elle travaille — le démarrage d'un kernel est muet.
+    // Terminal prêté : aucune image ne part, le tourniquet n'a rien à animer.
     const busy =
-      this.#phase === "building" ||
-      this.#phase === "booting" ||
-      this.#phase === "restarting" ||
-      this.#views.some((view) => view.running !== null);
+      full.lent === null &&
+      (this.#phase === "building" ||
+        this.#phase === "booting" ||
+        this.#phase === "restarting" ||
+        this.#views.some((view) => view.running !== null));
     if (busy && full.spinTimer === null) {
       full.spinTimer = setInterval(
         () => this.#scheduleFrame(),
@@ -1336,6 +1344,10 @@ export class DevTerminal {
   leaveFullscreen(): void {
     const full = this.#full;
     if (!full) return;
+    // L'arrêt emporte les commandes de l'invite : chefs de leur groupe, elles
+    // survivraient au superviseur — et celle qui tient le terminal prêté le
+    // disputerait au shell. `SIGTERM` part ici, synchrone.
+    for (const view of this.#views) view.running?.abort();
     full.releaseGuard();
     const size = this.#size();
     const live = { ...this.#model(full), anchor: null };
@@ -1359,10 +1371,12 @@ export class DevTerminal {
    * presse-papiers.
    *
    * @param sequence - la séquence, déjà formée.
-   * @returns `false` si le plein écran est quitté (rien n'est écrit).
+   * @returns `false` si le plein écran est quitté ou le terminal prêté (rien
+   *   n'est écrit).
    */
   writeRaw(sequence: string): boolean {
-    if (this.#full === null) return false;
+    // Absent (`undefined`) ou prêté : rien n'est écrit.
+    if (this.#full?.lent !== null) return false;
     this.#stdout.write(sequence);
     return true;
   }
@@ -1490,6 +1504,7 @@ export class DevTerminal {
       wheelBurst: false,
       mouseState: "unknown",
       releaseGuard: () => {},
+      lent: null,
     };
     if (full.mouse) full.foci.push(this.#mouseFocus(full));
     full.foci.push(this.#scrollFocus(full), this.#globalFocus(full));
@@ -1511,11 +1526,113 @@ export class DevTerminal {
     this.#scheduleFrame();
   }
 
+  /**
+   * Le terminal est-il prêté à un programme interactif (`suspend`) ? Le
+   * superviseur absorbe alors le Ctrl+C du terminal : il est pour le programme.
+   */
+  get lent(): boolean {
+    return (this.#full?.lent ?? null) !== null;
+  }
+
+  /**
+   * Prête le terminal à `task` — un programme qui en hérite (`/term vim`) —
+   * puis le reprend (ADR-0013 §5). Le plein écran est quitté : mode cuit,
+   * écran d'avant, souris et collage coupés, clavier rendu, garde de
+   * restauration retirée (c'est au programme de tenir le terminal). Le rendu
+   * s'arrête, l'ingestion continue — bornée par l'historique. `task` finie, une
+   * ligne demande une touche : sans elle, la dernière sortie du programme (une
+   * erreur, un résumé) disparaîtrait avec l'écran d'avant. La touche ne va
+   * nulle part ailleurs ; le plein écran revient, redessiné en entier.
+   *
+   * Hors plein écran, ou déjà prêté : `task` tourne telle quelle. L'arrêt
+   * pendant le prêt (`leaveFullscreen`) n'attend pas la touche.
+   *
+   * @param task - le programme, lancé pendant le prêt.
+   * @returns ce que rend `task`.
+   */
+  async suspend<T>(task: () => Promise<T>): Promise<T> {
+    const full = this.#full;
+    // Hors plein écran (`undefined`) ou déjà prêté.
+    if (full?.lent !== null) return task();
+    this.#lend(full);
+    try {
+      return await task();
+    } finally {
+      await this.#awaitReturn(full);
+      this.#reclaim(full);
+    }
+  }
+
+  /** Rend le terminal au programme : l'inverse de `#enterFullscreen`, état gardé. */
+  #lend(full: IFullscreenState): void {
+    full.lent = () => {};
+    if (full.frameTimer) clearTimeout(full.frameTimer);
+    full.frameTimer = null;
+    if (full.escapeTimer) clearTimeout(full.escapeTimer);
+    full.escapeTimer = null;
+    this.#syncSpinner();
+    // Le programme tient le terminal : notre garde le remettrait en plein
+    // écran sous lui, et compterait le Ctrl+C qui lui est destiné.
+    full.releaseGuard();
+    full.releaseGuard = () => {};
+    full.input.removeListener("data", full.onData);
+    full.input.setRawMode?.(false);
+    full.input.pause();
+    this.#stdout.write(LEAVE_FULLSCREEN);
+  }
+
+  /**
+   * Le programme fini : une ligne, puis la première touche — en mode brut, le
+   * temps de la lire. L'arrêt (`#restoreTerminal`) la devance.
+   */
+  #awaitReturn(full: IFullscreenState): Promise<void> {
+    if (this.#full !== full) return Promise.resolve();
+    const ascii = this.#charset === "ascii";
+    const text = `${ascii ? "--" : "──"} une touche pour revenir à nodefony`;
+    this.#stdout.write(`\n${this.#color ? `\x1b[2m${text}\x1b[22m` : text}`);
+    return new Promise<void>((resolve) => {
+      const done = (): void => {
+        full.input.removeListener("data", done);
+        full.lent = () => {};
+        resolve();
+      };
+      full.lent = done;
+      full.input.setRawMode?.(true);
+      full.input.on("data", done);
+      full.input.resume();
+    });
+  }
+
+  /** Reprend le terminal : plein écran, clavier, garde, image entière. */
+  #reclaim(full: IFullscreenState): void {
+    if (this.#full !== full) return;
+    full.lent = null;
+    // Une séquence à moitié reçue avant le prêt ne se recolle pas à la suite.
+    full.decoder = new InputDecoder();
+    full.releaseGuard = guardTerminal(() => this.#restoreTerminal(full));
+    this.#stdout.write(
+      full.mouse ? ENTER_FULLSCREEN + MOUSE_CAPTURE : ENTER_FULLSCREEN,
+    );
+    full.input.setRawMode?.(true);
+    full.input.on("data", full.onData);
+    full.input.resume();
+    // La taille a pu changer pendant le prêt : tout se recompose.
+    full.frame = null;
+    this.#syncSpinner();
+    this.#scheduleFrame();
+  }
+
   /** Rend le terminal — idempotent, appelé par l'arrêt OU par la garde. */
   #restoreTerminal(full: IFullscreenState): void {
     if (this.#full !== full) return;
     this.#full = null;
     this.#surface = "inline";
+    // Prêté : l'écran d'avant est déjà là, le programme le tient — on
+    // n'attend plus la touche du retour, on ne quitte pas un plein écran
+    // qu'on n'occupe plus.
+    const lent = full.lent;
+    full.lent = null;
+    lent?.();
     if (full.frameTimer) clearTimeout(full.frameTimer);
     if (full.escapeTimer) clearTimeout(full.escapeTimer);
     if (full.noticeTimer) clearTimeout(full.noticeTimer);
@@ -1528,7 +1645,7 @@ export class DevTerminal {
     full.input.removeListener("data", full.onData);
     full.input.setRawMode?.(false);
     full.input.pause();
-    this.#stdout.write(LEAVE_FULLSCREEN);
+    if (lent === null) this.#stdout.write(LEAVE_FULLSCREEN);
   }
 
   /**
@@ -2672,14 +2789,17 @@ export class DevTerminal {
     entry: PromptHistoryEntry | null,
   ): Promise<void> {
     const started = performance.now();
+    // Un champ, pas une variable : posé dans un rappel, le compilateur ne le
+    // verrait jamais changer.
+    const loan = { lent: false };
     const io: IPromptIO = {
       write,
-      // Confirmer et prêter le terminal arrivent avec les commandes du CLI
-      // (lot 2) : aucun verbe du superviseur n'en a besoin.
       confirm: (request) =>
         this.#confirmInView(view, request, controller.signal, write),
-      suspend: () =>
-        Promise.reject(new Error("le terminal ne se prête pas encore")),
+      suspend: (task) => {
+        loan.lent = true;
+        return this.suspend(task);
+      },
       ask: (question, signal) => this.#askInView(view, question, signal, write),
       columns: this.#size().columns,
       pendingBuild: (signal) => this.#pendingBuild(signal),
@@ -2717,6 +2837,13 @@ export class DevTerminal {
         );
       }
       this.#scheduleFrame();
+    } else if (loan.lent && this.#views.includes(view)) {
+      // Le programme a écrit dans le vrai terminal : son issue, elle, reste
+      // dans l'onglet d'où il est parti — qui ne se ferme pas pour autant.
+      write(
+        `${this.#endLine(code, performance.now() - started, false)}\n`,
+        "out",
+      );
     }
     if (entry !== null) {
       state.history.settle(
@@ -2733,16 +2860,17 @@ export class DevTerminal {
    *
    * @param code - le code de sortie.
    * @param elapsedMs - la durée de l'action.
+   * @param closable - l'action a son onglet, qu'Échap ferme.
    * @returns la ligne, sans saut final.
    */
-  #endLine(code: number, elapsedMs: number): string {
+  #endLine(code: number, elapsedMs: number, closable = true): string {
     const ascii = this.#charset === "ascii";
     const rule = ascii ? "--" : "──";
     const verdict =
       code === 0
         ? `${ascii ? "+" : "✓"} terminée`
         : `${ascii ? "x" : "✗"} ${describeFailure(code)}`;
-    const tail = ` · ${formatSeconds(Math.round(elapsedMs))} · Échap ferme cet onglet`;
+    const tail = ` · ${formatSeconds(Math.round(elapsedMs))}${closable ? " · Échap ferme cet onglet" : ""}`;
     if (!this.#color) return `${rule} ${verdict}${tail}`;
     const tone = code === 0 ? "32" : "31";
     return `\x1b[2m${rule}\x1b[22m \x1b[${tone}m${verdict}\x1b[39m\x1b[2m${tail}\x1b[22m`;
@@ -3339,7 +3467,9 @@ export class DevTerminal {
    */
   #scheduleFrame(): void {
     const full = this.#full;
-    if (full?.frameTimer !== null || full.awaitingDrain) return;
+    // Prêté : le modèle avance, l'image du retour rendra tout d'un coup.
+    if (full?.frameTimer !== null || full.awaitingDrain || full.lent !== null)
+      return;
     const wait = Math.max(
       0,
       FRAME_INTERVAL_MS - (Date.now() - full.lastFrameAt),

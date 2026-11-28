@@ -102,9 +102,18 @@ import { RestartCycle } from "./restartCycle";
 import {
   cliCommandAction,
   type PromptCommandLauncher,
+  type PromptShellLauncher,
+  type PromptTerminalLauncher,
+  shellLineAction,
   supervisorActions,
+  terminalLineAction,
 } from "./promptAction";
-import { launchPromptCommand } from "./promptLaunch";
+import {
+  type IPromptLaunch,
+  launchInTerminal,
+  launchPromptCommand,
+  promptShell,
+} from "./promptLaunch";
 import { buildPromptMenu } from "./devMenuBand";
 import { INSPECT_SUBJECTS } from "../../kernel/inspect/adminSubjects";
 import { ANSI } from "./ansi";
@@ -1499,6 +1508,8 @@ export class DevSupervisor {
           quit: () => void this.#shutdown(),
         }),
         cliCommandAction(() => this.#cliManifest(), this.#promptLauncher()),
+        shellLineAction(this.#shellLauncher()),
+        terminalLineAction(this.#terminalLauncher()),
       ],
     });
     // Le serveur écrit dans un tube : il ne reçoit pas `SIGWINCH`. La barre
@@ -2349,6 +2360,77 @@ export class DevSupervisor {
   }
 
   /**
+   * L'environnement d'un lancement de l'invite — commande du CLI ou ligne du
+   * shell : celui du superviseur, plus le verdict de terminal relayé (largeur
+   * de l'onglet, couleurs) que reçoit aussi le serveur.
+   *
+   * @param columns - la largeur de l'onglet.
+   */
+  #promptEnv(columns: number): IPromptLaunch["env"] {
+    return {
+      ...process.env,
+      ...relayedTerminalEnv(
+        process.env,
+        { columns, rows: process.stdout.rows },
+        process.stdout.getColorDepth(),
+      ),
+    };
+  }
+
+  /**
+   * Le lanceur des lignes `!` (#538) : la ligne au shell de l'utilisateur
+   * (`promptLaunch.ts#promptShell`), dans le projet, le terminal relayé.
+   *
+   * Au contraire d'une commande du CLI, une ligne du shell ne diffère PAS le
+   * rechargement (`#launches`) : la commande lit le `dist` qu'un rechargement
+   * réécrit, la ligne non — et une ligne longue (`!tail -f`) gèlerait sinon
+   * tout rechargement jusqu'à sa fin.
+   */
+  /**
+   * Le lanceur des lignes `/term` (#538) : la ligne au shell de l'utilisateur,
+   * terminal PRÊTÉ (`promptLaunch.ts#launchInTerminal`) — environnement du
+   * superviseur tel quel, le programme parle au vrai terminal. Comme une ligne
+   * `!`, il ne diffère pas le rechargement.
+   *
+   * `SIGQUIT` (Ctrl+\) est absorbé le temps du programme : le groupe de
+   * premier plan le livre aussi au superviseur, que l'action par défaut
+   * tuerait. Sous Windows, il n'existe pas.
+   */
+  #terminalLauncher(): PromptTerminalLauncher {
+    const shell = promptShell(process.platform, process.env);
+    return async (line, io, signal) => {
+      const absorb = (): void => {};
+      const quits = process.platform !== "win32";
+      if (quits) process.on("SIGQUIT", absorb);
+      try {
+        return await launchInTerminal(
+          { line, cwd: this.#cwd, env: process.env, shell },
+          io,
+          signal,
+        );
+      } finally {
+        if (quits) process.removeListener("SIGQUIT", absorb);
+      }
+    };
+  }
+
+  #shellLauncher(): PromptShellLauncher {
+    const shell = promptShell(process.platform, process.env);
+    return (line, io, signal) =>
+      launchPromptCommand(
+        {
+          file: line,
+          args: [],
+          cwd: this.#cwd,
+          env: this.#promptEnv(io.columns),
+          shell,
+        },
+        io,
+        signal,
+      );
+  }
+
+  /**
    * Le lanceur des commandes de l'invite (#538, lot 2a) : le MÊME bin que
    * celui par lequel on est entré — le lanceur a déjà tranché entre CLI
    * global et CLI local —, les mêmes drapeaux `node` que le serveur, et le
@@ -2367,14 +2449,7 @@ export class DevSupervisor {
             file: process.execPath,
             args: [...childExecArgv(process.execArgv), bin, ...argv],
             cwd: this.#cwd,
-            env: {
-              ...process.env,
-              ...relayedTerminalEnv(
-                process.env,
-                { columns: io.columns, rows: process.stdout.rows },
-                process.stdout.getColorDepth(),
-              ),
-            },
+            env: this.#promptEnv(io.columns),
           },
           io,
           signal,
@@ -3179,6 +3254,9 @@ export class DevSupervisor {
     installShutdownSignals({
       graceful: () => void this.#shutdown(),
       force: () => this.#forceShutdown(),
+      // Terminal prêté (`/term`) : le Ctrl+C est pour le programme. `SIGTERM`
+      // (`nodefony stop`) et `SIGHUP` (terminal fermé) arrêtent toujours.
+      absorb: (signal) => signal === "SIGINT" && this.#terminal?.lent === true,
     });
     process.once("exit", () => this.#releaseLock());
   }

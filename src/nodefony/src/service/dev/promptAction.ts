@@ -48,7 +48,12 @@ export interface IPromptIO {
    * (commande finie ou interrompue) : l'issue est alors `cancel`.
    */
   ask(question: IQuestion, signal: AbortSignal): Promise<IQuestionOutcome>;
-  /** Une commande interactive prend le terminal, puis le rend. */
+  /**
+   * Prête le terminal à `task` — un programme interactif qui en hérite — puis
+   * le reprend : le plein écran est quitté (mode cuit, écran d'avant), le
+   * rendu s'arrête et l'ingestion continue ; `task` finie, une touche ramène
+   * l'écran. Pendant le prêt, Ctrl+C va au programme, jamais au superviseur.
+   */
   suspend<T>(task: () => Promise<T>): Promise<T>;
   /**
    * Le build que le superviseur mène en ce moment, s'il y en a un. La
@@ -173,6 +178,33 @@ export const CLI_PROMPT_COMMAND = {
   id: "nodefony",
   usage: `${PROMPT_COMMAND_PREFIX}nodefony <commande>`,
   does: "une commande du CLI — la bande les propose dès le « / »",
+} as const;
+
+/**
+ * Le préfixe d'une ligne du shell : `!git status`, à la manière des shells
+ * interactifs (IPython, Vim) et de Claude Code.
+ */
+export const PROMPT_SHELL_PREFIX = "!";
+
+/**
+ * La porte des lignes du shell dans l'invite : `!<ligne>`, lancée par le shell
+ * de l'utilisateur dans son onglet (`promptAction.ts#shellLineAction`).
+ */
+export const SHELL_PROMPT_LINE = {
+  id: "shell",
+  usage: `${PROMPT_SHELL_PREFIX}<ligne>`,
+  does: "une ligne du shell, dans son onglet — la ligne qu'on taperait dans un terminal",
+} as const;
+
+/**
+ * La porte des programmes INTERACTIFS : `/term <ligne>` — un éditeur,
+ * `npm init`, `git add -p`. La ligne part au shell comme une ligne `!`, mais
+ * le terminal lui est prêté, clavier compris (`promptAction.ts#terminalLineAction`).
+ */
+export const TERM_PROMPT_COMMAND = {
+  id: "term",
+  usage: `${PROMPT_COMMAND_PREFIX}term <ligne>`,
+  does: "un programme interactif (éditeur, npm init) : il prend le terminal, puis le rend",
 } as const;
 
 /**
@@ -410,6 +442,151 @@ export function cliCommandAction(
 }
 
 /**
+ * Lance une ligne du shell — sans le `!` de tête — et rend son code de sortie
+ * (`promptLaunch.ts#launchPromptCommand` avec `shell`, posé par le
+ * superviseur).
+ */
+export type PromptShellLauncher = (
+  line: string,
+  io: IPromptIO,
+  signal: AbortSignal,
+) => Promise<number>;
+
+/**
+ * Le titre de l'onglet d'une ligne du shell : son premier mot, sans le chemin
+ * qui le précède (`!./node_modules/.bin/tsc -b` → `tsc`), les deux
+ * séparateurs compris.
+ *
+ * @param line - la ligne, sans le `!`.
+ * @returns le titre, borné, ou `""` pour une ligne vide.
+ */
+function shellTitle(line: string): string {
+  const word = line.split(/\s/, 1)[0] ?? "";
+  const cut = Math.max(word.lastIndexOf("/"), word.lastIndexOf("\\"));
+  const name =
+    cut === -1 || cut === word.length - 1 ? word : word.slice(cut + 1);
+  return name.slice(0, PROMPT_VERB_MAX);
+}
+
+/**
+ * L'action `!<ligne>` : la ligne, telle que tapée, confiée au shell de
+ * l'utilisateur, dans SON onglet (`tabTitle` = le premier mot). Rien n'est
+ * découpé ni interprété ici — tubes, `$VAR`, `*` et `&&` sont l'affaire du
+ * shell. Elle part tout de suite, build en cours ou non : une ligne du shell ne
+ * charge pas le `dist`.
+ *
+ * @param launch - le lanceur. Absent : la ligne est refusée, avec le conseil de
+ *   la taper dans un autre terminal.
+ * @returns l'action.
+ */
+export function shellLineAction(launch?: PromptShellLauncher): IPromptAction {
+  const lineOf = (input: string): string =>
+    input.trim().slice(PROMPT_SHELL_PREFIX.length).trim();
+  return {
+    id: SHELL_PROMPT_LINE.id,
+    matches: (input: string): boolean =>
+      input.trimStart().startsWith(PROMPT_SHELL_PREFIX),
+    tabTitle: (input: string): string | null => {
+      if (launch === undefined) return null;
+      const title = shellTitle(lineOf(input));
+      return title === "" ? null : title;
+    },
+    run: (
+      input: string,
+      io: IPromptIO,
+      signal: AbortSignal,
+    ): Promise<number> => {
+      const line = lineOf(input);
+      if (line === "") {
+        io.write(
+          `${SHELL_PROMPT_LINE.usage} — une ligne du shell, par exemple !git status\n`,
+          "err",
+        );
+        return Promise.resolve(64);
+      }
+      if (launch === undefined) {
+        const shown =
+          line.length > PROMPT_LINE_MAX
+            ? `${line.slice(0, PROMPT_LINE_MAX)}…`
+            : line;
+        io.write(
+          `« ${redactSecrets(shown)} » ne se lance pas depuis cette invite — dans un autre terminal\n`,
+          "err",
+        );
+        return Promise.resolve(1);
+      }
+      return launch(line, io, signal);
+    },
+  };
+}
+
+/**
+ * Lance une ligne du shell qui prend le terminal — appelé pendant le prêt —
+ * et rend son code de sortie (`promptLaunch.ts#launchInTerminal`, posé par le
+ * superviseur).
+ */
+export type PromptTerminalLauncher = (
+  line: string,
+  io: IPromptIO,
+  signal: AbortSignal,
+) => Promise<number>;
+
+/**
+ * L'action `/term <ligne>` : la ligne, telle que tapée, au shell de
+ * l'utilisateur, le terminal PRÊTÉ le temps qu'elle tourne (`io.suspend`).
+ * Pas d'onglet : sa sortie va au vrai terminal, rien n'est à recueillir ; son
+ * issue s'écrit dans l'onglet d'où elle est partie. Comme une ligne `!`, elle
+ * part tout de suite, build en cours ou non.
+ *
+ * @param launch - le lanceur. Absent : la ligne est refusée, avec le conseil
+ *   de la taper dans un autre terminal.
+ * @returns l'action.
+ */
+export function terminalLineAction(
+  launch?: PromptTerminalLauncher,
+): IPromptAction {
+  const head = `${PROMPT_COMMAND_PREFIX}${TERM_PROMPT_COMMAND.id}`;
+  return {
+    id: TERM_PROMPT_COMMAND.id,
+    matches: (input: string): boolean => {
+      const trimmed = input.trim();
+      return (
+        trimmed === head ||
+        (trimmed.startsWith(head) && /\s/.test(trimmed[head.length] ?? ""))
+      );
+    },
+    complete: (prefix: string): readonly string[] =>
+      head.startsWith(prefix) ? [head] : [],
+    run: (
+      input: string,
+      io: IPromptIO,
+      signal: AbortSignal,
+    ): Promise<number> => {
+      const line = input.trim().slice(head.length).trim();
+      if (line === "") {
+        io.write(
+          `${TERM_PROMPT_COMMAND.usage} — un programme interactif, par exemple /term npm init\n`,
+          "err",
+        );
+        return Promise.resolve(64);
+      }
+      if (launch === undefined) {
+        const shown =
+          line.length > PROMPT_LINE_MAX
+            ? `${line.slice(0, PROMPT_LINE_MAX)}…`
+            : line;
+        io.write(
+          `« ${redactSecrets(shown)} » ne se lance pas depuis cette invite — dans un autre terminal\n`,
+          "err",
+        );
+        return Promise.resolve(1);
+      }
+      return io.suspend(() => launch(line, io, signal));
+    },
+  };
+}
+
+/**
  * Le premier mot d'une saisie, sans le préfixe `/` d'une commande.
  *
  * @param input - la saisie.
@@ -434,7 +611,7 @@ const PROMPT_VERB_MAX = 64;
 
 /**
  * Ce que l'invite répond à une saisie qu'aucune action ne reconnaît : la
- * commande inconnue nommée, ou — sans le préfixe — la règle rappelée.
+ * commande inconnue nommée, ou — sans préfixe — les deux règles rappelées.
  *
  * @param input - la saisie refusée.
  * @returns le message, fin de ligne comprise.
@@ -443,7 +620,7 @@ export function describeUnmatchedInput(input: string): string {
   const help = `${PROMPT_COMMAND_PREFIX}help pour l'aide`;
   return input.trim().startsWith(PROMPT_COMMAND_PREFIX)
     ? `commande inconnue : ${PROMPT_COMMAND_PREFIX}${promptVerb(input)} — ${help}\n`
-    : `les commandes commencent par « ${PROMPT_COMMAND_PREFIX} » — ${help}\n`;
+    : `les commandes commencent par « ${PROMPT_COMMAND_PREFIX} », une ligne du shell par « ${PROMPT_SHELL_PREFIX} » — ${help}\n`;
 }
 
 /**

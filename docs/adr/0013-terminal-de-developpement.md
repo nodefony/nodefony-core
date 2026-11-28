@@ -404,8 +404,14 @@ class DevTerminal {
   ré-encode pas. Chacune tient UNE ligne en cours par (canal, flux), affichée par les vues, et
   replie incrémentalement la seule dernière ligne : un flux de jetons ne repaie pas le repli de
   toute la ligne à chaque jeton.
-- **`suspend` reste dû** : prévu dès la première version de ce paragraphe, il n'est toujours pas
-  implémenté. Il arrive avec #538, qui en est le premier consommateur.
+- **`suspend` prête le terminal** (#538, premier consommateur : `/term`,
+  `src/nodefony/src/service/dev/DevTerminal.ts#DevTerminal.suspend`). Le plein écran est quitté,
+  la garde de restauration retirée (le programme tient le terminal), le rendu s'arrête,
+  l'ingestion continue. Le programme fini, une ligne demande une touche, sans quoi sa dernière
+  sortie disparaîtrait avec l'écran d'avant (patron de vim `:!` et de lazygit) ; la touche ne va
+  nulle part, l'image revient entière. L'arrêt pendant le prêt n'attend pas la touche, et
+  `leaveFullscreen` interrompt toute action de l'invite encore en vol — chefs de leur groupe, les
+  lancements `!` et `/nodefony` survivaient sinon au superviseur.
 - **Une mutation marque sa région** (§11), elle ne programme pas une image complète : `setStatus`
   → la barre ; une ingestion → les vues qui montrent ce canal ; une frappe → l'invite.
 
@@ -518,7 +524,8 @@ interface IConfirmDecision {
 - Implémentations : **verbes du superviseur** (`/restart` ou `/reboot`, `/clear`, `/help`, `/quit`
   ou `/exit` — `src/nodefony/src/service/dev/promptAction.ts#SUPERVISOR_VERBS`) et **commandes
   du CLI** (`nodefony <cmd>` en sous-processus, complétion par `readCliManifest` /
-  `computeCompletions`, `src/nodefony/src/cli/completion.ts#readCliManifest` et `src/nodefony/src/cli/completion.ts#computeCompletions`) en #538 ;
+  `computeCompletions`, `src/nodefony/src/cli/completion.ts#readCliManifest` et `src/nodefony/src/cli/completion.ts#computeCompletions`) en #538,
+  **lignes du shell** (`!<ligne>`, `src/nodefony/src/service/dev/promptAction.ts#shellLineAction`) en #538 ;
   **assistant** en #539.
 
 **Amendement #903 (#538) — trois voies d'exécution, routées par une capacité DÉCLARÉE.**
@@ -569,6 +576,31 @@ render? }`, calqué sur le résultat de `inspect`) : ni sortie standard, ni `ter
   l'onglet dit « non lancée » (127). Ctrl+C pendant l'attente l'interrompt (130). Le signal est
   explicite (`src/nodefony/src/service/dev/DevTerminal.ts#DevTerminal.setPhase`, option
   `buildFailed`) ; la limite des onglets `run` borne l'attente.
+- **Une ligne `!<ligne>` part au shell de l'utilisateur**, telle que tapée, dans son onglet
+  `run` titré par le premier mot (sans son chemin) — la limite des onglets est commune avec les
+  commandes du CLI. Shell : `$SHELL -c` (repli `/bin/sh`) sous macOS et Linux, celui du système
+  sous Windows (`cmd.exe`) par l'option `shell` de `spawn`
+  (`src/nodefony/src/service/dev/promptLaunch.ts#promptShell`). Même lanceur que les commandes
+  (`src/nodefony/src/service/dev/promptLaunch.ts#launchPromptCommand`) : tubes, entrée fermée,
+  arbre tué par Ctrl+C (130), même ligne de fin, secret masqué dans l'écho et refusé par
+  l'historique. Deux écarts voulus : **aucun canal des questions** — tout `node` lancé par le
+  shell en hériterait —, et **ni attente du build ni rechargement différé** : la ligne ne lit pas
+  le `dist`, et une ligne longue (`!tail -f`) gèlerait sinon tout rechargement.
+- **Une ligne `/term <ligne>` prend le terminal** — éditeur, `npm init`, `git add -p` : même
+  shell qu'une ligne `!`, mais le terminal PRÊTÉ (`suspend`), entrée comprise
+  (`src/nodefony/src/service/dev/promptLaunch.ts#launchInTerminal`). L'enfant n'est PAS
+  détaché : seul le groupe de premier plan lit le clavier sans `SIGTTIN`, et Ctrl+C lui vient du
+  terminal ; le superviseur, qui le reçoit aussi, absorbe `SIGINT` et `SIGQUIT` le temps du prêt
+  (`src/nodefony/src/service/dev/shutdownSignals.ts#installShutdownSignals`, option `absorb`) —
+  `SIGTERM` et `SIGHUP` arrêtent toujours. Pas d'onglet : la sortie va au vrai terminal, l'issue
+  s'écrit dans l'onglet d'où la ligne est partie. Sous Windows, la console livre Ctrl+C à tous
+  les processus qui la partagent, serveur compris : l'aide le dit.
+  **Pourquoi pas un onglet** : il faudrait `node-pty`, module
+  NATIF, en dépendance de tout projet — ce qui casse l'installation sur un poste sans
+  compilateur, Windows d'entreprise en tête ; un émulateur rend moins que le vrai terminal
+  (couleurs, souris, images) ; et un programme qui veut TOUTES les touches exige un préfixe
+  pour sortir de son onglet. Le contrat `suspend` n'en est pas fermé : un onglet pourra
+  s'ajouter là où `node-pty` est CONSTATÉ présent, le prêt restant le repli.
 
 ### 8. L'assistant : un client de l'application, jamais un passe-droit
 
@@ -863,17 +895,18 @@ Le terminal n'a pas de norme d'application : ce qui fait foi, ce sont les séque
 la documentation des séquences de xterm, les extensions publiées) et ce que des projets mûrs ont
 appris à leurs dépens. Relevé hors ligne : skill `nodefony-rfc`, `references/terminal/`.
 
-| Source                                                                    | Ce que l'ADR reprend                                                   | Où il s'écarte, et pourquoi                                                  |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **ECMA-48** (`SU`, `CSI Pn S`) et **DEC** (`DECSTBM`, `DECSLRM`)          | défilement d'une région par le terminal, région bornée par `DECSTBM`   | pas de `DECSLRM` : prise en charge non relevée chez les terminaux visés (§9) |
-| **xterm ctlseqs** (modes 1000, 1002, 1006, 1007, 1049, `ESC[6n`, DECRQM)  | souris, défilement alterné, écran alternatif, sonde                    | jamais 1003 ni 1004 (§2)                                                     |
-| **Sortie synchronisée** (mode 2026, contour-terminal/vt-extensions)       | une image encadrée quand la sonde l'a vu                               | jamais une condition du plein écran (§2)                                     |
-| **Protocole clavier kitty** (`CSI u`, sondé par `CSI ? u`)                | Maj+Entrée (saut de ligne dans l'invite), le jour où #538 le demande   | pas encore décodé (`src/nodefony/src/service/dev/inputDecoder.ts#csiEvent`)  |
-| **ratatui, bubbletea v2, opentui, notcurses**, plein écran de Claude Code | double tampon : seul ce qui change part au terminal                    | par segment de ligne d'abord, par cellule seulement si l'A/B gagne (§9)      |
-| **Textual**                                                               | régions et segments immuables en cache                                 | liste plate de régions, pas d'arbre de composants                            |
-| **Ink**                                                                   | rendu par ligne                                                        | aucune dépendance d'exécution (voir Alternatives)                            |
-| **Claude Code sous Windows Terminal (ConPTY)**                            | repeinte complète, les écritures positionnées y laissant des fragments | — (repris tel quel, §2)                                                      |
-| **string-width**                                                          | préfixe ASCII compté sans segmenteur, un seul `Intl.Segmenter`         | aucune dépendance : la règle est reprise dans `textWidth.ts`                 |
+| Source                                                                    | Ce que l'ADR reprend                                                   | Où il s'écarte, et pourquoi                                                     |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **ECMA-48** (`SU`, `CSI Pn S`) et **DEC** (`DECSTBM`, `DECSLRM`)          | défilement d'une région par le terminal, région bornée par `DECSTBM`   | pas de `DECSLRM` : prise en charge non relevée chez les terminaux visés (§9)    |
+| **xterm ctlseqs** (modes 1000, 1002, 1006, 1007, 1049, `ESC[6n`, DECRQM)  | souris, défilement alterné, écran alternatif, sonde                    | jamais 1003 ni 1004 (§2)                                                        |
+| **Sortie synchronisée** (mode 2026, contour-terminal/vt-extensions)       | une image encadrée quand la sonde l'a vu                               | jamais une condition du plein écran (§2)                                        |
+| **Protocole clavier kitty** (`CSI u`, sondé par `CSI ? u`)                | Maj+Entrée (saut de ligne dans l'invite), le jour où #538 le demande   | pas encore décodé (`src/nodefony/src/service/dev/inputDecoder.ts#csiEvent`)     |
+| **ratatui, bubbletea v2, opentui, notcurses**, plein écran de Claude Code | double tampon : seul ce qui change part au terminal                    | par segment de ligne d'abord, par cellule seulement si l'A/B gagne (§9)         |
+| **Textual**                                                               | régions et segments immuables en cache                                 | liste plate de régions, pas d'arbre de composants                               |
+| **Ink**                                                                   | rendu par ligne                                                        | aucune dépendance d'exécution (voir Alternatives)                               |
+| **`!cmd` d'IPython, `:!cmd` de Vim, mode `!` de Claude Code**             | une ligne préfixée par `!` part au shell, telle que tapée              | son propre onglet, sans terminal : un programme interactif n'y a pas de clavier |
+| **Claude Code sous Windows Terminal (ConPTY)**                            | repeinte complète, les écritures positionnées y laissant des fragments | — (repris tel quel, §2)                                                         |
+| **string-width**                                                          | préfixe ASCII compté sans segmenteur, un seul `Intl.Segmenter`         | aucune dépendance : la règle est reprise dans `textWidth.ts`                    |
 
 ## Alternatives écartées
 

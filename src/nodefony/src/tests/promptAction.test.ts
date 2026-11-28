@@ -9,8 +9,10 @@ import {
   describeUnmatchedInput,
   isPromptCommand,
   promptVerb,
+  shellLineAction,
   splitPromptLine,
   supervisorActions,
+  terminalLineAction,
   type IPromptIO,
 } from "../service/dev/promptAction";
 
@@ -144,7 +146,7 @@ describe("supervisorActions — les verbes de l'invite", () => {
       "commande inconnue : /nope — /help pour l'aide\n",
     );
     expect(describeUnmatchedInput("quit")).to.equal(
-      "les commandes commencent par « / » — /help pour l'aide\n",
+      "les commandes commencent par « / », une ligne du shell par « ! » — /help pour l'aide\n",
     );
   });
 });
@@ -369,5 +371,136 @@ describe("cliCommandAction — Tab par computeCompletions (D12)", () => {
     expect(isPromptCommand(build!)).to.equal(true);
     expect(isPromptCommand(development!)).to.equal(false);
     expect(isPromptCommand(command("status"))).to.equal(false);
+  });
+});
+
+describe("shellLineAction — `!<ligne>`, une ligne du shell (#538)", () => {
+  const signal = new AbortController().signal;
+  const launch = vi.fn((_line: string) => Promise.resolve(5));
+  const action = shellLineAction(launch);
+
+  it("reconnaît le `!` de tête, espaces devant compris — jamais un `/` ni une saisie nue", () => {
+    expect(action.matches("!git status")).to.equal(true);
+    expect(action.matches("  !ls")).to.equal(true);
+    expect(action.matches("!")).to.equal(true);
+    expect(action.matches("/nodefony build")).to.equal(false);
+    expect(action.matches("git status")).to.equal(false);
+  });
+
+  it("son onglet porte le premier mot, sans son chemin — les deux séparateurs", () => {
+    expect(action.tabTitle?.("!git status")).to.equal("git");
+    expect(action.tabTitle?.("!  npm run build")).to.equal("npm");
+    expect(action.tabTitle?.("!./node_modules/.bin/tsc -b")).to.equal("tsc");
+    expect(action.tabTitle?.("!C:\\tools\\rg.exe -n x")).to.equal("rg.exe");
+    expect(action.tabTitle?.("!")).to.equal(null);
+    expect(shellLineAction().tabTitle?.("!git status")).to.equal(null);
+  });
+
+  it("la ligne part TELLE QUELLE — ni découpée, ni interprétée — et le code du lanceur est rendu", async () => {
+    launch.mockClear();
+    const line = `echo "$HOME" | wc -c && ls *.ts`;
+    expect(await action.run(`  !${line}  `, io(), signal)).to.equal(5);
+    expect(launch).toHaveBeenCalledTimes(1);
+    expect(launch.mock.calls[0]?.[0]).to.equal(line);
+  });
+
+  it("part pendant un build : une ligne du shell ne charge pas le `dist`", async () => {
+    launch.mockClear();
+    const never = new Promise<boolean>(() => {});
+    const sink = io([never]);
+    expect(await action.run("!git status", sink, signal)).to.equal(5);
+    expect(sink.out).to.deep.equal([]);
+    expect(launch).toHaveBeenCalledTimes(1);
+  });
+
+  it("seule, elle rappelle sa forme (64), sans rien lancer", async () => {
+    launch.mockClear();
+    const sink = io();
+    expect(await action.run("!  ", sink, signal)).to.equal(64);
+    expect(sink.out[0]).to.match(/^err:!<ligne> — /u);
+    expect(launch).not.toHaveBeenCalled();
+  });
+
+  it("sans lanceur : refusée, la ligne rappelée sans le secret", async () => {
+    const sink = io();
+    expect(
+      await shellLineAction().run("!curl --password hunter2 x", sink, signal),
+    ).to.equal(1);
+    expect(sink.out.join("")).to.include("dans un autre terminal");
+    expect(sink.out.join("")).to.not.include("hunter2");
+  });
+});
+
+describe("terminalLineAction — `/term <ligne>`, le terminal prêté (#538)", () => {
+  const signal = new AbortController().signal;
+  const launch = vi.fn((_line: string) => Promise.resolve(3));
+  const action = terminalLineAction(launch);
+  /** Un `io` dont le prêt est observé : la ligne doit partir DEDANS. */
+  function lending() {
+    const sink = io();
+    const state = { lent: false, launchedWhileLent: false };
+    sink.suspend = async <T>(task: () => Promise<T>): Promise<T> => {
+      state.lent = true;
+      try {
+        return await task();
+      } finally {
+        state.lent = false;
+      }
+    };
+    launch.mockImplementation(() => {
+      state.launchedWhileLent = state.lent;
+      return Promise.resolve(3);
+    });
+    return { sink, state };
+  }
+
+  it("reconnaît `/term` suivi d'un blanc, jamais `/terminal` ni une saisie nue", () => {
+    expect(action.matches("/term vim")).to.equal(true);
+    expect(action.matches("  /term\tnpm init")).to.equal(true);
+    expect(action.matches("/term")).to.equal(true);
+    expect(action.matches("/terminal")).to.equal(false);
+    expect(action.matches("term vim")).to.equal(false);
+    expect(action.matches("!vim")).to.equal(false);
+  });
+
+  it("n'ouvre pas d'onglet : le programme écrit dans le vrai terminal", () => {
+    expect(action.tabTitle).to.equal(undefined);
+  });
+
+  it("Tab complète `/t` en `/term`", () => {
+    expect(action.complete?.("/t")).to.deep.equal(["/term"]);
+    expect(action.complete?.("/x")).to.deep.equal([]);
+  });
+
+  it("la ligne part TELLE QUELLE, PENDANT le prêt du terminal, et son code est rendu", async () => {
+    launch.mockClear();
+    const { sink, state } = lending();
+    expect(await action.run(" /term  git add -p ", sink, signal)).to.equal(3);
+    expect(launch).toHaveBeenCalledTimes(1);
+    expect(launch.mock.calls[0]?.[0]).to.equal("git add -p");
+    expect(state.launchedWhileLent).to.equal(true);
+    expect(state.lent).to.equal(false);
+  });
+
+  it("seule, elle rappelle sa forme (64), sans prêter le terminal", async () => {
+    launch.mockClear();
+    const { sink, state } = lending();
+    expect(await action.run("/term", sink, signal)).to.equal(64);
+    expect(sink.out[0]).to.match(/^err:\/term <ligne> — /u);
+    expect(launch).not.toHaveBeenCalled();
+    expect(state.launchedWhileLent).to.equal(false);
+  });
+
+  it("sans lanceur : refusée, la ligne rappelée sans le secret", async () => {
+    const sink = io();
+    expect(
+      await terminalLineAction().run(
+        "/term mysql --password hunter2",
+        sink,
+        signal,
+      ),
+    ).to.equal(1);
+    expect(sink.out.join("")).to.include("dans un autre terminal");
+    expect(sink.out.join("")).to.not.include("hunter2");
   });
 });

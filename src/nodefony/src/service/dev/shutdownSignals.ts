@@ -44,6 +44,12 @@ export interface IShutdownSignalHandlers {
   readonly graceful: (signal: ShutdownSignal) => void;
   /** Signal insistant, arrêt propre déjà en cours : arrêt forcé. */
   readonly force: (signal: ShutdownSignal) => void;
+  /**
+   * Un signal qui n'est PAS pour nous : `true` l'absorbe sans rien compter —
+   * le Ctrl+C du terminal prêté à un programme (`/term`), que le groupe de
+   * premier plan livre aussi au superviseur. Lu avant tout le reste.
+   */
+  readonly absorb?: (signal: ShutdownSignal) => boolean;
 }
 
 /** La surface de `process` dont l'installation a besoin — injectable. */
@@ -82,6 +88,7 @@ export function installShutdownSignals(
   const removers: Array<() => void> = [];
   for (const signal of SHUTDOWN_SIGNALS) {
     const listener = (): void => {
+      if (handlers.absorb?.(signal) === true) return;
       if (firstAt === null) {
         firstAt = now();
         handlers.graceful(signal);

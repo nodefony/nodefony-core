@@ -8,8 +8,19 @@
  * {@link DEV_PROMPT_ENV} : la porte `ask()` de l'enfant les envoie, l'onglet
  * les dessine (`io.ask`), la réponse redescend (#538, lot 2b-2). Le canal ne
  * garde pas l'enfant en vie : il sort dès son travail fini.
+ *
+ * Une ligne `!<ligne>` passe par le MÊME lanceur, confiée au shell
+ * ({@link IPromptLaunch.shell}) — mêmes tubes, même interruption de l'arbre,
+ * même code rendu — mais sans le canal des questions.
+ *
+ * Une ligne `/term <ligne>` passe par {@link launchInTerminal} : le terminal
+ * lui est prêté, entrée comprise — l'éditeur, `npm init`, `git add -p`.
  */
-import { type ChildProcess, spawn } from "node:child_process";
+import {
+  type ChildProcess,
+  type StdioOptions,
+  spawn,
+} from "node:child_process";
 import os from "node:os";
 import type { QuestionValue } from "../../cli/question";
 import {
@@ -36,6 +47,34 @@ export interface IPromptLaunch {
   readonly cwd: string;
   /** L'environnement complet de la commande. */
   readonly env: Readonly<Record<string, string | undefined>>;
+  /**
+   * Le shell qui interprète `file`, alors une LIGNE entière (`!git status`) :
+   * son chemin, ou `true` pour celui du système — l'option `shell` de
+   * `spawn` ({@link promptShell}). `args` est ignoré. Une ligne du shell n'a
+   * PAS le canal des questions : tout `node` qu'elle lance en hériterait, et
+   * attendrait une réponse sur un canal qui ne mène pas à lui.
+   */
+  readonly shell?: string | true;
+}
+
+/**
+ * Le shell d'une ligne `!` : `$SHELL` sous macOS et Linux, `/bin/sh` à
+ * défaut ; sous Windows, celui du système — `true` laisse Node prendre
+ * `%ComSpec%` (`cmd.exe` à défaut) et lui passer la ligne telle quelle.
+ * `$SHELL` n'est pas lu sous Windows : Git Bash y pose `/usr/bin/bash`, un
+ * chemin que `spawn` ne sait pas ouvrir.
+ *
+ * @param platform - la plateforme (`process.platform`), injectée pour l'éprouver.
+ * @param env - l'environnement du superviseur.
+ * @returns le shell, pour {@link IPromptLaunch.shell}.
+ */
+export function promptShell(
+  platform: NodeJS.Platform,
+  env: Readonly<Record<string, string | undefined>>,
+): string | true {
+  if (platform === "win32") return true;
+  const shell = env.SHELL;
+  return shell !== undefined && shell !== "" ? shell : "/bin/sh";
 }
 
 /** Délai laissé à l'arbre pour finir après `SIGTERM`, avant `SIGKILL`. */
@@ -79,14 +118,25 @@ export function launchPromptCommand(
   if (signal.aborted) return Promise.resolve(PROMPT_INTERRUPTED_CODE);
   return new Promise<number>((resolve) => {
     let child: ChildProcess;
+    const shell = launch.shell;
+    // 4ᵉ descripteur : le canal des questions. Tubes nommés sous Windows.
+    const stdio: StdioOptions =
+      shell === undefined
+        ? ["ignore", "pipe", "pipe", "ipc"]
+        : ["ignore", "pipe", "pipe"];
     try {
-      child = spawn(launch.file, launch.args, {
+      // Une ligne du shell part sans arguments : Node les concaténerait à la
+      // ligne sans les échapper (DEP0190).
+      child = spawn(launch.file, shell === undefined ? launch.args : [], {
         cwd: launch.cwd,
         // Le pid du superviseur, pas `1` : un petit-enfant hérite de la
         // variable, et son propre canal IPC (un `fork`) ne mène pas ici.
-        env: { ...launch.env, [DEV_PROMPT_ENV]: String(process.pid) },
-        // 4ᵉ descripteur : le canal des questions. Tubes nommés sous Windows.
-        stdio: ["ignore", "pipe", "pipe", "ipc"],
+        env:
+          shell === undefined
+            ? { ...launch.env, [DEV_PROMPT_ENV]: String(process.pid) }
+            : launch.env,
+        stdio,
+        ...(shell === undefined ? {} : { shell }),
         // POSIX : leader de groupe, pour que `kill(-pid)` emporte les
         // petits-enfants. Windows : rattaché — `taskkill /T` suit la filiation.
         detached: spawnsAsGroupLeader(),
@@ -161,6 +211,104 @@ export function launchPromptCommand(
     child.once("error", (error) => {
       // Le lancement a échoué (programme ou répertoire introuvable) : aucun
       // `exit` ne suivra forcément.
+      if (child.pid !== undefined) return;
+      io.write(`lancement impossible : ${describe(error)}\n`, "err");
+      settle(PROMPT_NOT_STARTED_CODE);
+    });
+    onProcessEnded(child, (code, killedBy) => {
+      if (interrupted) settle(PROMPT_INTERRUPTED_CODE);
+      else if (code !== null) settle(code);
+      else settle(128 + (killedBy ? os.constants.signals[killedBy] : 0));
+    });
+  });
+}
+
+/** Ce qu'il faut pour confier une ligne au shell, terminal compris (`/term`). */
+export interface ITerminalLaunch {
+  /** La ligne, telle que tapée. */
+  readonly line: string;
+  /** Le répertoire du projet. */
+  readonly cwd: string;
+  /** L'environnement complet : celui du superviseur — le terminal est le VRAI. */
+  readonly env: Readonly<Record<string, string | undefined>>;
+  /** Le shell ({@link promptShell}). */
+  readonly shell: string | true;
+}
+
+/**
+ * Lance une ligne du shell qui PREND le terminal (`/term vim`, `/term npm
+ * init`) et rend son code de sortie — à appeler pendant que le terminal est
+ * prêté (`IPromptIO.suspend`), jamais à côté du plein écran.
+ *
+ * Au contraire de {@link launchPromptCommand}, l'enfant HÉRITE du terminal et
+ * n'est PAS détaché : il reste dans le groupe de premier plan, seul à pouvoir
+ * lire le clavier sans être suspendu (`SIGTTIN`), et Ctrl+C lui arrive du
+ * terminal lui-même — le superviseur, qui le reçoit aussi, l'absorbe le temps
+ * du prêt. Le terminal le reçoit tel quel : ni largeur relayée, ni couleurs
+ * imposées.
+ *
+ * L'interruption (`signal`) ne sert qu'à l'arrêt du superviseur : `SIGTERM`
+ * à l'enfant direct, puis `SIGKILL` passé {@link PROMPT_KILL_GRACE_MS}, par
+ * {@link signalProcessGroup}. N'étant pas chef de groupe, l'enfant ne
+ * l'emporte pas avec lui sous POSIX : un petit-enfant survit si le shell ne
+ * s'est pas effacé devant la commande (`sh -c` d'une commande simple s'efface
+ * — `exec`). Sous Windows, `taskkill /T` suit la filiation.
+ *
+ * @param launch - la ligne, le répertoire, l'environnement, le shell.
+ * @param io - où dire un lancement impossible.
+ * @param signal - l'arrêt du superviseur.
+ * @param stdio - les descripteurs de l'enfant ; hérités, sauf en test.
+ * @param killTree - tue un arbre ; injecté pour l'éprouver.
+ * @returns le code de sortie ; {@link PROMPT_INTERRUPTED_CODE} si
+ *   interrompue, {@link PROMPT_NOT_STARTED_CODE} si elle n'a pas démarré,
+ *   128 + le numéro du signal qui l'a tuée sinon (Ctrl+C : 130).
+ */
+export function launchInTerminal(
+  launch: ITerminalLaunch,
+  io: Pick<IPromptIO, "write">,
+  signal: AbortSignal,
+  stdio: StdioOptions = "inherit",
+  killTree: (
+    pid: number,
+    signal: NodeJS.Signals,
+  ) => unknown = signalProcessGroup,
+): Promise<number> {
+  if (signal.aborted) return Promise.resolve(PROMPT_INTERRUPTED_CODE);
+  return new Promise<number>((resolve) => {
+    let child: ChildProcess;
+    try {
+      // Sans arguments : Node les collerait à la ligne sans les échapper (DEP0190).
+      child = spawn(launch.line, [], {
+        cwd: launch.cwd,
+        env: launch.env,
+        stdio,
+        shell: launch.shell,
+      });
+    } catch (error) {
+      io.write(`lancement impossible : ${describe(error)}\n`, "err");
+      resolve(PROMPT_NOT_STARTED_CODE);
+      return;
+    }
+    let interrupted = false;
+    let force: ReturnType<typeof setTimeout> | null = null;
+    let settled = false;
+    const settle = (code: number): void => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", onAbort);
+      if (force !== null) clearTimeout(force);
+      resolve(code);
+    };
+    function onAbort(): void {
+      interrupted = true;
+      const pid = child.pid;
+      if (pid === undefined) return;
+      killTree(pid, "SIGTERM");
+      force = setTimeout(() => killTree(pid, "SIGKILL"), PROMPT_KILL_GRACE_MS);
+      force.unref();
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
+    child.once("error", (error) => {
       if (child.pid !== undefined) return;
       io.write(`lancement impossible : ${describe(error)}\n`, "err");
       settle(PROMPT_NOT_STARTED_CODE);

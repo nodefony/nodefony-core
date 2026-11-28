@@ -16,6 +16,7 @@ import {
   type IPromptAction,
   type IPromptIO,
   supervisorActions,
+  terminalLineAction,
 } from "../service/dev/promptAction";
 import { buildPromptMenu } from "../service/dev/devMenuBand";
 import { PROMPT_HISTORY_FILE } from "../service/dev/promptHistory";
@@ -29,7 +30,10 @@ const CTRL_C = "\x03";
 const ALT_2 = "\x1b2";
 
 class FakeInput extends EventEmitter {
-  setRawMode(): this {
+  /** Le dernier mode demandé — le prêt du terminal (`/term`) le rend cuit. */
+  raw = false;
+  setRawMode(mode: boolean): this {
+    this.raw = mode;
     return this;
   }
   resume(): this {
@@ -1732,6 +1736,123 @@ describe("plein écran — la fin d'une commande se lit au bas de sa sortie (#53
     expect(
       (await screen(written, 100)).some((l) => l.startsWith("── ")),
     ).to.equal(false);
+    terminal.close();
+  });
+});
+
+describe("plein écran — `/term`, le terminal prêté (#538)", () => {
+  const LEAVE = "\x1b[?1049l";
+  const ENTER_ALT = "\x1b[?1049h";
+  const count = (written: readonly string[], needle: string): number =>
+    written.join("").split(needle).length - 1;
+  /** Un programme interactif piloté à la main : il finit quand on le dit. */
+  function program() {
+    let finish: (code: number) => void = () => {};
+    let signal: AbortSignal | null = null;
+    const launch = vi.fn((_line: string, _io: IPromptIO, s: AbortSignal) => {
+      signal = s;
+      return new Promise<number>((resolve) => {
+        finish = resolve;
+      });
+    });
+    return {
+      action: terminalLineAction(launch),
+      launch,
+      finish: (code: number) => finish(code),
+      signal: () => signal,
+    };
+  }
+
+  it("prête le terminal : plein écran quitté, mode cuit, clavier rendu, plus aucune image", async () => {
+    const prog = program();
+    const { input, terminal, written } = prompted(false, COLS, ROWS, false, [
+      prog.action,
+    ]);
+    await nextFrame();
+    input.type("/term vim" + ENTER);
+    await nextFrame();
+    expect(prog.launch).toHaveBeenCalledTimes(1);
+    expect(prog.launch.mock.calls[0]?.[0]).to.equal("vim");
+    expect(terminal.lent).to.equal(true);
+    expect(count(written, LEAVE)).to.equal(1);
+    expect(input.raw).to.equal(false);
+    expect(input.listenerCount("data")).to.equal(0);
+    // Le serveur parle pendant le prêt : le modèle avance, rien n'est dessiné.
+    const before = written.length;
+    terminal.ingest("server", "out", "pendant le prêt\n");
+    await nextFrame();
+    expect(written.length).to.equal(before);
+    prog.finish(0);
+    terminal.close();
+  });
+
+  it("fini, il demande une touche ; la touche ramène l'écran sans aller à l'invite, et l'issue s'écrit dans l'onglet", async () => {
+    const prog = program();
+    const { input, terminal, written } = prompted(false, COLS, ROWS, false, [
+      prog.action,
+    ]);
+    await nextFrame();
+    input.type("/term npm init" + ENTER);
+    await nextFrame();
+    terminal.ingest("server", "out", "écrit pendant le prêt\n");
+    prog.finish(0);
+    await nextFrame();
+    expect(written.join("")).to.include("une touche pour revenir à nodefony");
+    expect(terminal.lent, "la touche n'est pas encore frappée").to.equal(true);
+    expect(input.raw, "la touche se lit en mode brut").to.equal(true);
+    expect(count(written, ENTER_ALT)).to.equal(1);
+    input.type("x");
+    await nextFrame();
+    await nextFrame();
+    expect(terminal.lent).to.equal(false);
+    expect(count(written, ENTER_ALT)).to.equal(2);
+    expect(input.raw).to.equal(true);
+    expect(input.listenerCount("data")).to.equal(1);
+    const shown = await screen(written);
+    expect(shown.some((l) => l.includes("écrit pendant le prêt"))).to.equal(
+      true,
+    );
+    expect(shown.some((l) => /── ✓ terminée · /u.test(l))).to.equal(true);
+    expect(shown.some((l) => l.includes("Échap ferme"))).to.equal(false);
+    // La touche du retour n'a rien écrit dans l'invite.
+    expect(shown.at(-1)?.includes("❯ x")).to.equal(false);
+    terminal.close();
+  });
+
+  it("l'arrêt pendant le prêt interrompt le programme, sans attendre de touche ni quitter deux fois le plein écran", async () => {
+    const prog = program();
+    const { input, terminal, written } = prompted(false, COLS, ROWS, false, [
+      prog.action,
+    ]);
+    await nextFrame();
+    input.type("/term vim" + ENTER);
+    await nextFrame();
+    terminal.close();
+    expect(prog.signal()?.aborted).to.equal(true);
+    expect(terminal.lent).to.equal(false);
+    prog.finish(130);
+    await nextFrame();
+    expect(count(written, LEAVE)).to.equal(1);
+    expect(written.join("")).to.not.include("une touche pour revenir");
+    expect(input.listenerCount("data")).to.equal(0);
+  });
+
+  it("l'arrêt interrompt aussi une commande de l'invite en cours — sinon, chef de son groupe, elle survivrait", async () => {
+    const seen: { signal: AbortSignal | null } = { signal: null };
+    const long: IPromptAction = {
+      id: "long",
+      matches: (input) => input === "/long",
+      run: (_input, _io, s) => {
+        seen.signal = s;
+        return new Promise<number>(() => {});
+      },
+    };
+    const { input, terminal } = prompted(false, COLS, ROWS, false, [long]);
+    input.type("/long" + ENTER);
+    await nextFrame();
+    expect(seen.signal).to.not.equal(null);
+    terminal.leaveFullscreen();
+    expect(seen.signal?.aborted).to.equal(true);
     terminal.close();
   });
 });
