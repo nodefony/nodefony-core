@@ -2725,8 +2725,11 @@ export class DevSupervisor {
     if (this.#isStopping()) return false;
     if (!ok) {
       // Le serveur courant est conservé : sa barre revient, et dit pourquoi
-      // elle n'a pas bougé tant que le build ne repasse pas.
-      if (before !== null) this.#terminal?.setPhase(before);
+      // elle n'a pas bougé tant que le build ne repasse pas. Une commande de
+      // l'invite qui attendait ce build ne part pas : le `dist` est douteux.
+      if (before !== null) {
+        this.#terminal?.setPhase(before, { buildFailed: true });
+      }
       this.#terminal?.setIssue("build en échec — serveur précédent conservé");
       this.#log(
         "build en échec — serveur courant conservé, corrige puis sauvegarde",
