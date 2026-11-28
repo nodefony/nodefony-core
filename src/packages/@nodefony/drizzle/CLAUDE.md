@@ -189,6 +189,13 @@ Deux usages :
   valeurs, budget de 32 formes `$in`) et requêtes de `queryKit` (cache par connexion et par texte,
   64 au plus, `WeakMap`). Un texte SQL n'y porte JAMAIS une valeur (toutes liées) : c'est ce qui
   borne les caches. L'eager-load (`options.relations`) construit encore ses `IN` à chaque appel.
+- 🔴 **En PostgreSQL, une requête préparée NOMMÉE survit à la migration qui change le type d'une
+  colonne qu'elle lit — et chaque connexion du pool la refuse ensuite** (`cached plan must not
+change result type`, `0A000`, routine `RevalidateCachedQuery`) jusqu'à sa reconnexion : des 500
+  sur les anciens pods d'un déploiement progressif. `#runSelect` la reprépare sous un nom neuf et
+  réessaie UNE fois (`orm-core/stalePlan.ts#isStalePlanError`, lu sur `routine`, jamais sur le
+  message traduit). Le `try/await` est réservé à PostgreSQL : SQLite recompile seul, MySQL ne
+  prépare rien — ne pas l'étendre aux trois dialectes. Banc réel : `prepared-select-postgres.e2e.test.ts`.
 - `better-sqlite3` = natif (compile via node-gyp) ; OK sur Node 26 (prebuild 12.x).
 - `db.query.*` (API relationnelle Drizzle) **non** utilisée → typage générique
   sans schéma (`BetterSQLite3Database<Record<string, never>>`), eager-load manuel.
