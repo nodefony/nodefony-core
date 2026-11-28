@@ -1285,7 +1285,7 @@ describe("plein écran — onglets serveur et vite (#903)", () => {
     terminal.ingest("vite:default", "out", vite(4));
     await nextFrame();
     const shown = await screen(stdout.written);
-    expect(shown).to.include("[1 serveur]│ 2 vite ·4 │");
+    expect(shown).to.include("⢎⢎⢎ [1 serveur]│ 2 vite ·4 │");
     expect(shown.join("\n")).to.include("ligne 3");
     expect(shown.join("\n")).to.not.include("vite 1");
     expect(terminal.activeView).to.equal("server");
@@ -1307,7 +1307,7 @@ describe("plein écran — onglets serveur et vite (#903)", () => {
     expect(terminal.anchor).to.equal(null);
     let shown = await screen(stdout.written);
     expect(shown[0]).to.equal("vite 1");
-    expect(shown).to.include(" 1 serveur │[2 vite]│");
+    expect(shown).to.include("⢎⢎⢎  1 serveur │[2 vite]│");
     input.type("\x1b1");
     await nextFrame();
     expect(terminal.activeView).to.equal("server");
@@ -1343,15 +1343,21 @@ describe("plein écran — onglets serveur et vite (#903)", () => {
     terminal.ingest("server", "out", lines(2));
     terminal.ingest("vite:default", "out", vite(3));
     await nextFrame();
-    expect(await screen(stdout.written)).to.include("[1 serveur]│ 2 vite ·3 │");
+    expect(await screen(stdout.written)).to.include(
+      "⢎⢎⢎ [1 serveur]│ 2 vite ·3 │",
+    );
     input.type("\x1b2");
     await nextFrame();
     input.type("\x1b1");
     await nextFrame();
-    expect(await screen(stdout.written)).to.include("[1 serveur]│ 2 vite │");
+    expect(await screen(stdout.written)).to.include(
+      "⢎⢎⢎ [1 serveur]│ 2 vite │",
+    );
     terminal.ingest("vite:admin", "out", vite(2, 4));
     await nextFrame();
-    expect(await screen(stdout.written)).to.include("[1 serveur]│ 2 vite ·2 │");
+    expect(await screen(stdout.written)).to.include(
+      "⢎⢎⢎ [1 serveur]│ 2 vite ·2 │",
+    );
     terminal.close();
   });
 
@@ -1433,7 +1439,7 @@ describe("plein écran — onglets ouverts à la volée (#903, N8)", () => {
     terminal.addView({ id: "agent:2", title: "vide", channels: "agent:2" });
     await nextFrame();
     let shown = await screen(stdout.written);
-    expect(shown).to.include("[1 serveur]┃ 2 agent ·1 │ 3 vide │");
+    expect(shown).to.include("⢎⢎⢎ [1 serveur]┃ 2 agent ·1 │ 3 vide │");
     expect(shown.join("\n")).to.not.include("avant");
     input.type("\x1b2");
     await nextFrame();
@@ -1460,7 +1466,7 @@ describe("plein écran — onglets ouverts à la volée (#903, N8)", () => {
     await nextFrame();
     expect(
       (await screen(stdout.written)).find((l) => l.includes("agent")),
-    ).to.equal(" 1 serveur ┃[✗ 2 agent]│");
+    ).to.equal("⢎⢎⢎  1 serveur ┃[✗ 2 agent]│");
     view.close();
     view.close();
     await nextFrame();

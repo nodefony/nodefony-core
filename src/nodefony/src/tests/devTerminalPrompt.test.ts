@@ -616,7 +616,7 @@ describe("plein écran — le panneau à rubriques (#538, D9)", () => {
       "  état  un",
     ]);
     expect(lines).to.include("←→ rubrique · Échap fermer");
-    expect(lines).to.include(" 1 serveur ·1 ┃[2 status]│");
+    expect(lines).to.include("⢎⢎⢎  1 serveur ·1 ┃[2 status]│");
     expect(lines.some((l) => l.includes("prêt"))).to.equal(false);
     // Un Échap seul attend la fin du délai d'ambiguïté du décodeur : on attend
     // le FAIT (journal revenu), jamais une durée — un runner lent la dépasse.

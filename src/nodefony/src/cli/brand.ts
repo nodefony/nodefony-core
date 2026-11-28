@@ -142,8 +142,17 @@ function clip(text: string, room: number): string {
   return room <= 1 ? "" : `${chars.slice(0, room - 1).join("")}…`;
 }
 
-/** Colore une ligne du logo : une séquence par changement de teinte, aucune sur un espace. */
-function paintLogoLine(line: string, colors: string, color: boolean): string {
+/**
+ * Colore une ligne du logo : une séquence par changement de teinte, aucune sur
+ * un espace. `reset` ferme la teinte — la remise à zéro complète par défaut ;
+ * la couleur du texte seule là où un fond doit survivre (ligne d'onglets).
+ */
+function paintLogoLine(
+  line: string,
+  colors: string,
+  color: boolean,
+  reset = RESET,
+): string {
   if (!color) return line;
   let out = "";
   let current = "";
@@ -157,7 +166,7 @@ function paintLogoLine(line: string, colors: string, color: boolean): string {
     out += ch;
     i++;
   }
-  return current ? out + RESET : out;
+  return current ? out + reset : out;
 }
 
 /**
@@ -193,6 +202,41 @@ export function brandMiniMark(charset: BrandCharset, color: boolean): string[] {
     charset === "ascii" ? BRAND_LOGO_MINI_ASCII_COLORS : BRAND_LOGO_MINI_COLORS;
   return logo.map((line, i) =>
     paintLogoLine(line.padEnd(BRAND_MINI_LOGO_WIDTH), colors[i] ?? "", color),
+  );
+}
+
+/**
+ * Le logo sur UNE ligne : ses trois arcs emboîtés, de l'extérieur vers
+ * l'intérieur — bleu, vert, bleu ciel. Chaque `⢎` dessine une parenthèse
+ * ouvrante en braille (points 2, 3, 4 et 8).
+ */
+export const BRAND_LOGO_LINE = "⢎⢎⢎";
+
+/** Le logo d'une ligne en ASCII pur. */
+export const BRAND_LOGO_LINE_ASCII = "(((";
+
+/** Couleur de chaque caractère du logo d'une ligne (cf {@link BRAND_LOGO_COLORS}). */
+export const BRAND_LOGO_LINE_COLORS = "bgc";
+
+/** Largeur visible du logo d'une ligne. */
+export const BRAND_LINE_LOGO_WIDTH = 3;
+
+/**
+ * La marque d'UNE ligne — en tête de la ligne d'onglets du terminal de
+ * développement, pour dire d'un coup d'œil que ces onglets sont ceux du
+ * framework. Colorée, elle ne ferme que la couleur du texte : le fond posé
+ * avant elle (le voile de la ligne) continue derrière.
+ *
+ * @param charset - jeu de caractères (`resolveBrandCharset`).
+ * @param color - émettre les couleurs.
+ * @returns la marque, de largeur visible {@link BRAND_LINE_LOGO_WIDTH}.
+ */
+export function brandLineMark(charset: BrandCharset, color: boolean): string {
+  return paintLogoLine(
+    charset === "ascii" ? BRAND_LOGO_LINE_ASCII : BRAND_LOGO_LINE,
+    BRAND_LOGO_LINE_COLORS,
+    color,
+    "\x1b[39m",
   );
 }
 

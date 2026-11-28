@@ -1044,3 +1044,86 @@ describe("renderFrame — la mise en page gardée d'une image à l'autre (#903)"
     expect(frame.band).to.deep.equal({ row: 11, height: 1 });
   });
 });
+
+describe("renderFrame — la marque du framework en tête de la ligne d'onglets (#538)", () => {
+  const tabs = {
+    active: 0,
+    items: [
+      { title: "serveur", unseen: 0, alert: false },
+      { title: "vite", unseen: 5, alert: false },
+    ],
+  };
+  const wide = { columns: 80, rows: 10 };
+  const t = transcriptOf(range(3));
+
+  it("en tête, hors des zones cliquables : les onglets se décalent d'autant", () => {
+    const frame = renderFrame(model(t, { status: null, tabs }), wide);
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      "⢎⢎⢎ [1 serveur]│ 2 vite ·5 │",
+    );
+    expect(frame.tabs?.spans).to.deep.equal([
+      { start: 4, end: 15, index: 0 },
+      { start: 16, end: 27, index: 1 },
+    ]);
+  });
+
+  it("trop d’onglets : la fenêtre se resserre pour que la marque tienne — jamais plus large que la ligne", () => {
+    const many = {
+      active: 0,
+      items: Array.from({ length: 9 }, (_, i) => ({
+        title: `commande-${i}`,
+        unseen: 0,
+        alert: false,
+      })),
+    };
+    // 70 colonnes : quatre onglets tiendraient sans la marque, trois avec.
+    const size = { columns: 70, rows: 10 };
+    const frame = renderFrame(model(t, { status: null, tabs: many }), size);
+    const line = frame.lines[frame.tabs?.row ?? -1] ?? "";
+    expect(line.startsWith("⢎⢎⢎ ")).to.equal(true);
+    expect(visibleWidth(line)).to.be.at.most(size.columns - 1);
+    // La ligne est coupée à la largeur : ce que la marque aurait poussé
+    // dehors, c’est le compte des onglets cachés.
+    expect(line.trimEnd().endsWith("+6 ›")).to.equal(true);
+  });
+
+  it("ASCII : trois parenthèses", () => {
+    const frame = renderFrame(
+      model(t, { status: null, tabs, charset: "ascii" }),
+      wide,
+    );
+    expect(frame.lines[frame.tabs?.row ?? -1]?.startsWith("((( ")).to.equal(
+      true,
+    );
+  });
+
+  it("étroite (moins de 40 colonnes utiles), la ligne rend sa place aux onglets", () => {
+    const frame = renderFrame(model(t, { status: null, tabs }), {
+      columns: 40,
+      rows: 10,
+    });
+    expect(frame.lines[frame.tabs?.row ?? -1]).to.equal(
+      "[1 serveur]│ 2 vite ·5 │",
+    );
+  });
+
+  it("en couleur, sous le voile : les trois arcs bleu, vert, bleu ciel, et le fond n'est pas remis à zéro", () => {
+    const frame = renderFrame(
+      model(t, {
+        status: null,
+        color: true,
+        tabs,
+        tabPalette: { bar: "48;2;48;48;48", active: "48;2;32;57;84" },
+      }),
+      wide,
+    );
+    const line = frame.lines[frame.tabs?.row ?? -1] ?? "";
+    expect(
+      line.startsWith(
+        "\x1b[48;2;48;48;48m\x1b[34m⢎\x1b[32m⢎\x1b[36m⢎\x1b[39m \x1b[48;2;32;57;84m",
+      ),
+    ).to.equal(true);
+    // Un seul `ESC[0m`, en fin de ligne : la marque ne coupe pas le voile.
+    expect(line.indexOf("\x1b[0m")).to.equal(line.length - 4);
+  });
+});
