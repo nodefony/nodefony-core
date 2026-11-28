@@ -139,12 +139,23 @@ interface OptionsCommandInterface extends DefaultOptionsService {
    * oubliait les commandes des modules, qui n'existent pas quand elle
    * s'écrit — la déclaration voyage avec la commande, jusqu'au manifeste.
    * Gate : `tests/promptRefusal.test.ts`.
+   *
+   * `"requires-app"` : la commande se lance, mais ne se relance pas sur un
+   * serveur en crash (cf {@link PromptPolicy}).
    */
   prompt?: PromptPolicy;
 }
 
-/** Ce que l'invite du serveur de développement fait d'une commande. */
-export type PromptPolicy = "refuse";
+/**
+ * Ce que l'invite du serveur de développement fait d'une commande.
+ *
+ * - `"refuse"` : elle ne s'y lance jamais (runtime, arrêt, terminal pris).
+ * - `"requires-app"` : elle n'a de sens que sur l'application DÉMARRÉE — son
+ *   sous-processus la boote. Serveur en crash, l'invite répond « l'application
+ *   ne démarre pas — essayez doctor » au lieu de relancer un boot qui
+ *   échouerait de la même façon (`service/dev/liveRoute.ts#LiveCommandRoute`).
+ */
+export type PromptPolicy = "refuse" | "requires-app";
 
 export type CommandArgs = unknown[];
 

@@ -1335,7 +1335,7 @@ export class DevSupervisor {
    */
   readonly #launches: string[] = [];
   /** La voie en direct des commandes de l'invite (`liveRoute.ts`). */
-  readonly #live = new LiveCommandRoute();
+  readonly #live = new LiveCommandRoute(() => this.#cliManifest());
   /** Le report en cours (noms des lancements), pour ne l'annoncer qu'une fois. */
   #deferredBy: string | null = null;
   /**

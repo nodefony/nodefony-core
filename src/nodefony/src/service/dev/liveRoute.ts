@@ -9,6 +9,8 @@
  * — et envelopper son lanceur ({@link LiveCommandRoute.launcher}) : la règle
  * de repli par phase vit ici, à un seul endroit.
  */
+import type { ICliManifest } from "../../cli/completion";
+import { SysExit } from "../../cli/sysexits";
 import { RpcError, RpcTimeoutError } from "../../realtime/JsonRpcPeer";
 import { redactSecrets } from "../../runtime/redact";
 import {
@@ -16,7 +18,11 @@ import {
   LIVE_COMMAND_TIMEOUT_MS,
   LIVE_RESULT_TOO_LARGE,
 } from "./devChannel";
-import type { IPromptIO, PromptCommandLauncher } from "./promptAction";
+import {
+  findPromptCommand,
+  type IPromptIO,
+  type PromptCommandLauncher,
+} from "./promptAction";
 import { PROMPT_INTERRUPTED_CODE } from "./promptLaunch";
 import { ServerPeer, type IServerPeerChild } from "./serverPeer";
 
@@ -37,7 +43,8 @@ const LIVE_REFUSED_CODE = 1;
  * | démarrage, rechargement      | attente de `dev.ready` (10 s, Ctrl+C) puis direct     |
  * | prêt                         | direct ; `live: false` → sous-processus               |
  * | meurt pendant la requête     | sous-processus (une lecture se rejoue sans risque)    |
- * | `crashed`                    | sous-processus, sans attendre                         |
+ * | `crashed`                    | sous-processus, sans attendre — sauf une commande     |
+ * |                              | `prompt: "requires-app"` : « essayez doctor »         |
  * | délai de 5 s expiré          | dit « pas de réponse », puis sous-processus           |
  * | réponse trop grande          | refus qui nomme la ligne à taper ; jamais amputée     |
  *
@@ -48,6 +55,15 @@ export class LiveCommandRoute {
   #crashed = false;
   /** Les commandes qui attendent `dev.ready` — alloué à la première. */
   #waiters: Set<() => void> | null = null;
+  readonly #manifest: () => ICliManifest | null;
+
+  /**
+   * @param manifest - le manifeste du CLI, relu à chaque commande : il porte
+   *   ce qu'une commande déclare (`prompt: "requires-app"`).
+   */
+  constructor(manifest: () => ICliManifest | null = () => null) {
+    this.#manifest = manifest;
+  }
 
   /**
    * Ouvre le pair d'un serveur enfant qui vient d'être lancé : il devient le
@@ -95,7 +111,8 @@ export class LiveCommandRoute {
     signal: AbortSignal,
   ): Promise<number | null> {
     const command = argv[0];
-    if (command === undefined || this.#crashed) return null;
+    if (command === undefined) return null;
+    if (this.#crashed) return this.#onCrashed(command, io);
     const params = {
       command,
       arguments: argv.slice(1),
@@ -106,8 +123,10 @@ export class LiveCommandRoute {
     if (!isCommandExecuteParams(params)) return null;
     if (this.#peer?.ready !== true) {
       io.write("attend que le serveur soit prêt…\n");
-      await this.#awaitReady(signal);
+      const crashed = await this.#awaitReady(signal);
       if (signal.aborted) return PROMPT_INTERRUPTED_CODE;
+      // Le serveur est tombé pendant l'attente : même règle qu'avant.
+      if (crashed) return this.#onCrashed(command, io);
     }
     const peer = this.#peer;
     if (peer === null || !peer.ready) return null;
@@ -122,6 +141,25 @@ export class LiveCommandRoute {
       if (signal.aborted) return PROMPT_INTERRUPTED_CODE;
       return this.#onLiveError(err, argv, io);
     }
+  }
+
+  /**
+   * Serveur en crash : une commande qui a besoin de l'application démarrée
+   * ne relance pas un boot qui échouerait pareil — elle dit quoi faire.
+   *
+   * @returns le code du refus, ou `null` : la commande part en sous-processus.
+   */
+  #onCrashed(command: string, io: IPromptIO): number | null {
+    if (
+      findPromptCommand(this.#manifest(), command)?.prompt !== "requires-app"
+    ) {
+      return null;
+    }
+    io.write(
+      `l'application ne démarre pas — essayez /nodefony doctor\n`,
+      "err",
+    );
+    return SysExit.UNAVAILABLE;
   }
 
   /** @returns le code d'un refus, ou `null` : la commande part en sous-processus. */
@@ -156,16 +194,20 @@ export class LiveCommandRoute {
     return null;
   }
 
-  /** Attend que le pair courant soit prêt, au plus {@link LIVE_READY_WAIT_MS}. */
-  #awaitReady(signal: AbortSignal): Promise<void> {
-    if (signal.aborted) return Promise.resolve();
+  /**
+   * Attend que le pair courant soit prêt, au plus {@link LIVE_READY_WAIT_MS}.
+   *
+   * @returns `true` si c'est un crash qui a mis fin à l'attente.
+   */
+  #awaitReady(signal: AbortSignal): Promise<boolean> {
+    if (signal.aborted) return Promise.resolve(false);
     return new Promise((resolve) => {
       const waiters = (this.#waiters ??= new Set());
       const done = (): void => {
         clearTimeout(timer);
         signal.removeEventListener("abort", done);
         waiters.delete(done);
-        resolve();
+        resolve(this.#crashed);
       };
       const timer = setTimeout(done, LIVE_READY_WAIT_MS);
       signal.addEventListener("abort", done, { once: true });

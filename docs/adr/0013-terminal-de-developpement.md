@@ -763,8 +763,12 @@ en mémoire si elle a une méthode `readState()`. Le superviseur demande donc to
 serveur (« exécute `env` »). Si elle a un `readState()` qui accepte ces arguments, la réponse
 revient en une milliseconde. Sinon, le serveur répond « pas en direct », et la commande part en
 sous-processus comme avant. Le « non » coûte un aller-retour (0,06 ms), contre 1,4 à 2,9 s de
-lancement. Seul le REFUS se déclare (`prompt: "refuse"`) : on sait d'avance qu'une commande de
-cycle de vie ne doit jamais partir de l'invite.
+lancement. Ne se déclare que ce qui ne se constate pas : le REFUS (`prompt: "refuse"`) — on sait
+d'avance qu'une commande de cycle de vie ne doit jamais partir de l'invite —, et le BESOIN de
+l'application démarrée (`prompt: "requires-app"`) — son sous-processus la boote, donc un serveur en
+crash répond « l'application ne démarre pas — essayez doctor » au lieu de rejouer le même boot
+(`src/nodefony/src/service/dev/liveRoute.ts#LiveCommandRoute`). `inspect` le déclare ; `env`,
+`doctor` et `card` répondent sans l'application et ne déclarent rien.
 
 | Voie                             | Pour                                                                                                                   | Comment                                                                                                                        |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
