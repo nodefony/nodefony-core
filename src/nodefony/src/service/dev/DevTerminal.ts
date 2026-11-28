@@ -111,7 +111,10 @@ import {
   type QuestionPaint,
 } from "../../cli/question";
 import { PendingQuestion, QUESTION_CANCELLED } from "./devQuestion";
-import { PROMPT_INTERRUPTED_CODE } from "./promptLaunch";
+import {
+  PROMPT_INTERRUPTED_CODE,
+  PROMPT_NOT_STARTED_CODE,
+} from "./promptLaunch";
 import {
   PromptHistoryFile,
   describeHistorySkip,
@@ -423,6 +426,20 @@ const RUN_HINT_RUNNING =
  */
 const RUN_SPIN_DELAY_MS = 150;
 const RUN_HINT_DONE = "terminée · Échap ou /close ferme cet onglet";
+/**
+ * L'issue d'une action ratée, telle que son onglet la dit : interrompue
+ * (Ctrl+C, 130), non lancée (build en échec, programme introuvable, 127), ou
+ * l'échec et son code.
+ *
+ * @param code - le code de sortie, non nul.
+ * @returns le verdict, sans marque.
+ */
+function describeFailure(code: number): string {
+  if (code === PROMPT_INTERRUPTED_CODE) return "interrompue";
+  if (code === PROMPT_NOT_STARTED_CODE) return "non lancée";
+  return `échec (code ${code})`;
+}
+
 /** Une question attend : la répondre, ou l'annuler — la commande s'arrête alors. */
 const RUN_HINT_ASKING =
   "question · Entrée répond · Échap ou Ctrl+C l'annule et arrête la commande";
@@ -693,6 +710,12 @@ export class DevTerminal {
   #progress: { done: number; total: number } | null = null;
   /** Un problème qui persiste serveur prêt (build en échec, serveur conservé). */
   #issue: string | null = null;
+  /**
+   * Les commandes qui attendent la fin du build en cours (`pendingBuild`) :
+   * `null` tant qu'aucune n'attend — un `Set`, car une commande interrompue
+   * s'en retire seule. La limite d'onglets `run` en borne la taille.
+   */
+  #buildWaiters: Set<(built: boolean) => void> | null = null;
   /** Le dernier échantillon runtime du serveur — `null` hors serveur prêt. */
   #runtime: IRuntimeSample | null = null;
   #closed = false;
@@ -882,10 +905,18 @@ export class DevTerminal {
   /**
    * Change la phase en gardant le dernier bilan.
    *
+   * Quitter `building` libère les commandes qui attendaient la fin du build :
+   * elles partent, sauf si le superviseur dit que le build a échoué.
+   *
    * @param phase - où en est le serveur.
+   * @param end - en quittant `building` : `{ buildFailed: true }` quand le
+   *   build a échoué — les commandes en attente ne partent pas.
    */
-  setPhase(phase: DevPhase): void {
+  setPhase(phase: DevPhase, end?: { readonly buildFailed: boolean }): void {
     if (phase !== this.#phase) {
+      if (this.#phase === "building") {
+        this.#settleBuild(end?.buildFailed !== true);
+      }
       this.#phaseSince = Date.now();
       this.#step = null;
       this.#progress = null;
@@ -937,6 +968,44 @@ export class DevTerminal {
     if (issue === this.#issue) return;
     this.#issue = issue;
     this.#renderStatus();
+  }
+
+  /**
+   * Le build en cours, pour une commande qui ne doit pas partir pendant qu'il
+   * réécrit le `dist` (cf `IPromptIO.pendingBuild`). `null` hors de la phase
+   * `building` : rien n'est alloué, rien n'est attendu.
+   *
+   * @param signal - l'interruption de la commande : elle se retire de
+   *   l'attente, et son écouteur est retiré à toute issue.
+   * @returns la promesse de l'issue du build, ou `null`.
+   */
+  #pendingBuild(signal: AbortSignal): Promise<boolean> | null {
+    if (this.#phase !== "building" || this.#closed) return null;
+    if (signal.aborted) return Promise.resolve(false);
+    return new Promise<boolean>((resolve) => {
+      const settle = (built: boolean): void => {
+        signal.removeEventListener("abort", onAbort);
+        this.#buildWaiters?.delete(settle);
+        resolve(built);
+      };
+      const onAbort = (): void => settle(false);
+      signal.addEventListener("abort", onAbort, { once: true });
+      (this.#buildWaiters ??= new Set()).add(settle);
+    });
+  }
+
+  /**
+   * Libère les commandes qui attendaient le build : `built` dit si elles
+   * partent. L'ensemble est détaché AVANT de les prévenir — aucune ne le
+   * modifie pendant qu'on le parcourt.
+   *
+   * @param built - le build a réussi.
+   */
+  #settleBuild(built: boolean): void {
+    const waiters = this.#buildWaiters;
+    if (waiters === null) return;
+    this.#buildWaiters = null;
+    for (const settle of waiters) settle(built);
   }
 
   /**
@@ -1317,6 +1386,7 @@ export class DevTerminal {
     if (this.#closed) return;
     this.leaveFullscreen();
     this.#closed = true;
+    this.#settleBuild(false);
     this.#history.flush();
     this.#status.release();
   }
@@ -2612,6 +2682,7 @@ export class DevTerminal {
         Promise.reject(new Error("le terminal ne se prête pas encore")),
       ask: (question, signal) => this.#askInView(view, question, signal, write),
       columns: this.#size().columns,
+      pendingBuild: (signal) => this.#pendingBuild(signal),
     };
     let code = 1;
     try {
@@ -2642,7 +2713,7 @@ export class DevTerminal {
       if (full !== null && this.#active === view) {
         this.#notify(
           full,
-          `${code === 0 ? "terminée" : `échec (code ${code})`} — Échap ferme cet onglet`,
+          `${code === 0 ? "terminée" : describeFailure(code)} — Échap ferme cet onglet`,
         );
       }
       this.#scheduleFrame();
@@ -2670,7 +2741,7 @@ export class DevTerminal {
     const verdict =
       code === 0
         ? `${ascii ? "+" : "✓"} terminée`
-        : `${ascii ? "x" : "✗"} ${code === PROMPT_INTERRUPTED_CODE ? "interrompue" : `échec (code ${code})`}`;
+        : `${ascii ? "x" : "✗"} ${describeFailure(code)}`;
     const tail = ` · ${formatSeconds(Math.round(elapsedMs))} · Échap ferme cet onglet`;
     if (!this.#color) return `${rule} ${verdict}${tail}`;
     const tone = code === 0 ? "32" : "31";

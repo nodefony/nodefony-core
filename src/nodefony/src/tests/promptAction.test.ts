@@ -14,7 +14,9 @@ import {
   type IPromptIO,
 } from "../service/dev/promptAction";
 
-function io(): IPromptIO & { out: string[] } {
+function io(
+  builds: (Promise<boolean> | null)[] = [],
+): IPromptIO & { out: string[] } {
   const out: string[] = [];
   return {
     out,
@@ -23,6 +25,7 @@ function io(): IPromptIO & { out: string[] } {
     suspend: () => Promise.reject(new Error("non")),
     ask: () => Promise.resolve({ action: "cancel" }),
     columns: 80,
+    pendingBuild: () => builds.shift() ?? null,
   };
 }
 
@@ -252,6 +255,17 @@ describe("cliCommandAction — lancée en sous-processus, dans son onglet (#538,
     );
     expect(sink.out[0]).to.contain("--password ***");
     expect(sink.out.join("")).to.not.contain("hunter2");
+  });
+
+  it("un build qui en suit un autre : elle attend les DEUX, puis part une seule fois", async () => {
+    launch.mockClear();
+    const sink = io([Promise.resolve(true), Promise.resolve(true)]);
+    expect(await action.run("/nodefony build", sink, signal)).to.equal(0);
+    expect(sink.out).to.deep.equal([
+      "out:attend la fin du build…\n",
+      "out:attend la fin du build…\n",
+    ]);
+    expect(launch).toHaveBeenCalledTimes(1);
   });
 });
 

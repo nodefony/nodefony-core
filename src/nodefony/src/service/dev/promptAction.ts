@@ -6,6 +6,10 @@
 import type { IQuestion, IQuestionOutcome } from "../../cli/question";
 import { redactSecrets } from "../../runtime/redact";
 import {
+  PROMPT_INTERRUPTED_CODE,
+  PROMPT_NOT_STARTED_CODE,
+} from "./promptLaunch";
+import {
   computeCompletions,
   type ICliManifest,
   type ICliManifestCommand,
@@ -46,6 +50,15 @@ export interface IPromptIO {
   ask(question: IQuestion, signal: AbortSignal): Promise<IQuestionOutcome>;
   /** Une commande interactive prend le terminal, puis le rend. */
   suspend<T>(task: () => Promise<T>): Promise<T>;
+  /**
+   * Le build que le superviseur mène en ce moment, s'il y en a un. La
+   * promesse rend `true` quand il réussit ; `false` s'il échoue, si `signal`
+   * tombe (Ctrl+C dans l'onglet) ou si le terminal se ferme. `null` : aucun
+   * build ne tourne — l'action part tout de suite, sans microtâche.
+   *
+   * @param signal - l'interruption de l'action qui attend.
+   */
+  pendingBuild(signal: AbortSignal): Promise<boolean> | null;
   readonly columns: number;
 }
 
@@ -376,6 +389,20 @@ export function cliCommandAction(
           "err",
         );
         return 1;
+      }
+      // Lancée en plein build, la commande chargerait un `dist` à moitié
+      // écrit et rendrait de fausses erreurs : elle attend, onglet ouvert. Un
+      // build peut en suivre un autre (une sauvegarde de plus) : on revérifie.
+      for (
+        let build = io.pendingBuild(signal);
+        build !== null;
+        build = io.pendingBuild(signal)
+      ) {
+        io.write("attend la fin du build…\n");
+        if (await build) continue;
+        if (signal.aborted) return PROMPT_INTERRUPTED_CODE;
+        io.write("build en échec — la commande n'est pas lancée\n", "err");
+        return PROMPT_NOT_STARTED_CODE;
       }
       return launch(argv, io, signal);
     },

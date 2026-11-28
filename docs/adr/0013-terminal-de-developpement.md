@@ -562,6 +562,13 @@ render? }`, calqué sur le résultat de `inspect`) : ni sortie standard, ni `ter
   s'écrit ni à l'écran (`•`), ni au journal, ni dans l'historique de l'invite. Ce qui arrive du
   canal est relu avant d'être dessiné (`src/nodefony/src/cli/questionWire.ts#isWireQuestion` :
   bornes, aucun caractère de contrôle, motif compilable).
+- **Une commande lancée pendant le build ATTEND sa fin**, son onglet déjà ouvert (« attend la fin
+  du build… ») : partie plus tôt, elle chargerait un `dist` à moitié écrit. Elle part dès que le
+  build réussit, sans attendre que le serveur soit prêt — un rechargement qui plante (migration
+  manquante) bloquerait sinon la commande même qui le répare. Build en échec : elle ne part pas,
+  l'onglet dit « non lancée » (127). Ctrl+C pendant l'attente l'interrompt (130). Le signal est
+  explicite (`src/nodefony/src/service/dev/DevTerminal.ts#DevTerminal.setPhase`, option
+  `buildFailed`) ; la limite des onglets `run` borne l'attente.
 
 ### 8. L'assistant : un client de l'application, jamais un passe-droit
 

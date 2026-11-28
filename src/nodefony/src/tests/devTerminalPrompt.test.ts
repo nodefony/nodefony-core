@@ -1608,7 +1608,9 @@ describe("plein écran — la fin d'une commande se lit au bas de sa sortie (#53
     await settle();
     lines = (await screen(written, 100)).map((l) => l.trimEnd());
     expect(lines, lines.join("\n")).to.include("⠙ chargement");
-    expect(lines.some((l) => l.includes("⠋"))).to.equal(false);
+    // L’image écrasée, sur SA ligne : l’onglet a son propre tourniquet
+    // (`BRAILLE_FRAMES`, passé 150 ms), dont l’image suit l’horloge.
+    expect(lines.some((l) => l.includes("⠋ chargement"))).to.equal(false);
     expect(lines).to.not.include("Mot de passe :");
     // Interrompue sans fin de ligne : le reste entre au journal, AU-DESSUS de
     // la ligne de fin, et rien ne reste « en cours » sous elle.
@@ -1620,6 +1622,91 @@ describe("plein écran — la fin d'une commande se lit au bas de sa sortie (#53
     expect(at, lines.join("\n")).to.be.greaterThan(-1);
     expect(lines[at + 1]).to.match(/^── ✗ interrompue · /u);
     expect(lines.some((l) => l.includes("chargement"))).to.equal(false);
+    terminal.close();
+  });
+
+  /** Un lanceur de commande du CLI qui ne finit que quand le test le dit. */
+  const heldLauncher = () => {
+    const launched: string[][] = [];
+    const finish: ((code: number) => void)[] = [];
+    const launch = vi.fn(
+      (argv: readonly string[]) =>
+        new Promise<number>((resolve) => {
+          launched.push([...argv]);
+          finish.push(resolve);
+        }),
+    );
+    return { launched, finish, launch };
+  };
+
+  it("une commande lancée pendant le build ATTEND sa fin dans son onglet ouvert, puis part", async () => {
+    const { launched, finish, launch } = heldLauncher();
+    const { written, input, terminal } = prompted(false, 100, ROWS, false, [
+      cliCommandAction(() => MANIFEST, launch),
+    ]);
+    terminal.setPhase("building");
+    input.type("/nodefony build --force" + ENTER);
+    await settle();
+    let lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    expect(lines, lines.join("\n")).to.include("attend la fin du build…");
+    expect(launch).not.toHaveBeenCalled();
+    // Le build réussit, le serveur recharge : la commande part sans attendre
+    // qu'il soit prêt — un rechargement qui plante (migration manquante)
+    // bloquerait sinon la commande même qui le répare.
+    terminal.setPhase("restarting");
+    await settle();
+    expect(launched).to.deep.equal([["build", "--force"]]);
+    finish[0]?.(0);
+    await settle();
+    lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    expect(
+      lines.some((l) => l.startsWith("── ✓ terminée · ")),
+      lines.join("\n"),
+    ).to.equal(true);
+    terminal.close();
+  });
+
+  it("build en échec : la commande en attente ne part pas, et son onglet dit « non lancée »", async () => {
+    const { launch } = heldLauncher();
+    const { written, input, terminal } = prompted(false, 100, ROWS, false, [
+      cliCommandAction(() => MANIFEST, launch),
+    ]);
+    terminal.setPhase("ready");
+    terminal.setPhase("building");
+    input.type("/nodefony inspect" + ENTER);
+    await settle();
+    // Le superviseur garde l'ancien serveur : la barre revient à « prêt ».
+    terminal.setPhase("ready", { buildFailed: true });
+    await settle();
+    const lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    expect(lines, lines.join("\n")).to.include(
+      "build en échec — la commande n'est pas lancée",
+    );
+    expect(lines.some((l) => l.startsWith("── ✗ non lancée · "))).to.equal(
+      true,
+    );
+    expect(launch).not.toHaveBeenCalled();
+    terminal.close();
+  });
+
+  it("Ctrl+C pendant l'attente : interrompue, et le build fini ne la relance pas", async () => {
+    const { launch } = heldLauncher();
+    const { written, input, terminal } = prompted(false, 100, ROWS, false, [
+      cliCommandAction(() => MANIFEST, launch),
+    ]);
+    terminal.setPhase("building");
+    input.type("/nodefony build" + ENTER);
+    await settle();
+    input.type(CTRL_C);
+    await settle();
+    const lines = (await screen(written, 100)).map((l) => l.trimEnd());
+    expect(
+      lines.some((l) => l.startsWith("── ✗ interrompue · ")),
+      lines.join("\n"),
+    ).to.equal(true);
+    terminal.setPhase("restarting");
+    await settle();
+    expect(launch).not.toHaveBeenCalled();
     terminal.close();
   });
 
