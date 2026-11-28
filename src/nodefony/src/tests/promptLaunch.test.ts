@@ -8,15 +8,19 @@
  * `io.ask` joue le superviseur.
  */
 import { createRequire } from "node:module";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import type { IQuestion, IQuestionOutcome } from "../cli/question";
 import {
   launchPromptCommand,
   PROMPT_INTERRUPTED_CODE,
   PROMPT_NOT_STARTED_CODE,
+  promptShell,
 } from "../service/dev/promptLaunch";
+import { DEV_PROMPT_ENV } from "../service/dev/devChannel";
 
 /** Ce que la commande a écrit, flux par flux. */
 function recorder() {
@@ -317,4 +321,112 @@ describe("launchPromptCommand — un petit-enfant n'hérite pas du relais", () =
     expect(code).to.equal(64);
     expect(err.join("")).to.contain("aucun terminal pour le demander");
   }, 30000);
+});
+
+describe("launchPromptCommand — une ligne `!` confiée au shell (#538)", () => {
+  // Le shell que le superviseur choisirait sur CETTE machine : le test tourne
+  // tel quel sous sh/zsh et sous cmd.exe (guillemets doubles seulement).
+  const shell = promptShell(process.platform, process.env);
+  const nodeBin = `"${process.execPath}"`;
+  const line = (text: string) => ({
+    file: text,
+    args: [],
+    cwd: process.cwd(),
+    env: process.env,
+    shell,
+  });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-shell-line-"));
+  afterAll(() => {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+  });
+
+  it("le shell interprète la ligne (`&&`), la sortie est relayée, son code rendu", async () => {
+    const { out, io } = recorder();
+    const code = await launchPromptCommand(
+      line(
+        `${nodeBin} -e "process.stdout.write('un ')" && ${nodeBin} -e "process.stdout.write('deux'); process.exitCode = 4"`,
+      ),
+      io,
+      new AbortController().signal,
+    );
+    expect(code).to.equal(4);
+    expect(out.join("")).to.equal("un deux");
+  });
+
+  it("SANS le canal des questions : ni descripteur IPC, ni variable de relais", async () => {
+    const { out, io } = recorder();
+    const code = await launchPromptCommand(
+      line(
+        `${nodeBin} -e "process.stdout.write(typeof process.send + ':' + (process.env.${DEV_PROMPT_ENV} === undefined))"`,
+      ),
+      io,
+      new AbortController().signal,
+    );
+    expect(code).to.equal(0);
+    expect(out.join("")).to.equal("undefined:true");
+  });
+
+  it("les arguments ne s'ajoutent jamais à la ligne — Node les y collerait sans les échapper", async () => {
+    const { out, io } = recorder();
+    await launchPromptCommand(
+      {
+        ...line(
+          `${nodeBin} -e "process.stdout.write(String(process.argv.length))"`,
+        ),
+        args: ["; echo injecte"],
+      },
+      io,
+      new AbortController().signal,
+    );
+    expect(out.join("")).to.equal("1");
+  });
+
+  it("Ctrl+C interrompt l'ARBRE : le shell, la commande et son enfant", async () => {
+    const script = path.join(dir, "tree.cjs");
+    fs.writeFileSync(
+      script,
+      [
+        'const { spawn } = require("node:child_process");',
+        'spawn(process.execPath, ["-e", "process.stdout.write(\'G:\' + process.pid + \'\\\\n\'); setInterval(() => {}, 1000);"], { stdio: "inherit" });',
+        'process.stdout.write("P:" + process.pid + "\\n");',
+        "setInterval(() => {}, 1000);",
+      ].join("\n"),
+    );
+    const { out, io } = recorder();
+    const controller = new AbortController();
+    const ended = launchPromptCommand(
+      line(`${nodeBin} "${script}"`),
+      io,
+      controller.signal,
+    );
+    const pids = await vi.waitFor(
+      () => {
+        const text = out.join("");
+        const parent = /P:(\d+)/.exec(text)?.[1];
+        const grandchild = /G:(\d+)/.exec(text)?.[1];
+        if (parent === undefined || grandchild === undefined) {
+          throw new Error(`pas encore lancés : ${text}`);
+        }
+        return { parent: Number(parent), grandchild: Number(grandchild) };
+      },
+      { timeout: 5000, interval: 20 },
+    );
+    spawned.push(pids.parent, pids.grandchild);
+    controller.abort();
+    expect(await ended).to.equal(PROMPT_INTERRUPTED_CODE);
+    await vi.waitFor(
+      () => {
+        expect(alive(pids.parent)).to.equal(false);
+        expect(alive(pids.grandchild)).to.equal(false);
+      },
+      { timeout: 5000, interval: 50 },
+    );
+  }, 15000);
+
+  it("promptShell : $SHELL hors Windows, /bin/sh à défaut ; sous Windows celui du système, $SHELL ignoré", () => {
+    expect(promptShell("darwin", { SHELL: "/bin/zsh" })).to.equal("/bin/zsh");
+    expect(promptShell("linux", {})).to.equal("/bin/sh");
+    expect(promptShell("linux", { SHELL: "" })).to.equal("/bin/sh");
+    expect(promptShell("win32", { SHELL: "/usr/bin/bash" })).to.equal(true);
+  });
 });

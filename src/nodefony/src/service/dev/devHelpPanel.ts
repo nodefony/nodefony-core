@@ -14,6 +14,8 @@ import type { IPanelPage, IPanelSpec, PanelRow } from "./devPanel";
 import {
   CLI_PROMPT_COMMAND,
   PROMPT_COMMAND_PREFIX,
+  PROMPT_SHELL_PREFIX,
+  SHELL_PROMPT_LINE,
   SUPERVISOR_VERBS,
 } from "./promptAction";
 
@@ -49,8 +51,13 @@ export function buildHelpPanel(input: {
     value: CLI_PROMPT_COMMAND.does,
   });
   prompt.push({
+    kind: "entry",
+    key: SHELL_PROMPT_LINE.usage,
+    value: SHELL_PROMPT_LINE.does,
+  });
+  prompt.push({
     kind: "text",
-    text: `Une commande commence par « ${PROMPT_COMMAND_PREFIX} » ; une saisie sans lui n'en est pas une.`,
+    text: `Une commande commence par « ${PROMPT_COMMAND_PREFIX} », une ligne du shell par « ${PROMPT_SHELL_PREFIX} » ; une saisie sans l'un ni l'autre n'en est pas une.`,
   });
   prompt.push({ kind: "heading", text: "Gestes" });
   for (const gesture of input.gestures) {

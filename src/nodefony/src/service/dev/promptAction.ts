@@ -176,6 +176,22 @@ export const CLI_PROMPT_COMMAND = {
 } as const;
 
 /**
+ * Le préfixe d'une ligne du shell : `!git status`, à la manière des shells
+ * interactifs (IPython, Vim) et de Claude Code.
+ */
+export const PROMPT_SHELL_PREFIX = "!";
+
+/**
+ * La porte des lignes du shell dans l'invite : `!<ligne>`, lancée par le shell
+ * de l'utilisateur dans son onglet (`promptAction.ts#shellLineAction`).
+ */
+export const SHELL_PROMPT_LINE = {
+  id: "shell",
+  usage: `${PROMPT_SHELL_PREFIX}<ligne>`,
+  does: "une ligne du shell, dans son onglet — la ligne qu'on taperait dans un terminal",
+} as const;
+
+/**
  * La commande du manifeste que désigne ce que l'on tape — son nom ou l'un de
  * ses alias : le refus porte sur ce que l'on tape.
  *
@@ -410,6 +426,85 @@ export function cliCommandAction(
 }
 
 /**
+ * Lance une ligne du shell — sans le `!` de tête — et rend son code de sortie
+ * (`promptLaunch.ts#launchPromptCommand` avec `shell`, posé par le
+ * superviseur).
+ */
+export type PromptShellLauncher = (
+  line: string,
+  io: IPromptIO,
+  signal: AbortSignal,
+) => Promise<number>;
+
+/**
+ * Le titre de l'onglet d'une ligne du shell : son premier mot, sans le chemin
+ * qui le précède (`!./node_modules/.bin/tsc -b` → `tsc`), les deux
+ * séparateurs compris.
+ *
+ * @param line - la ligne, sans le `!`.
+ * @returns le titre, borné, ou `""` pour une ligne vide.
+ */
+function shellTitle(line: string): string {
+  const word = line.split(/\s/, 1)[0] ?? "";
+  const cut = Math.max(word.lastIndexOf("/"), word.lastIndexOf("\\"));
+  const name =
+    cut === -1 || cut === word.length - 1 ? word : word.slice(cut + 1);
+  return name.slice(0, PROMPT_VERB_MAX);
+}
+
+/**
+ * L'action `!<ligne>` : la ligne, telle que tapée, confiée au shell de
+ * l'utilisateur, dans SON onglet (`tabTitle` = le premier mot). Rien n'est
+ * découpé ni interprété ici — tubes, `$VAR`, `*` et `&&` sont l'affaire du
+ * shell. Elle part tout de suite, build en cours ou non : une ligne du shell ne
+ * charge pas le `dist`.
+ *
+ * @param launch - le lanceur. Absent : la ligne est refusée, avec le conseil de
+ *   la taper dans un autre terminal.
+ * @returns l'action.
+ */
+export function shellLineAction(launch?: PromptShellLauncher): IPromptAction {
+  const lineOf = (input: string): string =>
+    input.trim().slice(PROMPT_SHELL_PREFIX.length).trim();
+  return {
+    id: SHELL_PROMPT_LINE.id,
+    matches: (input: string): boolean =>
+      input.trimStart().startsWith(PROMPT_SHELL_PREFIX),
+    tabTitle: (input: string): string | null => {
+      if (launch === undefined) return null;
+      const title = shellTitle(lineOf(input));
+      return title === "" ? null : title;
+    },
+    run: (
+      input: string,
+      io: IPromptIO,
+      signal: AbortSignal,
+    ): Promise<number> => {
+      const line = lineOf(input);
+      if (line === "") {
+        io.write(
+          `${SHELL_PROMPT_LINE.usage} — une ligne du shell, par exemple !git status\n`,
+          "err",
+        );
+        return Promise.resolve(64);
+      }
+      if (launch === undefined) {
+        const shown =
+          line.length > PROMPT_LINE_MAX
+            ? `${line.slice(0, PROMPT_LINE_MAX)}…`
+            : line;
+        io.write(
+          `« ${redactSecrets(shown)} » ne se lance pas depuis cette invite — dans un autre terminal\n`,
+          "err",
+        );
+        return Promise.resolve(1);
+      }
+      return launch(line, io, signal);
+    },
+  };
+}
+
+/**
  * Le premier mot d'une saisie, sans le préfixe `/` d'une commande.
  *
  * @param input - la saisie.
@@ -434,7 +529,7 @@ const PROMPT_VERB_MAX = 64;
 
 /**
  * Ce que l'invite répond à une saisie qu'aucune action ne reconnaît : la
- * commande inconnue nommée, ou — sans le préfixe — la règle rappelée.
+ * commande inconnue nommée, ou — sans préfixe — les deux règles rappelées.
  *
  * @param input - la saisie refusée.
  * @returns le message, fin de ligne comprise.
@@ -443,7 +538,7 @@ export function describeUnmatchedInput(input: string): string {
   const help = `${PROMPT_COMMAND_PREFIX}help pour l'aide`;
   return input.trim().startsWith(PROMPT_COMMAND_PREFIX)
     ? `commande inconnue : ${PROMPT_COMMAND_PREFIX}${promptVerb(input)} — ${help}\n`
-    : `les commandes commencent par « ${PROMPT_COMMAND_PREFIX} » — ${help}\n`;
+    : `les commandes commencent par « ${PROMPT_COMMAND_PREFIX} », une ligne du shell par « ${PROMPT_SHELL_PREFIX} » — ${help}\n`;
 }
 
 /**

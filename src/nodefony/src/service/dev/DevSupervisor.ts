@@ -102,9 +102,15 @@ import { RestartCycle } from "./restartCycle";
 import {
   cliCommandAction,
   type PromptCommandLauncher,
+  type PromptShellLauncher,
+  shellLineAction,
   supervisorActions,
 } from "./promptAction";
-import { launchPromptCommand } from "./promptLaunch";
+import {
+  type IPromptLaunch,
+  launchPromptCommand,
+  promptShell,
+} from "./promptLaunch";
 import { buildPromptMenu } from "./devMenuBand";
 import { INSPECT_SUBJECTS } from "../../kernel/inspect/adminSubjects";
 import { ANSI } from "./ansi";
@@ -1499,6 +1505,7 @@ export class DevSupervisor {
           quit: () => void this.#shutdown(),
         }),
         cliCommandAction(() => this.#cliManifest(), this.#promptLauncher()),
+        shellLineAction(this.#shellLauncher()),
       ],
     });
     // Le serveur écrit dans un tube : il ne reçoit pas `SIGWINCH`. La barre
@@ -2349,6 +2356,49 @@ export class DevSupervisor {
   }
 
   /**
+   * L'environnement d'un lancement de l'invite — commande du CLI ou ligne du
+   * shell : celui du superviseur, plus le verdict de terminal relayé (largeur
+   * de l'onglet, couleurs) que reçoit aussi le serveur.
+   *
+   * @param columns - la largeur de l'onglet.
+   */
+  #promptEnv(columns: number): IPromptLaunch["env"] {
+    return {
+      ...process.env,
+      ...relayedTerminalEnv(
+        process.env,
+        { columns, rows: process.stdout.rows },
+        process.stdout.getColorDepth(),
+      ),
+    };
+  }
+
+  /**
+   * Le lanceur des lignes `!` (#538) : la ligne au shell de l'utilisateur
+   * (`promptLaunch.ts#promptShell`), dans le projet, le terminal relayé.
+   *
+   * Au contraire d'une commande du CLI, une ligne du shell ne diffère PAS le
+   * rechargement (`#launches`) : la commande lit le `dist` qu'un rechargement
+   * réécrit, la ligne non — et une ligne longue (`!tail -f`) gèlerait sinon
+   * tout rechargement jusqu'à sa fin.
+   */
+  #shellLauncher(): PromptShellLauncher {
+    const shell = promptShell(process.platform, process.env);
+    return (line, io, signal) =>
+      launchPromptCommand(
+        {
+          file: line,
+          args: [],
+          cwd: this.#cwd,
+          env: this.#promptEnv(io.columns),
+          shell,
+        },
+        io,
+        signal,
+      );
+  }
+
+  /**
    * Le lanceur des commandes de l'invite (#538, lot 2a) : le MÊME bin que
    * celui par lequel on est entré — le lanceur a déjà tranché entre CLI
    * global et CLI local —, les mêmes drapeaux `node` que le serveur, et le
@@ -2367,14 +2417,7 @@ export class DevSupervisor {
             file: process.execPath,
             args: [...childExecArgv(process.execArgv), bin, ...argv],
             cwd: this.#cwd,
-            env: {
-              ...process.env,
-              ...relayedTerminalEnv(
-                process.env,
-                { columns: io.columns, rows: process.stdout.rows },
-                process.stdout.getColorDepth(),
-              ),
-            },
+            env: this.#promptEnv(io.columns),
           },
           io,
           signal,

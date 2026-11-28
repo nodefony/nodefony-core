@@ -8,8 +8,16 @@
  * {@link DEV_PROMPT_ENV} : la porte `ask()` de l'enfant les envoie, l'onglet
  * les dessine (`io.ask`), la réponse redescend (#538, lot 2b-2). Le canal ne
  * garde pas l'enfant en vie : il sort dès son travail fini.
+ *
+ * Une ligne `!<ligne>` passe par le MÊME lanceur, confiée au shell
+ * ({@link IPromptLaunch.shell}) — mêmes tubes, même interruption de l'arbre,
+ * même code rendu — mais sans le canal des questions.
  */
-import { type ChildProcess, spawn } from "node:child_process";
+import {
+  type ChildProcess,
+  type StdioOptions,
+  spawn,
+} from "node:child_process";
 import os from "node:os";
 import type { QuestionValue } from "../../cli/question";
 import {
@@ -36,6 +44,34 @@ export interface IPromptLaunch {
   readonly cwd: string;
   /** L'environnement complet de la commande. */
   readonly env: Readonly<Record<string, string | undefined>>;
+  /**
+   * Le shell qui interprète `file`, alors une LIGNE entière (`!git status`) :
+   * son chemin, ou `true` pour celui du système — l'option `shell` de
+   * `spawn` ({@link promptShell}). `args` est ignoré. Une ligne du shell n'a
+   * PAS le canal des questions : tout `node` qu'elle lance en hériterait, et
+   * attendrait une réponse sur un canal qui ne mène pas à lui.
+   */
+  readonly shell?: string | true;
+}
+
+/**
+ * Le shell d'une ligne `!` : `$SHELL` sous macOS et Linux, `/bin/sh` à
+ * défaut ; sous Windows, celui du système — `true` laisse Node prendre
+ * `%ComSpec%` (`cmd.exe` à défaut) et lui passer la ligne telle quelle.
+ * `$SHELL` n'est pas lu sous Windows : Git Bash y pose `/usr/bin/bash`, un
+ * chemin que `spawn` ne sait pas ouvrir.
+ *
+ * @param platform - la plateforme (`process.platform`), injectée pour l'éprouver.
+ * @param env - l'environnement du superviseur.
+ * @returns le shell, pour {@link IPromptLaunch.shell}.
+ */
+export function promptShell(
+  platform: NodeJS.Platform,
+  env: Readonly<Record<string, string | undefined>>,
+): string | true {
+  if (platform === "win32") return true;
+  const shell = env.SHELL;
+  return shell !== undefined && shell !== "" ? shell : "/bin/sh";
 }
 
 /** Délai laissé à l'arbre pour finir après `SIGTERM`, avant `SIGKILL`. */
@@ -79,14 +115,25 @@ export function launchPromptCommand(
   if (signal.aborted) return Promise.resolve(PROMPT_INTERRUPTED_CODE);
   return new Promise<number>((resolve) => {
     let child: ChildProcess;
+    const shell = launch.shell;
+    // 4ᵉ descripteur : le canal des questions. Tubes nommés sous Windows.
+    const stdio: StdioOptions =
+      shell === undefined
+        ? ["ignore", "pipe", "pipe", "ipc"]
+        : ["ignore", "pipe", "pipe"];
     try {
-      child = spawn(launch.file, launch.args, {
+      // Une ligne du shell part sans arguments : Node les concaténerait à la
+      // ligne sans les échapper (DEP0190).
+      child = spawn(launch.file, shell === undefined ? launch.args : [], {
         cwd: launch.cwd,
         // Le pid du superviseur, pas `1` : un petit-enfant hérite de la
         // variable, et son propre canal IPC (un `fork`) ne mène pas ici.
-        env: { ...launch.env, [DEV_PROMPT_ENV]: String(process.pid) },
-        // 4ᵉ descripteur : le canal des questions. Tubes nommés sous Windows.
-        stdio: ["ignore", "pipe", "pipe", "ipc"],
+        env:
+          shell === undefined
+            ? { ...launch.env, [DEV_PROMPT_ENV]: String(process.pid) }
+            : launch.env,
+        stdio,
+        ...(shell === undefined ? {} : { shell }),
         // POSIX : leader de groupe, pour que `kill(-pid)` emporte les
         // petits-enfants. Windows : rattaché — `taskkill /T` suit la filiation.
         detached: spawnsAsGroupLeader(),
