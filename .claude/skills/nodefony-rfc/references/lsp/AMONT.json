@@ -1,0 +1,29 @@
+{
+  "note": "Language Server Protocol : protocole de base 0.9 (enveloppe, codes d'erreur, $/cancelRequest, $/progress, notifications $/) et la requête workspace/executeCommand de LSP 3.17. Antériorité du canal superviseur ⇄ serveur du terminal de développement (ADR-0013 §6, #538) et des ajouts de JsonRpcPeer (annulation, flux).",
+  "sources": [
+    {
+      "repo": "microsoft/language-server-protocol",
+      "ref": "gh-pages",
+      "site": "https://microsoft.github.io/language-server-protocol",
+      "copies": {
+        "lsp-base-0.9.md": {
+          "path": "_specifications/base/0.9/specification.md",
+          "commit": "f07c6e553135d1143429f35f8ebaed4e7addf4c6",
+          "date": "2026-05-20T07:51:38Z",
+          "blob": "f696d86760d8461b873491f63c577a9b12c8fdaa",
+          "sha256": "8498c421b76f93489437bee41d3ec3f843ab14b2238fd9f36315eea5056fecae"
+        },
+        "lsp-3.17-executeCommand.md": {
+          "path": "_specifications/lsp/3.17/workspace/executeCommand.md",
+          "commit": "5fe013e5c51fe6a3c98f09b3a3878257c8a4bf9d",
+          "date": "2023-09-21T07:26:25Z",
+          "blob": "fed7ee778d1c5a5e0e03007c425bf60b3fee70fd",
+          "sha256": "5475e7a36708a7e625fd5949554289ee3361dcac263f7567d3905a0234f85d09"
+        }
+      }
+    }
+  ],
+  "untracked": {
+    "README.md": "index local de ce dossier, écrit ici — sans amont"
+  }
+}

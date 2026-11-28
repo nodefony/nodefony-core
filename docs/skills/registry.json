@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-24",
+  "generatedAt": "2026-11-28",
   "count": 44,
   "repoScripts": [
     {
@@ -10446,9 +10446,9 @@
     },
     {
       "name": "nodefony-rfc",
-      "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives.",
+      "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG — depuis leurs sources brutes, lues EN ENTIER : un extracteur rend leurs phrases normatives.",
       "family": "Références et livrables",
-      "version": "1.12.0",
+      "version": "1.13.0",
       "keywords": [],
       "triggers": [
         "RFC",
@@ -10490,19 +10490,21 @@
         "strict-dynamic",
         "Trusted Types",
         "frame-ancestors",
-        "MCP Apps"
+        "MCP Apps",
+        "LSP",
+        "annulation JSON-RPC"
       ],
-      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, CSP Level 3, AGENTS.md, Keycloak 26.8, un relevé des terminaux et la dérive amont. Déclencheurs : \"RFC\", \"conformité HTTP\", \"audit de conformité\", \"Cache-Control\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"norme SSE\", \"EventSource\", \"spec MCP\", \"autorisation MCP\", \"resource server OAuth\", \"AGENTS.md\", \"AAIF\", \"quelle taille pour AGENTS.md\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"thème Keycloak\", \"proxy inverse\", \"reverse proxy\", \"en-têtes hop-by-hop\", \"request smuggling\", \"que fait nginx\", \"norme périmée\", \"souris dans le terminal\", \"OSC 52\", \"gRPC\", \"protobuf\", \"A2A\", \"Agent2Agent\", \"CSP\", \"Content-Security-Policy\", \"strict-dynamic\", \"Trusted Types\", \"frame-ancestors\", \"MCP Apps\".",
+      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG — depuis leurs sources brutes, lues EN ENTIER : un extracteur rend leurs phrases normatives. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, LSP, gRPC, CSP 3, AGENTS.md, Keycloak 26.8, un relevé des terminaux et la dérive amont. Déclencheurs : \"RFC\", \"conformité HTTP\", \"audit de conformité\", \"Cache-Control\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"norme SSE\", \"EventSource\", \"spec MCP\", \"autorisation MCP\", \"resource server OAuth\", \"AGENTS.md\", \"AAIF\", \"quelle taille pour AGENTS.md\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"thème Keycloak\", \"proxy inverse\", \"reverse proxy\", \"en-têtes hop-by-hop\", \"request smuggling\", \"que fait nginx\", \"norme périmée\", \"souris dans le terminal\", \"OSC 52\", \"gRPC\", \"protobuf\", \"A2A\", \"Agent2Agent\", \"CSP\", \"Content-Security-Policy\", \"strict-dynamic\", \"Trusted Types\", \"frame-ancestors\", \"MCP Apps\", \"LSP\", \"annulation JSON-RPC\".",
       "cost": {
-        "bodyLines": 390,
-        "approxTokens": 7202
+        "bodyLines": 399,
+        "approxTokens": 7366
       },
       "requires": [
         "docker"
       ],
       "resources": {
         "references": [],
-        "referenceFilesTotal": 289,
+        "referenceFilesTotal": 293,
         "scripts": [
           {
             "path": "scripts/amont-lib.mjs",
@@ -10673,7 +10675,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "390",
+            "detail": "399",
             "advisory": true
           }
         ]

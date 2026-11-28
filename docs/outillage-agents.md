@@ -170,8 +170,8 @@ serait sans effet à la régénération suivante.
     "desc": "Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits, bancs de performance, revues, dashboards figés. Deux moteurs de figures : `lib/report.mjs` (tableaux triables et filtrables, calculateurs interactifs, onglets, export CSV, impression PDF soignée) et…",
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 3 réf" },
   { "icon": "📜", "title": "rfc", "href": "skills/nodefony-rfc.md",
-    "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives.",
-    "meta": "🟢 conforme v1.12.0 · ⚙️ 7 scripts" },
+    "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG — depuis leurs sources brutes, lues EN ENTIER : un extracteur rend leurs phrases normatives.",
+    "meta": "🟢 conforme v1.13.0 · ⚙️ 7 scripts" },
   { "icon": "🗓️", "title": "roadmap", "href": "skills/nodefony-roadmap.md",
     "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : capacités à venir du module socle `@nodefony/ai` (modèles, RAG, mémoire, agents, garde-fous), invariants de design (générique, injectable, streaming natif, validation humaine, mode…",
     "meta": "🟢 conforme v2.1.0" }
