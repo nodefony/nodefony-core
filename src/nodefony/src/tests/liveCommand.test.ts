@@ -13,6 +13,9 @@ import {
   vi,
 } from "vitest";
 import CliKernel from "../kernel/CliKernel";
+import Command from "../command/Command";
+import { createTestModule } from "../testing";
+import type { ICommandResult } from "../command/readState";
 import { liveCommandExecutor } from "../kernel/liveCommand";
 import { buildProjectEnvReport, readEnvState } from "../cli/env";
 import { DEV_CHILD_ENV, NOT_LIVE } from "../service/dev/devChannel";
@@ -43,12 +46,12 @@ const PARAMS = { command: "env", arguments: [], columns: 100 } as const;
 describe("exécuteur de command.execute — le serveur vivant appelle readState()", () => {
   it("commande inconnue, sans readState(), ou qui refuse ces arguments : live: false", async () => {
     const { call } = fakeCall();
-    const unknown = liveCommandExecutor({ getCommand: () => null });
+    const unknown = liveCommandExecutor({ findCommand: () => null });
     assert.deepEqual(await unknown(PARAMS, call), NOT_LIVE);
-    const bare = liveCommandExecutor({ getCommand: () => ({}) });
+    const bare = liveCommandExecutor({ findCommand: () => ({}) });
     assert.deepEqual(await bare(PARAMS, call), NOT_LIVE);
     const refuses = liveCommandExecutor({
-      getCommand: () => ({ readState: async () => null }),
+      findCommand: () => ({ readState: async () => null }),
     });
     assert.deepEqual(await refuses(PARAMS, call), NOT_LIVE);
     const orphan = liveCommandExecutor(null);
@@ -59,7 +62,7 @@ describe("exécuteur de command.execute — le serveur vivant appelle readState(
     const { call, controller, steps, reads } = fakeCall();
     const seen: { args: readonly string[]; ctx: IReadStateContext }[] = [];
     const execute = liveCommandExecutor({
-      getCommand: (name) =>
+      findCommand: (name) =>
         name === "env"
           ? {
               readState: async (args, ctx) => {
@@ -91,6 +94,34 @@ describe("exécuteur de command.execute — le serveur vivant appelle readState(
     assert.equal(reads(), 1);
     assert.equal(ctx.progress({ message: "étape" }), true);
     assert.deepEqual(steps, [{ message: "étape" }]);
+  });
+
+  it("une commande de MODULE se sert en direct : findCommand la trouve, getCommand non", async () => {
+    // Le serveur vivant passe SON CliKernel. Une commande posée par
+    // `Module.addCommand` n'entre que dans `Module.commands` : chercher dans
+    // `cli.commands` seul la renvoyait toujours en sous-processus.
+    class Stats extends Command {
+      constructor(cli: CliKernel) {
+        super("blog:stats", "statistiques", cli);
+      }
+      override async readState(): Promise<ICommandResult> {
+        return { code: 0, parts: [{ text: "3 articles\n" }] };
+      }
+    }
+    const cli = new CliKernel("development");
+    const blog = createTestModule({ name: "blog" });
+    blog.commands["blog:stats"] = new Stats(cli);
+    Object.assign(cli, { kernel: { getModules: () => ({ blog }) } });
+    assert.equal(cli.getCommand("blog:stats"), null);
+    assert.equal(cli.findCommand("constructor"), null);
+    const { call } = fakeCall();
+    assert.deepEqual(
+      await liveCommandExecutor(cli)(
+        { command: "blog:stats", arguments: [], columns: 80 },
+        call,
+      ),
+      { live: true, code: 0, parts: [{ text: "3 articles\n" }] },
+    );
   });
 
   it("les intégrées qui se servent en direct ne sont jamais de cycle de vie", () => {
