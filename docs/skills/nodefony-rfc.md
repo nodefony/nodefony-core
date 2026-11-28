@@ -5,20 +5,20 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-11
+updated: 2026-11-28
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-rfc/SKILL.md"
 ---
 
 # `nodefony-rfc`
 
-> Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives.
+> Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG — depuis leurs sources brutes, lues EN ENTIER : un extracteur rend leurs phrases normatives.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-rfc**
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.12.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.13.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,19 +26,19 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.12.0` |
+| Version | `1.13.0` |
 | Famille | Références et livrables |
-| Corps | 390 lignes |
-| Coût d'activation | ~7 202 tokens (le corps est chargé à l'invocation) |
+| Corps | 399 lignes |
+| Coût d'activation | ~7 366 tokens (le corps est chargé à l'invocation) |
 | Description | 1021 / 1024 caractères |
-| Déclencheurs | 40 |
-| Ressources `references/` | 0 page(s), 289 fichiers au total |
+| Déclencheurs | 42 |
+| Ressources `references/` | 0 page(s), 293 fichiers au total |
 | Scripts | 7 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, CSP Level 3, AGENTS.md, Keycloak 26.8, un relevé des terminaux et la dérive amont.
+Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG — depuis leurs sources brutes, lues EN ENTIER : un extracteur rend leurs phrases normatives. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, LSP, gRPC, CSP 3, AGENTS.md, Keycloak 26.8, un relevé des terminaux et la dérive amont.
 
 ## Prérequis
 
@@ -54,7 +54,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`RFC` · `conformité HTTP` · `audit de conformité` · `Cache-Control` · `norme WebSocket` · `CORS spec` · `RFC 9110/9113/6455/6265` · `SameSite cookies` · `norme SSE` · `EventSource` · `spec MCP` · `autorisation MCP` · `resource server OAuth` · `AGENTS.md` · `AAIF` · `quelle taille pour AGENTS.md` · `dossier .agents` · `Agent Skills` · `quel fichier lit tel agent` · `Keycloak` · `realm` · `thème Keycloak` · `proxy inverse` · `reverse proxy` · `en-têtes hop-by-hop` · `request smuggling` · `que fait nginx` · `norme périmée` · `souris dans le terminal` · `OSC 52` · `gRPC` · `protobuf` · `A2A` · `Agent2Agent` · `CSP` · `Content-Security-Policy` · `strict-dynamic` · `Trusted Types` · `frame-ancestors` · `MCP Apps`
+`RFC` · `conformité HTTP` · `audit de conformité` · `Cache-Control` · `norme WebSocket` · `CORS spec` · `RFC 9110/9113/6455/6265` · `SameSite cookies` · `norme SSE` · `EventSource` · `spec MCP` · `autorisation MCP` · `resource server OAuth` · `AGENTS.md` · `AAIF` · `quelle taille pour AGENTS.md` · `dossier .agents` · `Agent Skills` · `quel fichier lit tel agent` · `Keycloak` · `realm` · `thème Keycloak` · `proxy inverse` · `reverse proxy` · `en-têtes hop-by-hop` · `request smuggling` · `que fait nginx` · `norme périmée` · `souris dans le terminal` · `OSC 52` · `gRPC` · `protobuf` · `A2A` · `Agent2Agent` · `CSP` · `Content-Security-Policy` · `strict-dynamic` · `Trusted Types` · `frame-ancestors` · `MCP Apps` · `LSP` · `annulation JSON-RPC`
 
 ## Ce que contient le corps
 
@@ -125,7 +125,7 @@ node .claude/skills/nodefony-rfc/scripts/normative.mjs references/csp/w3c-csp3.b
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 390 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 399 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -1,12 +1,12 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.12.0
+  version: 1.13.0
 description: >
-  Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis
-  leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives.
-  Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, CSP Level 3, AGENTS.md, Keycloak 26.8, un relevé
-  des terminaux et la dérive amont.
+  Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG — depuis leurs sources
+  brutes, lues EN ENTIER : un extracteur rend leurs phrases normatives. Porte HORS LIGNE MCP
+  2026-07-28, A2A 1.0.1, LSP, gRPC, CSP 3, AGENTS.md, Keycloak 26.8, un relevé des terminaux et la
+  dérive amont.
   Déclencheurs : "RFC", "conformité HTTP", "audit de conformité", "Cache-Control", "norme
   WebSocket", "CORS spec", "RFC 9110/9113/6455/6265", "SameSite cookies", "norme SSE",
   "EventSource", "spec MCP", "autorisation MCP", "resource server OAuth", "AGENTS.md", "AAIF",
@@ -14,7 +14,7 @@ description: >
   "Keycloak", "realm", "thème Keycloak", "proxy inverse", "reverse proxy", "en-têtes hop-by-hop",
   "request smuggling", "que fait nginx", "norme périmée", "souris dans le terminal", "OSC 52",
   "gRPC", "protobuf", "A2A", "Agent2Agent", "CSP", "Content-Security-Policy", "strict-dynamic",
-  "Trusted Types", "frame-ancestors", "MCP Apps".
+  "Trusted Types", "frame-ancestors", "MCP Apps", "LSP", "annulation JSON-RPC".
 ---
 
 # nodefony-rfc
@@ -369,6 +369,15 @@ tranche : §23 du README du corpus ; comment ADR-0025 s'y conforme ou s'en écar
 🔴 **Le cas le plus proche est XEP-0045 (présence d'un SALON), pas RFC 6121 (carnet de
 contacts)** — et SIP / PIDF (RFC 5262, 5263, 6665) porte la mécanique liste complète /
 changements numérotés / resynchronisation. Avant de toucher à la présence, lire les deux.
+
+### 17. LSP — protocole de base 0.9 et `workspace/executeCommand` — **HORS LIGNE**
+
+JSON-RPC 2.0 sur un tube local entre deux pairs SYMÉTRIQUES : l'antériorité la plus proche du canal
+superviseur ⇄ serveur du terminal de développement, et des gestes ajoutés à `JsonRpcPeer`.
+Deux pages figées dans `references/lsp/` (`AMONT.json` par page). **L'index et les faits qui
+décident vivent dans `references/lsp/README.md`** : une requête annulée reçoit QUAND MÊME une
+réponse (`-32800`), le jeton de progression n'est pas l'`id`, une méthode `$/` est ignorable,
+plages de codes réservées. MCP réserve l'annulation au client ; LSP non — c'est ce qui le désigne.
 
 ## Pattern d'usage — lire une norme EN ENTIER
 

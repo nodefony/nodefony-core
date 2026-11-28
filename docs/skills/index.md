@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-11-24
+updated: 2026-11-28
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -130,8 +130,8 @@ source: "docs/skills/index.md"
     "desc": "Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits, bancs de performance, revues, dashboards figés. Deux moteurs de figures : `lib/report.mjs` (tableaux triables et filtrables, calculateurs interactifs, onglets, export CSV, impression PDF soignée) et…",
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 3 réf" },
   { "icon": "📜", "title": "rfc", "href": "nodefony-rfc.md",
-    "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives.",
-    "meta": "🟢 conforme v1.12.0 · ⚙️ 7 scripts" },
+    "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG — depuis leurs sources brutes, lues EN ENTIER : un extracteur rend leurs phrases normatives.",
+    "meta": "🟢 conforme v1.13.0 · ⚙️ 7 scripts" },
   { "icon": "🗓️", "title": "roadmap", "href": "nodefony-roadmap.md",
     "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : capacités à venir du module socle `@nodefony/ai` (modèles, RAG, mémoire, agents, garde-fous), invariants de design (générique, injectable, streaming natif, validation humaine, mode…",
     "meta": "🟢 conforme v2.1.0" }
@@ -222,7 +222,7 @@ source: "docs/skills/index.md"
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 152 | 2 | 16 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.4.0 | 535 | 0 | 2 | ✅ |
-| [`nodefony-rfc`](nodefony-rfc.md) | 1.12.0 | 390 | 0 | 7 | ✅ |
+| [`nodefony-rfc`](nodefony-rfc.md) | 1.13.0 | 399 | 0 | 7 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 122 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 401 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | 1.1.0 | 211 | 1 | 17 | ✅ |

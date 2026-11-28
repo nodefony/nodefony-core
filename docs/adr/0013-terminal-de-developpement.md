@@ -38,6 +38,13 @@ de démarrage de [#533](https://github.com/nodefony/nodefony-core/issues/533). C
 l'[ADR-0004](0004-inference-llm-backend-supervise.md) (inférence orchestrée, jamais embarquée) et
 le [livre blanc de la couche IA](../ia/livre-blanc-couche-ia.md).
 
+**Amendement #538 (lot 3, 2026-11-28) — la voie en direct.** Décisions de l'auteur des 25/11,
+26/11 et 28/11, consignées dans [#538](https://github.com/nodefony/nodefony-core/issues/538) :
+le §6 remplace les trois messages `command-*` de l'amendement #903 par UN membre qui porte des
+trames JSON-RPC 2.0 ; le §7 remplace le routage DÉCLARÉ (`execution`) par un routage CONSTATÉ
+(`readState()` présent ou non) ; deux tables s'enrichissent, « Normes et antériorités » et
+« Alternatives écartées ». Chaque passage est marqué **« Amendement #538 (lot 3) »**.
+
 ## Contexte
 
 `nodefony development` fait tourner **deux processus dans un terminal** : le superviseur (premier
@@ -444,39 +451,256 @@ interface IDevResize {
   coûterait) : elles empruntent les tubes. Un **lot borné à la demande** (`transcript-request` /
   `transcript-batch`, servi par `since(seq)`) reste un membre légitime de l'union, le jour où la
   console d'administration ou un agent lira l'historique par le plan d'administration.
-- ~~**Ni l'invite ni l'assistant n'ajoutent de message**~~ — **Amendement #903 (#538)** :
-  l'assistant n'en ajoute toujours aucun (il parle à l'application par son serveur MCP), mais
-  l'INVITE ajoute une paire requête / résultat et une annulation, pour lire l'état vivant du
-  serveur en mémoire (§7) :
+- ~~**Ni l'invite ni l'assistant n'ajoutent de message**~~ — **Amendement #538 (lot 3) — la
+  voie en direct.** L'assistant n'en ajoute toujours aucun : il parle à l'application par son
+  serveur MCP (§8). L'INVITE en ajoute UN.
+
+**En clair.** Taper `/nodefony env` dans l'invite lance aujourd'hui un second `nodefony` : 1,4 s
+pour démarrer un noyau entier, alors que le serveur qui tourne a déjà la réponse en mémoire. Le
+superviseur va la lui DEMANDER par le tube qui les relie déjà (fd 3) : 0,34 ms. Poser une
+question sur un tube et attendre sa réponse exige un numéro par question, un délai, une façon
+d'abandonner. C'est exactement ce que fait JSON-RPC 2.0, et le cœur possède déjà un pair JSON-RPC
+complet, celui de la socket temps réel (`JsonRpcPeer`). On le réutilise tel quel. On lui apprend
+seulement deux gestes qu'il ne sait pas encore faire, abandonner une question et répondre en
+plusieurs morceaux, sous les noms que LSP leur a déjà donnés. Et il n'y a qu'UNE question
+possible : « exécute cette commande ». Le serveur répond par le résultat, ou par « cette commande
+ne se sert pas en direct ». Dans ce second cas, le superviseur la lance comme avant, en
+sous-processus. Rien n'est perdu quand le serveur est absent, en build ou planté : la voie en
+direct est un raccourci, jamais une dépendance.
 
 ```typescript
-interface IDevCommandRequest {
+interface IDevRpc {
   channel: "nf-dev";
-  type: "command-request";
-  id: number;
-  name: string;
-  args: readonly string[];
-  columns: number;
-} // superviseur → serveur
-interface IDevCommandResult {
-  channel: "nf-dev";
-  type: "command-result";
-  id: number;
-  result: ICommandResult; // borné : au-delà, refus explicite, jamais une troncature muette
-} // serveur → superviseur
-interface IDevCommandCancel {
-  channel: "nf-dev";
-  type: "command-cancel";
-  id: number;
-} // superviseur → serveur
+  type: "rpc";
+  frame: object; // une trame JSON-RPC 2.0 ; sa forme est jugée par le pair, pas par le garde
+} // dans les deux sens
 ```
 
-- Un consommateur UNIQUE côté serveur, aiguillé dans `supervisorLink.ts#SupervisorLink.listen`,
-  installé après `onPostReady`, sous l'identité de l'opérateur local. Un flux (`command-chunk`)
-  ne s'ajoute qu'au second lot, si une commande `live` le demande.
-- Repli par phase : serveur en build ou en démarrage → attente bornée et annulable ; enfant mort
-  → requêtes en vol rejetées ; `crashed` → la voie sous-processus (§7).
-- Les LIGNES du journal ne passent toujours pas par l'IPC : la règle ci-dessus tient.
+Les dix membres existants ne bougent pas. Les trois membres `command-request`, `command-result`
+et `command-cancel` de l'amendement #903 sont **retirés avant d'avoir existé** : corrélation,
+délai, annulation et flux sont le travail d'un pair JSON-RPC, et le cœur en a déjà un.
+
+**Trois couches, comme la socket temps réel** — rien de neuf à écrire sous l'enveloppe :
+
+| Couche    | Socket temps réel                                                    | Canal de développement                                                                        |
+| --------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| transport | `src/nodefony/src/realtime/IRealtimeTransport.ts#IRealtimeTransport` | IPC de Node, fd 3 (`src/nodefony/src/service/dev/DevSupervisor.ts#DevSupervisor.#spawnChild`) |
+| codec     | `src/nodefony/src/realtime/IFrameCodec.ts#IFrameCodec`, négocié      | aucun : l'IPC sérialise (JSON, défaut de Node)                                                |
+| enveloppe | `src/nodefony/src/realtime/JsonRpcPeer.ts#JsonRpcPeer`               | **le même `JsonRpcPeer`**, sortie `IJsonRpcFrameSink.send`                                    |
+
+**Une seule action : `command.execute`.** Le canal est typé par une table, source unique des
+deux côtés (`request` chez le superviseur, `registerCall` chez le serveur), dans
+`src/nodefony/src/service/dev/devChannel.ts` :
+
+```typescript
+/** Les actions que le serveur expose au superviseur — une seule. */
+export type DevActions = {
+  "command.execute": { in: ICommandExecuteParams; out: CommandExecuteResult };
+};
+
+/** Champs de `workspace/executeCommand` (LSP), plus la largeur de l'onglet. */
+export interface ICommandExecuteParams {
+  /** Nom de la commande, tel que le manifeste le connaît (`env`, `inspect`, `security:user:list`). */
+  readonly command: string;
+  /** Arguments déjà découpés (`promptAction.ts#splitPromptLine`), sans le nom de la commande. */
+  readonly arguments: readonly string[];
+  /** Largeur de l'onglet : une part `text` est rendue à cette largeur. */
+  readonly columns: number;
+}
+
+/** `live: false` : la commande ne se sert pas en direct — une DONNÉE, pas une erreur. */
+export type CommandExecuteResult =
+  | { readonly live: false }
+  | {
+      readonly live: true;
+      readonly code: number;
+      readonly parts: readonly RpcPart[];
+    };
+```
+
+- **Pourquoi une méthode générique, et pas une par commande** (`env.report`, `inspect.subject`…,
+  premier projet) : LSP (`workspace/executeCommand` : `command`, `arguments`), MCP (`tools/call` :
+  `name`, `arguments`, réponse en `content[]`) et A2A (des `parts[]`) ont tous la même forme,
+  « une commande et ses arguments → des parts typées ». En la reprenant, chaque porte future (outil
+  MCP, compétence A2A) se traduit champ pour champ. Une méthode par commande obligerait à ajouter
+  une méthode neuve ET une correspondance dans chaque porte, pour chaque commande neuve.
+- **`params` est un objet** : JSON-RPC 2.0 §4.2 exige une valeur STRUCTURÉE (objet ou tableau) ;
+  `"params": "env"` serait une trame invalide.
+- **Les parts** suivent le `Part` d'A2A et le `content` de MCP :
+
+```typescript
+export type RpcPart =
+  | { readonly text: string; readonly mediaType?: string }
+  | { readonly data: unknown; readonly mediaType: string } // une surface qui connaît le type la dessine
+  | {
+      readonly raw: string;
+      readonly mediaType: string;
+      readonly filename?: string;
+    } // réservé (image, #539)
+  | { readonly url: string; readonly mediaType?: string }; // réservé
+```
+
+Une réponse porte **toujours au moins une part `text`** : toute surface sait afficher du texte
+(une porte MCP le recopie en `content`). Une part `data` s'y ajoute quand une surface sait la
+dessiner — `application/vnd.nodefony.env+json` devient un panneau à rubriques dans l'invite.
+Une commande de MODULE ne rend que du texte utile : le superviseur ne charge aucun module, il
+ne saurait pas dessiner sa donnée.
+
+**Sur le fil** — l'enveloppe `{ channel, type: "rpc", frame }` est omise ci-dessous :
+
+```jsonc
+// superviseur → serveur : l'invite a reçu « /nodefony env »
+{ "jsonrpc": "2.0", "id": 1, "method": "command.execute",
+  "params": { "command": "env", "arguments": [], "columns": 120 } }
+// serveur → superviseur
+{ "jsonrpc": "2.0", "id": 1,
+  "result": { "live": true, "code": 0,
+              "parts": [ { "text": "Environnement : development\n…" },
+                         { "data": { "runtimeEnv": "development", "vars": [ /* … */ ] },
+                           "mediaType": "application/vnd.nodefony.env+json" } ] } }
+// une commande sans readState() : le superviseur prend le sous-processus
+{ "jsonrpc": "2.0", "id": 2, "result": { "live": false } }
+```
+
+**Abandonner : `$/cancelRequest`, comme LSP.**
+
+```jsonc
+// Ctrl+C dans l'invite (superviseur → serveur)
+{ "jsonrpc": "2.0", "method": "$/cancelRequest", "params": { "id": 1 } }
+// le serveur répond QUAND MÊME ; l'appelant a déjà rendu la main et ignore cette réponse
+{ "jsonrpc": "2.0", "id": 1, "error": { "code": -32800, "message": "Request cancelled" } }
+```
+
+- **En clair** : l'invite n'attend jamais la réponse à un abandon. Elle rend la main tout de
+  suite. Le serveur, lui, arrête le travail et répond `-32800`, parce que JSON-RPC veut que
+  chaque requête reçoive une réponse. Les deux règles tiennent ensemble.
+- L'APPELANT retire la requête de `pending`, coupe son minuteur, retire son écouteur du `signal`,
+  rejette avec la raison du signal, PUIS émet la notification. Une réponse arrivée après est
+  ignorée, sans audit.
+- Le RÉPONDANT abandonne le `signal` du handler. Si le handler finit quand même, sa valeur est
+  jetée ; la réponse partie est `-32800`. Si la réponse était déjà partie, la notification est
+  ignorée. Un `id` inconnu est ignoré.
+- **Un délai expiré annule aussi**, avec la même notification. Sans elle, un handler dont plus
+  personne n'attend la réponse continuerait de tourner. Vaut sur TOUS les pairs, socket publique
+  comprise.
+- **Un `signal` déjà abandonné** rejette sans rien émettre : la requête n'est jamais partie.
+- **Le pair est symétrique** : chaque côté n'annule que les requêtes qu'IL a émises. Le registre
+  des appels en cours est par pair, donc par connexion.
+
+**Répondre en plusieurs morceaux : `$/progress`, comme LSP.**
+
+```jsonc
+// la requête demande un flux : le jeton voyage dans le champ frère meta
+{ "jsonrpc": "2.0", "id": 7, "method": "command.execute",
+  "params": { "command": "doctor", "arguments": ["--live"], "columns": 120 },
+  "meta": { "progressToken": 7 } }
+// une étape (répondant → appelant)
+{ "jsonrpc": "2.0", "method": "$/progress",
+  "params": { "token": 7, "value": { "progress": 1, "parts": [ { "text": "base : joignable\n" } ] } } }
+```
+
+- **En clair** : la réponse finale arrive comme d'habitude, et des étapes peuvent la précéder.
+  Chaque étape porte le jeton de la requête, pour que l'appelant sache à qui elle appartient.
+- Forme LSP : `{ token, value }`. `value` est notre étape (`progress` strictement croissant,
+  `total?`, `message?`, `parts?`) ; sans `progress`, le pair numérote.
+- Le jeton vit dans le champ frère `meta`, jamais dans `params`. Pourquoi : les `params` du pair
+  sont la charge typée du contrat et peuvent être un tableau. Le champ frère existe déjà pour la
+  réponse (`src/nodefony/src/realtime/JsonRpcPeer.ts#RpcMeta`). Le jeton vaut l'`id` de la
+  requête par défaut : LSP les distingue pour permettre une progression hors requête, sans
+  l'interdire.
+- Les étapes s'arrêtent à la réponse : le pair retire le jeton. Une étape ne repousse pas le délai.
+- `env` et `inspect` ne demandent pas de flux. Il servira à une commande en direct qui en produit,
+  puis à l'assistant (#539).
+
+**Les méthodes `$/` sont interceptées par le pair**, avant `onNotification` : elles n'atteignent
+jamais les écouteurs de l'application, joker compris (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.dispatchNotification`
+transmet aujourd'hui toute notification inconnue). Une REQUÊTE `$/…` reçoit `-32601`, comme LSP
+le prescrit.
+
+**Ce que `JsonRpcPeer` gagne** — additif, rien ne change pour un appel existant :
+
+```typescript
+// troisième argument de request : un nombre reste le délai, comme aujourd'hui
+request(method, params?, options?: number | IRpcRequestOptions);
+interface IRpcRequestOptions {
+  readonly timeoutMs?: number;
+  readonly signal?: AbortSignal; // abandon → $/cancelRequest
+  readonly onProgress?: (value: IRpcProgress) => void; // demande un flux → meta.progressToken
+}
+// un handler qui sait s'interrompre ou émettre un flux
+registerCall(method, (params, call: IRpcCall) => result);
+interface IRpcCall {
+  readonly id: JsonRpcId;
+  readonly signal: AbortSignal; // créé à la première lecture
+  progress(update: IRpcProgressUpdate): boolean; // false : aucun jeton demandé, ou requête close
+}
+```
+
+- `register` ne change pas : son handler ne reçoit que `params`, aucun objet n'est alloué pour lui.
+- Les tables neuves sont paresseuses (`Map | null`) : un pair qui n'utilise ni `registerCall`, ni
+  `signal`, ni `onProgress` paie deux comparaisons à `null` par notification entrante.
+  `RpcCall` est une classe à champs déclarés au constructeur. L'écouteur du `signal` est posé
+  `once` et RETIRÉ à chaque issue. **Non mesuré** : A/B sur le banc de débit de la socket et gate
+  mémoire de `@nodefony/http` AVANT de fusionner.
+- `dispose` abandonne aussi les handlers ENTRANTS en cours. Sur le canal de développement, c'est
+  ce qui arrête un producteur quand le superviseur disparaît.
+- `jsonrpc/index.ts#jsonRpcRequest` gagne un quatrième paramètre facultatif, `meta`. La
+  bibliothèque est partagée avec la porte MCP : additif là aussi.
+
+**Règles du canal**
+
+- **Un pair de chaque côté.** Côté serveur, l'aiguillage vit dans
+  `src/nodefony/src/kernel/supervisorLink.ts#SupervisorLink.listen`, à un seul endroit ; côté
+  superviseur, dans l'écoute de `devChannel.ts#listenToServer`. Le garde
+  `devChannel.ts#isDevChannelMessage` ne vérifie que « `frame` est un objet non nul » : le pair
+  juge le reste (`jsonrpc/index.ts#classifyJsonRpcFrame` — une trame invalide est jetée, jamais
+  répondue).
+- **🔴 La sortie ne relaie PAS la valeur de `send()`.** `subprocess.send()` et `process.send()`
+  rendent `false` sous arriéré alors que le message PART (constaté : 20 envois de 1 Mio, 20
+  `false`, 20 reçus). Or `IJsonRpcFrameSink.send` lit `false` comme « non émis » et rejette la
+  requête. La sortie rend donc `false` seulement quand le canal est fermé (`connected === false`)
+  ou que l'envoi lève.
+- **Un pair par enfant.** Le serveur est relancé à chaque rechargement. Le superviseur crée un
+  pair au lancement de l'enfant et le dispose à sa sortie (`exit` ou `disconnect`) : les
+  requêtes en vol sont rejetées dans l'instant, l'invite n'attend pas son délai. Côté serveur,
+  `command.execute` est posé après `onPostReady`, puis le serveur émet la notification
+  `dev.ready`.
+- **Seules des LECTURES.** Une commande ne se sert en direct que si elle fournit `readState()` (§7),
+  qui ne lit qu'en mémoire. Écrire, générer, changer le cycle de vie : sous-processus.
+- **Identité** : `kernel/adminPlane/adminCaller.ts#localOperatorCaller` — qui tient le
+  superviseur possède déjà le processus. Les secrets restent masqués : le masquage vit dans les
+  producteurs, pas dans la porte.
+- **Crochets** : `beforeDispatch` et `onFrameAudit` absents — le fd 3 n'est hérité que par l'enfant
+  que le superviseur a lancé, et `SupervisorLink.supervised` ferme la porte à un parent étranger.
+  `onError` est posé (vers le journal) : sans lui, un producteur qui lève ne laisserait aucune
+  trace. Mesuré en mémoire : 986 ns par aller-retour sans crochets, 989 ns avec les trois.
+- **Bornes — un refus nommé, jamais une troncature.** Réponse de plus de **1 Mio** de JSON :
+  erreur `-32010` (`"result too large"`, `data: { bytes, max }`), et l'invite nomme la commande
+  CLI équivalente (`nodefony inspect <sujet> --json`). Requête bornée à **64 Kio** par le garde
+  d'entrée. Repères mesurés : `env` 24 à 30 Kio, `inspect routes` 134 Kio (564 routes),
+  `inspect config` 195 Kio.
+- **Délai d'une requête en direct : 5 s**, passé par requête (le défaut du pair, 30 s, est celui
+  d'un réseau).
+- **Sérialisation : JSON, le défaut de Node.** `serialization: "advanced"` gagne 0,2 à 1,7 ms sur
+  certaines réponses et en perd sur d'autres, contre un changement de sémantique pour les dix
+  messages existants. Une trame JSON-RPC est du JSON par définition.
+- **Ce que la voie coûte, mesuré** (IPC JSON, `JsonRpcPeer` des deux côtés, médiane / p95) :
+  `env` 0,34 / 0,54 ms, `routes` 0,94 / 1,34 ms, `config` 2,9 / 3,6 ms — contre 1,4 s, 2,9 s et
+  2,7 s en sous-processus. Le pair n'ajoute rien de mesurable à l'IPC nu (0,058 contre 0,060 ms
+  à 200 o).
+- **Repli par phase** — le superviseur connaît l'état de son enfant, il route sans l'interroger :
+
+| État du serveur, vu du superviseur      | `command.execute`                                                                                                  |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| en build, en démarrage, en rechargement | attente de `dev.ready`, bornée (10 s) et annulable (Ctrl+C) ; passé le délai → sous-processus                      |
+| prêt (`dev.ready` reçu)                 | requête sur le pair ; `live: false` → sous-processus                                                               |
+| meurt pendant la requête                | `dispose` → requête rejetée → sous-processus (une lecture se rejoue sans risque)                                   |
+| `crashed`                               | sous-processus pour `env`, `doctor`, `card` ; `inspect` répond « l'application ne démarre pas — essayez `doctor` » |
+| délai de 5 s expiré                     | `$/cancelRequest` émis ; l'onglet dit que le serveur n'a pas répondu, et la commande part en sous-processus        |
+| réponse refusée pour sa taille          | message qui nomme la commande CLI équivalente ; jamais une réponse amputée                                         |
+
+- Les LIGNES du journal ne passent toujours pas par l'IPC : la règle ci-dessus tient. Le flux
+  du pair porte la sortie d'une COMMANDE, à la demande, jamais le journal du serveur.
 - **Services portés par le superviseur (#692)** : le canal gagne `held-plan` (serveur →
   superviseur, l'état voulu des services d'un propriétaire), `held-plan-ack` et `held-state`
   (superviseur → serveur). Contrat, remparts et branchement d'un backend d'inférence :
@@ -521,31 +745,99 @@ interface IConfirmDecision {
 - **Une commande commence par `/`** (`/help`, `/quit`), à la manière de Claude Code : une saisie
   sans préfixe n'est pas une commande, elle reste libre pour l'assistant (#539), et l'invite le
   dit au lieu de deviner (`src/nodefony/src/service/dev/promptAction.ts#describeUnmatchedInput`).
-- Implémentations : **verbes du superviseur** (`/restart` ou `/reboot`, `/clear`, `/help`, `/quit`
-  ou `/exit` — `src/nodefony/src/service/dev/promptAction.ts#SUPERVISOR_VERBS`) et **commandes
+- Implémentations : **verbes du superviseur** (`/status`, `/restart` ou `/reboot`, `/clear`,
+  `/close` — ferme l'onglet d'une commande finie ou un panneau —, `/help`, `/quit` ou `/exit` —
+  tout arrêter, serveur et superviseur — `src/nodefony/src/service/dev/promptAction.ts#SUPERVISOR_VERBS`) et **commandes
   du CLI** (`nodefony <cmd>` en sous-processus, complétion par `readCliManifest` /
   `computeCompletions`, `src/nodefony/src/cli/completion.ts#readCliManifest` et `src/nodefony/src/cli/completion.ts#computeCompletions`) en #538,
   **lignes du shell** (`!<ligne>`, `src/nodefony/src/service/dev/promptAction.ts#shellLineAction`) en #538 ;
   **assistant** en #539.
 
-**Amendement #903 (#538) — trois voies d'exécution, routées par une capacité DÉCLARÉE.**
-`IPromptAction` et `IPromptIO` ne bougent pas ; ce qui change, c'est la seule phrase « `nodefony
-<cmd>` en sous-processus ». Mesuré : `npx nodefony inspect routes --json` prend 3,1 s (médiane de
-5 runs ; `--version` seul : 0,6 s). Le sous-processus ne peut être que le REPLI.
+**Amendement #538 (lot 3) — trois voies d'exécution, la voie en direct CONSTATÉE.**
+`IPromptAction` et `IPromptIO` ne bougent pas. Mesuré : `npx nodefony inspect routes --json`
+prend 2,9 s, `inspect config --json` 2,7 s, `env --json` 1,4 s (médianes de 5) ; par le canal
+(§6) : 0,94 ms, 2,9 ms, 0,34 ms. Le sous-processus ne peut être que le REPLI.
 
-| Voie                                | Pour                                                                                                          | Comment                                                                                                                        |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| IPC → noyau du serveur (en mémoire) | lectures de l'état vivant : `/routes`, `inspect <sujet>`, puis d'autres par extraction d'un producteur pur    | `command-request` (§6) ; `src/nodefony/src/kernel/inspect/adminSubjects.ts#readAdminSubject` est déjà pur et sérialisable      |
-| Dans le superviseur                 | verbes (`restart`, `clear`, `help`, `quit`, `status` depuis l'état qu'il tient), menu `/nodefony`, complétion | modèle pur du menu `src/nodefony/src/cli/startMenu.ts#buildStartMenu`, rendu en bande (§11) ; complétion sur `readCliManifest` |
-| Sous-processus (repli universel)    | écrit ou génère, long ou lourd, interactif (terminal cédé par `suspend`), serveur absent ou en crash          | tubes vers un canal `run:<n>` ; `AbortSignal` → arbre tué par `devProcess.ts#signalProcessGroup`                               |
+**En clair.** Une commande ne DIT pas où elle doit tourner : on le CONSTATE. Elle sait répondre
+en mémoire si elle a une méthode `readState()`. Le superviseur demande donc toujours d'abord au
+serveur (« exécute `env` »). Si elle a un `readState()` qui accepte ces arguments, la réponse
+revient en une milliseconde. Sinon, le serveur répond « pas en direct », et la commande part en
+sous-processus comme avant. Le « non » coûte un aller-retour (0,06 ms), contre 1,4 à 2,9 s de
+lancement. Seul le REFUS se déclare (`prompt: "refuse"`) : on sait d'avance qu'une commande de
+cycle de vie ne doit jamais partir de l'invite.
 
-- **La voie se déclare** : `execution: "live" | "local" | "process"` dans les options de
-  commande (défaut `process`), publié dans le manifeste des commandes. Le superviseur route sans
-  interroger le serveur, même mort.
-- **Une commande `live` fournit `query(args, ctx) → ICommandResult`** (`{ ok, code, data,
-render? }`, calqué sur le résultat de `inspect`) : ni sortie standard, ni `terminate`, ni
-  `process.exitCode`. Son `generate()` devient `render(await query())` puis `terminate` — la CLI
-  reste identique.
+| Voie                             | Pour                                                                                                                   | Comment                                                                                                                        |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| en direct (noyau du serveur)     | LECTURES de l'état vivant : `env` (pilote), `inspect <sujet>`, puis toute commande qui fournit `readState()`           | `command.execute` sur `JsonRpcPeer` (§6) ; réponse `live: false` → sous-processus                                              |
+| dans le superviseur              | verbes (`status` depuis l'état qu'il tient, `restart`, `clear`, `close`, `help`, `quit`), menu `/nodefony`, complétion | modèle pur du menu `src/nodefony/src/cli/startMenu.ts#buildStartMenu`, rendu en bande (§11) ; complétion sur `readCliManifest` |
+| sous-processus (repli universel) | écrit ou génère, long ou lourd, serveur absent ou en crash, toute commande sans `readState()`                          | tubes vers un onglet `run:<n>` ; `AbortSignal` → arbre tué par `devProcess.ts#signalProcessGroup`                              |
+
+- **Aucun champ `execution` au manifeste.** Le déclarer aurait doublé un fait que le serveur
+  connaît, et l'aurait faussé : la voie dépend des ARGUMENTS, pas de la commande (`env --example`
+  écrit un fichier, `inspect` sans sujet pose une question, `doctor` n'est vivant qu'avec
+  `--live`). C'est `readState()` qui tranche, argument par argument.
+- **Le contrat d'une commande servie en direct** — dans `src/nodefony/src/command/` :
+
+```typescript
+/** Ce qu'une commande rend SANS sortie standard, sans `terminate`, sans `process.exitCode`. */
+export interface ICommandResult {
+  /** Code de sortie : celui que rend la CLI, et que l'invite range dans l'historique. */
+  readonly code: number;
+  /** Au moins une part `text` ; une part `data` s'y ajoute quand une surface sait la dessiner (§6). */
+  readonly parts: readonly RpcPart[];
+}
+
+/** Ce que reçoit `readState()`. */
+export interface IReadStateContext {
+  /** Largeur à laquelle rendre la part `text`. */
+  readonly columns: number;
+  /** Abandonné par Ctrl+C dans l'invite (`$/cancelRequest`), ou quand le superviseur disparaît. */
+  readonly signal: AbortSignal;
+  /** Émet une étape (`$/progress`) ; sans flux demandé par l'appelant, ne fait rien. */
+  progress(update: IRpcProgressUpdate): boolean;
+}
+
+// Sur `Command`, FACULTATIF. `null` : pas en direct pour CES arguments.
+readState?(args: readonly string[], ctx: IReadStateContext): Promise<ICommandResult | null>;
+```
+
+- **Un producteur, plusieurs surfaces.** Une commande à `readState()` n'a pas deux implémentations.
+  Son `generate()` appelle `readState()` (largeur du terminal), écrit les parts `text`, pose le code
+  de sortie, puis `terminate`. La CLI et l'invite ne peuvent donc pas rendre deux verdicts pour
+  la même donnée. La CLI reste autonome : `nodefony env` répond quand l'application ne démarre
+  pas, le direct est une seconde voie vers le même producteur.
+
+| Surface                  | Transport                        | Ce qui appelle `readState()`      |
+| ------------------------ | -------------------------------- | --------------------------------- |
+| CLI, texte               | aucun — même processus           | `generate()`                      |
+| invite, en direct        | `JsonRpcPeer` sur l'IPC (§6)     | `command.execute` dans le serveur |
+| invite, repli            | sous-processus, tubes            | la CLI elle-même                  |
+| porte MCP, plus tard A2A | leur protocole, traduit en parts | le même `readState()`             |
+
+- **Pourquoi ce nom.** La voie se constate à la PRÉSENCE de la méthode : un nom court et courant
+  ferait appeler, dans le serveur vivant, une méthode écrite pour autre chose. Constaté au code :
+  les commandes de migration de Drizzle ont déjà `report()` et `respond()`
+  (`src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts`). `readState` dit le contrat
+  — LIRE l'état de l'application, vivant dans le serveur ou sur le disque depuis le shell — sans
+  évoquer une base de données, comme le ferait `query`, ni un transport, comme `ipcQuery`.
+  TypeScript strict signale encore une méthode homonyme incompatible avec la signature de la
+  classe de base.
+- **`readState()` ne fait que LIRE.** « Lecture seule » ne se prouve pas par un test : c'est une
+  convention, écrite dans le TSDoc de `readState`. Ce qui se prouve : sortie standard intacte,
+  `process.exitCode` et `kernel.command` inchangés, `terminate` jamais appelé, résultat
+  sérialisable et sous la borne de 1 Mio, et `generate()` qui imprime exactement les parts
+  `text` de `readState()`.
+- **`env` en direct rend ce que le SERVEUR a lu**, pas le disque d'aujourd'hui — c'est tout son
+  intérêt : `DevSupervisor.ts#isIgnoredWatchPath` ignore les fichiers non `.ts`, donc modifier
+  `.env` ne relance rien, et le serveur garde en silence ce qu'il a lu au démarrage. Le
+  producteur pur `src/nodefony/src/cli/envReport.ts#buildEnvReport` reçoit le `process.env` du
+  serveur. `src/nodefony/src/cli/env.ts#buildProjectEnvReport` ne convient pas tel quel : il
+  relit l'environnement sur le disque (`appEnvironment(root)`).
+- **Le gabarit de commande** (`nodefony create command`,
+  `src/nodefony/templates/command/nodefony/command/__NAME__.ts.tpl`) ne pose PAS de `readState()`
+  par défaut : une commande générée qui écrit tournerait dans le serveur vivant. La variante
+  `readState` en lecture seule se demande explicitement au générateur, et le banc devkit la compile
+  (`nodefony-devkit-bench`).
 - **Jamais `Command.generate()` dans le serveur vivant.** Les bloqueurs sont ceux du CADRE, pas
   du calcul : `terminate()` tuerait le serveur (`src/nodefony/src/kernel/commands/InspectCommand.ts#Inspect.generate`),
   `process.exitCode` est global, `kernel.command` est écrasé (`src/nodefony/src/command/Command.ts#Command.run`),
@@ -555,8 +847,9 @@ render? }`, calqué sur le résultat de `inspect`) : ni sortie standard, ni `ter
   des modules (`src/nodefony/src/kernel/commands/DevCommand.ts#Dev.onKernelStart`) — ni modules,
   ni conteneur.
 - **Le cycle de vie n'est jamais lancé depuis l'invite** (`development`, `stop`, `production`…) :
-  il tuerait le superviseur ou son serveur. Le refus nomme le verbe équivalent ; la liste dérive
-  de la déclaration des commandes, jamais d'une liste écrite à la main.
+  il tuerait le superviseur ou son serveur. Le refus nomme le verbe équivalent ; il se déclare
+  sur la commande (`prompt: "refuse"`, publié au manifeste), jamais dans une liste écrite à la
+  main — gate `src/nodefony/src/tests/promptRefusal.test.ts`.
 - **La complétion s'affiche en bande** (§11), pas par une bibliothèque d'invite
   qui prendrait l'entrée et la sortie standard.
 - **Une question prend la place de la ligne d'édition de son onglet** (lot 2b-2) — celle d'une
@@ -908,27 +1201,48 @@ appris à leurs dépens. Relevé hors ligne : skill `nodefony-rfc`, `references/
 | **Claude Code sous Windows Terminal (ConPTY)**                            | repeinte complète, les écritures positionnées y laissant des fragments | — (repris tel quel, §2)                                                         |
 | **string-width**                                                          | préfixe ASCII compté sans segmenteur, un seul `Intl.Segmenter`         | aucune dépendance : la règle est reprise dans `textWidth.ts`                    |
 
+**Amendement #538 (lot 3) — le canal superviseur ⇄ serveur.** Il ne s'agit pas de MCP : l'enveloppe
+est JSON-RPC 2.0, portée par notre `JsonRpcPeer`. LSP est l'antériorité la plus proche (JSON-RPC sur
+un tube local, deux pairs symétriques) ; MCP et A2A ne fournissent que des formes de contenu.
+
+| Source                                                                                     | Ce que l'ADR reprend                                                                                                                                                        | Où il s'écarte, et pourquoi                                                                                                                                            |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **JSON-RPC 2.0** (§4 requête, §4.1 notification, §4.2 paramètres, §5 réponse, §5.1 erreur) | l'enveloppe : corrélation par `id`, notification sans `id`, une réponse par requête, `params` structuré, codes `-32601` / `-32603`, plage `-32000` à `-32099` pour `-32010` | pas de lot : le pair classe un tableau `invalid`, comme sur la socket. Le préfixe réservé de la norme est `rpc.` ; `$/` vient de LSP                                   |
+| **LSP 3.17 — `$/cancelRequest`** (base protocol, « Cancellation Support »)                 | la notification `{ id }`, et « A request that got canceled still needs to return from the server and send a response back », avec `RequestCancelled` (`-32800`)             | l'appelant n'attend pas cette réponse : il a déjà rejeté, il l'ignore                                                                                                  |
+| **LSP 3.17 — `$/progress`** (« Progress Support »)                                         | `{ token, value }`, jeton entier ou chaîne, valide jusqu'à la réponse                                                                                                       | le jeton voyage dans le champ frère `meta`, pas dans `params` (`workDoneToken`) ; il vaut l'`id` par défaut, là où LSP les distingue pour une progression hors requête |
+| **LSP 3.17 — `$/` notifications**                                                          | « free to ignore the notification » ; une REQUÊTE `$/…` reçoit `-32601`                                                                                                     | interceptées par le pair : elles n'atteignent jamais les écouteurs de l'application                                                                                    |
+| **LSP 3.17 — `workspace/executeCommand`**                                                  | une méthode générique, `{ command, arguments }`                                                                                                                             | `columns` en plus ; la réponse est en parts typées, pas une valeur libre                                                                                               |
+| **MCP 2026-07-28 — `tools/call`**                                                          | `name` + `arguments` → `content[]` typé ; une part `text` toujours présente                                                                                                 | — (une porte MCP traduit `command.execute` champ pour champ)                                                                                                           |
+| **MCP 2026-07-28 — délais** (`spec/basic/patterns/cancellation.mdx`)                       | délai configurable par requête ; un délai expiré annule la requête ; une progression ne repousse pas le délai                                                               | les NOMS de MCP (`notifications/cancelled`, `notifications/progress`) ne sont pas repris : MCP réserve l'annulation au client, notre pair est symétrique               |
+| **A2A 1.0.1 — `Part`** (`a2a.proto`)                                                       | le contenu typé : `text`, `data` (valeur JSON), `raw` (octets en base64), `url`, avec `mediaType`                                                                           | seuls `text` et `data` sont émis ; `raw` et `url` sont réservés (image, #539). Ni tâche ni message A2A : le canal n'emprunte que la part                               |
+| **IPC de Node** (`child_process`, option `serialization`)                                  | `"json"`, le défaut                                                                                                                                                         | `"advanced"` mesuré et écarté (§6) ; la valeur de retour de `send()` n'est pas un accusé d'émission (constaté, §6)                                                     |
+
 ## Alternatives écartées
 
-| Alternative                                         | Pourquoi non                                                                                                                                                                                                                                                                                                                                                  |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Zone de défilement `DECSTBM` sur l'écran PRINCIPAL  | historique vidé, non tenue par Windows Terminal, terminal cassé au `kill -9` (essayé en #533). Amendement #903 : l'objection tient pour l'écran principal (`inline`) ; en plein écran, l'écran alternatif n'a pas d'historique, `DECSTBM` y borne la région du journal pour `SU` (§9)                                                                         |
-| Un seul historique filtré par source                | `seq` contigus perdus, défilement et sélection uniques : deux vues ne défileraient pas indépendamment ; et un producteur neuf rouvrirait l'union des sources (§3)                                                                                                                                                                                             |
-| Un arbre générique de mise en page                  | une liste plate de régions suffit tant que les volets sont peu nombreux ; un arbre s'ajoutera sans changer les contrats de vue et de bande                                                                                                                                                                                                                    |
-| Un diff par cellule d'emblée                        | gardé seulement s'il gagne en A/B : le diff par segment comparé par identité peut suffire, à moindre coût mémoire                                                                                                                                                                                                                                             |
-| `Command.generate()` dans le serveur vivant         | `terminate()`, `process.exitCode`, `process.stdout`, `process.argv` et `kernel.command` partagés : la commande tuerait ou polluerait le serveur (§7)                                                                                                                                                                                                          |
-| L'invite par `POST /nodefony/mcp`                   | URL, TLS, jeton et pipeline HTTP pour une lecture locale ; c'est la voie de l'assistant, pas de l'invite                                                                                                                                                                                                                                                      |
-| Un worker de rendu d'emblée                         | une frontière de copie pour un rendu borné qui tient peut-être sur la boucle : seulement si le banc de #896 le montre                                                                                                                                                                                                                                         |
-| Invite dans le serveur                              | suspendu par `SIGTTIN` (groupe détaché)                                                                                                                                                                                                                                                                                                                       |
-| Sonde par DECRQM du mode 1049                       | extension que des terminaux capables d'écran alternatif n'implémentent pas : le plein écran ne s'allumerait jamais chez eux                                                                                                                                                                                                                                   |
-| `node-pty`                                          | dépendance native, compilée par plateforme — non justifiée pour relayer des tubes                                                                                                                                                                                                                                                                             |
-| Ink / blessed                                       | Ink embarque React ; blessed n'est plus maintenu ; quelques centaines de lignes maîtrisées valent mieux qu'une dépendance d'exécution                                                                                                                                                                                                                         |
-| `node:readline` pour la saisie                      | ne décode ni la molette ni le collage entre crochets ; suppose un flux de sortie à lui                                                                                                                                                                                                                                                                        |
-| L'historique comme instance de `Syslog` (des `Pdu`) | l'écran porte la sortie BRUTE du serveur — journal formaté, `console.log`, pile d'un crash, bilan — qui n'a ni sévérité ni module ; la limitation de débit de `Syslog` jetterait une partie d'une rafale ; et le superviseur n'a pas de `Syslog`. Les journaux structurés restent dans `Syslog`, lus par le plan d'administration ; seul l'anneau est partagé |
-| Un type `IStatusView` dédié à la barre              | `IStartupView` est déjà plat et sérialisable : un second type dériverait                                                                                                                                                                                                                                                                                      |
-| `confirm` booléen                                   | perd qui a décidé, quand, et le refus motivé que l'elicitation MCP distingue de l'annulation ; changer la signature après #538 rouvrirait chaque action                                                                                                                                                                                                       |
-| Une boucle d'agent écrite dans le superviseur       | second moteur d'agent à côté de `@nodefony/agent`                                                                                                                                                                                                                                                                                                             |
-| Une ligne de journal par message IPC                | un JSON par ligne, quand un tube relaie les octets sans coût                                                                                                                                                                                                                                                                                                  |
+| Alternative                                                           | Pourquoi non                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Zone de défilement `DECSTBM` sur l'écran PRINCIPAL                    | historique vidé, non tenue par Windows Terminal, terminal cassé au `kill -9` (essayé en #533). Amendement #903 : l'objection tient pour l'écran principal (`inline`) ; en plein écran, l'écran alternatif n'a pas d'historique, `DECSTBM` y borne la région du journal pour `SU` (§9)                                                                         |
+| Un seul historique filtré par source                                  | `seq` contigus perdus, défilement et sélection uniques : deux vues ne défileraient pas indépendamment ; et un producteur neuf rouvrirait l'union des sources (§3)                                                                                                                                                                                             |
+| Un arbre générique de mise en page                                    | une liste plate de régions suffit tant que les volets sont peu nombreux ; un arbre s'ajoutera sans changer les contrats de vue et de bande                                                                                                                                                                                                                    |
+| Un diff par cellule d'emblée                                          | gardé seulement s'il gagne en A/B : le diff par segment comparé par identité peut suffire, à moindre coût mémoire                                                                                                                                                                                                                                             |
+| `Command.generate()` dans le serveur vivant                           | `terminate()`, `process.exitCode`, `process.stdout`, `process.argv` et `kernel.command` partagés : la commande tuerait ou polluerait le serveur (§7)                                                                                                                                                                                                          |
+| Une méthode par commande (`env.report`, `inspect.subject`)            | chaque commande neuve exigerait une méthode neuve ET sa correspondance dans chaque porte (MCP, A2A) ; LSP, MCP et A2A partagent la forme « commande + arguments → parts », que `command.execute` reprend (§6)                                                                                                                                                 |
+| Les messages `command-request` / `command-result` / `command-cancel`  | réécrire à côté du pair JSON-RPC du cœur la corrélation, le délai, l'annulation et le flux qu'il porte déjà ; deux implémentations divergeraient (§6)                                                                                                                                                                                                         |
+| Un champ `execution: "live" \| "local" \| "process"` déclaré          | double un fait que le serveur constate, et le fausse : la voie dépend des arguments (`env --example` écrit) ; `local` ne décrit aucune commande du CLI (§7)                                                                                                                                                                                                   |
+| Les noms de MCP (`notifications/cancelled`, `notifications/progress`) | MCP réserve l'annulation au client ; un pair symétrique sur un tube local, c'est LSP                                                                                                                                                                                                                                                                          |
+| Un pair JSON-RPC propre au canal de développement                     | une seconde copie de `JsonRpcPeer` ; l'annulation et le flux s'ajoutent AU pair, et la socket publique en profite (un `request` abandonné arrête le handler du serveur)                                                                                                                                                                                       |
+| L'invite par `POST /nodefony/mcp`                                     | URL, TLS, jeton et pipeline HTTP pour une lecture locale ; c'est la voie de l'assistant, pas de l'invite                                                                                                                                                                                                                                                      |
+| Un worker de rendu d'emblée                                           | une frontière de copie pour un rendu borné qui tient peut-être sur la boucle : seulement si le banc de #896 le montre                                                                                                                                                                                                                                         |
+| Invite dans le serveur                                                | suspendu par `SIGTTIN` (groupe détaché)                                                                                                                                                                                                                                                                                                                       |
+| Sonde par DECRQM du mode 1049                                         | extension que des terminaux capables d'écran alternatif n'implémentent pas : le plein écran ne s'allumerait jamais chez eux                                                                                                                                                                                                                                   |
+| `node-pty`                                                            | dépendance native, compilée par plateforme — non justifiée pour relayer des tubes                                                                                                                                                                                                                                                                             |
+| Ink / blessed                                                         | Ink embarque React ; blessed n'est plus maintenu ; quelques centaines de lignes maîtrisées valent mieux qu'une dépendance d'exécution                                                                                                                                                                                                                         |
+| `node:readline` pour la saisie                                        | ne décode ni la molette ni le collage entre crochets ; suppose un flux de sortie à lui                                                                                                                                                                                                                                                                        |
+| L'historique comme instance de `Syslog` (des `Pdu`)                   | l'écran porte la sortie BRUTE du serveur — journal formaté, `console.log`, pile d'un crash, bilan — qui n'a ni sévérité ni module ; la limitation de débit de `Syslog` jetterait une partie d'une rafale ; et le superviseur n'a pas de `Syslog`. Les journaux structurés restent dans `Syslog`, lus par le plan d'administration ; seul l'anneau est partagé |
+| Un type `IStatusView` dédié à la barre                                | `IStartupView` est déjà plat et sérialisable : un second type dériverait                                                                                                                                                                                                                                                                                      |
+| `confirm` booléen                                                     | perd qui a décidé, quand, et le refus motivé que l'elicitation MCP distingue de l'annulation ; changer la signature après #538 rouvrirait chaque action                                                                                                                                                                                                       |
+| Une boucle d'agent écrite dans le superviseur                         | second moteur d'agent à côté de `@nodefony/agent`                                                                                                                                                                                                                                                                                                             |
+| Une ligne de journal par message IPC                                  | un JSON par ligne, quand un tube relaie les octets sans coût                                                                                                                                                                                                                                                                                                  |
 
 ## Pour aller plus loin
 
