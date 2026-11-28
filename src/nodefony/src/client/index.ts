@@ -89,6 +89,13 @@ export type { Severity, SeverityName } from "../syslog/Pdu";
 export type {
   IRealtimePeer,
   RpcActionHandler,
+  RpcCallHandler,
+  TypedRpcCallHandler,
+  IRpcCall,
+  IRpcRequestOptions,
+  IRpcProgress,
+  IRpcProgressUpdate,
+  RpcPart,
   RpcNotificationHandler,
   JsonRpcErrorObject,
   JsonRpcPeerOptions,
@@ -99,9 +106,12 @@ export type {
 // Briques JSON-RPC 2.0 partagées avec le serveur (`jsonrpc/`) : un client qui
 // lit un code d'erreur le compare à la MÊME constante que le serveur émet.
 export {
+  JSON_RPC_CANCEL_REQUEST,
+  JSON_RPC_PROGRESS,
   JSON_RPC_VERSION,
   JsonRpcError,
   JsonRpcServerError,
+  JsonRpcBaseProtocolError,
   classifyJsonRpcFrame,
   isJsonRpcId,
   isJsonRpcErrorObject,

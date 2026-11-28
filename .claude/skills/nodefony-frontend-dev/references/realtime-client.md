@@ -187,7 +187,7 @@ Convention de **cadence dans le nom du canal** (`channelRate.ts`) : `base` nu = 
 ```ts
 // Trois surcharges (NodefonySocket.ts#NodefonySocket) :
 request<T>(path: `/${string}`, timeoutMs?): Promise<T>;          // forme PATH → pont api.request (lecture GET)
-request<K, T>(method: K, params?, timeoutMs?): Promise<…>;       // forme RPC — K = NOM de la méthode, T = résultat
+request<K, T>(method: K, params?, options?): Promise<…>;         // forme RPC — K = NOM de la méthode, T = résultat ; options = délai (ms) ou { timeoutMs, signal, onProgress } — signal abandonné = $/cancelRequest au serveur
 request<K extends ActionNames<Actions>>(method: K, params?, …);  // contrat IRealtimePeer rendu explicite
 ```
 
