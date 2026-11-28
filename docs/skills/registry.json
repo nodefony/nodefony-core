@@ -5498,6 +5498,10 @@
                 "help": ""
               },
               {
+                "flag": "--read-state",
+                "help": ""
+              },
+              {
                 "flag": "--repack",
                 "help": ""
               },

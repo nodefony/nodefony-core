@@ -1032,6 +1032,18 @@ const COMMAND_SPEC: IScaffoldTypeSpec = {
       default: "",
       advanced: true,
     },
+    {
+      // Servie EN DIRECT par le serveur de développement (`readState`, ADR-0013
+      // §7) : une LECTURE de l'état vivant, sans sous-processus. Jamais par
+      // défaut — une commande générée qui ÉCRIT tournerait alors dans le
+      // serveur que l'on développe. On la demande, on ne la reçoit pas.
+      key: "readState",
+      label:
+        "Lecture seule servie en direct dans l'invite de `nodefony development`",
+      type: "boolean",
+      default: false,
+      advanced: true,
+    },
   ],
 };
 

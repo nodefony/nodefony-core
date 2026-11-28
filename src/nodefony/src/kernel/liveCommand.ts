@@ -11,11 +11,12 @@ import type { IRpcCall } from "../realtime/JsonRpcPeer";
 import type { LiveCommandExecutor } from "./supervisorLink";
 
 /**
- * Ce que l'exécuteur touche du CLI — `Cli.getCommand` le satisfait : d'une
+ * Ce que l'exécuteur touche du CLI — `CliKernel.findCommand` le satisfait :
+ * intégrées ET commandes de module, que `Cli.getCommand` ne voit pas. D'une
  * commande, il ne lit que `readState`.
  */
 export interface ICommandLookup {
-  getCommand(name: string): Pick<Command, "readState"> | null;
+  findCommand(name: string): Pick<Command, "readState"> | null;
 }
 
 /** Le contexte d'un `readState()` servi par un appel du pair. */
@@ -47,7 +48,7 @@ export function liveCommandExecutor(
   cli: ICommandLookup | null,
 ): LiveCommandExecutor {
   return async (params, call) => {
-    const command = cli?.getCommand(params.command);
+    const command = cli?.findCommand(params.command);
     if (command?.readState === undefined) return NOT_LIVE;
     const result = await command.readState(
       params.arguments,

@@ -964,9 +964,9 @@ class CliKernel extends Cli {
     const owner: Record<string, string> = {};
     const modules = this.kernel?.getModules() ?? {};
     for (const name in modules) {
-      const cmds = (modules[name] as { commands?: Record<string, unknown> })
-        .commands;
-      for (const cn in cmds ?? {}) owner[cn] = name;
+      const mod = modules[name];
+      if (!(mod instanceof Module)) continue;
+      for (const cn in mod.commands) owner[cn] = name;
     }
 
     const commands: IHelpCommand[] = (c?.commands ?? [])
@@ -1099,6 +1099,32 @@ class CliKernel extends Cli {
     const command = new cliCommand(this);
     this.commands[command.name] = command;
     return command;
+  }
+
+  /**
+   * La commande de ce nom, intégrée OU posée par un module.
+   *
+   * {@link Cli.getCommand} ne voit que les intégrées : une commande de module
+   * (`Module.addCommand`) vit dans `Module.commands` et dans commander, dans
+   * aucun registre du CLI. Qui doit la retrouver par son nom — le serveur
+   * vivant qui la sert en direct (`liveCommand.ts#liveCommandExecutor`) —
+   * passe par ici.
+   *
+   * @param name - nom complet (`blog:stats`).
+   * @returns la commande, ou `null` si aucun module chargé ne la porte.
+   */
+  public findCommand(name: string): Command | null {
+    const builtin = this.getCommand(name);
+    if (builtin !== null) return builtin;
+    const modules = this.kernel?.getModules() ?? {};
+    for (const key in modules) {
+      const mod = modules[key];
+      // `hasOwn` : `commands` est un objet littéral, `constructor` y répondrait.
+      if (mod instanceof Module && Object.hasOwn(mod.commands, name)) {
+        return mod.commands[name] ?? null;
+      }
+    }
+    return null;
   }
 
   /**

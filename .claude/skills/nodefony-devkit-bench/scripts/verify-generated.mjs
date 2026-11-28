@@ -280,6 +280,15 @@ const SERVICE_METHOD = "bilan";
 const INJECTED_SERVICE = "Facture";
 const COMMAND_ACTION = "sync";
 const COMMAND_CLASS = "SyncCommand";
+/**
+ * La variante SERVIE EN DIRECT (`create command --read-state`) : son
+ * `readState()` sort d'un bloc conditionnel du gabarit, que seules les
+ * assertions de chaînes du dépôt lisent. Ici elle est compilée, lintée et
+ * exécutée — avec `--service`, la branche la plus riche (service lu DANS le
+ * producteur partagé).
+ */
+const LIVE_ACTION = "stats";
+const LIVE_CLASS = "StatsCommand";
 
 /**
  * Nom complet de la commande générée (`<module>:<action>`), DÉRIVÉ du `super(…)`
@@ -1065,6 +1074,33 @@ step(
       `${SERVICE}Service`,
       "--yes",
     ]);
+
+    // La variante EN DIRECT, sur le même service : jamais posée par défaut
+    // (ADR-0013 §7), demandée ici explicitement.
+    run(process.execPath, [
+      BIN,
+      "create",
+      "command",
+      LIVE_ACTION,
+      "--service",
+      `${SERVICE}Service`,
+      "--read-state",
+      "--yes",
+    ]);
+    const live = readFileSync(
+      path.join(APP, "nodefony", "command", `${LIVE_CLASS}.ts`),
+      "utf8",
+    );
+    if (!live.includes("override async readState(")) {
+      throw new Error(
+        "--read-state n'a pas posé readState() — la variante en direct n'existe pas",
+      );
+    }
+    if (!live.includes(`.${SERVICE_METHOD}(`)) {
+      throw new Error(
+        `la commande en direct n'appelle pas « ${SERVICE_METHOD}() »`,
+      );
+    }
 
     // Un SECOND service, injecté par le premier. Le geste que le banc de
     // découvrabilité a mesuré ROUGE : sans exemple ACTIF, l'agent passe
@@ -1875,6 +1911,23 @@ step(
       throw new Error(
         `${commandFullName} n'a rendu aucun JSON — service « ${SERVICE.toLowerCase()} » ` +
           "absent du conteneur, ou commande non atteignable (elle sort 0 en le journalisant)",
+      );
+    }
+    // La variante en direct, par la CLI : `generate` imprime les parts du
+    // producteur partagé. Elle sort NON NUL si le service manque (69) — `run`
+    // lève alors —, et sa sortie standard est le JSON SEUL, parsable.
+    const liveName = commandFullName.replace(/:[^:]+$/u, `:${LIVE_ACTION}`);
+    const liveOut = run(process.execPath, [BIN, liveName, "-j"]).trim();
+    const lastLine = liveOut.split("\n").at(-1) ?? "";
+    let parsed = null;
+    try {
+      parsed = JSON.parse(lastLine);
+    } catch {
+      // rendu plus bas
+    }
+    if (parsed === null || typeof parsed.message !== "string") {
+      throw new Error(
+        `${liveName} -j n'a pas rendu le JSON du producteur — dernière ligne : ${lastLine}`,
       );
     }
   },

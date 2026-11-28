@@ -11789,6 +11789,32 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    it("--read-state pose la voie EN DIRECT ; sans lui, aucune readState()", () => {
+      // Jamais par défaut (ADR-0013 §7) : une commande générée qui ÉCRIT
+      // tournerait dans le serveur vivant. La compilation de la variante est
+      // l'affaire du banc de vérité ; ici, la porte s'ouvre et se ferme.
+      const dest = appWithModule("cmdlive");
+      const lire = (r: { dest: string }, classe: string) =>
+        readFileSync(
+          path.join(r.dest, "nodefony", "command", `${classe}.ts`),
+          "utf8",
+        );
+      const live = command(dest, {
+        name: "stats",
+        module: "@cmdlive/blog",
+        readState: true,
+      });
+      const src = lire(live, "StatsCommand");
+      assert.include(src, "override async readState(");
+      // UN producteur : la CLI et l'invite appellent le même.
+      assert.include(src, "await this.produce(who, opts.json === true)");
+      assert.include(src, "return this.produce(parsed.positionals[0]");
+      assert.include(live.notes?.join("\n") ?? "", "servie EN DIRECT");
+      const plain = command(dest, { name: "publish", module: "@cmdlive/blog" });
+      assert.notInclude(lire(plain, "PublishCommand"), "readState");
+      assert.include(plain.notes?.join("\n") ?? "", "--read-state");
+    });
+
     it("--service : appelle le service par sa CLÉ, et refuse s'il n'y en a pas", () => {
       const dest = appWithModule("cmdsvc");
       const r = command(dest, {

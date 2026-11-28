@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-16
+updated: 2026-11-28
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
@@ -108,7 +108,7 @@ script, donc toujours à jour après régénération.
 | `scripts/reinit-decor.selftest.mjs` | Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un agent pour s'en apercevoir. | `--allow-empty` `--format` | — |
 | `scripts/selftests.mjs` | Lance TOUS les contrôles internes du banc, et rend un verdict unique. | `--prove` `--sans` `--staged` | — |
 | `scripts/suivre-run.mjs` | Suit un run du banc PENDANT qu'il se joue, au lieu d'attendre son rapport. | `--depuis` `--session` `--timeline` `--tout` | `NF_DEVKIT_BENCH_AGENT` |
-| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--admin` `--app` `--auth` `--ca` `--config` `--connector` `--controller` `--database` `--demo` `--deny-warnings` `--detach` `--dialect` `--drop-accounts` `--entity` `--env` `--exact` `--force` `--format` `--from-database` `--frontend` `--index` `--inject` `--input-type` `--issuer` `--json` `--jwt-keyset` `--keep` `--kind` `--link` `--module` `--name` `--no` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-install` `--no-tests` `--nom` `--out` `--password` `--preset` `--profile` `--repack` `--resource` `--role` `--scope` `--service` `--ttl` `--unique` `--use-system-ca` `--username` `--wait` `--workspace` `--workspaces` `--write` `--yes` | `NF_DEVKIT_REQUIRE_DOCKER` |
+| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--admin` `--app` `--auth` `--ca` `--config` `--connector` `--controller` `--database` `--demo` `--deny-warnings` `--detach` `--dialect` `--drop-accounts` `--entity` `--env` `--exact` `--force` `--format` `--from-database` `--frontend` `--index` `--inject` `--input-type` `--issuer` `--json` `--jwt-keyset` `--keep` `--kind` `--link` `--module` `--name` `--no` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-install` `--no-tests` `--nom` `--out` `--password` `--preset` `--profile` `--read-state` `--repack` `--resource` `--role` `--scope` `--service` `--ttl` `--unique` `--use-system-ca` `--username` `--wait` `--workspace` `--workspaces` `--write` `--yes` | `NF_DEVKIT_REQUIRE_DOCKER` |
 | `scripts/verify-runtime.mjs` | Banc de CONFORMITÉ de l'application générée — « ce qui a été câblé tient-il les promesses du framework ? » | `--config` `--etage` `--keep` `--link` `--reporter` | — |
 
 **Invocation telle que documentée dans chaque script :**

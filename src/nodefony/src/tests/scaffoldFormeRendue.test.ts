@@ -72,9 +72,19 @@ const FORMATABLES = /\.(ts|tsx|js|mjs|cjs|jsx|json|md|css|scss|html|ya?ml)$/;
  * complète par cas — la conformité de son rendu se constate au banc du
  * générateur, qui installe pour de bon.
  */
-const TYPES: ReadonlyArray<{ type: string; nom: string }> = [
+const TYPES: ReadonlyArray<{
+  type: string;
+  nom: string;
+  /** Une VARIANTE du gabarit : un bloc conditionnel a sa propre forme. */
+  variante?: Record<string, boolean>;
+}> = [
   { type: "service", nom: "FacturationRecurrenteAutomatique" },
   { type: "command", nom: "facturation:relance:quotidienne" },
+  {
+    type: "command",
+    nom: "facturation:releve:quotidien",
+    variante: { readState: true },
+  },
   { type: "controller", nom: "FacturationRecurrenteAutomatique" },
 ];
 
@@ -188,10 +198,18 @@ describe("Scaffold — la FORME de ce que chaque type rend vraiment", () => {
     assert.deepEqual(fautifs, [], "fichiers d'application non conformes");
   });
 
-  for (const { type, nom } of TYPES) {
-    it(`create ${type} rend du code que le formateur du projet accepte`, () => {
+  for (const { type, nom, variante } of TYPES) {
+    const titre = variante
+      ? `${type} (${Object.keys(variante).join(", ")})`
+      : type;
+    it(`create ${titre} rend du code que le formateur du projet accepte`, () => {
       const resultat = runScaffold(
-        { type, answers: { name: nom }, dir: racine, force: true },
+        {
+          type,
+          answers: { name: nom, ...variante },
+          dir: racine,
+          force: true,
+        },
         version,
       );
       const rendus = resultat.files.filter((f) => FORMATABLES.test(f));

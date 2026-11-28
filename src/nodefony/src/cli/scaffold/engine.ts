@@ -5729,6 +5729,7 @@ function runCommandScaffold(
       description:
         String(answers.description) || `Commande ${commandName} de ${prefix}`,
       service,
+      readState: answers.readState === true,
     },
     written,
     writer,
@@ -5748,6 +5749,9 @@ function runCommandScaffold(
     notes: [
       `CLI  nodefony ${commandName} [who] [-j]  (phase ${phase})`,
       `visible dans \`nodefony --help\` une fois le module construit`,
+      answers.readState === true
+        ? `servie EN DIRECT dans l'invite de \`nodefony development\` (readState, lecture seule)`
+        : `lecture seule ? --read-state la sert en direct dans l'invite de \`nodefony development\``,
     ],
   };
 }
