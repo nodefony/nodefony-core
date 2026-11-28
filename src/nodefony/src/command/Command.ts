@@ -313,6 +313,14 @@ class Command extends Service {
    * `generate()` appelle le même producteur : la CLI et l'invite ne peuvent
    * pas rendre deux verdicts pour la même donnée.
    *
+   * **Rend la main vite** : elle tourne sur la boucle du serveur, que les
+   * requêtes, le flux d'un modèle et les outils d'un agent partagent. Tout
+   * travail SYNCHRONE y bloque tout le reste — pas de parcours de l'arbre des
+   * sources, pas de calcul long d'un tenant ; ce qui attend une E/S l'attend en
+   * asynchrone. Repère mesuré sur l'application du dépôt : `env` ~12 ms,
+   * `inspect config --json` ~27 ms. Une lecture plus lourde se découpe
+   * (`ctx.progress`) ou reste en sous-processus (`null`).
+   *
    * @param args - les arguments après le nom de la commande (`["--json"]`).
    * @param ctx - largeur, abandon, étapes.
    * @returns le résultat, ou `null` : pas en direct pour CES arguments.

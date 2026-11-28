@@ -17,7 +17,8 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { envForOtherProject, resolveEnvCascade } from "../../runtime/loadEnv";
-import { checkSurface, entityDialectMismatches } from "./surface";
+import { entityDialectFindings, entityDialectMismatches } from "./surface";
+import { diskManifestReader, readManifestSources } from "./sourceText";
 import type { IEntityDialectScan, SqlDialectName } from "./surface";
 
 /** Dossiers qui CONTIENNENT des cibles, par opposition à en être une. */
@@ -159,15 +160,23 @@ export function configInconsistencies(options: {
   cwd: string;
   projectRoot?: string;
   dialectExceptions?: readonly string[];
+  /**
+   * L'environnement sous lequel juger le dialecte. Absent : celui que
+   * l'application VERRAIT depuis ce poste (`appEnvironment`). Le serveur vivant
+   * passe le SIEN : la base qu'il a réellement ouverte.
+   */
+  env?: Readonly<Record<string, string | undefined>>;
 }): IConfigInconsistency[] {
   const { cwd, projectRoot } = options;
   const dialectExceptions =
     options.dialectExceptions ?? declaredDialectExceptions(cwd);
-  const surface = checkSurface({
+  const surface = entityDialectFindings({
     roots: wiringTargets(cwd),
     cwd,
-    ...(projectRoot ? { projectRoot } : {}),
-    env: appEnvironment(cwd),
+    manifestSources: projectRoot
+      ? readManifestSources(projectRoot, diskManifestReader)
+      : [],
+    env: { ...(options.env ?? appEnvironment(cwd)) },
     dialectExceptions,
   });
   // `dialectFrom` NOMME la variable réellement lue — annoncer `NF_DATABASE_URL`
