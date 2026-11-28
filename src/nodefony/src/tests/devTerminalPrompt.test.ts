@@ -1608,7 +1608,9 @@ describe("plein écran — la fin d'une commande se lit au bas de sa sortie (#53
     await settle();
     lines = (await screen(written, 100)).map((l) => l.trimEnd());
     expect(lines, lines.join("\n")).to.include("⠙ chargement");
-    expect(lines.some((l) => l.includes("⠋"))).to.equal(false);
+    // L’image écrasée, sur SA ligne : l’onglet a son propre tourniquet
+    // (`BRAILLE_FRAMES`, passé 150 ms), dont l’image suit l’horloge.
+    expect(lines.some((l) => l.includes("⠋ chargement"))).to.equal(false);
     expect(lines).to.not.include("Mot de passe :");
     // Interrompue sans fin de ligne : le reste entre au journal, AU-DESSUS de
     // la ligne de fin, et rien ne reste « en cours » sous elle.
