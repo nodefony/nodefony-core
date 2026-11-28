@@ -1336,6 +1336,10 @@ export class DevTerminal {
   leaveFullscreen(): void {
     const full = this.#full;
     if (!full) return;
+    // L'arrêt emporte les commandes de l'invite : chefs de leur groupe, elles
+    // survivraient au superviseur — et celle qui tient le terminal prêté le
+    // disputerait au shell. `SIGTERM` part ici, synchrone.
+    for (const view of this.#views) view.running?.abort();
     full.releaseGuard();
     const size = this.#size();
     const live = { ...this.#model(full), anchor: null };

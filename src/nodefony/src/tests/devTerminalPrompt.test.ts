@@ -1735,3 +1735,24 @@ describe("plein écran — la fin d'une commande se lit au bas de sa sortie (#53
     terminal.close();
   });
 });
+
+describe("plein écran — l’arrêt emporte les commandes de l’invite (#538)", () => {
+  it("l'arrêt interrompt aussi une commande de l'invite en cours — sinon, chef de son groupe, elle survivrait", async () => {
+    const seen: { signal: AbortSignal | null } = { signal: null };
+    const long: IPromptAction = {
+      id: "long",
+      matches: (input) => input === "/long",
+      run: (_input, _io, s) => {
+        seen.signal = s;
+        return new Promise<number>(() => {});
+      },
+    };
+    const { input, terminal } = prompted(false, COLS, ROWS, false, [long]);
+    input.type("/long" + ENTER);
+    await nextFrame();
+    expect(seen.signal).to.not.equal(null);
+    terminal.leaveFullscreen();
+    expect(seen.signal?.aborted).to.equal(true);
+    terminal.close();
+  });
+});
