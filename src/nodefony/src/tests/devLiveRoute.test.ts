@@ -14,6 +14,7 @@ import type {
 } from "../service/dev/promptAction";
 import { PROMPT_INTERRUPTED_CODE } from "../service/dev/promptLaunch";
 import type { LiveCommandExecutor } from "../kernel/supervisorLink";
+import CliKernel from "../kernel/CliKernel";
 import { until, wireLive } from "./devLiveFakes";
 
 /** L'onglet de l'invite : ce qui s'y écrit, sur quelle voie. */
@@ -204,6 +205,70 @@ describe("invite — voie en direct d'abord, sous-processus en repli (ADR-0013 �
     // Aucune attente annoncée : on sait que personne ne répondra.
     assert.deepEqual(after.out, []);
     assert.deepEqual(runs, [["env"], ["doctor"]]);
+  });
+
+  it("crashed : une commande « requires-app » dit quoi faire au lieu de rebooter l'app", async () => {
+    // Le manifeste réel des intégrées : c'est `inspect` qui DÉCLARE le besoin,
+    // aucune liste de noms n'est tenue par la route.
+    const cli = new CliKernel("development");
+    cli.registerBuiltinCommands();
+    const manifest = cli.buildBuiltinManifest();
+    const route = new LiveCommandRoute(() => manifest);
+    route.crashed();
+    const { launch, runs } = subprocess();
+    const { io, out, err } = tab();
+    const code = await route.launcher(launch)(
+      ["inspect", "routes"],
+      io,
+      new AbortController().signal,
+    );
+    assert.equal(code, 69);
+    assert.deepEqual(out, []);
+    assert.match(
+      err.join(""),
+      /l'application ne démarre pas — essayez \/nodefony doctor/,
+    );
+    // `env` ne déclare rien : il se sert sans l'application, sous-processus.
+    assert.equal(
+      await route.launcher(launch)(
+        ["env"],
+        tab().io,
+        new AbortController().signal,
+      ),
+      42,
+    );
+    assert.deepEqual(runs, [["env"]]);
+  });
+
+  it("crash PENDANT l'attente de dev.ready : la même règle, sans sous-processus", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const manifest = {
+      version: "0",
+      globalOptions: [],
+      commands: [
+        {
+          name: "inspect",
+          aliases: [],
+          description: "",
+          options: [],
+          prompt: "requires-app" as const,
+        },
+      ],
+    };
+    const route = new LiveCommandRoute(() => manifest);
+    server(route, () => TEXT, false);
+    const { launch, runs } = subprocess();
+    const { io, out, err } = tab();
+    const pending = route.launcher(launch)(
+      ["inspect", "routes"],
+      io,
+      new AbortController().signal,
+    );
+    await until(() => out.length > 0);
+    route.crashed();
+    assert.equal(await pending, 69);
+    assert.match(err.join(""), /essayez \/nodefony doctor/);
+    assert.deepEqual(runs, []);
   });
 
   it("un nouveau serveur lève l'état crashed", async () => {

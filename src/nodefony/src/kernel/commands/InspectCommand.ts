@@ -1,4 +1,9 @@
+import { parseArgs, inspect as formatValue } from "node:util";
 import Command, { OptionsCommandInterface } from "../../command/Command";
+import type {
+  ICommandResult,
+  IReadStateContext,
+} from "../../command/readState";
 import CliKernel from "../CliKernel";
 import { SysExit } from "../../cli/sysexits";
 import {
@@ -35,6 +40,9 @@ const options: OptionsCommandInterface = {
   quietBoot: true,
   showBanner: false,
   kernelEvent: "onPostReady",
+  // Son sous-processus boote l'application : sur un serveur en crash, l'invite
+  // répond au lieu de rejouer un boot qui échouerait pareil.
+  prompt: "requires-app",
 };
 
 /**
@@ -169,6 +177,80 @@ class Inspect extends Command {
       this.refuseMissingArgument(e);
       return this;
     }
+    const output = await this.produce(subject, target, {
+      json: opts.json === true,
+      columns: process.stdout.columns,
+    });
+    if (output.failed) {
+      for (const line of output.err) this.log(line, "ERROR");
+    } else {
+      for (const line of output.err) process.stderr.write(`${line}\n`);
+      process.stdout.write(output.out);
+    }
+    await this.terminate(output.code);
+    return this;
+  }
+
+  /**
+   * Servie EN DIRECT à l'invite du superviseur : le plan d'administration du
+   * SERVEUR vivant, lu par le même producteur que la CLI ({@link Inspect.produce}).
+   *
+   * `null` — la commande part en sous-processus — sans sujet (la CLI le
+   * demande), pour l'aide, une option inconnue ou un argument de trop.
+   */
+  override async readState(
+    args: readonly string[],
+    ctx: IReadStateContext,
+  ): Promise<ICommandResult | null> {
+    let parsed: { json: boolean; positionals: string[] };
+    try {
+      const { values, positionals } = parseArgs({
+        args: [...args],
+        options: { json: { type: "boolean", short: "j" } },
+        allowPositionals: true,
+        strict: true,
+      });
+      parsed = { json: values.json === true, positionals };
+    } catch {
+      return null;
+    }
+    const [subject, target, ...extra] = parsed.positionals;
+    if (subject === undefined || extra.length > 0) return null;
+    const output = await this.produce(subject, target, {
+      json: parsed.json,
+      columns: ctx.columns,
+    });
+    // Le contexte d'abord, la donnée ensuite : une part JSON reste parsable.
+    // Un échec n'a pas de donnée (`out` vide) : il ne sort jamais typé JSON.
+    const parts: ICommandResult["parts"] = [
+      ...(output.err.length > 0
+        ? [{ text: `${output.err.join("\n")}\n` }]
+        : []),
+      ...(output.out === ""
+        ? []
+        : [
+            parsed.json
+              ? { text: output.out, mediaType: "application/json" }
+              : { text: output.out },
+          ]),
+    ];
+    return { code: output.code, parts };
+  }
+
+  /**
+   * Le producteur UNIQUE de `inspect` : la CLI écrit ce qu'il rend
+   * ({@link Inspect.generate}), le serveur vivant le rend en parts
+   * ({@link Inspect.readState}). Ne touche ni à la sortie standard, ni au code
+   * de sortie du processus.
+   *
+   * @returns la donnée (`out`), le contexte ou l'erreur (`err`, une ligne par
+   *   entrée), le code de sortie POSIX, et `failed` quand la lecture a échoué.
+   */
+  private async produce(
+    subject: string,
+    target: string | undefined,
+    render: { json: boolean; columns: number | undefined },
+  ): Promise<IInspectOutput> {
     const broker = this.kernel?.container?.get("adminBroker") as
       IAdminBrokerLike | undefined;
     // Qui lance cette commande possède déjà le processus : l'identité est
@@ -192,39 +274,37 @@ class Inspect extends Command {
       // processus et ses journaux. Les portes distantes (MCP) ne la publient
       // pas — un message d'exception porte ce que le code avait sous la main.
       const why = read.cause ? ` — ${read.cause}` : "";
-      this.log(`${read.message}${why}${hint}`, "ERROR");
+      const err = [`${read.message}${why}${hint}`];
       // Le producteur joint souvent DE QUOI corriger l'appel (les valeurs
       // acceptées, le plan d'une page). Le taire laisse deviner ; le rendre
       // coûte une ligne.
       if (read.body !== undefined && read.body !== null) {
-        this.log(JSON.stringify(read.body, null, 2), "ERROR");
+        err.push(JSON.stringify(read.body, null, 2));
       }
-      await this.terminate(EXIT_BY_FAILURE[read.reason]);
-      return this;
+      return { code: EXIT_BY_FAILURE[read.reason], out: "", err, failed: true };
     }
 
-    if (opts.json) {
+    if (render.json) {
       // Le CONTEXTE part sur la sortie d'erreur, jamais dans le flux : un
       // consommateur fait `| jq '.[]'`, envelopper la donnée le casserait.
       // Même doctrine que le journal — la sortie EST le résultat, le reste
       // RACONTE. Sans cette ligne, deux mesures du même sujet dans deux modes
       // se contredisent sans que rien ne dise pourquoi.
-      process.stderr.write(`environnement : ${this.currentEnvironment()}\n`);
-      process.stdout.write(`${JSON.stringify(read.data, null, 2)}\n`);
-    } else {
-      this.renderHuman(subject, read.data);
+      return {
+        code: SysExit.OK,
+        out: `${JSON.stringify(read.data, null, 2)}\n`,
+        err: [`environnement : ${this.currentEnvironment()}`],
+        failed: false,
+      };
     }
-    await this.terminate(SysExit.OK);
-    return this;
+    return {
+      code: SysExit.OK,
+      out: this.renderHuman(subject, read.data, render.columns),
+      err: [],
+      failed: false,
+    };
   }
 
-  /**
-   * Rendu lisible par défaut — un tableau de lignes devient un tableau.
-   *
-   * Volontairement sommaire : le format qui compte est `--json`, celui qu'on
-   * enchaîne. Le rendu humain sert à répondre « qu'est-ce qu'il y a là-dedans »
-   * sans ouvrir un autre outil, pas à remplacer la console d'administration.
-   */
   /**
    * Le mode MOTEUR sous lequel cette lecture a été faite.
    *
@@ -238,7 +318,19 @@ class Inspect extends Command {
     return this.kernel?.environment ?? "inconnu";
   }
 
-  private renderHuman(subject: string, payload: unknown): void {
+  /**
+   * Rendu lisible par défaut — un tableau de lignes devient un tableau.
+   *
+   * Volontairement sommaire : le format qui compte est `--json`, celui qu'on
+   * enchaîne. Le rendu humain sert à répondre « qu'est-ce qu'il y a là-dedans »
+   * sans ouvrir un autre outil, pas à remplacer la console d'administration.
+   */
+  private renderHuman(
+    subject: string,
+    payload: unknown,
+    columns: number | undefined,
+  ): string {
+    const color = shouldColorize(process.env, Boolean(this.kernel?.isTTY));
     if (Array.isArray(payload)) {
       if (payload.length === 0) {
         // 🔴 La SORTIE d'une commande ne passe pas par le journal.
@@ -252,34 +344,49 @@ class Inspect extends Command {
         // Le mode est ici PLUS important que partout ailleurs : « aucune
         // route » en production, alors qu'il y en a en développement, est la
         // réponse qui trompe le plus.
-        process.stdout.write(
-          `${subject} : aucun (environnement : ${this.currentEnvironment()})\n`,
-        );
-        return;
+        return `${subject} : aucun (environnement : ${this.currentEnvironment()})\n`;
       }
-      // 🔴 PAS `console.table` : il rend toutes les colonnes à leur largeur
-      // naturelle, avec un index et des guillemets — mesuré ici, des lignes de
-      // 900 colonnes pour `inspect routes`. Un tableau plus large que l'écran
-      // n'est plus un tableau : le terminal le replie, et l'alignement qui
-      // justifiait la forme disparaît. Le rendu est donc BORNÉ, et bascule en
-      // fiches quand même la compression ne suffit pas.
-      const out = process.stdout;
-      const lines = renderTable(payload as TableRow[], {
-        width: usableWidth(out.columns),
-        color: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
-        // Le SUJET dit comment il se lit — la commande ne connaît aucun sujet
-        // par son nom. Un catalogue dont la valeur utile est une phrase se rend
-        // en fiches ; tout le reste compare des lignes, donc un tableau.
-        cards: INSPECT_SUBJECTS[subject]?.render === "cards",
-      });
-      out.write(`${lines.join("\n")}\n\n`);
-      process.stdout.write(
-        `${payload.length} ${subject} (environnement : ${this.currentEnvironment()})\n`,
-      );
-      return;
+      if (payload.every(isTableRow)) {
+        // 🔴 PAS `console.table` : il rend toutes les colonnes à leur largeur
+        // naturelle, avec un index et des guillemets — mesuré ici, des lignes
+        // de 900 colonnes pour `inspect routes`. Un tableau plus large que
+        // l'écran n'est plus un tableau : le terminal le replie, et
+        // l'alignement qui justifiait la forme disparaît. Le rendu est donc
+        // BORNÉ, et bascule en fiches quand même la compression ne suffit pas.
+        const lines = renderTable(payload, {
+          width: usableWidth(columns),
+          color,
+          // Le SUJET dit comment il se lit — la commande ne connaît aucun
+          // sujet par son nom. Un catalogue dont la valeur utile est une
+          // phrase se rend en fiches ; tout le reste compare des lignes.
+          cards: INSPECT_SUBJECTS[subject]?.render === "cards",
+        });
+        return (
+          `${lines.join("\n")}\n\n` +
+          `${payload.length} ${subject} (environnement : ${this.currentEnvironment()})\n`
+        );
+      }
     }
-    console.dir(payload, { depth: 4, colors: true });
+    // La couleur suit le verdict du terminal : écrite dans un tube ou dans
+    // l'onglet de l'invite, une séquence ANSI forcée devient du bruit.
+    return `${formatValue(payload, { depth: 4, colors: color, breakLength: usableWidth(columns) })}\n`;
   }
+}
+
+/** Ce que rend le producteur de `inspect`, avant qu'une surface l'écrive. */
+interface IInspectOutput {
+  readonly code: number;
+  /** La donnée — sortie standard de la CLI. */
+  readonly out: string;
+  /** Contexte ou erreur, une ligne par entrée — sortie d'erreur de la CLI. */
+  readonly err: readonly string[];
+  /** La lecture a échoué : `err` porte un message d'erreur, pas un contexte. */
+  readonly failed: boolean;
+}
+
+/** Une ligne de tableau : un objet non nul, pas un tableau. */
+function isTableRow(value: unknown): value is TableRow {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export default Inspect;
