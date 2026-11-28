@@ -57,7 +57,7 @@ import {
   type IDevHeldPlanAck,
 } from "./devChannel";
 import { HeldReadyAnnouncer, HeldServiceRegistry } from "./heldServices";
-import { ServerPeer } from "./serverPeer";
+import { LiveCommandRoute } from "./liveRoute";
 import {
   DevTerminal,
   probeTerminal,
@@ -1334,6 +1334,8 @@ export class DevSupervisor {
    * écrit. `/restart` passe outre.
    */
   readonly #launches: string[] = [];
+  /** La voie en direct des commandes de l'invite (`liveRoute.ts`). */
+  readonly #live = new LiveCommandRoute();
   /** Le report en cours (noms des lancements), pour ne l'annoncer qu'une fois. */
   #deferredBy: string | null = null;
   /**
@@ -2442,12 +2444,14 @@ export class DevSupervisor {
    * celui par lequel on est entré — le lanceur a déjà tranché entre CLI
    * global et CLI local —, les mêmes drapeaux `node` que le serveur, et le
    * verdict de terminal relayé (largeur, couleurs) que le serveur reçoit.
-   * Sans bin connu : aucun lanceur, l'invite donne la ligne à taper.
+   * Sans bin connu : aucun lanceur, l'invite donne la ligne à taper. Le
+   * serveur vivant est interrogé d'abord (`liveRoute.ts`) : ce sous-processus
+   * n'est que le repli.
    */
   #promptLauncher(): PromptCommandLauncher | undefined {
     const bin = process.argv[1];
     if (bin === undefined) return undefined;
-    return async (argv, io, signal) => {
+    return this.#live.launcher(async (argv, io, signal) => {
       const name = argv[0] ?? "";
       this.#launches.push(name);
       try {
@@ -2464,7 +2468,7 @@ export class DevSupervisor {
       } finally {
         this.#launches.splice(this.#launches.indexOf(name), 1);
       }
-    };
+    });
   }
 
   /** (Re)lance le serveur enfant — même commande + flag enfant, en leader de groupe. */
@@ -2523,7 +2527,7 @@ export class DevSupervisor {
     this.#child = child;
     // Un pair par enfant : disposé à la fermeture de SON canal, il rejette
     // dans l'instant les requêtes en vol (ADR-0013 §6).
-    const peer = new ServerPeer(child, (context, err) =>
+    const peer = this.#live.connect(child, (context, err) =>
       this.#log(`voie en direct (${context}) : ${String(err)}`, "yellow"),
     );
     if (terminal) relayServerOutput(child, terminal);
@@ -2546,6 +2550,7 @@ export class DevSupervisor {
       this.#child = null;
       if (this.#stopping) return;
       terminal?.setPhase("crashed");
+      this.#live.crashed();
       this.#onChildCrash(code, signal);
     });
     // Confirme « framework ready » par OBSERVATION EXTERNE (sonde de ports),

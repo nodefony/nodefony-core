@@ -1032,6 +1032,7 @@ export type { IFirewallZoneView } from "./service/dev/firewallZones";
 export type { IReadinessContributor } from "./kernel/readinessRegistry";
 
 export type { OptionsCommandInterface } from "./command/Command";
+export type { ICommandResult, IReadStateContext } from "./command/readState";
 
 // ─── Introspection des process de DÉVELOPPEMENT (ps + sonde ports + pidfile) ──
 // Node-only (spawn `ps`, sonde TCP) — absent du bundle browser (src/client). Source

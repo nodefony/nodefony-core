@@ -113,7 +113,7 @@ import type {
 } from "./bootReport";
 import { collectBootNotices, resolveBootLinks } from "./bootReport";
 import type { StartupOutputMode } from "../service/dev/outputMode";
-import { NOT_LIVE } from "../service/dev/devChannel";
+import { liveCommandExecutor } from "./liveCommand";
 import { ReadinessRegistry } from "./readinessRegistry";
 import type { IReadinessContributor } from "./readinessRegistry";
 import { KernelReadinessPublisher } from "./kernelReadiness";
@@ -1352,7 +1352,7 @@ class Kernel extends Service implements IKernel {
               // répondent `live: false` et partent en sous-processus. Sans
               // superviseur, rien n'est posé.
               this.supervisorLink.serveCommands(
-                () => NOT_LIVE,
+                liveCommandExecutor(this.cli),
                 (context, err) =>
                   this.log(
                     `live command (${context}): ${String(err)}`,

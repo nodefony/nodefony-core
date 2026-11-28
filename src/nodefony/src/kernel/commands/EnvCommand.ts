@@ -1,6 +1,10 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runEnvCommand, ENV_USAGE } from "../../cli/env";
+import { runEnvCommand, readEnvState, ENV_USAGE } from "../../cli/env";
+import type {
+  ICommandResult,
+  IReadStateContext,
+} from "../../command/readState";
 import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
@@ -68,6 +72,28 @@ class Env extends Command {
     const code = await runEnvCommand(opts?.json ? ["env", "--json"] : ["env"]);
     await this.terminate(code);
     return this;
+  }
+
+  /**
+   * Servie EN DIRECT à l'invite du superviseur : l'environnement que le
+   * SERVEUR a lu au démarrage — même producteur que la CLI
+   * (`cli/env.ts#readEnvState`). `null` pour l'aide, une erreur d'usage,
+   * `--example` ou `--cwd` : la commande part alors en sous-processus.
+   */
+  override async readState(
+    args: readonly string[],
+    ctx: IReadStateContext,
+  ): Promise<ICommandResult | null> {
+    const out = await readEnvState(args, ctx.columns);
+    if (out === null) return null;
+    return {
+      code: out.code,
+      parts: [
+        out.json
+          ? { text: out.text, mediaType: "application/json" }
+          : { text: out.text },
+      ],
+    };
   }
 }
 

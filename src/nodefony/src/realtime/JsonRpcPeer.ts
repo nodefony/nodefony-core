@@ -120,6 +120,21 @@ export class RpcError extends Error {
 }
 
 /**
+ * Le rejet d'une requête dont le délai a expiré — le pair n'a pas répondu, et
+ * l'annulation (`$/cancelRequest`) lui est partie. Distinct d'un pair disposé
+ * ou d'un abandon : l'appelant qui se replie doit pouvoir DIRE que le serveur
+ * n'a pas répondu, sans lire le texte du message.
+ */
+export class RpcTimeoutError extends Error {
+  override readonly name = "RpcTimeoutError";
+
+  /** @param method - la méthode restée sans réponse. */
+  constructor(readonly method: string) {
+    super(`RPC timeout: ${method}`);
+  }
+}
+
+/**
  * Métadonnées **serveur** d'une réponse RPC — transportées À CÔTÉ du `result`,
  * jamais dedans (le `result` d'`api.request` doit rester identique à ce que
  * rendrait la même route en REST : « snapshot ≡ GET REST » par construction).
@@ -1088,7 +1103,7 @@ export class JsonRpcPeer<
     const call = this.pending?.get(id);
     if (call === undefined) return;
     this.settle(id, call);
-    call.reject(new Error(`RPC timeout: ${call.method}`));
+    call.reject(new RpcTimeoutError(call.method));
     this.cancelOutbound(id);
   }
 

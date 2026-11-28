@@ -400,12 +400,18 @@ function readAppIdentity(
  *   catalogue des variables déclarées est alors inconnu : il se lit dans le
  *   `dist/` de l'application).
  * @param cwd - dossier de départ, utilisé comme racine hors projet.
+ * @param targetEnv - l'environnement sous lequel évaluer les exigences (`--env`).
+ * @param processEnv - l'environnement effectif à décrire. Absent : celui que
+ *   l'application VERRAIT depuis ce poste (`appEnvironment`, qui relit le
+ *   `.env` sur le disque). Le serveur vivant passe le SIEN (`process.env`) :
+ *   ce qu'il a lu au démarrage, que la modification d'un `.env` ne relance pas.
  * @returns le rapport complet (fichiers lus, variables, provenance, notes).
  */
 export async function buildProjectEnvReport(
   projectRoot: string | null,
   cwd: string,
   targetEnv: string | null = null,
+  processEnv?: Readonly<Record<string, string | undefined>>,
 ): Promise<IEnvReport> {
   const runtimeEnv = process.env.NODE_ENV ?? "development";
   const rawAppEnv = process.env.APP_ENV ?? process.env.NF_ENV ?? null;
@@ -431,7 +437,7 @@ export async function buildProjectEnvReport(
     // L'environnement de l'application de `root`, pas celui du processus : ce
     // dernier porte le `.env` du dossier où la commande a été tapée — rien
     // depuis un sous-dossier, celui d'un AUTRE projet avec `--cwd`.
-    processEnv: appEnvironment(root),
+    processEnv: processEnv ?? appEnvironment(root),
     // Le fichier lu reste celui d'ici : viser un autre environnement ne fait pas
     // lire ce qui n'est pas sur cette machine. Ce que la commande répond, c'est
     // « avec ce que j'ai sous la main, qu'est-ce qui manquera là-bas ? ».
@@ -772,10 +778,39 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
     );
     return SysExit.OK;
   }
+  const out = await renderEnvRequest(parsed, projectRoot, {
+    columns: process.stdout.columns,
+  });
+  process.stdout.write(out.text);
+  return out.code;
+}
+
+/** Comment rendre le rapport d'environnement. */
+interface IEnvRenderTarget {
+  /** Largeur de la surface (colonnes) ; absente : la largeur par défaut. */
+  readonly columns: number | undefined;
+  /** L'environnement effectif à décrire (cf {@link buildProjectEnvReport}). */
+  readonly processEnv?: Readonly<Record<string, string | undefined>>;
+}
+
+/**
+ * Le producteur UNIQUE du rapport de `nodefony env` : la CLI l'écrit sur sa
+ * sortie, le serveur vivant le rend en part `text` à l'invite
+ * ({@link readEnvState}). Deux rendus de la même donnée divergeraient.
+ *
+ * @returns le texte à afficher et le code de sortie — 78 (`EX_CONFIG`) quand
+ *   une variable REQUISE manque.
+ */
+async function renderEnvRequest(
+  parsed: IEnvRequest,
+  projectRoot: string | null,
+  target: IEnvRenderTarget,
+): Promise<{ code: number; text: string }> {
   const report = await buildProjectEnvReport(
     projectRoot,
     parsed.cwd,
     parsed.targetEnv,
+    target.processEnv,
   );
   if (projectRoot === null) {
     report.notes.push(
@@ -783,17 +818,47 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
         "seul l'environnement du shell est décrit",
     );
   }
-  process.stdout.write(
-    parsed.json
-      ? `${JSON.stringify(report, null, 2)}\n`
-      : renderEnvReport(report, {
-          projectRoot,
-          app: projectRoot ? readAppIdentity(projectRoot) : null,
-          width: usableWidth(process.stdout.columns),
-          color: shouldColorize(process.env, isTerminal(process.stdout)),
-        }),
-  );
+  const text = parsed.json
+    ? `${JSON.stringify(report, null, 2)}\n`
+    : renderEnvReport(report, {
+        projectRoot,
+        app: projectRoot ? readAppIdentity(projectRoot) : null,
+        width: usableWidth(target.columns),
+        // Le verdict du terminal relayé : en sous-processus comme dans le
+        // serveur vivant, la sortie est un tube et l'environnement tranche.
+        color: shouldColorize(process.env, isTerminal(process.stdout)),
+      });
   // Une variable requise absente n'est pas un avis : l'application ne démarrera
   // pas. Le code de sortie le dit, pour qu'un script s'arrête là.
-  return report.vars.some((v) => v.missing) ? SysExit.CONFIG : SysExit.OK;
+  return {
+    code: report.vars.some((v) => v.missing) ? SysExit.CONFIG : SysExit.OK,
+    text,
+  };
+}
+
+/**
+ * `nodefony env` servi EN DIRECT par le serveur vivant : le rapport de ce que
+ * le SERVEUR a lu au démarrage (`process.env`), pas du disque d'aujourd'hui —
+ * modifier `.env` ne relance pas le serveur de développement, qui garde en
+ * silence ce qu'il a lu. Lecture seule.
+ *
+ * @param args - les arguments après `env`.
+ * @param columns - la largeur de l'onglet.
+ * @returns le texte et le code ; `null` pour ce qui ne se sert pas en direct —
+ *   l'aide, une erreur d'usage (elles s'écrivent sur la sortie d'erreur),
+ *   `--example` (il écrit un fichier), `--cwd` (un AUTRE projet que celui que
+ *   ce serveur sert).
+ */
+export async function readEnvState(
+  args: readonly string[],
+  columns: number,
+): Promise<{ code: number; text: string; json: boolean } | null> {
+  if (args.includes("--cwd")) return null;
+  const parsed = parseEnvArgv(["env", ...args]);
+  if ("error" in parsed || parsed.help || parsed.example) return null;
+  const out = await renderEnvRequest(parsed, findProjectRoot(parsed.cwd), {
+    columns,
+    processEnv: process.env,
+  });
+  return { ...out, json: parsed.json };
 }
