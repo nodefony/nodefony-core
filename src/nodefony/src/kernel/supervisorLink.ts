@@ -43,14 +43,26 @@ import {
 } from "../service/dev/outputMode";
 import {
   DEV_CHANNEL,
+  DEV_READY,
+  isCommandExecuteParams,
+  LIVE_RESULT_TOO_LARGE,
   listenToSupervisor,
   hasSupervisorChannel,
+  MAX_LIVE_RESULT_BYTES,
+  sendRpcToSupervisor,
   sendToSupervisor,
   terminateOnSupervisorLoss,
+  type CommandExecuteResult,
+  type DevActions,
   type DevChannelMessage,
+  type DevEvents,
+  type ICommandExecuteParams,
   type IDevChannelEndpoint,
   type ISupervisorLossTarget,
 } from "../service/dev/devChannel";
+import { JsonRpcPeer, RpcError, type IRpcCall } from "../realtime/JsonRpcPeer";
+import { JsonRpcError } from "../jsonrpc/index";
+import type { DefaultEventsMap } from "../realtime/RealtimeEventMap";
 import {
   HeldServicesClient,
   type IHeldServicesClient,
@@ -60,6 +72,47 @@ import type { ClusterType } from "./kernelCluster";
 
 /** Désinscription vide, partagée : rien n'a été attaché, rien à retirer. */
 const noop = (): void => {};
+
+/**
+ * Ce qui sert une commande en direct (ADR-0013 §6) : rend le résultat, ou
+ * `{ live: false }` quand la commande ne se sert pas en mémoire. `call.signal`
+ * est abandonné quand l'invite annule.
+ */
+export type LiveCommandExecutor = (
+  params: ICommandExecuteParams,
+  call: IRpcCall,
+) => CommandExecuteResult | Promise<CommandExecuteResult>;
+
+/** Le pair du serveur : il émet `dev.ready`, ne reçoit que des requêtes. */
+type ServerDevPeer = JsonRpcPeer<DevEvents, DefaultEventsMap, DevActions>;
+
+/**
+ * Sert UNE requête `command.execute` : paramètres vérifiés (ils viennent du
+ * fil), puis réponse bornée — au-delà de {@link MAX_LIVE_RESULT_BYTES}, un
+ * refus nommé, jamais une réponse amputée.
+ *
+ * La taille se mesure sur le JSON que l'IPC enverra : une sérialisation de
+ * plus, payée seulement par une commande tapée dans l'invite.
+ */
+async function serveLiveCommand(
+  params: unknown,
+  call: IRpcCall,
+  execute: LiveCommandExecutor,
+): Promise<CommandExecuteResult> {
+  if (!isCommandExecuteParams(params)) {
+    throw new RpcError("invalid params", JsonRpcError.INVALID_PARAMS);
+  }
+  const result = await execute(params, call);
+  if (!result.live) return result;
+  const bytes = Buffer.byteLength(JSON.stringify(result));
+  if (bytes > MAX_LIVE_RESULT_BYTES) {
+    throw new RpcError("result too large", LIVE_RESULT_TOO_LARGE, {
+      bytes,
+      max: MAX_LIVE_RESULT_BYTES,
+    });
+  }
+  return result;
+}
 
 /**
  * Ce que le lien demande au noyau, et rien de plus. Tout est lu à l'APPEL,
@@ -121,6 +174,8 @@ export class SupervisorLink {
   /** Les clients de services portés, par propriétaire — alloué au premier. */
   #heldClients: Map<string, HeldServicesClient> | null = null;
   #heldOwnersReported = false;
+  /** Le pair JSON-RPC de la voie en direct — posé par {@link serveCommands}. */
+  #livePeer: ServerDevPeer | null = null;
 
   /**
    * @param host - le noyau, lu à chaque appel.
@@ -165,6 +220,49 @@ export class SupervisorLink {
   listen(handler: (message: DevChannelMessage) => void): () => void {
     if (!this.supervised) return noop;
     return listenToSupervisor(handler, this.endpoint);
+  }
+
+  /**
+   * Ouvre la voie en direct de l'invite (ADR-0013 §6) : un pair JSON-RPC sur
+   * le canal, l'action `command.execute` servie par `execute`, puis la
+   * notification `dev.ready` — le superviseur sait alors qu'il peut demander.
+   * Appelé par le Kernel APRÈS `onPostReady` : une commande lue en direct
+   * voit un noyau démarré.
+   *
+   * Sans crochet `beforeDispatch` : le canal n'est hérité que par l'enfant que
+   * le superviseur a lancé, et {@link supervised} ferme la porte à un parent
+   * étranger. Sans superviseur, sans canal, ou déjà ouverte : rien n'est posé.
+   *
+   * @param execute - ce qui sert une commande.
+   * @param onError - reçoit l'erreur d'un producteur qui lève (le pair répond
+   *   alors `-32603`, sans détail).
+   * @returns la fermeture : écoute retirée, appels en cours abandonnés.
+   */
+  serveCommands(
+    execute: LiveCommandExecutor,
+    onError: (context: string, err: unknown) => void,
+  ): () => void {
+    if (!this.supervised || this.#livePeer !== null) return noop;
+    const endpoint = this.endpoint;
+    if (!hasSupervisorChannel(endpoint)) return noop;
+    const peer: ServerDevPeer = new JsonRpcPeer({
+      send: (frame) => sendRpcToSupervisor(frame, endpoint),
+      onError,
+    });
+    peer.registerCall("command.execute", (params, call) =>
+      serveLiveCommand(params, call, execute),
+    );
+    const unlisten = this.listen((message) => {
+      if (message.type === "rpc") peer.receive(message.frame);
+    });
+    this.#livePeer = peer;
+    peer.notify(DEV_READY);
+    return () => {
+      if (this.#livePeer !== peer) return;
+      this.#livePeer = null;
+      unlisten();
+      peer.dispose("server stopping");
+    };
   }
 
   /**

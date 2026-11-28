@@ -57,6 +57,7 @@ import {
   type IDevHeldPlanAck,
 } from "./devChannel";
 import { HeldReadyAnnouncer, HeldServiceRegistry } from "./heldServices";
+import { ServerPeer } from "./serverPeer";
 import {
   DevTerminal,
   probeTerminal,
@@ -1132,6 +1133,8 @@ export interface IServerMessageRoutes {
   retainHeldOwners: (owners: readonly string[]) => void;
   /** Renvoie l'acquittement au serveur ÉMETTEUR. */
   reply: (ack: IDevHeldPlanAck) => void;
+  /** Remet une trame JSON-RPC au pair du serveur ÉMETTEUR (voie en direct). */
+  receiveRpc: (frame: object) => void;
   /** Le terminal en rendu humain, `null` ailleurs (`plain`, `json`, `--debug`). */
   terminal: Pick<
     DevTerminal,
@@ -1160,6 +1163,10 @@ export function routeServerMessages(
     }
     if (message.type === "held-owners") {
       routes.retainHeldOwners(message.owners);
+      return;
+    }
+    if (message.type === "rpc") {
+      routes.receiveRpc(message.frame);
       return;
     }
     const terminal = routes.terminal;
@@ -2514,6 +2521,11 @@ export class DevSupervisor {
       },
     );
     this.#child = child;
+    // Un pair par enfant : disposé à la fermeture de SON canal, il rejette
+    // dans l'instant les requêtes en vol (ADR-0013 §6).
+    const peer = new ServerPeer(child, (context, err) =>
+      this.#log(`voie en direct (${context}) : ${String(err)}`, "yellow"),
+    );
     if (terminal) relayServerOutput(child, terminal);
     listenToServer(
       child,
@@ -2523,6 +2535,7 @@ export class DevSupervisor {
         // Sans registre, aucun service à balayer : ne pas le créer pour rien.
         retainHeldOwners: (owners) => void this.#held?.retainOwners(owners),
         reply: (ack) => sendToServer(child, ack),
+        receiveRpc: (frame) => peer.receive(frame),
         terminal,
       }),
     );
