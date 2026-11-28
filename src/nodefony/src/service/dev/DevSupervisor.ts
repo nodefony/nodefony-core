@@ -103,11 +103,14 @@ import {
   cliCommandAction,
   type PromptCommandLauncher,
   type PromptShellLauncher,
+  type PromptTerminalLauncher,
   shellLineAction,
   supervisorActions,
+  terminalLineAction,
 } from "./promptAction";
 import {
   type IPromptLaunch,
+  launchInTerminal,
   launchPromptCommand,
   promptShell,
 } from "./promptLaunch";
@@ -1506,6 +1509,7 @@ export class DevSupervisor {
         }),
         cliCommandAction(() => this.#cliManifest(), this.#promptLauncher()),
         shellLineAction(this.#shellLauncher()),
+        terminalLineAction(this.#terminalLauncher()),
       ],
     });
     // Le serveur écrit dans un tube : il ne reçoit pas `SIGWINCH`. La barre
@@ -2382,6 +2386,34 @@ export class DevSupervisor {
    * réécrit, la ligne non — et une ligne longue (`!tail -f`) gèlerait sinon
    * tout rechargement jusqu'à sa fin.
    */
+  /**
+   * Le lanceur des lignes `/term` (#538) : la ligne au shell de l'utilisateur,
+   * terminal PRÊTÉ (`promptLaunch.ts#launchInTerminal`) — environnement du
+   * superviseur tel quel, le programme parle au vrai terminal. Comme une ligne
+   * `!`, il ne diffère pas le rechargement.
+   *
+   * `SIGQUIT` (Ctrl+\) est absorbé le temps du programme : le groupe de
+   * premier plan le livre aussi au superviseur, que l'action par défaut
+   * tuerait. Sous Windows, il n'existe pas.
+   */
+  #terminalLauncher(): PromptTerminalLauncher {
+    const shell = promptShell(process.platform, process.env);
+    return async (line, io, signal) => {
+      const absorb = (): void => {};
+      const quits = process.platform !== "win32";
+      if (quits) process.on("SIGQUIT", absorb);
+      try {
+        return await launchInTerminal(
+          { line, cwd: this.#cwd, env: process.env, shell },
+          io,
+          signal,
+        );
+      } finally {
+        if (quits) process.removeListener("SIGQUIT", absorb);
+      }
+    };
+  }
+
   #shellLauncher(): PromptShellLauncher {
     const shell = promptShell(process.platform, process.env);
     return (line, io, signal) =>
@@ -3222,6 +3254,9 @@ export class DevSupervisor {
     installShutdownSignals({
       graceful: () => void this.#shutdown(),
       force: () => this.#forceShutdown(),
+      // Terminal prêté (`/term`) : le Ctrl+C est pour le programme. `SIGTERM`
+      // (`nodefony stop`) et `SIGHUP` (terminal fermé) arrêtent toujours.
+      absorb: (signal) => signal === "SIGINT" && this.#terminal?.lent === true,
     });
     process.once("exit", () => this.#releaseLock());
   }

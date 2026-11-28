@@ -100,6 +100,30 @@ describe("signaux d'arrêt du superviseur — règle", () => {
     assert.deepEqual(calls, ["graceful:SIGINT", "force:SIGTERM"]);
   });
 
+  it("un signal absorbé (Ctrl+C du terminal prêté) ne compte pas : le suivant reste un PREMIER", () => {
+    const target = fakeTarget();
+    let lent = true;
+    const calls: string[] = [];
+    installShutdownSignals(
+      {
+        graceful: (s) => calls.push(`graceful:${s}`),
+        force: (s) => calls.push(`force:${s}`),
+        absorb: (s) => s === "SIGINT" && lent,
+      },
+      { target, now: () => 0 },
+    );
+    target.emit("SIGINT");
+    target.emit("SIGINT");
+    assert.deepEqual(calls, []);
+    // `nodefony stop` pendant le prêt : l'arrêt part.
+    target.emit("SIGTERM");
+    assert.deepEqual(calls, ["graceful:SIGTERM"]);
+    lent = false;
+    calls.length = 0;
+    target.emit("SIGINT");
+    assert.deepEqual(calls, [], "doublon du SIGTERM, dans la fenêtre");
+  });
+
   it("les écouteurs restent posés pendant l'arrêt, et se retirent sur demande", () => {
     const target = fakeTarget();
     const remove = installShutdownSignals(

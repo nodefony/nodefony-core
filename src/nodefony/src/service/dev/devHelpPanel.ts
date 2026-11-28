@@ -17,6 +17,7 @@ import {
   PROMPT_SHELL_PREFIX,
   SHELL_PROMPT_LINE,
   SUPERVISOR_VERBS,
+  TERM_PROMPT_COMMAND,
 } from "./promptAction";
 
 /** L'identifiant de l'onglet de l'aide : rouvrir l'aide le rafraîchit. */
@@ -54,6 +55,15 @@ export function buildHelpPanel(input: {
     kind: "entry",
     key: SHELL_PROMPT_LINE.usage,
     value: SHELL_PROMPT_LINE.does,
+  });
+  prompt.push({
+    kind: "entry",
+    key: TERM_PROMPT_COMMAND.usage,
+    value: TERM_PROMPT_COMMAND.does,
+  });
+  prompt.push({
+    kind: "text",
+    text: `Pendant « ${TERM_PROMPT_COMMAND.usage} », Ctrl+C va au programme. Sous Windows, la console le livre à tous ceux qui la partagent : le serveur peut s'arrêter avec lui.`,
   });
   prompt.push({
     kind: "text",

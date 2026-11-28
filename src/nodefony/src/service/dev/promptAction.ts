@@ -48,7 +48,12 @@ export interface IPromptIO {
    * (commande finie ou interrompue) : l'issue est alors `cancel`.
    */
   ask(question: IQuestion, signal: AbortSignal): Promise<IQuestionOutcome>;
-  /** Une commande interactive prend le terminal, puis le rend. */
+  /**
+   * Prête le terminal à `task` — un programme interactif qui en hérite — puis
+   * le reprend : le plein écran est quitté (mode cuit, écran d'avant), le
+   * rendu s'arrête et l'ingestion continue ; `task` finie, une touche ramène
+   * l'écran. Pendant le prêt, Ctrl+C va au programme, jamais au superviseur.
+   */
   suspend<T>(task: () => Promise<T>): Promise<T>;
   /**
    * Le build que le superviseur mène en ce moment, s'il y en a un. La
@@ -189,6 +194,17 @@ export const SHELL_PROMPT_LINE = {
   id: "shell",
   usage: `${PROMPT_SHELL_PREFIX}<ligne>`,
   does: "une ligne du shell, dans son onglet — la ligne qu'on taperait dans un terminal",
+} as const;
+
+/**
+ * La porte des programmes INTERACTIFS : `/term <ligne>` — un éditeur,
+ * `npm init`, `git add -p`. La ligne part au shell comme une ligne `!`, mais
+ * le terminal lui est prêté, clavier compris (`promptAction.ts#terminalLineAction`).
+ */
+export const TERM_PROMPT_COMMAND = {
+  id: "term",
+  usage: `${PROMPT_COMMAND_PREFIX}term <ligne>`,
+  does: "un programme interactif (éditeur, npm init) : il prend le terminal, puis le rend",
 } as const;
 
 /**
@@ -500,6 +516,72 @@ export function shellLineAction(launch?: PromptShellLauncher): IPromptAction {
         return Promise.resolve(1);
       }
       return launch(line, io, signal);
+    },
+  };
+}
+
+/**
+ * Lance une ligne du shell qui prend le terminal — appelé pendant le prêt —
+ * et rend son code de sortie (`promptLaunch.ts#launchInTerminal`, posé par le
+ * superviseur).
+ */
+export type PromptTerminalLauncher = (
+  line: string,
+  io: IPromptIO,
+  signal: AbortSignal,
+) => Promise<number>;
+
+/**
+ * L'action `/term <ligne>` : la ligne, telle que tapée, au shell de
+ * l'utilisateur, le terminal PRÊTÉ le temps qu'elle tourne (`io.suspend`).
+ * Pas d'onglet : sa sortie va au vrai terminal, rien n'est à recueillir ; son
+ * issue s'écrit dans l'onglet d'où elle est partie. Comme une ligne `!`, elle
+ * part tout de suite, build en cours ou non.
+ *
+ * @param launch - le lanceur. Absent : la ligne est refusée, avec le conseil
+ *   de la taper dans un autre terminal.
+ * @returns l'action.
+ */
+export function terminalLineAction(
+  launch?: PromptTerminalLauncher,
+): IPromptAction {
+  const head = `${PROMPT_COMMAND_PREFIX}${TERM_PROMPT_COMMAND.id}`;
+  return {
+    id: TERM_PROMPT_COMMAND.id,
+    matches: (input: string): boolean => {
+      const trimmed = input.trim();
+      return (
+        trimmed === head ||
+        (trimmed.startsWith(head) && /\s/.test(trimmed[head.length] ?? ""))
+      );
+    },
+    complete: (prefix: string): readonly string[] =>
+      head.startsWith(prefix) ? [head] : [],
+    run: (
+      input: string,
+      io: IPromptIO,
+      signal: AbortSignal,
+    ): Promise<number> => {
+      const line = input.trim().slice(head.length).trim();
+      if (line === "") {
+        io.write(
+          `${TERM_PROMPT_COMMAND.usage} — un programme interactif, par exemple /term npm init\n`,
+          "err",
+        );
+        return Promise.resolve(64);
+      }
+      if (launch === undefined) {
+        const shown =
+          line.length > PROMPT_LINE_MAX
+            ? `${line.slice(0, PROMPT_LINE_MAX)}…`
+            : line;
+        io.write(
+          `« ${redactSecrets(shown)} » ne se lance pas depuis cette invite — dans un autre terminal\n`,
+          "err",
+        );
+        return Promise.resolve(1);
+      }
+      return io.suspend(() => launch(line, io, signal));
     },
   };
 }
