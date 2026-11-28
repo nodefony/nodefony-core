@@ -42,15 +42,19 @@ export class ServerPeer {
   /**
    * @param child - le processus serveur ; son `disconnect` dispose le pair.
    * @param onError - reçoit une erreur interne du pair (journal du superviseur).
+   * @param onReady - appelé une fois, quand le serveur annonce `dev.ready`.
    */
   constructor(
     child: IServerPeerChild,
     onError: (context: string, err: unknown) => void,
+    onReady?: () => void,
   ) {
     this.#peer = new JsonRpcPeer({
       send: (frame) => sendRpcToServer(child, frame),
       onNotification: (method) => {
-        if (method === DEV_READY) this.#ready = true;
+        if (method !== DEV_READY || this.#ready || this.#disposed) return;
+        this.#ready = true;
+        onReady?.();
       },
       onError,
     });

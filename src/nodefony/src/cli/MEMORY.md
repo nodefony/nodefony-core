@@ -217,6 +217,10 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
 - `cli/envReport.ts` = calcul PUR ; `cli/env.ts` = I/O + rendu. Le rapport RECONSTRUIT la
   provenance (au moment du run, `process.env` est déjà peuplé) : 1ᵉʳ fichier portant la valeur
   effective = origine ; aucun → shell. Les suivants qui définissent la clé = `shadowed`.
+- Producteur UNIQUE du rapport : `env.ts#renderEnvRequest` (texte + code), écrit par
+  `runEnvCommand` (CLI, environnement relu sur le disque par `appEnvironment`) et rendu en
+  part `text` par `readEnvState` (serveur vivant, `Env.readState` — `processEnv: process.env`,
+  ce que le SERVEUR a lu ; `.env` modifié ne relance pas le serveur de dev).
 - Catalogue lu par import de `<projet>/dist/index.js` → `getEnvCatalog(mod.env)`. Pas de build →
   `null`, et le rapport le DIT (`catalogAvailable: false` + note) au lieu d'échouer.
 - Exit **78** (`EX_CONFIG`) si une variable requise manque. Requise = ni `default` ni `optional`,

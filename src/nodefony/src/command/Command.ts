@@ -17,6 +17,7 @@ import Builder from "./Builder";
 import { extend } from "../Tools";
 import type { KernelEventKey, RunLifetime } from "../types/ICommand";
 import type { IRunProfile } from "../kernel/runProfile";
+import type { ICommandResult, IReadStateContext } from "./readState";
 import { tagCommandAction } from "../kernel/lifecycleTags";
 import { usageHint } from "../cli/usageHint";
 import {
@@ -289,6 +290,26 @@ class Command extends Service {
   public onKernelPostReady?(...args: unknown[]): Promise<void>;
   /** Cleanup / graceful shutdown — fire à `terminate()` (reçoit le code en dernier arg). */
   public onKernelTerminate?(...args: unknown[]): Promise<void>;
+  /**
+   * LIT l'état de l'application et le rend en parts, sans sortie standard,
+   * sans `terminate`, sans toucher `process.exitCode` ni `kernel.command` —
+   * c'est ce qui permet au serveur vivant de l'appeler pour l'invite du
+   * superviseur (ADR-0013, amendement #538 lot 3). FACULTATIF : absente, la
+   * commande part en sous-processus.
+   *
+   * **Lecture seule** : une convention, que rien ne prouve — écrire, générer
+   * ou changer le cycle de vie depuis ici agirait dans le serveur vivant.
+   * `generate()` appelle le même producteur : la CLI et l'invite ne peuvent
+   * pas rendre deux verdicts pour la même donnée.
+   *
+   * @param args - les arguments après le nom de la commande (`["--json"]`).
+   * @param ctx - largeur, abandon, étapes.
+   * @returns le résultat, ou `null` : pas en direct pour CES arguments.
+   */
+  public readState?(
+    args: readonly string[],
+    ctx: IReadStateContext,
+  ): Promise<ICommandResult | null>;
   public currentCommand?: Cmd | undefined;
   private eventsRegistered: boolean = false;
   /**
