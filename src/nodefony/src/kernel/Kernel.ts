@@ -113,6 +113,7 @@ import type {
 } from "./bootReport";
 import { collectBootNotices, resolveBootLinks } from "./bootReport";
 import type { StartupOutputMode } from "../service/dev/outputMode";
+import { NOT_LIVE } from "../service/dev/devChannel";
 import { ReadinessRegistry } from "./readinessRegistry";
 import type { IReadinessContributor } from "./readinessRegistry";
 import { KernelReadinessPublisher } from "./kernelReadiness";
@@ -1346,6 +1347,18 @@ class Kernel extends Service implements IKernel {
               if (!report.healthy && report.serversExpected) {
                 return this.terminate(SysExit.UNAVAILABLE);
               }
+              // Voie en direct de l'invite (ADR-0013 §6), ouverte sur un noyau
+              // démarré. Aucune commande ne se lit encore en mémoire : toutes
+              // répondent `live: false` et partent en sous-processus. Sans
+              // superviseur, rien n'est posé.
+              this.supervisorLink.serveCommands(
+                () => NOT_LIVE,
+                (context, err) =>
+                  this.log(
+                    `live command (${context}): ${String(err)}`,
+                    "ERROR",
+                  ),
+              );
               if (this.setCommandComplete(Events.onPostReady)) {
                 // Profil SERVEUR : les serveurs tiennent le process — ne JAMAIS
                 // finir ici (un finishOrPark nu ferait terminate → tuerait le

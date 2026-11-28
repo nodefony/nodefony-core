@@ -421,6 +421,29 @@ describe("JsonRpcPeer — annulation et flux (protocole de base LSP)", () => {
       await flush();
       expect(sent).to.deep.equal([]);
     });
+
+    it("un signal lu pour la PREMIÈRE fois après l'abandon naît abandonné, avec sa raison", async () => {
+      const { peer } = newPeer();
+      const calls: IRpcCall[] = [];
+      peer.registerCall("work", (_p, call) => {
+        calls.push(call);
+        return new Promise<string>(() => undefined);
+      });
+      peer.receive({ jsonrpc: "2.0", id: 7, method: "work", params: { n: 1 } });
+      peer.receive({ jsonrpc: "2.0", id: 8, method: "work", params: { n: 2 } });
+      await flush();
+      // Le handler ne l'a pas encore lu : il l'interrogera au retour d'un `await`.
+      peer.receive({
+        jsonrpc: "2.0",
+        method: "$/cancelRequest",
+        params: { id: 7 },
+      });
+      peer.dispose("superviseur parti");
+      const [cancelled, disposed] = calls;
+      expect(cancelled?.signal.aborted).to.equal(true);
+      expect(disposed?.signal.aborted).to.equal(true);
+      expect(String(disposed?.signal.reason)).to.contain("superviseur parti");
+    });
   });
 
   describe("méthodes `$/` interceptées par le pair", () => {

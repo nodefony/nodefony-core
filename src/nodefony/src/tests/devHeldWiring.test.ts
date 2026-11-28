@@ -159,6 +159,7 @@ function wire(
       applyHeldPlan: (p) => registry.apply(p),
       retainHeldOwners: (owners) => void registry.retainOwners(owners),
       reply: (ack) => sendToServer(child, ack),
+      receiveRpc: () => {},
       terminal,
     }),
   );
@@ -342,6 +343,7 @@ describe("superviseur — aiguillage des messages (unité)", () => {
         throw new Error("jamais appelé");
       },
       reply: (a) => replies.push(a),
+      receiveRpc: () => {},
       terminal,
     });
     route(statusView);
@@ -368,6 +370,7 @@ describe("superviseur — aiguillage des messages (unité)", () => {
         throw new Error("jamais appelé");
       },
       reply: (a) => replies.push(a),
+      receiveRpc: () => {},
       terminal: null,
     });
     expect(() => {
@@ -398,6 +401,7 @@ describe("superviseur — aiguillage des messages (unité)", () => {
         throw new Error("jamais appelé");
       },
       reply: () => {},
+      receiveRpc: () => {},
       terminal,
     });
     route(statusView);
@@ -420,6 +424,7 @@ describe("superviseur — aiguillage des messages (unité)", () => {
       },
       retainHeldOwners: (owners) => retained.push(owners),
       reply: (a) => replies.push(a),
+      receiveRpc: () => {},
       terminal,
     });
     route({ channel: DEV_CHANNEL, type: "held-owners", owners: ["frontend"] });

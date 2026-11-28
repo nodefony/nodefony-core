@@ -25,6 +25,7 @@ import type { ChildProcess } from "node:child_process";
 import { isAbsolute } from "node:path";
 import type { IQuestion, QuestionValue } from "../../cli/question";
 import { isWireAnswer, isWireQuestion } from "../../cli/questionWire";
+import type { RpcPart } from "../../realtime/JsonRpcPeer";
 import type { IStartupView, IStatusContext } from "./startupScreen";
 import {
   IGNORE_SEND_ERROR,
@@ -176,6 +177,18 @@ export interface IDevAnswer {
   value: QuestionValue | null;
 }
 
+/**
+ * Dans les deux sens : une trame JSON-RPC 2.0 entre le pair du superviseur et
+ * celui du serveur (ADR-0013 §6). Le garde ne vérifie que « `frame` est un
+ * objet » : la forme d'une trame est jugée par le pair
+ * (`jsonrpc/index.ts#classifyJsonRpcFrame`), qui jette une trame invalide.
+ */
+export interface IDevRpc {
+  channel: typeof DEV_CHANNEL;
+  type: "rpc";
+  frame: object;
+}
+
 /** Tout ce qui peut transiter sur le canal. */
 export type DevChannelMessage =
   | IDevStatusView
@@ -187,7 +200,113 @@ export type DevChannelMessage =
   | IDevHeldState
   | IDevHeldOwners
   | IDevQuestion
-  | IDevAnswer;
+  | IDevAnswer
+  | IDevRpc;
+
+/**
+ * Ce que l'invite demande au serveur : les champs de
+ * `workspace/executeCommand` (LSP), plus la largeur de l'onglet.
+ */
+export interface ICommandExecuteParams {
+  /** Nom de la commande, tel que le manifeste le connaît (`env`, `inspect`). */
+  readonly command: string;
+  /** Arguments déjà découpés, sans le nom de la commande. */
+  readonly arguments: readonly string[];
+  /** Largeur de l'onglet : une part `text` est rendue à cette largeur. */
+  readonly columns: number;
+}
+
+/**
+ * La réponse du serveur. `live: false` dit que la commande ne se sert pas en
+ * direct — une DONNÉE, pas une erreur : le superviseur la lance alors en
+ * sous-processus. Une réponse `live: true` porte toujours au moins une part
+ * `text`.
+ */
+export type CommandExecuteResult =
+  | { readonly live: false }
+  | {
+      readonly live: true;
+      readonly code: number;
+      readonly parts: readonly RpcPart[];
+    };
+
+/** La réponse « cette commande ne se sert pas en direct », partagée et figée. */
+export const NOT_LIVE: CommandExecuteResult = Object.freeze({ live: false });
+
+/** Les actions que le serveur expose au superviseur — une seule. */
+export type DevActions = {
+  "command.execute": { in: ICommandExecuteParams; out: CommandExecuteResult };
+};
+
+/** Les notifications que le serveur émet vers le superviseur. */
+export type DevEvents = {
+  /** `command.execute` est servi : le serveur a fini de démarrer. */
+  "dev.ready": undefined;
+};
+
+/** Nom de la notification « le serveur sert `command.execute` ». */
+export const DEV_READY = "dev.ready" satisfies keyof DevEvents;
+
+/**
+ * Délai d'une requête en direct. Le défaut du pair (30 s) est celui d'un
+ * réseau ; ici, `config`, la plus lourde lecture mesurée, répond en 3 ms.
+ */
+export const LIVE_COMMAND_TIMEOUT_MS = 5_000;
+
+/** Borne d'une requête : nom et arguments, en octets UTF-8. */
+export const MAX_LIVE_REQUEST_BYTES = 64 * 1024;
+
+/**
+ * Borne d'une réponse, en octets de JSON. Au-delà, un refus nommé
+ * ({@link LIVE_RESULT_TOO_LARGE}), jamais une réponse amputée. Repères
+ * mesurés : `env` 30 Kio, `inspect config` 195 Kio.
+ */
+export const MAX_LIVE_RESULT_BYTES = 1024 * 1024;
+
+/**
+ * Code d'erreur d'une réponse refusée pour sa taille (`data: { bytes, max }`).
+ * Propre à ce canal — sa seule définition. Plage serveur de JSON-RPC 2.0 §5.1 ;
+ * une porte MCP qui traduirait `command.execute` le traduirait aussi.
+ */
+export const LIVE_RESULT_TOO_LARGE = -32010;
+
+/** Longueur maximale d'un nom de commande (`security:user:list`). */
+const MAX_LIVE_COMMAND_LENGTH = 256;
+/** Largeur maximale d'un onglet, en colonnes. */
+const MAX_LIVE_COLUMNS = 10_000;
+
+/**
+ * Des paramètres de `command.execute` exploitables : nom non vide, arguments
+ * en chaînes, largeur entière, le tout sous {@link MAX_LIVE_REQUEST_BYTES}.
+ * Ils viennent du fil : le type du contrat les DÉCRIT, ce garde les VÉRIFIE.
+ *
+ * @param value - les `params` reçus.
+ * @returns `true` si la requête peut être servie.
+ */
+export function isCommandExecuteParams(
+  value: unknown,
+): value is ICommandExecuteParams {
+  if (!isJsonObject(value)) return false;
+  const { command, arguments: args, columns } = value;
+  if (
+    typeof command !== "string" ||
+    command.length === 0 ||
+    command.length > MAX_LIVE_COMMAND_LENGTH ||
+    typeof columns !== "number" ||
+    !Number.isInteger(columns) ||
+    columns < 1 ||
+    columns > MAX_LIVE_COLUMNS ||
+    !Array.isArray(args)
+  )
+    return false;
+  let bytes = Buffer.byteLength(command);
+  for (const arg of args) {
+    if (typeof arg !== "string") return false;
+    bytes += Buffer.byteLength(arg);
+    if (bytes > MAX_LIVE_REQUEST_BYTES) return false;
+  }
+  return true;
+}
 
 /** Au-delà, un plan n'est plus une déclaration mais un déversement. */
 export const MAX_HELD_SERVICES = 32;
@@ -443,6 +562,7 @@ const KNOWN_TYPES: ReadonlySet<string> = new Set<DevChannelMessage["type"]>([
   "held-owners",
   "question",
   "answer",
+  "rpc",
 ]);
 
 /**
@@ -469,6 +589,10 @@ export function isDevChannelMessage(
   if (m.type === "resize") return isDevResize(message);
   if (m.type === "boot-step") return isBootStep(message);
   if (m.type === "runtime") return isRuntime(message);
+  if (m.type === "rpc") {
+    const frame = "frame" in message ? message.frame : undefined;
+    return typeof frame === "object" && frame !== null;
+  }
   if (m.type === "question" || m.type === "answer") {
     if (!isJsonObject(message) || !isPlanId(message.id)) return false;
     return m.type === "question"
@@ -644,6 +768,35 @@ export function sendToSupervisor(
 }
 
 /**
+ * Côté SERVEUR : la sortie du pair JSON-RPC vers le superviseur.
+ *
+ * 🔴 Elle ne relaie PAS la valeur de `process.send()` : sous arriéré, il rend
+ * `false` alors que le message PART (constaté : 20 envois de 1 Mio, 20 `false`,
+ * 20 reçus), et le pair lirait `false` comme « non émis » et rejetterait la
+ * requête. `false` seulement quand le canal est fermé ou que l'envoi lève.
+ *
+ * @param frame - la trame que le pair émet.
+ * @param endpoint - le processus porteur du canal ; `process` par défaut.
+ * @returns `true` si la trame est partie.
+ */
+export function sendRpcToSupervisor(
+  frame: unknown,
+  endpoint: IDevChannelEndpoint = process,
+): boolean {
+  if (typeof frame !== "object" || frame === null) return false;
+  if (!hasSupervisorChannel(endpoint)) return false;
+  try {
+    endpoint.send(
+      { channel: DEV_CHANNEL, type: "rpc", frame },
+      IGNORE_SEND_ERROR,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Côté SERVEUR : écoute le superviseur. Le canal est relâché (`unref`) : il ne
  * garde pas, à lui seul, le processus en vie.
  *
@@ -684,6 +837,41 @@ export function sendToServer(
     return child.send(message, IGNORE_SEND_ERROR);
   } catch {
     return false; // le serveur s'arrête
+  }
+}
+
+/**
+ * Ce que la sortie du pair touche du processus serveur — `ChildProcess` la
+ * satisfait structurellement.
+ */
+export interface IServerChannel {
+  /** `true` tant que le canal IPC vers le serveur est ouvert. */
+  readonly connected: boolean;
+  send(
+    message: DevChannelMessage,
+    callback: (error: Error | null) => void,
+  ): boolean;
+}
+
+/**
+ * Côté SUPERVISEUR : la sortie du pair JSON-RPC vers le serveur. Même règle
+ * que {@link sendRpcToSupervisor} : le `false` de `send()` n'est pas relayé.
+ *
+ * @param child - le processus serveur, ou `null`.
+ * @param frame - la trame que le pair émet.
+ * @returns `true` si la trame est partie.
+ */
+export function sendRpcToServer(
+  child: IServerChannel | null,
+  frame: unknown,
+): boolean {
+  if (typeof frame !== "object" || frame === null) return false;
+  if (!child?.connected) return false;
+  try {
+    child.send({ channel: DEV_CHANNEL, type: "rpc", frame }, IGNORE_SEND_ERROR);
+    return true;
+  } catch {
+    return false;
   }
 }
 
