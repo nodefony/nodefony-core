@@ -840,8 +840,10 @@ readState?(args: readonly string[], ctx: IReadStateContext): Promise<ICommandRes
 - **Le gabarit de commande** (`nodefony create command`,
   `src/nodefony/templates/command/nodefony/command/__NAME__.ts.tpl`) ne pose PAS de `readState()`
   par défaut : une commande générée qui écrit tournerait dans le serveur vivant. La variante
-  `readState` en lecture seule se demande explicitement au générateur, et le banc devkit la compile
-  (`nodefony-devkit-bench`).
+  `readState` en lecture seule se demande explicitement au générateur (`--read-state`), et le banc
+  devkit la compile et l'exécute (`nodefony-devkit-bench`). Le serveur la retrouve par
+  `CliKernel.findCommand` : une commande de module n'est rangée que dans `Module.commands` et
+  dans commander, jamais dans `cli.commands`.
 - **Jamais `Command.generate()` dans le serveur vivant.** Les bloqueurs sont ceux du CADRE, pas
   du calcul : `terminate()` tuerait le serveur (`src/nodefony/src/kernel/commands/InspectCommand.ts#Inspect.generate`),
   `process.exitCode` est global, `kernel.command` est écrasé (`src/nodefony/src/command/Command.ts#Command.run`),

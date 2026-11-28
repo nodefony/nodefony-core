@@ -259,6 +259,8 @@ export function parseCreateArgv(
       }
     } else if (word === "--no-service") {
       answers.service = false;
+    } else if (word === "--read-state") {
+      answers.readState = true;
     } else if (word === "--command") {
       answers.command = true;
     } else if (word === "--no-command") {
