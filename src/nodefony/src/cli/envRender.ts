@@ -283,13 +283,22 @@ export function renderEnvReport(
     const levelCount = !l.exists
       ? "absent"
       : `${count} variable${count > 1 ? "s" : ""}`;
-    out.push(
-      (
-        `    ${l.rank}  ${pad(label, 26)} ${levelCount}` +
-        (l.rank === 1 ? p.dim("   gagne toujours") : "") +
-        (l.skipped ? p.dim(`   (${l.skipped})`) : "")
-      ).trimEnd(),
-    );
+    const head = `    ${l.rank}  ${pad(label, 26)} ${levelCount}`;
+    const notes = [
+      ...(l.rank === 1 ? ["gagne toujours"] : []),
+      ...(l.skipped ? [`(${l.skipped})`] : []),
+    ];
+    // Les notes tiennent sur la ligne si la largeur le permet ; sinon elles
+    // passent dessous, alignées sous le libellé — jamais au-delà de la largeur.
+    const inline = notes.map((n) => `   ${n}`).join("");
+    if (head.length + inline.length <= width) {
+      out.push((head + (inline ? p.dim(inline) : "")).trimEnd());
+    } else {
+      out.push(head.trimEnd());
+      for (const n of notes) {
+        out.push(...wrap(n, width, " ".repeat(7)).map((w) => p.dim(w)));
+      }
+    }
   }
 
   // ── Application ───────────────────────────────────────────────────────────
@@ -468,9 +477,11 @@ export function renderEnvReport(
   }
   out.push(
     "",
-    p.dim(
-      "  --json : le rapport entier · --example : la notice .env.example · --help",
-    ),
+    ...wrap(
+      "--json : le rapport entier · --example : la notice .env.example · --help",
+      width,
+      "  ",
+    ).map((l) => p.dim(l)),
     "",
   );
   return out.join("\n");
