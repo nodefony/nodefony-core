@@ -61,6 +61,32 @@ export const JsonRpcServerError = {
 } as const;
 
 /**
+ * Codes de la plage `-32899…-32800`, que le protocole de base LSP réserve
+ * (`ErrorCodes`) — repris pour l'annulation d'une requête entre deux pairs.
+ */
+export const JsonRpcBaseProtocolError = {
+  /**
+   * Requête abandonnée par l'appelant (`$/cancelRequest`) : le répondant
+   * répond QUAND MÊME, avec ce code — une requête ne reste jamais sans réponse.
+   */
+  REQUEST_CANCELLED: -32800,
+} as const;
+
+/**
+ * Notification d'abandon d'une requête, `params: { id }` (protocole de base
+ * LSP, « Cancellation Support »). Le préfixe `$/` marque une méthode du
+ * PROTOCOLE : le pair l'intercepte, elle n'atteint jamais l'application.
+ */
+export const JSON_RPC_CANCEL_REQUEST = "$/cancelRequest";
+
+/**
+ * Notification d'une étape de progression, `params: { token, value }`
+ * (protocole de base LSP, « Progress Support »). Méthode du protocole, comme
+ * {@link JSON_RPC_CANCEL_REQUEST}.
+ */
+export const JSON_RPC_PROGRESS = "$/progress";
+
+/**
  * Identifiant d'une requête : chaîne ou nombre (JSON-RPC 2.0 §4).
  *
  * `null` est permis par JSON-RPC mais « découragé », et INTERDIT par le MCP ;
@@ -84,6 +110,12 @@ export interface IJsonRpcRequest {
   id: JsonRpcId;
   method: string;
   params?: unknown;
+  /**
+   * Métadonnées du protocole, à CÔTÉ des `params` — ceux-ci sont la charge
+   * typée du contrat, et peuvent être un tableau. Porte `progressToken` quand
+   * l'appelant demande un flux. Donnée réseau : un récepteur la vérifie.
+   */
+  meta?: Readonly<Record<string, unknown>>;
 }
 
 /** Notification : aucune réponse n'est due (pas d'`id`). */
@@ -212,14 +244,20 @@ export function classifyJsonRpcFrame(frame: unknown): JsonRpcFrameKind {
  * @param id - identifiant de corrélation
  * @param method - nom de la méthode
  * @param params - charge ; absente du fil si `undefined`
+ * @param meta - métadonnées du protocole (`progressToken`) ; la clé n'existe
+ *   que si elles sont données, pour que la requête ordinaire garde sa forme
  * @returns la frame, prête à sérialiser
  */
 export function jsonRpcRequest(
   id: JsonRpcId,
   method: string,
   params?: unknown,
+  meta?: Readonly<Record<string, unknown>>,
 ): IJsonRpcRequest {
-  return { jsonrpc: JSON_RPC_VERSION, id, method, params };
+  if (meta === undefined) {
+    return { jsonrpc: JSON_RPC_VERSION, id, method, params };
+  }
+  return { jsonrpc: JSON_RPC_VERSION, id, method, params, meta };
 }
 
 /**

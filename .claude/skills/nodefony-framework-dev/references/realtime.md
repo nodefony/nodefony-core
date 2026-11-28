@@ -85,9 +85,17 @@ UNE fois, composé des 2 côtés. ZÉRO dépendance node (pub/sub via `Map`+call
 - **Discrimination par `method`, PAS par `id`** (règle absolue) : `method`+`id`=requête → `result`/`error` ;
   `method` seul=notification ; `id` sans `method`=réponse (matchée au pending, ignorée si aucun). `id` string|number.
   Inconnu → `-32601` ; handler qui throw → `-32603` **message générique** (détail via `onError`=Zero Trust).
-- API : `register/unregister/methods` (actions entrantes) · `request/requestTraced/notify` (sortant) · `receive`
-  (entrant) · `dispose`. **Pas de streaming RPC** : une action rend UNE valeur, aucune frame de fragment
-  n'existe. Réponse qui progresse (LLM, export long) → motif « travail + canal ».
+- API : `register/registerCall/unregister/methods` (actions entrantes) · `request/requestTraced/notify` (sortant) ·
+  `receive` (entrant) · `dispose`. Troisième argument de `request*` : un nombre (délai) ou `{ timeoutMs, signal,
+onProgress }`.
+- **Annulation et flux = protocole de base LSP** (ADR-0013 §6) : `signal` abandonné → rejet, PUIS `$/cancelRequest
+{ id }` ; un délai expiré annule AUSSI. `onProgress` → `meta.progressToken` = l'id, étapes `$/progress { token,
+value }` jusqu'à la réponse. Côté répondant, seul `registerCall((params, call) => …)` est annulable
+  (`call.signal` paresseux, `call.progress()`), et répond `-32800` (`JsonRpcBaseProtocolError.REQUEST_CANCELLED`) à
+  l'abandon ; `register` n'alloue rien et répond normalement. Les méthodes `$/…` sont interceptées AVANT
+  `beforeDispatch` et `onNotification` (une requête `$/` → `-32601`). Une action rend toujours UNE valeur finale :
+  les étapes la précèdent. Mesuré (`micro/micro-jsonrpc-peer-ab.mjs`) : aller-retour ≈ 1 µs, `registerCall` +0,2 µs,
+  `signal` +0,9 µs (EventTarget). Flux de canal (LLM, export long) → motif « travail + canal » inchangé.
 
 **`IRealtimeTransport` (core, seam)** — `connect/send/close/readyState` + `onOpen/onMessage/onClose/onError`.
 `TransportState` (0..3, aligné WebSocket). `BrowserWsTransport` (navigateur, wrap `WebSocket`) ; `WsConnectionTransport`

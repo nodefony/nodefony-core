@@ -25,7 +25,11 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { builtinModules } from "node:module";
 import path from "node:path";
 import ts from "typescript";
-import { JsonRpcError, JsonRpcServerError } from "../jsonrpc/index";
+import {
+  JsonRpcBaseProtocolError,
+  JsonRpcError,
+  JsonRpcServerError,
+} from "../jsonrpc/index";
 
 /** Racine du dépôt — ce test lit les sources de TOUS les workspaces. */
 const REPO = path.resolve(import.meta.dirname, "..", "..", "..", "..");
@@ -51,6 +55,10 @@ const OWNED_CODES = new Map<number, string>([
     `JsonRpcError.${name}`,
   ]),
   [JsonRpcServerError.DEFAULT, "JsonRpcServerError.DEFAULT"],
+  [
+    JsonRpcBaseProtocolError.REQUEST_CANCELLED,
+    "JsonRpcBaseProtocolError.REQUEST_CANCELLED",
+  ],
 ]);
 
 /**

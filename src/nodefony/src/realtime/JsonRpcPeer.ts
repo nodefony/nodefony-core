@@ -41,11 +41,15 @@ import type {
   TypedRpcActionHandler,
 } from "./RealtimeEventMap";
 import {
+  JSON_RPC_CANCEL_REQUEST,
+  JSON_RPC_PROGRESS,
   JSON_RPC_VERSION,
+  JsonRpcBaseProtocolError,
   JsonRpcError,
   JsonRpcServerError,
   classifyJsonRpcFrame,
   isJsonRpcErrorObject,
+  isJsonRpcId,
   jsonRpcFailure,
   jsonRpcNotification,
   jsonRpcRequest,
@@ -150,6 +154,106 @@ export interface RpcTracedResult<T = unknown> {
   result: T;
   meta?: RpcMeta;
 }
+
+/** Délai d'une requête sortante sans délai donné — celui d'un réseau. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+
+/**
+ * Une part de contenu typée — la forme du `Part` d'A2A et du `content` de MCP :
+ * une porte future la traduit champ pour champ. Toute surface sait afficher
+ * une part `text` ; une part `data` se dessine par qui connaît son `mediaType`.
+ */
+export type RpcPart =
+  | { readonly text: string; readonly mediaType?: string }
+  | { readonly data: unknown; readonly mediaType: string }
+  | {
+      readonly raw: string;
+      readonly mediaType: string;
+      readonly filename?: string;
+    }
+  | { readonly url: string; readonly mediaType?: string };
+
+/**
+ * Une étape qu'un handler émet par {@link IRpcCall.progress}. Sans `progress`,
+ * le pair numérote (1, 2, 3…) ; un `progress` donné doit croître strictement.
+ */
+export interface IRpcProgressUpdate {
+  /** Rang de l'étape, strictement croissant. */
+  readonly progress?: number;
+  /** Nombre d'étapes attendu, quand il est connu. */
+  readonly total?: number;
+  /** Libellé court de l'étape. */
+  readonly message?: string;
+  /** Contenu produit par l'étape. */
+  readonly parts?: readonly RpcPart[];
+}
+
+/**
+ * Une étape reçue par l'appelant (`$/progress`, champ `value`) — numérotée.
+ * Donnée réseau : le contrat la décrit sans la valider.
+ */
+export interface IRpcProgress extends IRpcProgressUpdate {
+  readonly progress: number;
+}
+
+/**
+ * Options d'une requête sortante — la forme longue du troisième argument de
+ * `request` ; un nombre y reste le délai.
+ */
+export interface IRpcRequestOptions {
+  /** Délai avant rejet (défaut 30 s) ; expiré, il ANNULE aussi la requête chez le pair. */
+  readonly timeoutMs?: number;
+  /**
+   * Abandon : la promesse rejette avec la raison du signal, puis le pair émet
+   * `$/cancelRequest`. Déjà abandonné : rejet immédiat, rien n'est émis.
+   */
+  readonly signal?: AbortSignal;
+  /**
+   * Demande un flux : la requête porte `meta.progressToken`, et chaque
+   * `$/progress` du répondant arrive ici jusqu'à la réponse. Une étape ne
+   * repousse pas le délai.
+   */
+  readonly onProgress?: (value: IRpcProgress) => void;
+}
+
+/**
+ * L'appel en cours, tel que le voit un handler posé par
+ * {@link JsonRpcPeer.registerCall} : de quoi s'interrompre et émettre un flux.
+ */
+export interface IRpcCall {
+  /** `id` de la requête entrante. */
+  readonly id: JsonRpcId;
+  /**
+   * Abandonné quand l'appelant annule (`$/cancelRequest`) ou que le pair est
+   * disposé. Créé à la première lecture : qui ne le lit pas ne le paie pas.
+   */
+  readonly signal: AbortSignal;
+  /**
+   * Émet une étape (`$/progress`).
+   *
+   * @returns `false` quand l'appelant n'a demandé aucun flux, que la requête
+   *   est close, ou que la frame n'est pas partie.
+   */
+  progress(update: IRpcProgressUpdate): boolean;
+}
+
+/**
+ * Handler d'une action posée par {@link JsonRpcPeer.registerCall} : il reçoit
+ * l'appel en cours en plus des `params`. Paramètres en position de méthode
+ * (bivariants), comme {@link RpcActionHandler}.
+ */
+export type RpcCallHandler = {
+  handle(params: unknown, call: IRpcCall): unknown;
+}["handle"];
+
+/** {@link RpcCallHandler} typé par le contrat d'actions. */
+export type TypedRpcCallHandler<
+  M extends ActionsMap,
+  K extends ActionNames<M>,
+> = (
+  params: ActionParams<M, K>,
+  call: IRpcCall,
+) => ActionResult<M, K> | Promise<ActionResult<M, K>>;
 
 /**
  * Handler d'une action (requête→réponse). Sync ou async ; throw → `-32603`.
@@ -344,11 +448,14 @@ export interface IRealtimePeer<
   Emit extends EventsMap = DefaultEventsMap,
   Actions extends ActionsMap = DefaultActionsMap,
 > {
-  /** Requête sortante → `Promise` du `result` (rejette sur `error`/timeout). */
+  /**
+   * Requête sortante → `Promise` du `result` (rejette sur `error`, délai ou
+   * abandon). Troisième argument : le délai, ou {@link IRpcRequestOptions}.
+   */
   request<K extends ActionNames<Actions>>(
     method: K,
     params?: ActionParams<Actions, K>,
-    timeoutMs?: number,
+    options?: number | IRpcRequestOptions,
   ): Promise<ActionResult<Actions, K>>;
   /** Notification sortante (pas de réponse). */
   notify<K extends EventNames<Emit>>(
@@ -370,12 +477,103 @@ export interface IRealtimePeer<
   dispose(reason?: string): void;
 }
 
-interface PendingCall {
-  resolve: (value: unknown) => void;
-  reject: (reason: Error) => void;
-  timer: ReturnType<typeof setTimeout> | null;
-  /** Appel tracé : la promesse rend `{ result, meta }` au lieu du `result` nu. */
-  withMeta?: boolean | undefined;
+/**
+ * Une de NOS requêtes sortantes en attente — forme stable, champs posés au
+ * constructeur. `resolve`/`reject` sont ceux de la promesse, nus : le nettoyage
+ * (minuteur, écouteur du signal, table) vit à UN endroit, `JsonRpcPeer.settle`.
+ */
+class PendingCall {
+  timer: ReturnType<typeof setTimeout> | null = null;
+  /** Signal d'abandon de l'appelant, et l'écouteur posé dessus — retiré à chaque issue. */
+  signal: AbortSignal | null = null;
+  onAbort: (() => void) | null = null;
+
+  constructor(
+    readonly method: string,
+    readonly resolve: (value: unknown) => void,
+    readonly reject: (reason: Error) => void,
+    /** Appel tracé : la promesse rend `{ result, meta }` au lieu du `result` nu. */
+    readonly withMeta: boolean,
+    /** Flux demandé : le jeton envoyé vaut l'`id` de la requête. */
+    readonly onProgress: ProgressSink | null,
+  ) {}
+}
+
+/**
+ * Récepteur d'une étape reçue. Paramètre en position de méthode (bivariant) :
+ * c'est la frontière où une donnée réseau rencontre `IRpcProgress`, que le
+ * contrat décrit sans valider — comme {@link RpcActionHandler} pour les `params`.
+ */
+type ProgressSink = { handle(value: object): void }["handle"];
+
+/**
+ * Enveloppe d'un handler posé par `registerCall` — rangée dans la même table
+ * que les handlers simples ; `typeof handler === "function"` les distingue.
+ */
+class CallHandler {
+  constructor(readonly fn: RpcCallHandler) {}
+}
+
+/**
+ * Une requête ENTRANTE servie par un handler de `registerCall` : son signal
+ * (paresseux) et son flux. Close à la réponse, à l'abandon ou au `dispose`.
+ */
+class RpcCall implements IRpcCall {
+  closed = false;
+  private controller: AbortController | null = null;
+  private last = 0;
+
+  constructor(
+    readonly id: JsonRpcId,
+    /** Jeton de flux demandé par l'appelant (`meta.progressToken`), sinon `null`. */
+    private readonly token: JsonRpcId | null,
+    /** Sortie du pair, qui ne lève jamais (cf `JsonRpcPeer.emitter`). */
+    private readonly out: (frame: unknown) => boolean,
+  ) {}
+
+  get signal(): AbortSignal {
+    return (this.controller ??= new AbortController()).signal;
+  }
+
+  progress(update: IRpcProgressUpdate): boolean {
+    if (this.closed || this.token === null) return false;
+    const progress = update.progress ?? this.last + 1;
+    this.last = progress;
+    return this.out(
+      jsonRpcNotification(JSON_RPC_PROGRESS, {
+        token: this.token,
+        value: { ...update, progress },
+      }),
+    );
+  }
+
+  /** Ferme l'appel et abandonne son signal, s'il a été lu. */
+  abort(reason: Error): void {
+    this.closed = true;
+    this.controller?.abort(reason);
+  }
+}
+
+/**
+ * Le jeton de flux qu'une requête entrante demande (`meta.progressToken`), ou
+ * `null`. Donnée réseau : `meta` peut manquer, valoir `null` ou n'importe quoi.
+ */
+function progressTokenOf(frame: unknown): JsonRpcId | null {
+  if (typeof frame !== "object" || frame === null || !("meta" in frame)) {
+    return null;
+  }
+  const meta = frame.meta;
+  if (typeof meta !== "object" || meta === null || !("progressToken" in meta)) {
+    return null;
+  }
+  const token = meta.progressToken;
+  return isJsonRpcId(token) ? token : null;
+}
+
+/** La raison d'un abandon, en `Error` (la promesse ne rejette qu'avec une `Error`). */
+function abortReason(signal: AbortSignal): Error {
+  const reason: unknown = signal.reason;
+  return reason instanceof Error ? reason : new Error(String(reason));
 }
 
 /**
@@ -401,7 +599,12 @@ export class JsonRpcPeer<
   private pending: Map<number, PendingCall> | null = null;
   // Registre des actions exposées (requêtes entrantes). Lazy : la plupart des pairs
   // (ex. client) n'exposent aucune action → pas d'alloc « au cas où ».
-  private actions: Map<string, RpcActionHandler> | null = null;
+  private actions: Map<string, RpcActionHandler | CallHandler> | null = null;
+  // Requêtes ENTRANTES servies par un handler de `registerCall`, le temps de
+  // leur réponse : ce que `$/cancelRequest` retrouve. Lazy, comme `pending`.
+  private inbound: Map<JsonRpcId, RpcCall> | null = null;
+  // Sortie qui ne lève jamais, partagée par les appels entrants (une par pair).
+  private emitterFn: ((frame: unknown) => boolean) | null = null;
   // Codec COURANT (ADR-0022 §4) : encode les émissions d'une sortie `write`,
   // relit l'entrée par `decode`. Le texte jusqu'à l'accueil.
   private _codec: IFrameCodec;
@@ -462,7 +665,36 @@ export class JsonRpcPeer<
    * @param handler - ce qui répond à la requête entrante.
    */
   registerHandler(method: string, handler: RpcActionHandler): void {
-    (this.actions ??= new Map<string, RpcActionHandler>()).set(method, handler);
+    (this.actions ??= new Map<string, RpcActionHandler | CallHandler>()).set(
+      method,
+      handler,
+    );
+  }
+
+  /**
+   * Expose une action dont le handler reçoit l'APPEL en cours
+   * ({@link IRpcCall}) : son `signal`, abandonné quand l'appelant annule
+   * (`$/cancelRequest`) ou que le pair est disposé, et `progress()`, qui émet
+   * un flux quand l'appelant en a demandé un.
+   *
+   * Annulé, l'appel reçoit tout de suite la réponse `-32800`
+   * (`JsonRpcBaseProtocolError.REQUEST_CANCELLED`) ; ce que le handler rend
+   * ensuite est jeté. Une action de {@link register} n'est pas annulable : sa
+   * réponse part normalement, et l'appelant, qui a déjà rendu la main, l'ignore.
+   * Idempotent, et remplace une action du même nom.
+   *
+   * @param method - nom de l'action.
+   * @param handler - ce qui répond, avec l'appel en cours.
+   */
+  registerCall<K extends ActionNames<Actions>>(
+    method: K,
+    handler: TypedRpcCallHandler<Actions, K>,
+  ): void {
+    const fn: RpcCallHandler = handler;
+    (this.actions ??= new Map<string, RpcActionHandler | CallHandler>()).set(
+      method,
+      new CallHandler(fn),
+    );
   }
 
   /** Retire une action. */
@@ -475,13 +707,20 @@ export class JsonRpcPeer<
     return this.actions ? [...this.actions.keys()] : [];
   }
 
-  /** Requête SORTANTE — `Promise` résolue avec le `result` (rejette sur `error`/timeout). */
+  /**
+   * Requête SORTANTE — `Promise` résolue avec le `result` (rejette sur `error`,
+   * délai ou abandon).
+   *
+   * @param options - le délai en millisecondes (30 s par défaut), ou
+   *   {@link IRpcRequestOptions} : `signal` pour abandonner (`$/cancelRequest`),
+   *   `onProgress` pour recevoir un flux (`$/progress`).
+   */
   request<K extends ActionNames<Actions>>(
     method: K,
     params?: ActionParams<Actions, K>,
-    timeoutMs = 30000,
+    options?: number | IRpcRequestOptions,
   ): Promise<ActionResult<Actions, K>> {
-    return this.startCall<ActionResult<Actions, K>>(method, params, timeoutMs);
+    return this.startCall<ActionResult<Actions, K>>(method, params, options);
   }
 
   /**
@@ -499,16 +738,16 @@ export class JsonRpcPeer<
    * @typeParam A - le contrat RPC de l'interlocuteur.
    * @param method - action exposée par l'interlocuteur.
    * @param params - ses paramètres, typés par le contrat.
-   * @param timeoutMs - délai avant rejet (défaut 30 s).
+   * @param options - délai avant rejet (défaut 30 s), ou {@link IRpcRequestOptions}.
    * @returns le `result` de l'interlocuteur ; rejette sur `error`, timeout ou
    *   pair disposé.
    */
   requestAs<A extends ActionsMap, K extends ActionNames<A>>(
     method: K,
     params?: ActionParams<A, K>,
-    timeoutMs = 30000,
+    options?: number | IRpcRequestOptions,
   ): Promise<ActionResult<A, K>> {
-    return this.startCall<ActionResult<A, K>>(method, params, timeoutMs);
+    return this.startCall<ActionResult<A, K>>(method, params, options);
   }
 
   /**
@@ -518,18 +757,18 @@ export class JsonRpcPeer<
    * @typeParam A - le contrat RPC de l'interlocuteur.
    * @param method - action exposée par l'interlocuteur.
    * @param params - ses paramètres, typés par le contrat.
-   * @param timeoutMs - délai avant rejet (défaut 30 s).
+   * @param options - délai avant rejet (défaut 30 s), ou {@link IRpcRequestOptions}.
    * @returns `{ result, meta }` ; rejette sur `error`, timeout ou pair disposé.
    */
   requestTracedAs<A extends ActionsMap, K extends ActionNames<A>>(
     method: K,
     params?: ActionParams<A, K>,
-    timeoutMs = 30000,
+    options?: number | IRpcRequestOptions,
   ): Promise<RpcTracedResult<ActionResult<A, K>>> {
     return this.startCall<RpcTracedResult<ActionResult<A, K>>>(
       method,
       params,
-      timeoutMs,
+      options,
       true,
     );
   }
@@ -545,12 +784,12 @@ export class JsonRpcPeer<
   requestTraced<K extends ActionNames<Actions>>(
     method: K,
     params?: ActionParams<Actions, K>,
-    timeoutMs = 30000,
+    options?: number | IRpcRequestOptions,
   ): Promise<RpcTracedResult<ActionResult<Actions, K>>> {
     return this.startCall<RpcTracedResult<ActionResult<Actions, K>>>(
       method,
       params,
-      timeoutMs,
+      options,
       true,
     );
   }
@@ -623,6 +862,28 @@ export class JsonRpcPeer<
     const frame = msg as IJsonRpcRequest | IJsonRpcNotification;
     const isRequest = kind === "request";
 
+    // Méthode du PROTOCOLE (`$/…`, LSP) : traitée ici, avant la garde et avant
+    // l'application — un écouteur joker ne la voit jamais. Elle n'agit que sur
+    // les appels de CETTE connexion, rien à arbitrer pour `beforeDispatch`.
+    // Chemin chaud : une comparaison de caractère par frame ordinaire.
+    const method = frame.method;
+    if (method.charCodeAt(0) === 36 && method.charCodeAt(1) === 47) {
+      if ("id" in frame) {
+        // Une REQUÊTE `$/` se refuse en `-32601` (LSP, « $ Notifications »).
+        this.opts.onFrameAudit?.("method_not_found", msg, this);
+        this.emit(
+          jsonRpcFailure(
+            frame.id,
+            JsonRpcError.METHOD_NOT_FOUND,
+            `method not found: ${method}`,
+          ),
+        );
+        return "request";
+      }
+      this.handleProtocolNotification(method, frame.params);
+      return "notification";
+    }
+
     // Seam sécu 1/5 : gate AVANT le dispatch (request ET notification). Hot-path
     // sync — `undefined` → bypass 0-coût. Cf JsonRpcPeerOptions.beforeDispatch.
     if (this.opts.beforeDispatch && !this.opts.beforeDispatch(frame, this)) {
@@ -663,14 +924,25 @@ export class JsonRpcPeer<
     return "notification";
   }
 
-  /** Annule tous les pending (fermeture du transport). */
+  /**
+   * Fermeture du transport : rejette nos requêtes en attente et abandonne les
+   * appels ENTRANTS en cours (leur `signal`) — c'est ce qui arrête un
+   * producteur quand l'interlocuteur disparaît. Rien n'est émis.
+   */
   dispose(reason = "peer disposed"): void {
-    if (!this.pending) return;
-    for (const p of this.pending.values()) {
-      if (p.timer) clearTimeout(p.timer);
-      p.reject(new Error(reason));
+    const inbound = this.inbound;
+    if (inbound !== null && inbound.size > 0) {
+      const error = new Error(reason);
+      for (const call of inbound.values()) call.abort(error);
+      inbound.clear();
     }
-    this.pending.clear();
+    const pending = this.pending;
+    if (pending === null) return;
+    for (const call of pending.values()) {
+      this.release(call);
+      call.reject(new Error(reason));
+    }
+    pending.clear();
   }
 
   // ── interne ───────────────────────────────────────────────────────────────
@@ -724,47 +996,166 @@ export class JsonRpcPeer<
   private startCall<T>(
     method: string,
     params: unknown,
-    timeoutMs: number,
-    withMeta?: boolean,
+    options: number | IRpcRequestOptions | undefined,
+    withMeta = false,
   ): Promise<T> {
+    let timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS;
+    let signal: AbortSignal | null = null;
+    let onProgress: ((value: IRpcProgress) => void) | null = null;
+    if (typeof options === "number") {
+      timeoutMs = options;
+    } else if (options !== undefined) {
+      timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+      signal = options.signal ?? null;
+      onProgress = options.onProgress ?? null;
+    }
+    // Déjà abandonnée : la requête ne part jamais, rien n'est émis.
+    if (signal?.aborted) return Promise.reject(abortReason(signal));
     const id = this.nextId++;
     const pending = (this.pending ??= new Map<number, PendingCall>());
     return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        pending.delete(id);
-        reject(new Error(`RPC timeout: ${method}`));
-      }, timeoutMs);
-      pending.set(id, {
-        resolve: (v) => {
-          clearTimeout(timer);
-          resolve(v as T);
-        },
-        reject: (e) => {
-          clearTimeout(timer);
-          reject(e);
-        },
-        timer,
+      const call = new PendingCall(
+        method,
+        (value: unknown) => resolve(value as T),
+        reject,
         withMeta,
-      });
+        onProgress,
+      );
+      pending.set(id, call);
       // Un transport qui répond `false` n'a PAS émis : inutile de faire patienter
       // l'appelant jusqu'au timeout (30 s par défaut) pour une frame perdue.
       // Des paramètres que le codec ne sait pas encoder échouent CHEZ
       // l'appelant, maintenant — jamais une réponse forgée vers le pair.
       let sent: boolean;
       try {
-        sent = this.emit(jsonRpcRequest(id, method, params));
+        sent = this.emit(
+          onProgress === null
+            ? jsonRpcRequest(id, method, params)
+            : jsonRpcRequest(id, method, params, { progressToken: id }),
+        );
       } catch (err) {
-        clearTimeout(timer);
         pending.delete(id);
         reject(err instanceof Error ? err : new Error(String(err)));
         return;
       }
       if (!sent) {
-        clearTimeout(timer);
         pending.delete(id);
         reject(new Error(`RPC non émis (transport indisponible) : ${method}`));
+        return;
+      }
+      // Un transport en mémoire peut avoir répondu PENDANT l'émission : l'appel
+      // est alors déjà réglé, et un minuteur armé après lui ne ferait que fuir.
+      if (pending.get(id) !== call) return;
+      call.timer = setTimeout(() => this.expire(id), timeoutMs);
+      if (signal !== null) {
+        const onAbort = (): void => this.abandon(id, signal);
+        call.signal = signal;
+        call.onAbort = onAbort;
+        signal.addEventListener("abort", onAbort, { once: true });
       }
     });
+  }
+
+  /**
+   * Règle un appel sortant : le retire de la table, coupe son minuteur, retire
+   * l'écouteur du signal. Seul endroit du nettoyage — chaque issue y passe.
+   */
+  private settle(id: number, call: PendingCall): void {
+    this.pending?.delete(id);
+    this.release(call);
+  }
+
+  /** Coupe le minuteur et retire l'écouteur du signal d'un appel sortant. */
+  private release(call: PendingCall): void {
+    if (call.timer !== null) clearTimeout(call.timer);
+    if (call.onAbort !== null) {
+      call.signal?.removeEventListener("abort", call.onAbort);
+    }
+  }
+
+  /** Délai expiré : rejet, PUIS annulation chez le pair — personne n'attend plus. */
+  private expire(id: number): void {
+    const call = this.pending?.get(id);
+    if (call === undefined) return;
+    this.settle(id, call);
+    call.reject(new Error(`RPC timeout: ${call.method}`));
+    this.cancelOutbound(id);
+  }
+
+  /** Abandon par le signal de l'appelant : rejet avec sa raison, PUIS annulation. */
+  private abandon(id: number, signal: AbortSignal): void {
+    const call = this.pending?.get(id);
+    if (call === undefined) return;
+    this.settle(id, call);
+    call.reject(abortReason(signal));
+    this.cancelOutbound(id);
+  }
+
+  /**
+   * Émet `$/cancelRequest` pour une de nos requêtes. Chemin froid, appelé hors
+   * de toute pile de l'appelant (minuteur, écouteur) : rien n'y lève.
+   */
+  private cancelOutbound(id: number): void {
+    this.emitter()(jsonRpcNotification(JSON_RPC_CANCEL_REQUEST, { id }));
+  }
+
+  /**
+   * La sortie du pair qui ne lève jamais : une frame non encodable ou un
+   * transport qui lève rendent `false`, le détail part à `onError`. Une par
+   * pair, créée au premier besoin.
+   */
+  private emitter(): (frame: unknown) => boolean {
+    return (this.emitterFn ??= (frame: unknown): boolean => {
+      try {
+        return this.emit(frame);
+      } catch (err) {
+        this.opts.onError?.("emit", err);
+        return false;
+      }
+    });
+  }
+
+  /**
+   * Notification du protocole (`$/…`) : l'annulation d'une requête entrante,
+   * une étape d'une de nos requêtes. Toute autre méthode `$/` est ignorée
+   * (LSP : « free to ignore »). Ne lève jamais.
+   */
+  private handleProtocolNotification(method: string, params: unknown): void {
+    if (typeof params !== "object" || params === null) return;
+    if (method === JSON_RPC_CANCEL_REQUEST) {
+      if (this.inbound === null || !("id" in params)) return;
+      const id = params.id;
+      if (!isJsonRpcId(id)) return;
+      const call = this.inbound.get(id);
+      // Inconnu, ou réponse déjà partie : rien à faire.
+      if (call === undefined) return;
+      this.inbound.delete(id);
+      call.abort(new Error("request cancelled"));
+      // La requête reçoit QUAND MÊME sa réponse (LSP, « Cancellation Support »).
+      this.emitter()(
+        jsonRpcFailure(
+          id,
+          JsonRpcBaseProtocolError.REQUEST_CANCELLED,
+          "Request cancelled",
+        ),
+      );
+      return;
+    }
+    if (method === JSON_RPC_PROGRESS) {
+      if (this.pending === null || !("token" in params)) return;
+      // Nos jetons valent l'`id` de la requête : la table des appels suffit.
+      const token = params.token;
+      if (typeof token !== "number") return;
+      const onProgress = this.pending.get(token)?.onProgress;
+      if (onProgress == null || !("value" in params)) return;
+      const value = params.value;
+      if (typeof value !== "object" || value === null) return;
+      try {
+        onProgress(value);
+      } catch (err) {
+        this.opts.onError?.(`progress ${token}`, err);
+      }
+    }
   }
 
   private handleRequest(
@@ -785,10 +1176,27 @@ export class JsonRpcPeer<
       );
       return;
     }
+    // Handler de `registerCall` : l'appel est suivi jusqu'à sa réponse, pour
+    // que `$/cancelRequest` le retrouve. Handler simple : rien n'est alloué.
+    let call: RpcCall | null = null;
+    let invoke: () => unknown;
+    if (typeof handler === "function") {
+      invoke = () => handler(params);
+    } else {
+      const tracked = new RpcCall(
+        id,
+        progressTokenOf(rawFrame),
+        this.emitter(),
+      );
+      (this.inbound ??= new Map<JsonRpcId, RpcCall>()).set(id, tracked);
+      call = tracked;
+      invoke = () => handler.fn(params, tracked);
+    }
     Promise.resolve()
-      .then(() => handler(params))
+      .then(invoke)
       .then(
         (result) => {
+          if (call !== null && !this.closeInbound(id, call)) return;
           // Le handler a JOINT une méta serveur (dev : l'id du profil de la
           // frame) → elle voyage en champ FRÈRE, le `result` reste la valeur nue.
           if (result instanceof RpcEnvelope) {
@@ -802,6 +1210,7 @@ export class JsonRpcPeer<
           this.reply(id, method, rawFrame, jsonRpcSuccess(id, result));
         },
         (err: unknown) => {
+          if (call !== null && !this.closeInbound(id, call)) return;
           // Erreur APPLICATIVE assumée (RpcError) → renvoyée fidèlement au pair
           // (pas un internal_error : ni onError ni audit — le handler a choisi
           // d'exposer ce refus, il peut l'auditer lui-même s'il est notable).
@@ -824,13 +1233,26 @@ export class JsonRpcPeer<
       );
   }
 
+  /**
+   * Clôt un appel entrant à la fin de son handler.
+   *
+   * @returns `false` quand il était déjà clos (annulé, pair disposé) : la
+   *   réponse est partie ou ne partira pas, ce que rend le handler est jeté.
+   */
+  private closeInbound(id: JsonRpcId, call: RpcCall): boolean {
+    if (call.closed) return false;
+    call.closed = true;
+    if (this.inbound?.get(id) === call) this.inbound.delete(id);
+    return true;
+  }
+
   private handleResponse(msg: JsonRpcInboundResponse): void {
     // Nos requêtes sortantes ont des `id` numériques → on ne matche que ceux-là ;
     // une réponse à `id` string (jamais émise par nous) est ignorée.
     if (typeof msg.id !== "number" || !this.pending) return;
     const pending = this.pending.get(msg.id);
     if (!pending) return; // réponse inattendue (déjà résolue/timeout) → ignore
-    this.pending.delete(msg.id);
+    this.settle(msg.id, pending);
     if (msg.error) {
       // `code`/`data` préservés (ex. `data.status` HTTP d'un `api.request`) —
       // l'appelant discrimine un 404 d'un refus voter sans parser le message.
@@ -875,7 +1297,7 @@ export class JsonRpcPeer<
     }
     const pending = this.pending.get(f.id);
     if (!pending) return;
-    this.pending.delete(f.id);
+    this.settle(f.id, pending);
     pending.reject(
       isJsonRpcErrorObject(f.error)
         ? new RpcError(f.error.message, f.error.code, f.error.data)

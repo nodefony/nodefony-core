@@ -24,6 +24,25 @@ declare class TextEncoder {
     destination: Uint8Array,
   ): { readonly read: number; readonly written: number };
 }
+/**
+ * Abandon (WHATWG DOM, `AbortController`), identique dans le navigateur et sous
+ * Node ; déclaré au minimum de ce que le pair JSON-RPC emploie pour annuler une
+ * requête (`realtime/JsonRpcPeer.ts`, ADR-0013 §6).
+ */
+declare class AbortSignal {
+  readonly aborted: boolean;
+  readonly reason: unknown;
+  addEventListener(
+    type: "abort",
+    listener: () => void,
+    options?: { readonly once?: boolean },
+  ): void;
+  removeEventListener(type: "abort", listener: () => void): void;
+}
+declare class AbortController {
+  readonly signal: AbortSignal;
+  abort(reason?: unknown): void;
+}
 declare class TextDecoder {
   constructor(
     label?: string,

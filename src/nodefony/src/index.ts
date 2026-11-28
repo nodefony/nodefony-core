@@ -218,9 +218,12 @@ export type {
 // définition pour le pair temps réel ET la porte MCP, qui divergeaient en
 // silence quand chacune portait sa copie. Isomorphe (aussi dans `nodefony/client`).
 export {
+  JSON_RPC_CANCEL_REQUEST,
+  JSON_RPC_PROGRESS,
   JSON_RPC_VERSION,
   JsonRpcError,
   JsonRpcServerError,
+  JsonRpcBaseProtocolError,
   classifyJsonRpcFrame,
   isJsonRpcId,
   isJsonRpcErrorObject,
@@ -253,6 +256,13 @@ export {
 export type {
   IRealtimePeer,
   RpcActionHandler,
+  RpcCallHandler,
+  TypedRpcCallHandler,
+  IRpcCall,
+  IRpcRequestOptions,
+  IRpcProgress,
+  IRpcProgressUpdate,
+  RpcPart,
   RpcNotificationHandler,
   RpcMeta,
   RpcTracedResult,

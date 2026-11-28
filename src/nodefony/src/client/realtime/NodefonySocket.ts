@@ -23,6 +23,7 @@ import { fillRoutePath } from "../../runtime/routePath";
 import {
   JsonRpcPeer,
   type IRealtimePeer,
+  type IRpcRequestOptions,
   type JsonRpcFrameKind,
 } from "../../realtime/JsonRpcPeer";
 // Les six événements LOCAUX ont une table — personne ne les écrit en clair,
@@ -2054,6 +2055,10 @@ export class NodefonySocket<
    * Quand `method` appartient au contrat `Actions`, `params` ET le résultat en
    * sont déduits — un payload hors contrat est REFUSÉ à la compilation.
    *
+   * Troisième argument : le délai en millisecondes (30 s par défaut), ou
+   * `{ timeoutMs, signal, onProgress }` — un `signal` abandonné rejette tout de
+   * suite et annule la requête chez le serveur (`$/cancelRequest`).
+   *
    * ⚠️ **Rupture 10.0.0** : la forme `request<MonType>("ma:methode")` (`<T>` =
    * résultat) n'existe plus. Elle était un attrape-tout qui rendait inopérant le
    * contrôle des `params`. La réécrire en `request<"ma:methode", MonType>`.
@@ -2061,7 +2066,7 @@ export class NodefonySocket<
   async request<K extends string, T = unknown>(
     method: K,
     params?: ContractParams<Actions, K>,
-    timeoutMs?: number,
+    options?: number | IRpcRequestOptions,
   ): Promise<ContractResult<Actions, K, T>>;
   /**
    * Contrat {@link IRealtimePeer} rendu EXPLICITE — `method` et `params` sont
@@ -2072,18 +2077,18 @@ export class NodefonySocket<
   async request<K extends ActionNames<Actions>>(
     method: K,
     params?: ActionParams<Actions, K>,
-    timeoutMs?: number,
+    options?: number | IRpcRequestOptions,
   ): Promise<ActionResult<Actions, K>>;
   request(
     method: string,
     params?: unknown,
-    timeoutMs = 30000,
+    options?: number | IRpcRequestOptions,
   ): Promise<unknown> {
     // Plan de contrôle (id, corrélation, timeout, RpcError) délégué au moteur
     // isomorphe. Les surcharges ont déjà borné `method`/`params` par le
     // contrat ; ici le pair est lu sous la carte permissive — le résultat est
     // une donnée réseau, que les surcharges décrivent sans la valider.
-    return this.peer.requestAs<ActionsMap, string>(method, params, timeoutMs);
+    return this.peer.requestAs<ActionsMap, string>(method, params, options);
   }
 
   /**
