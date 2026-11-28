@@ -421,9 +421,14 @@ export async function buildProjectEnvReport(
   // APPELÉ et non recopié : deux implémentations de « ce dialecte est-il
   // cohérent ? » rendraient des verdicts différents sur le même projet.
   // Il lit le disque, donc il se fait ICI — `buildEnvReport` reste pure.
+  // L'environnement DÉCRIT, et lui seul : en direct, la base que le serveur a
+  // ouverte — juger le dialecte sur le `.env` du disque contredirait le
+  // rapport qui l'entoure.
+  const described = processEnv ?? appEnvironment(root);
   const inconsistencies = configInconsistencies({
     cwd: root,
     ...(projectRoot ? { projectRoot } : {}),
+    env: described,
   });
   const modules = projectRoot
     ? await readModuleShortcuts(projectRoot)
@@ -437,7 +442,7 @@ export async function buildProjectEnvReport(
     // L'environnement de l'application de `root`, pas celui du processus : ce
     // dernier porte le `.env` du dossier où la commande a été tapée — rien
     // depuis un sous-dossier, celui d'un AUTRE projet avec `--cwd`.
-    processEnv: processEnv ?? appEnvironment(root),
+    processEnv: described,
     // Le fichier lu reste celui d'ici : viser un autre environnement ne fait pas
     // lire ce qui n'est pas sur cette machine. Ce que la commande répond, c'est
     // « avec ce que j'ai sous la main, qu'est-ce qui manquera là-bas ? ».

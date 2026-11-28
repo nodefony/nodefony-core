@@ -505,6 +505,61 @@ export function entityDialectMismatches(options: {
  * @param options - cibles, racine du projet, environnement, exceptions.
  * @returns l'inventaire, les manquements, et ce qui a été parcouru.
  */
+/**
+ * Les entités hors dialecte, en constats : le dialecte du connecteur, tiré du
+ * manifeste et de l'environnement, puis la règle {@link entityDialectMismatches}.
+ *
+ * SEULE composition de ce verdict. `checkSurface` (`doctor`) l'inclut dans son
+ * rapport ; `configInconsistencies` (`env`) le sert seul. Ce verdict ne lit que
+ * le manifeste et `nodefony/entity/**`, jamais toutes les sources : y joindre la
+ * recherche des routes ouvertes coûtait ~230 ms SYNCHRONES à chaque `env`, dans
+ * le serveur vivant compris, pour un résultat que `env` jetait.
+ *
+ * @param options - cibles, racine des chemins rendus, sources du manifeste,
+ *   environnement (celui du serveur, en direct), divergences assumées.
+ * @returns les constats `entity-other-dialect`, le dialecte et sa provenance.
+ */
+export function entityDialectFindings(options: {
+  roots: readonly string[];
+  cwd: string;
+  manifestSources: readonly { readonly source: string }[];
+  env: Record<string, string | undefined>;
+  dialectExceptions?: readonly string[];
+}): Pick<
+  ISurfaceResult,
+  "findings" | "dialect" | "dialectFrom" | "entitiesScanned"
+> {
+  // Le texte est CONCATÉNÉ, jamais interrogé source par source : `connectorDialect`
+  // lit d'abord l'environnement et retombe sur un défaut explicite, si bien
+  // qu'une boucle « le premier qui répond gagne » ne l'appellerait JAMAIS sur une
+  // application sans manifeste — et lui ferait perdre son défaut sans un mot.
+  // Le manifeste racine passe en premier, donc il gagne en cas de doublon.
+  const { dialect, from } = connectorDialect(
+    options.manifestSources.map((m) => m.source).join("\n"),
+    options.env,
+  );
+  // Les entités se relèvent par la fonction PARTAGÉE avec le démarrage de
+  // Drizzle : le diagnostic et le refus de repli ne peuvent pas diverger.
+  const { mismatches, entitiesScanned } = entityDialectMismatches({
+    roots: options.roots,
+    cwd: options.cwd,
+    dialect,
+    exceptions: options.dialectExceptions ?? [],
+  });
+  const findings: ISurfaceFinding[] = [];
+  for (const { file, wrote } of mismatches) {
+    findings.push({
+      kind: "entity-other-dialect",
+      file,
+      message:
+        `cette entité est écrite pour ${wrote.join(", ")}, alors que le connecteur est ` +
+        `${dialect} (${from}) — l'outil de migration l'ÉCARTE en silence, la ` +
+        `table ne sera jamais créée, et la première requête répondra 500`,
+    });
+  }
+  return { findings, dialect, dialectFrom: from, entitiesScanned };
+}
+
 export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
   const { roots, cwd, projectRoot, env } = options;
   const findings: ISurfaceFinding[] = [];
@@ -552,18 +607,6 @@ export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
     }
   }
 
-  // Le dialecte se cherche dans TOUTES les sources, pour la même raison : un
-  // `connectors` extrait ne doit pas faire conclure « aucun dialecte déclaré ».
-  // Le texte est CONCATÉNÉ, jamais interrogé source par source : `connectorDialect`
-  // lit d'abord l'environnement et retombe sur un défaut explicite, si bien
-  // qu'une boucle « le premier qui répond gagne » ne l'appellerait JAMAIS sur une
-  // application sans manifeste — et lui ferait perdre son défaut sans un mot.
-  // Le manifeste racine passe en premier, donc il gagne en cas de doublon.
-  const { dialect, from } = connectorDialect(
-    manifestSources.map((m) => m.source).join("\n"),
-    env,
-  );
-
   // Un fichier n'est lu QU'UNE fois : les cibles se recouvrent (la racine du
   // projet contient ses `modules/*`), et sans cela le même manquement était
   // rendu deux fois — vu au premier essai sur le terrain.
@@ -601,31 +644,26 @@ export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
     }
   }
 
-  // Les entités se relèvent par la fonction PARTAGÉE avec le démarrage de
-  // Drizzle : le diagnostic et le refus de repli ne peuvent pas diverger.
-  const { mismatches, entitiesScanned } = entityDialectMismatches({
+  // Le dialecte se cherche dans TOUTES les sources du manifeste, pour la même
+  // raison : un `connectors` extrait ne doit pas faire conclure « aucun
+  // dialecte déclaré ».
+  const entities = entityDialectFindings({
     roots,
     cwd,
-    dialect,
-    exceptions: options.dialectExceptions ?? [],
+    manifestSources,
+    env,
+    ...(options.dialectExceptions
+      ? { dialectExceptions: options.dialectExceptions }
+      : {}),
   });
-  for (const { file, wrote } of mismatches) {
-    findings.push({
-      kind: "entity-other-dialect",
-      file,
-      message:
-        `cette entité est écrite pour ${wrote.join(", ")}, alors que le connecteur est ` +
-        `${dialect} (${from}) — l'outil de migration l'ÉCARTE en silence, la ` +
-        `table ne sera jamais créée, et la première requête répondra 500`,
-    });
-  }
+  findings.push(...entities.findings);
 
   return {
     findings,
     openings,
     scanned,
-    dialect,
-    dialectFrom: from,
-    entitiesScanned,
+    dialect: entities.dialect,
+    dialectFrom: entities.dialectFrom,
+    entitiesScanned: entities.entitiesScanned,
   };
 }
