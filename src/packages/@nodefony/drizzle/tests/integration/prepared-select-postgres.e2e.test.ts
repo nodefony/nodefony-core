@@ -59,4 +59,28 @@ describe.skipIf(!PG_URL)("SELECT préparé du dépôt — postgres", () => {
       );
     assert.ok(result.rows.length > 0, JSON.stringify(result.rows));
   });
+
+  it("survit à une migration qui CHANGE LE TYPE d'une colonne lue — sans redémarrage", async () => {
+    const repo = orm.getRepository<{ id: string; label: string | null }>(NAME);
+    const db = orm.getNativeConnection<{
+      execute(query: SQL): Promise<{ rows: unknown[] }>;
+    }>();
+    const id = randomUUID();
+    await repo.create({ id, label: "avant" });
+    // La connexion du pool apprend la requête sous son nom.
+    assert.equal((await repo.findOne({ id }))?.label, "avant");
+    // Ce que fait une migration lancée à côté du serveur : la colonne lue
+    // change de type. Le plan appris rendrait un autre type de ligne, et
+    // PostgreSQL le refuse (« cached plan must not change result type »).
+    await db.execute(
+      sql.raw(`ALTER TABLE ${NAME} ALTER COLUMN label TYPE varchar(64)`),
+    );
+    try {
+      assert.equal((await repo.findOne({ id }))?.label, "avant");
+    } finally {
+      await db.execute(
+        sql.raw(`ALTER TABLE ${NAME} ALTER COLUMN label TYPE text`),
+      );
+    }
+  });
 });

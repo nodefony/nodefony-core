@@ -41,6 +41,7 @@ import {
 } from "@nodefony/orm-core";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 import { likeCond } from "../likeSql";
+import { isStalePlanError } from "./stalePlan";
 import { decimalDelta, decimalShapeOf } from "../../entity/colKit.shared";
 import type { IDecimalShape } from "../../entity/colKit.shared";
 import {
@@ -921,7 +922,11 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   #preparedSelect(
     criteria?: Criteria<T>,
     options?: RepositoryReadOptions,
-  ): { entry: IPreparedSelectEntry; params: Record<string, unknown> } | null {
+  ): {
+    key: string;
+    entry: IPreparedSelectEntry;
+    params: Record<string, unknown>;
+  } | null {
     if (this.#transactional) {
       return null;
     }
@@ -945,7 +950,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       entry = this.#buildPreparedSelect(criteria, options);
       cache.set(shape.key, entry);
     }
-    return { entry, params: shape.params };
+    return { key: shape.key, entry, params: shape.params };
   }
 
   /**
@@ -965,7 +970,26 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     assertOrderOption(options?.order, getTableName(this.#table));
     const memo = this.#preparedSelect(criteria, options);
     if (memo !== null) {
-      return this.#profPrepared(memo.entry, memo.params);
+      // Le plan périmé n'existe qu'en PostgreSQL, seul moteur qui NOMME ses
+      // requêtes préparées côté serveur : SQLite les recompile seul, MySQL n'en
+      // prépare aucune. Eux gardent le chemin nu — aucun `try`, aucun `await`
+      // de plus sur une lecture qui se compte en microsecondes. En PostgreSQL,
+      // la lecture paie déjà un aller-retour réseau.
+      if (this.#dialect !== "postgres") {
+        return this.#profPrepared(memo.entry, memo.params);
+      }
+      try {
+        return await this.#profPrepared(memo.entry, memo.params);
+      } catch (error) {
+        if (!isStalePlanError(error)) throw error;
+        // Une migration lancée à côté du serveur a changé le type d'une colonne
+        // lue : PostgreSQL refuse le plan appris, sur chaque connexion du pool
+        // qui l'avait. Reprise sous un NOM neuf — chaque connexion la réapprend
+        // — et UNE seule nouvelle tentative : un second refus remonte.
+        const fresh = this.#buildPreparedSelect(criteria, options);
+        this.#preparedSelects?.set(memo.key, fresh);
+        return this.#profPrepared(fresh, memo.params);
+      }
     }
     let query = this.#db.select().from(execTable(this.#table)).$dynamic();
     const where = this.#where(criteria);
