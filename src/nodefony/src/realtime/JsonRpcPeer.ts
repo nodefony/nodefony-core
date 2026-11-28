@@ -521,6 +521,8 @@ class CallHandler {
 class RpcCall implements IRpcCall {
   closed = false;
   private controller: AbortController | null = null;
+  /** Raison d'un abandon survenu AVANT la première lecture du signal. */
+  private reason: Error | null = null;
   private last = 0;
 
   constructor(
@@ -532,7 +534,14 @@ class RpcCall implements IRpcCall {
   ) {}
 
   get signal(): AbortSignal {
-    return (this.controller ??= new AbortController()).signal;
+    if (this.controller === null) {
+      this.controller = new AbortController();
+      // Lu pour la première fois APRÈS l'abandon (le handler l'interroge au
+      // retour d'un `await`) : il naît abandonné, sinon l'annulation serait
+      // perdue pour lui.
+      if (this.reason !== null) this.controller.abort(this.reason);
+    }
+    return this.controller.signal;
   }
 
   progress(update: IRpcProgressUpdate): boolean {
@@ -547,10 +556,11 @@ class RpcCall implements IRpcCall {
     );
   }
 
-  /** Ferme l'appel et abandonne son signal, s'il a été lu. */
+  /** Ferme l'appel et abandonne son signal — tout de suite s'il a été lu, à sa première lecture sinon. */
   abort(reason: Error): void {
     this.closed = true;
-    this.controller?.abort(reason);
+    if (this.controller === null) this.reason = reason;
+    else this.controller.abort(reason);
   }
 }
 
