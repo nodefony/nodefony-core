@@ -13,6 +13,7 @@
  * redimensionnement ne la font pas glisser. Ancrée, elle signale ce qui est
  * arrivé dessous (« ↑ N nouvelles lignes — Fin »).
  */
+import { BRAND_LINE_LOGO_WIDTH, brandLineMark } from "../../cli/brand";
 import { fitToWidth, visibleWidth, wrapToWidth } from "../../runtime/textWidth";
 import {
   layout as screenLayout,
@@ -467,6 +468,30 @@ function unseenLine(count: number, model: IFrameModel): string {
 }
 
 /**
+ * La marque du framework en tête de la ligne d'onglets, suivie d'un blanc :
+ * ses colonnes, et la largeur en deçà de laquelle elle s'efface — sur une
+ * ligne étroite, chaque colonne revient aux onglets.
+ */
+const TAB_MARK_COLUMNS = BRAND_LINE_LOGO_WIDTH + 1;
+const TAB_MARK_MIN_WIDTH = 40;
+
+/**
+ * Les quatre rendus possibles de la marque (jeu de caractères × couleur),
+ * calculés au premier besoin : la ligne d'onglets se redessine à chaque image.
+ */
+const TAB_MARKS = new Map<string, string>();
+
+function tabMark(charset: ScreenCharset, color: boolean): string {
+  const key = color ? `${charset}+` : charset;
+  let mark = TAB_MARKS.get(key);
+  if (mark === undefined) {
+    mark = `${brandLineMark(charset, color)} `;
+    TAB_MARKS.set(key, mark);
+  }
+  return mark;
+}
+
+/**
  * La ligne d'onglets (#538) — décidée sur maquette : en couleur, la ligne
  * sous un VOILE neutre (`ITabPalette.bar`), l'onglet actif en bleu de
  * sélection (`ITabPalette.active`), un trait bleu ▎ devant lui, son titre en
@@ -477,7 +502,9 @@ function unseenLine(count: number, model: IFrameModel): string {
  * volée. Sans voile connu (`palette` nulle) : le même dessin, sans fond.
  * Sans couleur, l'actif entre crochets et un trait `│` après chaque onglet.
  * Trop large : une fenêtre autour de l'actif, bordée de `‹ +3` / `+2 ›` (un
- * onglet plus long que la ligne seul y reste, coupé par le terminal).
+ * onglet plus long que la ligne seul y reste, coupé par le terminal). En
+ * tête, la marque du framework (`brandLineMark`), hors des zones cliquables ;
+ * elle s'efface sous {@link TAB_MARK_MIN_WIDTH} colonnes.
  *
  * @param tabs - les onglets.
  * @param model - couleur, jeu de caractères et voiles.
@@ -497,6 +524,9 @@ function tabsLine(
   const count = tabs.items.length;
   const palette = model.color ? (model.tabPalette ?? null) : null;
   const bar = palette === null ? "" : `\x1b[${palette.bar}m`;
+  const lead = width >= TAB_MARK_MIN_WIDTH ? TAB_MARK_COLUMNS : 0;
+  // Ce qui reste aux onglets, la marque posée.
+  const room = width - lead;
   const labels: string[] = [];
   const counters: string[] = [];
   const widths = new Uint32Array(count);
@@ -523,7 +553,7 @@ function tabsLine(
   // et une marque de chaque côté qui compte les onglets cachés (`‹ +3`).
   let lo = 0;
   let hi = count - 1;
-  if (total > width && count > 1) {
+  if (total > room && count > 1) {
     const active = Math.min(Math.max(tabs.active, 0), count - 1);
     const left = (hidden: number): number =>
       hidden === 0 ? 0 : String(hidden).length + 6;
@@ -535,7 +565,7 @@ function tabsLine(
       const right = widths[hi + 1];
       if (
         right !== undefined &&
-        used + right + left(lo) + left(count - hi - 2) <= width
+        used + right + left(lo) + left(count - hi - 2) <= room
       ) {
         hi++;
         used += right;
@@ -544,7 +574,7 @@ function tabsLine(
       const before = lo > 0 ? (widths[lo - 1] ?? 0) : -1;
       if (
         before !== -1 &&
-        used + before + left(lo - 1) + left(count - hi - 1) <= width
+        used + before + left(lo - 1) + left(count - hi - 1) <= room
       ) {
         lo--;
         used += before;
@@ -555,13 +585,14 @@ function tabsLine(
   }
   const faint = (text: string): string =>
     model.color ? `\x1b[2m${text}\x1b[22m` : text;
-  let text = bar;
-  let column = 0;
+  // La marque ne ferme que la couleur du texte : le voile continue derrière.
+  let text = lead === 0 ? bar : bar + tabMark(model.charset, model.color);
+  let column = lead;
   const spans: ITabSpan[] = [];
   const joints: ITabJoint[] = [];
   if (lo > 0) {
     const mark = ` ${ascii ? "<" : "‹"} +${lo} `;
-    spans.push({ start: 0, end: mark.length, index: lo - 1 });
+    spans.push({ start: column, end: column + mark.length, index: lo - 1 });
     text += overflowMark(mark, tabs.items, 0, lo, model) + bar + faint(light);
     column = mark.length;
     joints.push({ column, heavy: false });
